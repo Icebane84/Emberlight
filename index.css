@@ -1652,6 +1652,13 @@ body:has(.q4-expanded-deck) #district-nav,
   border-radius: 2px;
 }
 
+.theater-arena, #combat-arena {
+  display: flex !important;
+  flex-direction: row !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+}
+
 #combat-stage-wrapper {
   display: flex;
   justify-content: space-between;
@@ -1668,7 +1675,7 @@ body:has(.q4-expanded-deck) #district-nav,
 
 #party-grid, .party-wing {
   order: 1 !important;
-  flex-direction: row-reverse !important;
+  flex-direction: row !important;
 }
 
 .theater-clash-core {
