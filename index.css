@@ -1668,7 +1668,7 @@ body:has(.q4-expanded-deck) #district-nav,
 
 #party-grid, .party-wing {
   order: 1 !important;
-  flex-direction: row !important;
+  flex-direction: row-reverse !important;
 }
 
 .theater-clash-core {
@@ -1677,7 +1677,7 @@ body:has(.q4-expanded-deck) #district-nav,
 
 #enemy-row, .enemy-wing {
   order: 3 !important;
-  flex-direction: row !important;
+  flex-direction: row-reverse !important;
 }
 
 .combat-wing-container {
@@ -1711,45 +1711,45 @@ body:has(.q4-expanded-deck) #district-nav,
 /* --- PHYSICAL ROW STAGGERING --- */
 /* Party Wing (Pushed left if Front, anchored right if Back) */
 .character.row-front {
-  transform: translateX(-12px);
+  transform: translateX(12px);
   border-color: rgba(56, 189, 248, 0.45);
 }
 
 .character.row-back {
-  transform: translateX(6px);
+  transform: translateX(-6px);
   opacity: 0.9;
 }
 
 .character.row-front:hover,
 .character.row-front.active-turn {
-  transform: translateX(-12px) translateY(-2px);
+  transform: translateX(12px) translateY(-2px);
 }
 
 .character.row-back:hover,
 .character.row-back.active-turn {
-  transform: translateX(6px) translateY(-2px);
+  transform: translateX(-6px) translateY(-2px);
 }
 
 /* Enemy Wing (Pushed right if Front, anchored left if Back) */
 .enemy.row-front {
-  transform: translateX(12px);
+  transform: translateX(-12px);
   border-color: rgba(255, 157, 77, 0.45);
 }
 
 .enemy.row-back {
-  transform: translateX(-6px);
+  transform: translateX(6px);
   opacity: 0.9;
 }
 
 .enemy.row-front.targetable:hover,
 .enemy.row-front:hover {
-  transform: translateX(12px) translateY(-3px) scale(1.02);
+  transform: translateX(-12px) translateY(-3px) scale(1.02);
   box-shadow: 0 0 12px var(--shadow-ember);
 }
 
 .enemy.row-back.targetable:hover,
 .enemy.row-back:hover {
-  transform: translateX(-6px) translateY(-3px) scale(1.02);
+  transform: translateX(6px) translateY(-3px) scale(1.02);
   box-shadow: 0 0 12px var(--shadow-ember);
 }
 
@@ -2642,15 +2642,15 @@ img.battler-sprite.boss-battler {
 
 @keyframes lunge-thrust-party {
   0% { transform: translateX(0); }
-  35% { transform: translateX(-40px) translateY(-3px) scale(1.12); }
-  70% { transform: translateX(-24px) scale(1.06); }
+  35% { transform: translateX(40px) translateY(-3px) scale(1.12); }
+  70% { transform: translateX(24px) scale(1.06); }
   100% { transform: translateX(0); }
 }
 
 @keyframes lunge-thrust-enemy {
   0% { transform: translateX(0); }
-  35% { transform: translateX(40px) translateY(-3px) scale(1.12); }
-  70% { transform: translateX(24px) scale(1.06); }
+  35% { transform: translateX(-40px) translateY(-3px) scale(1.12); }
+  70% { transform: translateX(-24px) scale(1.06); }
   100% { transform: translateX(0); }
 }
 
@@ -3268,9 +3268,9 @@ img.battler-sprite.boss-battler {
   animation: enemy-knockback-slide 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) forwards !important;
 }
 @keyframes enemy-knockback-slide {
-  0% { transform: translateX(12px) scale(1); }
-  40% { transform: translateX(-18px) scale(0.92); filter: brightness(2.0) drop-shadow(0 0 10px #38bdf8); }
-  100% { transform: translateX(-6px) scale(1); }
+  0% { transform: translateX(-12px) scale(1); }
+  40% { transform: translateX(18px) scale(0.92); filter: brightness(2.0) drop-shadow(0 0 10px #38bdf8); }
+  100% { transform: translateX(6px) scale(1); }
 }
 
 /* Pull: Dragged Right (towards center clash) */
@@ -3278,9 +3278,9 @@ img.battler-sprite.boss-battler {
   animation: enemy-pulled-slide 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) forwards !important;
 }
 @keyframes enemy-pulled-slide {
-  0% { transform: translateX(-6px) scale(1); }
-  40% { transform: translateX(20px) scale(1.08); filter: brightness(2.0) drop-shadow(0 0 10px var(--ember)); }
-  100% { transform: translateX(12px) scale(1); }
+  0% { transform: translateX(6px) scale(1); }
+  40% { transform: translateX(-20px) scale(1.08); filter: brightness(2.0) drop-shadow(0 0 10px var(--ember)); }
+  100% { transform: translateX(-12px) scale(1); }
 }
 
 /* --- ALLIED PARTY WING DISPLACEMENT --- */
@@ -3289,9 +3289,9 @@ img.battler-sprite.boss-battler {
   animation: party-knockback-slide 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) forwards !important;
 }
 @keyframes party-knockback-slide {
-  0% { transform: translateX(-12px) scale(1); }
-  40% { transform: translateX(18px) scale(0.92); filter: brightness(2.0) drop-shadow(0 0 10px #38bdf8); }
-  100% { transform: translateX(6px) scale(1); }
+  0% { transform: translateX(12px) scale(1); }
+  40% { transform: translateX(-18px) scale(0.92); filter: brightness(2.0) drop-shadow(0 0 10px #38bdf8); }
+  100% { transform: translateX(-6px) scale(1); }
 }
 
 /* Pull: Dragged Left (towards center clash) */
@@ -3299,9 +3299,9 @@ img.battler-sprite.boss-battler {
   animation: party-pulled-slide 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) forwards !important;
 }
 @keyframes party-pulled-slide {
-  0% { transform: translateX(6px) scale(1); }
-  40% { transform: translateX(-20px) scale(1.08); filter: brightness(2.0) drop-shadow(0 0 10px var(--ember)); }
-  100% { transform: translateX(-12px) scale(1); }
+  0% { transform: translateX(-6px) scale(1); }
+  40% { transform: translateX(20px) scale(1.08); filter: brightness(2.0) drop-shadow(0 0 10px var(--ember)); }
+  100% { transform: translateX(12px) scale(1); }
 }
 
 /* =========================================================================
