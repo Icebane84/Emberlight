@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Emberlight Sentinel Test Runner</title>
+  <style>
+    body { background: #08080c; color: #f8fafc; font-family: monospace; padding: 20px; }
+    #auditor-view { max-width: 900px; margin: 0 auto; }
+  </style>
+</head>
+<body>
+  <div id="auditor-view"></div>
+
+  <!-- Tier 4 Kernels & SSOT -->
+  <script src="manifest.js"></script>
+  <script src="prng.js"></script>
+  <script src="dungeon_gen.js"></script>
+
+  <!-- Tier 2 Ephemeral Tenants -->
+  <script src="combat.js"></script>
+  <script src="overworld.js"></script>
+  <script src="progression.js"></script>
+  <script src="market.js"></script>
+  <script src="status.js"></script>
+  <script src="armory.js"></script>
+  <script src="chronicle.js"></script>
+  <script src="relic_forge.js"></script>
+  <script src="lockpick.js"></script>
+  <script src="settings.js"></script>
+  <script src="script.js"></script>
+
+  <!-- Tier 3 Peripherals (Headless Mocks & Drivers) -->
+  <script src="battler_baker.js"></script>
+  <script src="battle_backdrop.js"></script>
+  <script src="combat_vfx.js"></script>
+  <script src="combat_renderer.js"></script>
+  <script src="map_renderer.js"></script>
+  <script src="armory_renderer.js"></script>
+  <script src="progression_renderer.js"></script>
+  <script src="status_renderer.js"></script>
+  <script src="acoustic_sfx.js"></script>
+  <script src="pseudo_3d_renderer.js"></script>
+  <script src="dynamic_lights.js"></script>
+  <script src="input.js"></script>
+
+  <!-- Sentinel Auditor -->
+  <script src="auditor.js"></script>
+
+  <script>
+    // Execute the 19-Pass Sentinel Battery headlessly on load
+    window.addEventListener('DOMContentLoaded', () => {
+      EmberlightAuditor.configure({ manifest: EmberlightManifest });
+      EmberlightAuditor.init({ eventBus: { publish: () => {}, subscribe: () => {} } });
+      EmberlightAuditor.reset({
+        modules: {
+          combat: EmberlightCombat,
+          overworld: EmberlightOverworld,
+          progression: EmberlightProgression,
+          market: EmberlightMarket,
+          status: EmberlightStatus,
+          armory: EmberlightArmory,
+          chronicle: EmberlightChronicle,
+          relic_forge: EmberlightRelicForge,
+          lockpick: EmberlightLockpick,
+          settings: EmberlightSettings,
+          script: EmberlightScript
+        }
+      });
+      EmberlightAuditor.render();
+    });
+  </script>
+</body>
+</html>

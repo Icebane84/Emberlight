@@ -1,0 +1,88 @@
+name: Main Config
+version: 1.0.0
+schema: v1
+
+models:
+  - name: Qwen 2.5 Coder 7B
+    provider: ollama
+    model: qwen2.5-coder:7b
+    roles:
+      - chat
+      - edit
+      - apply
+      - summarize
+      - subagent
+    capabilities:
+      - tool_use
+      - next_edit
+    promptTemplates:
+      chat: chatml
+      edit: chatml
+    defaultCompletionOptions:
+      contextLength: 32768
+      maxTokens: 4096
+      temperature: 0.1
+      topP: 0.95
+      keepAlive: 1800
+
+  - name: Llama 3.1 8B
+    provider: ollama
+    model: llama3.1:8b
+    roles:
+      - chat
+      - edit
+    capabilities:
+      - tool_use
+    promptTemplates:
+      chat: llama3
+    defaultCompletionOptions:
+      contextLength: 16384
+      maxTokens: 4096
+      temperature: 0.2
+      topP: 0.9
+      keepAlive: 1800
+
+  - name: Qwen Autocomplete
+    provider: ollama
+    model: qwen2.5-coder:1.5b-base
+    roles:
+      - autocomplete
+    autocompleteOptions:
+      debounceDelay: 250
+      maxPromptTokens: 1024
+      prefixPercentage: 0.7
+      maxSuffixPercentage: 0.3
+      onlyMyCode: true
+      useRecentlyEdited: true
+      useRecentlyOpened: true
+    defaultCompletionOptions:
+      keepAlive: 3600
+
+  - name: Nomic Embed
+    provider: ollama
+    model: nomic-embed-text:latest
+    roles:
+      - embed
+    embedOptions:
+      maxChunkSize: 512
+      maxBatchSize: 64
+
+# --- Sovereign Architectural Governance ---
+rules:
+  - name: Emberlight Sovereign Flat Contract
+    description: Enforces 4-Tier boundaries, flat root topology, and Faraday isolation.
+    globs: "*.js"
+    alwaysApply: true
+    rule: |
+      Strictly enforce the 4-Tier Sovereign Architecture and VSRP-001 contract:
+      1. Root Topology: All 34 runtime JavaScript files reside strictly at workspace root (./). Zero src/ prefixes.
+      2. Faraday Boundary: Tier 2 simulation districts and Tier 4 kernels must NEVER touch DOM elements, window, document, canvas, or alert().
+      3. Clocks & Timers: Zero setTimeout, setInterval, or unmanaged requestAnimationFrame in simulation.
+      4. Deterministic Math: Zero Math.random(). Use EmberlightPRNG (Mulberry32) exclusively.
+      5. Universal Export: Support both window.ModuleName and module.exports.
+
+prompts:
+  - uses: file://.continue/prompts/audit.md
+  - uses: file://.continue/prompts/wiring.md
+  - uses: file://.continue/prompts/feature.md
+  - uses: file://.continue/prompts/inspect.md

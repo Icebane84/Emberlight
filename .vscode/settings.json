@@ -1,0 +1,40 @@
+{
+  "editor.formatOnSave": true,
+  "editor.linkedEditing": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll": "explicit"
+  },
+
+  "[javascript]": {
+    "editor.defaultFormatter": "vscode.typescript-language-features",
+    "editor.tabSize": 2
+  },
+
+  "[css]": {
+    "editor.defaultFormatter": "vscode.css-language-features",
+    "editor.tabSize": 2
+  },
+
+  "[html]": {
+    "editor.defaultFormatter": "vscode.html-language-features",
+    "editor.tabSize": 2
+  },
+
+  "html.format.indentInnerHtml": false,
+  "html.format.wrapLineLength": 120,
+  "html.format.wrapAttributes": "auto",
+  "html.format.contentUnformatted": "pre,code",
+  "html.suggest.html5": true,
+  "html.autoClosingTags": true,
+
+  "css.styleSheets": ["index.css"],
+  "css.lint.unknownProperties": "warning",
+  "css.lint.duplicateProperties": "warning",
+  "css.lint.emptyRules": "warning",
+
+  "emmet.includeLanguages": {
+    "html": "html"
+  },
+  "emmet.triggerExpansionOnTab": true,
+  "cSpell.words": ["EMBERLIGHT", "lockpick", "mult", "overworld", "Raycaster", "SCANLINE"]
+}

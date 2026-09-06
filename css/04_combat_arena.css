@@ -1,0 +1,834 @@
+/* =========================================================================
+   EMBERLIGHT TACTICAL WAR TABLE — PARTITION 04: MASTER COMBAT ARENA
+   -------------------------------------------------------------------------
+   Document Identifier: ARCH-SPEC-WAR-TABLE-001-PART-04
+   Classification:      Mode 2 Master Arena, Battler Sprites, Postures & Stagger
+   Index Anchor:        PRS-001-P04
+   ========================================================================= */
+
+/* =========================================================================
+   MODE 2: DUAL-ZONE MASTER COMBAT ARENA (AOP-COMBAT-M5)
+   ========================================================================= */
+
+#combat-theater.combat-master-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  width: 100%;
+}
+
+/* --- UPPER ZONE: GRAND BATTLEFIELD ARENA (100% Full Width) --- */
+#pane-combat-arena {
+  position: relative;
+  flex: 1.25;
+  min-height: 290px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--panel-bg);
+  border: 2px solid var(--border-dim);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03), 0 4px 14px rgba(0, 0, 0, 0.65);
+  overflow: hidden;
+}
+
+#combat-backdrop-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.85;
+}
+
+#combat-ctb-ribbon-bar,
+#combat-stage-wrapper {
+  position: relative;
+  z-index: 2;
+}
+
+/* 12-Slot Full-Width CTB Turn Ribbon Bar */
+#combat-ctb-ribbon-bar.ctb-master-ribbon,
+.ctb-master-ribbon {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  background: rgba(0, 0, 0, 0.65);
+  border: 1px solid var(--border-dim);
+  padding: 4px 6px;
+  overflow-x: auto;
+  align-items: center;
+  min-height: 52px;
+}
+
+.ctb-master-ribbon::-webkit-scrollbar {
+  height: 4px;
+}
+.ctb-master-ribbon::-webkit-scrollbar-thumb {
+  background: var(--border-focus);
+  border-radius: 2px;
+}
+
+.theater-arena, #combat-arena {
+  display: flex !important;
+  flex-direction: row !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+}
+
+#combat-stage-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  flex: 1;
+  min-height: 190px;
+  position: relative;
+  background: radial-gradient(ellipse at 50% 50%, rgba(255, 157, 77, 0.04) 0%, rgba(4, 4, 12, 0.8) 75%);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  padding: 6px 10px;
+}
+
+#party-grid, .party-wing {
+  order: 1 !important;
+  flex-direction: row !important;
+}
+
+.theater-clash-core {
+  order: 2 !important;
+}
+
+#enemy-row, .enemy-wing {
+  order: 3 !important;
+  flex-direction: row-reverse !important;
+}
+
+.combat-wing-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 44%;
+}
+
+.formation-wing-header {
+  font-size: 6.5px;
+  color: var(--text-dim);
+  text-align: center;
+  border-bottom: 1px dashed var(--border-dim);
+  padding-bottom: 3px;
+  font-weight: bold;
+  letter-spacing: 0.8px;
+}
+
+.combat-wing {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+  min-height: 120px;
+}
+
+/* --- PHYSICAL ROW STAGGERING --- */
+/* Party Wing (Pushed left if Front, anchored right if Back) */
+.character.row-front {
+  transform: translateX(12px);
+  border-color: rgba(56, 189, 248, 0.45);
+}
+
+.character.row-back {
+  transform: translateX(-6px);
+  opacity: 0.9;
+}
+
+.character.row-front:hover,
+.character.row-front.active-turn {
+  transform: translateX(12px) translateY(-2px);
+}
+
+.character.row-back:hover,
+.character.row-back.active-turn {
+  transform: translateX(-6px) translateY(-2px);
+}
+
+/* Enemy Wing (Pushed right if Front, anchored left if Back) */
+.enemy.row-front {
+  transform: translateX(-12px);
+  border-color: rgba(255, 157, 77, 0.45);
+}
+
+.enemy.row-back {
+  transform: translateX(6px);
+  opacity: 0.9;
+}
+
+.enemy.row-front.targetable:hover,
+.enemy.row-front:hover {
+  transform: translateX(-12px) translateY(-3px) scale(1.02);
+  box-shadow: 0 0 12px var(--shadow-ember);
+}
+
+.enemy.row-back.targetable:hover,
+.enemy.row-back:hover {
+  transform: translateX(6px) translateY(-3px) scale(1.02);
+  box-shadow: 0 0 12px var(--shadow-ember);
+}
+
+/* --- COMBAT PRESENTATION OVERLAYS --- */
+#enemy-row {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 4px 0;
+  min-height: 100px;
+}
+
+.enemy {
+  text-align: center;
+  padding: 4px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: radial-gradient(ellipse at 50% 90%, rgba(255, 157, 77, 0.06) 0%, rgba(0, 0, 0, 0.25) 85%);
+  border-radius: 4px;
+  min-width: 86px;
+  min-height: 120px;
+  position: relative;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.15s ease, box-shadow 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.enemy.targetable { border-color: var(--ember); cursor: pointer; }
+.enemy.targetable:hover { box-shadow: 0 0 10px var(--shadow-ember); }
+.enemy.dead { opacity: 0.25; filter: grayscale(1); transform: none !important; }
+.enemy-icon { width: 36px; height: 36px; image-rendering: pixelated; margin-bottom: 3px; }
+.enemy .sprite { font-size: 20px; margin-bottom: 3px; }
+.enemy .hp-label { font-size: 6.5px; color: #f8fafc; font-weight: bold; text-shadow: 0 1px 2px #000; margin-top: 2px; }
+
+.frontline-tag {
+  font-size: 5.5px;
+  color: #38bdf8;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  margin-top: 1px;
+}
+
+.backline-tag {
+  font-size: 5.5px;
+  color: #c084fc;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  margin-top: 1px;
+}
+
+.affinity-badge {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 6px;
+  padding: 2px 4px;
+  border-radius: 2px;
+  font-weight: bold;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.affinity-badge.weak {
+  background: rgba(255, 157, 77, 0.95);
+  color: #1a0800;
+  border: 1px solid #ffe066;
+}
+
+.affinity-badge.resist {
+  background: rgba(40, 40, 60, 0.9);
+  color: var(--text-dim);
+  border: 1px solid var(--border-dim);
+}
+
+.formation-grid {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+}
+
+.formation-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 86px;
+}
+
+.formation-row-header {
+  font-size: 6.5px;
+  color: var(--text-dim);
+  font-weight: bold;
+  text-align: center;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+  border-bottom: 1px dashed var(--border-dim);
+  width: 100%;
+  padding-bottom: 2px;
+}
+
+#party-grid {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 4px 0;
+  min-height: 100px;
+}
+
+.character {
+  text-align: center;
+  padding: 4px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: radial-gradient(ellipse at 50% 90%, rgba(56, 189, 248, 0.06) 0%, rgba(0, 0, 0, 0.25) 85%);
+  border-radius: 4px;
+  min-width: 86px;
+  min-height: 120px;
+  position: relative;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.15s ease, box-shadow 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.character .hp-label {
+  font-size: 6.5px;
+  color: #f8fafc;
+  font-weight: bold;
+  text-shadow: 0 1px 2px #000;
+  margin-top: 2px;
+}
+
+.character.fainted {
+  opacity: 0.25;
+  filter: grayscale(1);
+  transform: none !important;
+}
+
+.character.targetable-ally {
+  border-color: var(--ok);
+  cursor: pointer;
+}
+
+.character.targetable-ally:hover {
+  box-shadow: 0 0 10px rgba(74, 222, 128, 0.6);
+}
+
+.character.active-turn {
+  border-color: var(--ember);
+  box-shadow: 0 0 10px var(--shadow-ember);
+  background: rgba(255, 157, 77, 0.12);
+}
+
+/* Active Target Telemetry Focus Ring */
+.formation-slot.target-focused,
+.enemy.target-focused {
+  border-color: var(--ember) !important;
+  box-shadow: 0 0 14px var(--shadow-ember), inset 0 0 8px rgba(255, 157, 77, 0.35) !important;
+  animation: pulse-target-focus 0.8s infinite alternate ease-in-out;
+}
+
+@keyframes pulse-target-focus {
+  0% { transform: scale(1.0); }
+  100% { transform: scale(1.04); }
+}
+
+.theater-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: 100%;
+}
+
+/* --- DYNAMIC CLASH ARENA CORE --- */
+.theater-clash-core {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 12px;
+  min-width: 96px;
+  position: relative;
+}
+
+.theater-clash-core::before {
+  content: "";
+  position: absolute;
+  width: 76px;
+  height: 76px;
+  background: radial-gradient(circle, rgba(255, 157, 77, 0.12) 0%, rgba(56, 189, 248, 0.04) 50%, transparent 75%);
+  border-radius: 50%;
+  border: 1px dashed rgba(255, 157, 77, 0.25);
+  animation: rotate-clash-rune 16s infinite linear;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes rotate-clash-rune {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.clash-icon {
+  font-size: 26px;
+  position: relative;
+  z-index: 1;
+  animation: pulse-clash 1.2s infinite alternate ease-in-out;
+}
+
+@keyframes pulse-clash {
+  0% { transform: scale(0.95); }
+  100% { transform: scale(1.12); filter: drop-shadow(0 0 6px var(--ember)); }
+}
+
+.clash-label {
+  font-size: 6.5px;
+  color: var(--ember);
+  font-weight: bold;
+  letter-spacing: 1px;
+  text-align: center;
+}
+
+/* --- LOWER ZONE: TACTICAL CONSOLE (55% / 45% Split) --- */
+#combat-console-zone {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1.12fr 0.88fr;
+  gap: 8px;
+  min-height: 220px;
+}
+
+#pane-combat-command,
+#pane-combat-oracle {
+  min-height: 220px;
+}
+
+.theater-telemetry-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid var(--border-dim);
+  padding: 5px 8px;
+  font-size: 7px;
+  margin-bottom: 6px;
+}
+
+.telemetry-metric {
+  color: var(--text);
+}
+
+.telemetry-metric.affinity-tag {
+  color: var(--ember);
+}
+
+#log-box {
+  flex: 1;
+  min-height: 100px;
+  max-height: 130px;
+  overflow-y: auto;
+  font-size: 7.5px;
+  line-height: 1.8;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 6px;
+  border: 1px solid var(--border-dim);
+}
+
+#log-box p { margin: 0 0 2px; }
+#log-box p.system { color: var(--text-dim); }
+#log-box p.damage { color: var(--danger); }
+#log-box p.heal { color: var(--ok); }
+#log-box p.ember { color: var(--ember); }
+
+/* --- TACTICAL COMMAND DECK (Q4) --- */
+.command-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+  height: 100%;
+}
+
+.command-primary-ribbon {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.command-primary-ribbon .cmd-btn.active-tab {
+  border-color: var(--ember);
+  background: rgba(255, 157, 77, 0.2);
+  box-shadow: 0 0 8px var(--shadow-ember);
+  color: #fff;
+}
+
+.command-sub-deck {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--border-dim);
+  padding: 8px;
+  min-height: 160px;
+  overflow-y: auto;
+}
+
+.subdeck-title {
+  font-size: 7px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+.subdeck-empty {
+  font-size: 7.5px;
+  color: var(--text-dim);
+  text-align: center;
+  padding: 24px 8px;
+  line-height: 1.8;
+}
+
+.target-selector-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.target-select-btn {
+  background: rgba(12, 12, 28, 0.8);
+  border: 1px solid var(--border-dim);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 7px;
+  padding: 6px 8px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.12s ease;
+}
+
+.target-select-btn:hover {
+  border-color: var(--ember);
+  background: rgba(255, 157, 77, 0.15);
+  transform: translateX(2px);
+}
+
+.target-hp-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 110px;
+}
+
+.target-hp-bar .bar-track {
+  flex: 1;
+  height: 4px;
+  background: #000;
+  border: 1px solid var(--border-dim);
+}
+
+.target-hp-num {
+  font-size: 6.5px;
+  color: var(--text-dim);
+  min-width: 50px;
+  text-align: right;
+}
+
+.skills-deck-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.skill-deck-card {
+  background: rgba(12, 12, 28, 0.85);
+  border: 1px solid var(--border-dim);
+  padding: 6px 8px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.skill-deck-card:hover:not(.disabled) {
+  border-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  transform: translateY(-1px);
+}
+
+.skill-deck-card.disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.skill-card-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.skill-card-icon {
+  width: 22px;
+  height: 22px;
+  image-rendering: pixelated;
+  flex-shrink: 0;
+}
+
+.skill-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.skill-card-name {
+  font-size: 7px;
+  font-weight: bold;
+}
+
+.skill-card-cost {
+  font-size: 6px;
+  color: var(--mp);
+}
+
+.skill-card-desc {
+  font-size: 6px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+.pouch-deck-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pouch-deck-card {
+  background: rgba(12, 12, 28, 0.85);
+  border: 1px solid var(--border-dim);
+  padding: 6px 8px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pouch-deck-card:hover:not(.disabled) {
+  border-color: var(--ok);
+  background: rgba(74, 222, 128, 0.1);
+  transform: translateX(2px);
+}
+
+.pouch-deck-card.disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.pouch-card-icon {
+  width: 22px;
+  height: 22px;
+  image-rendering: pixelated;
+}
+
+.pouch-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.pouch-card-name {
+  font-size: 7px;
+  font-weight: bold;
+}
+
+.pouch-card-count {
+  font-size: 6px;
+  color: var(--ember);
+}
+
+.pouch-card-desc {
+  font-size: 6px;
+  color: var(--text-dim);
+}
+
+.guard-confirm-pane {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 8px;
+  padding: 12px;
+}
+
+.guard-icon {
+  font-size: 32px;
+}
+
+.guard-desc {
+  font-size: 7px;
+  line-height: 1.8;
+  color: var(--text);
+}
+
+.guard-act-btn {
+  padding: 8px 16px;
+  font-size: 7.5px;
+}
+
+.command-footer-row {
+  margin-top: 4px;
+}
+
+/* =========================================================================
+   AESTHETICS SPEC 002: FULL-BODY BATTLER SPRITES, IDLE & KINETIC STANCES
+   ========================================================================= */
+
+/* --- Procedural 64x64 Battler Sprites --- */
+.battler-sprite {
+  width: 56px;
+  height: 56px;
+  image-rendering: pixelated;
+  display: block;
+  margin: 0 auto 4px;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.85));
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), filter 0.25s ease;
+  transform-origin: bottom center;
+}
+
+/* Boss Battler Scale Clamping (Malakor / Colossi) */
+.enemy.boss-battler,
+.boss-battler .battler-sprite,
+img.battler-sprite.boss-battler {
+  width: 88px !important;
+  height: 88px !important;
+}
+
+.enemy.boss-battler::before {
+  width: 80px !important;
+  height: 16px !important;
+  background: radial-gradient(ellipse at center, rgba(220, 38, 38, 0.5) 0%, rgba(0, 0, 0, 0.85) 45%, rgba(0, 0, 0, 0) 75%) !important;
+}
+
+.enemy .battler-sprite {
+  transform: scaleX(-1); /* Enemies face left toward party */
+}
+
+/* --- Idle Breathing Postures (Alive & Healthy Units) --- */
+.character:not(.dead):not(.fainted):not(.exhausted) .battler-sprite {
+  animation: hero-idle-breathe 2.4s infinite ease-in-out;
+}
+
+@keyframes hero-idle-breathe {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-3px) scale(1.02, 1.03); }
+}
+
+.enemy:not(.dead):not(.exhausted) .battler-sprite {
+  animation: enemy-idle-breathe 2.4s infinite ease-in-out;
+}
+
+@keyframes enemy-idle-breathe {
+  0%, 100% { transform: scaleX(-1) translateY(0) scale(1); }
+  50% { transform: scaleX(-1) translateY(-3px) scale(1.02, 1.03); }
+}
+
+/* Active Turn Focus Pulse */
+.character.active-turn .battler-sprite {
+  animation: hero-active-turn 1.6s infinite ease-in-out !important;
+  filter: drop-shadow(0 0 8px var(--ember)) drop-shadow(0 4px 6px rgba(0,0,0,0.85));
+}
+
+@keyframes hero-active-turn {
+  0%, 100% { transform: translateY(-4px) scale(1.06); }
+  50% { transform: translateY(-6px) scale(1.08, 1.1); }
+}
+
+/* --- Vector 3: Grounded Elliptical Contact Shadows --- */
+.formation-slot,
+.enemy,
+.character {
+  position: relative;
+}
+
+.formation-slot::before,
+.enemy::before,
+.character::before {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 48px;
+  height: 10px;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0) 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+  transition: transform 0.25s ease, opacity 0.25s ease, width 0.25s ease;
+}
+
+.dead::before,
+.fainted::before {
+  opacity: 0.15;
+  width: 24px;
+}
+
+/* --- Vector 1: Kinetic Stance State Shaders --- */
+
+/* 1. Low HP Panting Slump / Down on One Knee (<= 30% HP) */
+.exhausted {
+  border-color: rgba(239, 68, 68, 0.45) !important;
+}
+
+.character.exhausted .battler-sprite {
+  animation: hero-panting-slump 1.3s infinite ease-in-out !important;
+  filter: brightness(0.82) contrast(1.15) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.9));
+}
+
+@keyframes hero-panting-slump {
+  0%, 100% { transform: translateY(8px) rotate(6deg) scale(0.92, 0.88); }
+  50% { transform: translateY(11px) rotate(8deg) scale(0.88, 0.82); }
+}
+
+.enemy.exhausted .battler-sprite {
+  animation: enemy-panting-slump 1.3s infinite ease-in-out !important;
+  filter: brightness(0.82) contrast(1.15) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.9));
+}
+
+@keyframes enemy-panting-slump {
+  0%, 100% { transform: scaleX(-1) translateY(8px) rotate(-6deg) scale(0.92, 0.88); }
+  50% { transform: scaleX(-1) translateY(11px) rotate(-8deg) scale(0.88, 0.82); }
+}
+
+.exhausted-badge {
+  font-size: 5.5px;
+  color: #ef4444;
+  font-weight: bold;
+  background: rgba(239, 68, 68, 0.18);
+  border: 1px solid rgba(239, 68, 68, 0.6);
+  border-radius: 2px;
+  padding: 1px 4px;
+  margin-top: 1px;
+  animation: pulse-exhausted 1s infinite alternate ease-in-out;
+}
+
+@keyframes pulse-exhausted {
+  0% { opacity: 0.6; box-shadow: 0 0 2px rgba(239, 68, 68, 0.4); }
+  100% { opacity: 1.0; box-shadow: 0 0 8px rgba(239, 68, 68, 0.8); }
+}

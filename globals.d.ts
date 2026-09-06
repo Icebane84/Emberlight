@@ -1,0 +1,117 @@
+/**
+ * EMBERLIGHT SOVEREIGN ENGINE: AMBIENT GLOBAL EXTENSIONS
+ * Protocol Anchor: VSRP-001 / PRS-001
+ * Zero-runtime type declaration file for VS Code static analysis.
+ */
+
+declare var EmberlightManifest: any;
+declare var EmberlightCombat: any;
+declare var EmberlightCombatRenderer: any;
+declare var EmberlightCombatBackdrop: any;
+declare var EmberlightCombatVFX: any;
+declare var EmberlightOverworld: any;
+declare var EmberlightOverworldRenderer: any;
+declare var EmberlightOverworldLighting: any;
+declare var EmberlightDynamicLights: any;
+declare var EmberlightStatus: any;
+declare var EmberlightStatusRenderer: any;
+declare var EmberlightArmory: any;
+declare var EmberlightArmoryRenderer: any;
+declare var EmberlightProgression: any;
+declare var EmberlightProgressionRenderer: any;
+declare var EmberlightMarket: any;
+declare var EmberlightMarketRenderer: any;
+declare var EmberlightChronicle: any;
+declare var EmberlightChronicleRenderer: any;
+declare var EmberlightRelicForge: any;
+declare var EmberlightRelicForgeRenderer: any;
+declare var EmberlightLockpick: any;
+declare var EmberlightAuditor: any;
+declare var EmberlightSettings: any;
+declare var EmberlightCockpitRenderer: any;
+declare var EmberlightMapRenderer: any;
+declare var EmberlightPseudo3D: any;
+declare var EmberlightPseudo3DRenderer: any;
+declare var EmberlightCorridorSensor: any;
+declare var EmberlightDungeonGen: any;
+declare var EmberlightFieldPouch: any;
+declare var EmberlightSoundtrack: any;
+declare var EmberlightVoice: any;
+declare var EmberlightShaderCompositor: any;
+declare var EmberlightSpriteBaker: any;
+declare var EmberlightBattlerBaker: any;
+declare var EmberlightSynthSoundtrack: any;
+declare var EmberlightSyntheticVoice: any;
+declare var EmberlightAcousticSFX: any;
+declare var EmberlightThreatOracle: any;
+declare var EmberlightSessionStore: any;
+declare var EmberlightEventBus: any;
+declare var EmberlightDistrictRouter: any;
+declare var EmberlightWorldEcology: any;
+declare var EmberlightPRNG: any;
+declare var EmberlightSaveManager: any;
+declare var EmberlightInput: any;
+declare var StorageManager: any;
+declare var GameRuntime: any;
+
+declare function getParty(): any;
+declare function getInventory(): any;
+declare function getGold(): any;
+declare function getQuests(): any;
+
+interface Window {
+  [key: string]: any;
+  EmberlightManifest?: any;
+  EmberlightCombat?: any;
+  EmberlightCombatRenderer?: any;
+  EmberlightCombatBackdrop?: any;
+  EmberlightCombatVFX?: any;
+  EmberlightOverworld?: any;
+  EmberlightOverworldRenderer?: any;
+  EmberlightOverworldLighting?: any;
+  EmberlightDynamicLights?: any;
+  EmberlightStatus?: any;
+  EmberlightStatusRenderer?: any;
+  EmberlightArmory?: any;
+  EmberlightArmoryRenderer?: any;
+  EmberlightProgression?: any;
+  EmberlightProgressionRenderer?: any;
+  EmberlightMarket?: any;
+  EmberlightMarketRenderer?: any;
+  EmberlightChronicle?: any;
+  EmberlightChronicleRenderer?: any;
+  EmberlightRelicForge?: any;
+  EmberlightRelicForgeRenderer?: any;
+  EmberlightLockpick?: any;
+  EmberlightAuditor?: any;
+  EmberlightSettings?: any;
+  EmberlightCockpitRenderer?: any;
+  EmberlightMapRenderer?: any;
+  EmberlightPseudo3D?: any;
+  EmberlightPseudo3DRenderer?: any;
+  EmberlightCorridorSensor?: any;
+  EmberlightDungeonGen?: any;
+  EmberlightFieldPouch?: any;
+  EmberlightSoundtrack?: any;
+  EmberlightVoice?: any;
+  EmberlightShaderCompositor?: any;
+  EmberlightSpriteBaker?: any;
+  EmberlightBattlerBaker?: any;
+  EmberlightSynthSoundtrack?: any;
+  EmberlightSyntheticVoice?: any;
+  EmberlightAcousticSFX?: any;
+  EmberlightThreatOracle?: any;
+  EmberlightSessionStore?: any;
+  EmberlightEventBus?: any;
+  EmberlightDistrictRouter?: any;
+  EmberlightWorldEcology?: any;
+  EmberlightPRNG?: any;
+  EmberlightSaveManager?: any;
+  EmberlightInput?: any;
+  StorageManager?: any;
+  GameRuntime?: any;
+  getParty?: () => any;
+  getInventory?: () => any;
+  getGold?: () => any;
+  getQuests?: () => any;
+}
