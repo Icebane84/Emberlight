@@ -1,12 +1,39 @@
 /**
  * ============================================================================
- * EMBERLIGHT SOVEREIGN ENGINE: Real-Time Workspace File Watcher Engine
+ * EMBERLIGHT SOVEREIGN ENGINE: REAL-TIME WORKSPACE FILE WATCHER ENGINE
  * Document Identifier: ARCH-WATCHER-ENGINE-001
- * Authority:           Host Presentation & Automation Peripheral
- * Dependencies:        Pure Native Node.js (fs, child_process, path)
+ * Governing Protocol:  VSRP-001 / ARCH-001-EMBERLIGHT
+ * Authority:           Peripheral Presentation
+ * ============================================================================
+ *
+ * TABLE OF CONTENTS & NAVIGATION ANCHORS:
+ *   [SEC-01] Type Definitions & Contract Schemas
+ *   [SEC-02] Module Imports & Workspace Context Baselines
+ *   [SEC-03] Test Harness Routing & Target Mapping
+ *   [SEC-04] Validation Execution & Latency Telemetry
+ *   [SEC-05] File-System Watcher & Debounce Event Loop
  * ============================================================================
  */
 
+//#region [SEC-01] Type Definitions & Contract Schemas
+/**
+ * @typedef {'test_combat_input.js' | 'test_hotkeys_and_expansion.js' | 'test_persistence_wiring.js' | 'test_sentinel.js'} TargetTestHarness
+ */
+
+/**
+ * @typedef {'rename' | 'change'} WatchEventType
+ */
+
+/**
+ * @typedef {Object} WatcherTelemetry
+ * @property {string} filename - Source module altered.
+ * @property {TargetTestHarness} targetScript - Triggered test harness script.
+ * @property {number} latencyMs - Execution duration in milliseconds.
+ * @property {boolean} passed - Execution success flag.
+ */
+//#endregion
+
+//#region [SEC-02] Module Imports & Workspace Context Baselines
 const fs = require('node:fs');
 const { exec } = require('node:child_process');
 const path = require('node:path');
@@ -14,14 +41,19 @@ const path = require('node:path');
 const ROOT_DIR = process.cwd();
 const TESTING_DIR = path.join(ROOT_DIR, 'testing');
 
-// Track file states to debounce multi-fire OS write buffers
-let watchDebounceMap = new Map();
+/** @type {Map<string, number>} */
+const watchDebounceMap = new Map();
 
 console.log('𒉭 Emberlight Sovereign Watcher active.');
 console.log(`Monitoring flat directory source matrix at: ${ROOT_DIR}\n`);
+//#endregion
 
+//#region [SEC-03] Test Harness Routing & Target Mapping
 /**
  * Maps altered source modules directly to their targeted headless test harnesses.
+ * Pure heuristic mapping function.
+ * @param {string} filename - Name of altered source module.
+ * @returns {TargetTestHarness} Target test harness filename.
  */
 function determineTargetHarness(filename) {
 	if (filename === 'combat.js' || filename === 'input.js') {
@@ -36,7 +68,15 @@ function determineTargetHarness(filename) {
 	// Baseline catch-all triggers the full 19-Pass verification block
 	return 'test_sentinel.js';
 }
+//#endregion
 
+//#region [SEC-04] Validation Execution & Latency Telemetry
+/**
+ * Spawns an asynchronous headless test runner process and logs latency telemetry.
+ * State-mutating child process execution procedure.
+ * @param {string} filename - Target source module filename requiring validation.
+ * @returns {void}
+ */
 function executeTargetedValidation(filename) {
 	const targetScript = determineTargetHarness(filename);
 	const testPath = path.join(TESTING_DIR, targetScript);
@@ -59,10 +99,12 @@ function executeTargetedValidation(filename) {
 		}
 	});
 }
+//#endregion
 
+//#region [SEC-05] File-System Watcher & Debounce Event Loop
 // Instantiate native recursive directory monitor
 fs.watch(ROOT_DIR, (eventType, filename) => {
-	if (!filename || !filename.endsWith('.js')) return;
+	if (!filename?.endsWith('.js')) return;
 
 	// Exclude test suite mirrors to prevent cyclic execution feedback loops
 	if (filename.startsWith('test_') || filename === 'watch_engine.js') return;
@@ -76,3 +118,4 @@ fs.watch(ROOT_DIR, (eventType, filename) => {
 
 	executeTargetedValidation(filename);
 });
+//#endregion

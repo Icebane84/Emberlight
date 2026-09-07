@@ -31,7 +31,7 @@
 /**
  * @typedef {Object} BaseStats
  * @property {number} hp - Base vitality / maximum hit points.
- * @property {number} mp - Base mana / maximum mana pool.
+ * @property {number} [mp] - Base mana / maximum mana pool.
  * @property {number} atk - Base physical/magical strike offensive rating.
  * @property {number} def - Base armor / physical mitigation score.
  * @property {number} agi - Base agility / action pacing rate.
@@ -3810,8 +3810,9 @@ const EmberlightManifest = (() => {
 					const deltas = manifest.Items[equippedId].statDeltas;
 					if (deltas) {
 						Object.entries(deltas).forEach(([stat, val]) => {
-							if (val && typeof val === 'number') {
-								totals[/** @type {keyof BaseStats} */ (stat)] = (totals[/** @type {keyof BaseStats} */ (stat)] || 0) + val;
+							if (typeof val === 'number') {
+								const key = /** @type {keyof BaseStats} */ (stat);
+								totals[key] = (totals[key] || 0) + val;
 							}
 						});
 					}
@@ -3821,13 +3822,14 @@ const EmberlightManifest = (() => {
 		},
 
 		/**
-		 * Pure domain projection computing total effective attributes from base, growths, Aether nodes, and equipment.
-		 * [Pure Query]
-		 * @param {CharacterSnapshot|null|undefined} character - Target character instance.
-		 * @returns {CharacterStats} Fully hydrated authoritative stat block.
-		 */
+				 * Pure domain projection computing total effective attributes from base, growths, Aether nodes, and equipment.
+				 * [Pure Query]
+				 * @param {CharacterSnapshot|null|undefined} character - Target character instance.
+				 * @returns {CharacterStats} Fully hydrated authoritative stat block.
+				 */
 		computeCharacterStats(character) {
 			const phenoKey = character?.phenotype || 'HERO';
+			/** @type {{ label?: string, baseStats?: BaseStats, growth?: BaseStats }} */
 			const pheno = manifest.Phenotypes?.[phenoKey] || {};
 			const base = pheno.baseStats || {
 				hp: 30,
@@ -3843,8 +3845,8 @@ const EmberlightManifest = (() => {
 			const totals = {
 				hp: base.hp + growth.hp * levelGains,
 				maxHp: base.hp + growth.hp * levelGains,
-				mp: base.mp + growth.mp * levelGains,
-				maxMp: base.mp + growth.mp * levelGains,
+				mp: (base.mp || 0) + growth.mp * levelGains,
+				maxMp: (base.mp || 0) + growth.mp * levelGains,
 				atk: base.atk + growth.atk * levelGains,
 				def: base.def + growth.def * levelGains,
 				agi: base.agi + growth.agi * levelGains,
@@ -3856,24 +3858,34 @@ const EmberlightManifest = (() => {
 				const node = graph[nodeId];
 				if (node?.statDeltas) {
 					Object.entries(node.statDeltas).forEach(([stat, val]) => {
-						if (val && typeof val === 'number') {
-							const key = /** @type {keyof CharacterStats} */ (stat);
-							totals[key] = (totals[key] || 0) + val;
-							if (stat === 'hp') totals.maxHp = (totals.maxHp || 0) + val;
-							if (stat === 'mp') totals.maxMp = (totals.maxMp || 0) + val;
+						if (typeof val === 'number') {
+							const key = /** @type {'hp'|'mp'|'atk'|'def'|'agi'} */ (stat);
+							if (key === 'hp') {
+								totals.hp += val;
+								totals.maxHp += val;
+							} else if (key === 'mp') {
+								totals.mp += val;
+								totals.maxMp += val;
+							} else if (key === 'atk') {
+								totals.atk += val;
+							} else if (key === 'def') {
+								totals.def += val;
+							} else if (key === 'agi') {
+								totals.agi += val;
+							}
 						}
 					});
 				}
 			});
 
 			const gear = manifest.calculateGearStats(character);
-			totals.hp += gear.hp;
-			totals.maxHp += gear.hp;
-			totals.mp += gear.mp;
-			totals.maxMp += gear.mp;
-			totals.atk += gear.atk;
-			totals.def += gear.def;
-			totals.agi += gear.agi;
+			totals.hp += Number(gear.hp || 0);
+			totals.maxHp += Number(gear.hp || 0);
+			totals.mp += Number(gear.mp || 0);
+			totals.maxMp += Number(gear.mp || 0);
+			totals.atk += Number(gear.atk || 0);
+			totals.def += Number(gear.def || 0);
+			totals.agi += Number(gear.agi || 0);
 
 			return totals;
 		},

@@ -1,282 +1,428 @@
+/**
+ * ============================================================================
+ * EMBERLIGHT SOVEREIGN ENGINE: INPUT ENGINE HOST PERIPHERAL DRIVER
+ * Document Identifier: VSRP-001-INPUT-DRIVER
+ * Governing Protocol:  VSRP-001
+ * Authority:           Peripheral Presentation
+ * Timestamp:           2026-09-07T10:30:16Z
+ * Index Anchor:        PRS-001
+ * ============================================================================
+ *
+ * TABLE OF CONTENTS & NAVIGATION ANCHORS:
+ *   [SEC-01] Domain Type Contracts & JSDoc Schemas
+ *   [SEC-02] Default Keymap Specifications & State Trackers
+ *   [SEC-03] Hardware Event Handlers & On-Screen Control Bindings
+ *   [SEC-04] Canonical Peripheral Driver Interface Gateway
+ *   [SEC-05] Global Environment & CommonJS Module Export
+ * ============================================================================
+ */
+
 /* =========================================================================
-   DISTRICT: INPUT ENGINE (VSRP-001 HOST PERIPHERAL DRIVER)
-   -------------------------------------------------------------------------
-   Document Identifier: VSRP-001-INPUT-DRIVER
-   Protocol Version:    VSRP-001
-   Classification:      Peripheral Capability Driver
-   Index Anchor:        PRS-001
-   ========================================================================= */
+	 DISTRICT: INPUT ENGINE (VSRP-001 HOST PERIPHERAL DRIVER)
+	 -------------------------------------------------------------------------
+	 Document Identifier: VSRP-001-INPUT-DRIVER
+	 Protocol Version:    VSRP-001
+	 Classification:      Peripheral Capability Driver
+	 Index Anchor:        PRS-001
+	 ========================================================================= */
 
 const EmberlightInput = (() => {
-  "use strict";
+	"use strict";
 
-  let eventBus = null;
-  let isEnabled = true;
+	//#region [SEC-01] Domain Type Contracts & JSDoc Schemas
+	/**
+	 * @typedef {Record<string, string|string[]>} KeymapDictionary
+	 */
 
-  // Active key state tracker & action event buffer
-  const activeKeys = new Set();
-  const actionBuffer = [];
+	/**
+	 * @typedef {Object} InputConfig
+	 * @property {KeymapDictionary} [keymap] - Keymap dictionary.
+	 * @property {{ keymap?: KeymapDictionary }} [input] - Nested input config.
+	 * @property {{ DefaultSettings?: { input?: { keymap?: KeymapDictionary } } }} [manifest] - Manifest settings.
+	 */
 
-  // Canonical Default Keymap Specification (Action -> Hardware Codes)
-  const DEFAULT_KEYMAP = {
-    // Spatial Navigation
-    UP: ['KeyW', 'ArrowUp'],
-    DOWN: ['KeyS', 'ArrowDown'],
-    LEFT: ['KeyA', 'ArrowLeft'],
-    RIGHT: ['KeyD', 'ArrowRight'],
+	/**
+	 * @typedef {Object} InputDiagnostics
+	 * @property {string} driverId - Driver identifier string.
+	 * @property {string[]} activeKeysHeld - Array of currently depressed action tokens.
+	 * @property {number} bufferedActions - Count of buffered action events.
+	 * @property {number} keymapActionsCount - Number of configured action bindings.
+	 * @property {boolean} isEnabled - Input processing active state.
+	 */
+	//#endregion
 
-    // Primary Actions & Viewport Controls
-    CONFIRM: ['Enter', 'Space'],
-    CANCEL: ['Escape', 'Backspace'],
-    TOGGLE_EXPAND_DECK: ['KeyZ'],
-    TOGGLE_3D_VIEW: ['KeyX'],
-    STRAFE_LEFT: ['KeyQ'],
+	//#region [SEC-02] Default Keymap Specifications & State Trackers
+	let eventBus = null;
+	let isEnabled = true;
 
-    // Fast District Modals (Keyboard Hotkeys)
-    MENU_ARMORY: ['KeyE'],
-    MENU_PROGRESSION: ['KeyT'],
-    MENU_STATUS: ['KeyC'],
-    MENU_POUCH: ['KeyI'],
-    MENU_SHOP: ['KeyB'],
-    MENU_CHRONICLE: ['KeyJ'],
-    REST: ['KeyR'],
-    FIELD_SCORCH: ['KeyF'],
-    FIELD_FREEZE: ['KeyG'],
-    FIELD_CONSECRATE: ['KeyH'],
-    FIELD_DISPEL: ['KeyV'],
+	// Active key state tracker & action event buffer
+	/** @type {Set<string>} */
+	const activeKeys = new Set();
+	/** @type {string[]} */
+	const actionBuffer = [];
 
-    // Number Keys (Direct Choice Selection)
-    CHOICE_1: ['Digit1', 'Numpad1'],
-    CHOICE_2: ['Digit2', 'Numpad2'],
-    CHOICE_3: ['Digit3', 'Numpad3'],
-    CHOICE_4: ['Digit4', 'Numpad4'],
-  };
+	// Canonical Default Keymap Specification (Action -> Hardware Codes)
+	/** @type {KeymapDictionary} */
+	const DEFAULT_KEYMAP = {
+		// Spatial Navigation
+		UP: ['KeyW', 'ArrowUp'],
+		DOWN: ['KeyS', 'ArrowDown'],
+		LEFT: ['KeyA', 'ArrowLeft'],
+		RIGHT: ['KeyD', 'ArrowRight'],
 
-  // Active Keymap dictionary and compiled reverse-lookup table (Code -> Action)
-  let currentKeymap = structuredClone(DEFAULT_KEYMAP);
-  let hardwareToKeyMap = compileReverseKeymap(currentKeymap);
+		// Primary Actions & Viewport Controls
+		CONFIRM: ['Enter', 'Space'],
+		CANCEL: ['Escape', 'Backspace'],
+		TOGGLE_EXPAND_DECK: ['KeyZ'],
+		TOGGLE_3D_VIEW: ['KeyX'],
+		STRAFE_LEFT: ['KeyQ'],
 
-  function compileReverseKeymap(keymap) {
-    const reverse = {};
-    if (!keymap || typeof keymap !== 'object') return reverse;
-    for (const [action, codes] of Object.entries(keymap)) {
-      if (Array.isArray(codes)) {
-        codes.forEach((code) => {
-          if (typeof code === 'string') reverse[code] = action;
-        });
-      } else if (typeof codes === 'string') {
-        reverse[codes] = action;
-      }
-    }
-    return reverse;
-  }
+		// Fast District Modals (Keyboard Hotkeys)
+		MENU_ARMORY: ['KeyE'],
+		MENU_PROGRESSION: ['KeyT'],
+		MENU_STATUS: ['KeyC'],
+		MENU_POUCH: ['KeyI'],
+		MENU_SHOP: ['KeyB'],
+		MENU_CHRONICLE: ['KeyJ'],
+		REST: ['KeyR'],
+		FIELD_SCORCH: ['KeyF'],
+		FIELD_FREEZE: ['KeyG'],
+		FIELD_CONSECRATE: ['KeyH'],
+		FIELD_DISPEL: ['KeyV'],
 
-  function handleKeyDown(e) {
-    if (!isEnabled) return;
+		// Number Keys (Direct Choice Selection)
+		CHOICE_1: ['Digit1', 'Numpad1'],
+		CHOICE_2: ['Digit2', 'Numpad2'],
+		CHOICE_3: ['Digit3', 'Numpad3'],
+		CHOICE_4: ['Digit4', 'Numpad4'],
+	};
 
-    // Prevent default scrolling behavior for game controls
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
-      if (typeof e.preventDefault === 'function') e.preventDefault();
-    }
+	// Active Keymap dictionary and compiled reverse-lookup table (Code -> Action)
+	/** @type {KeymapDictionary} */
+	let currentKeymap = structuredClone(DEFAULT_KEYMAP);
+	/** @type {Record<string, string>} */
+	let hardwareToKeyMap = compileReverseKeymap(currentKeymap);
 
-    const action = hardwareToKeyMap[e.code];
-    if (!action) return;
+	/**
+	 * Compiles hardware-code-to-action reverse lookup map.
+	 * [Pure Utility]
+	 * @param {KeymapDictionary} keymap - Source keymap dictionary.
+	 * @returns {Record<string, string>} Compiled reverse lookup dictionary.
+	 */
+	function compileReverseKeymap(keymap) {
+		/** @type {Record<string, string>} */
+		const reverse = {};
+		if (!keymap || typeof keymap !== 'object') return reverse;
+		for (const [action, codes] of Object.entries(keymap)) {
+			if (Array.isArray(codes)) {
+				codes.forEach((code) => {
+					if (typeof code === 'string') reverse[code] = action;
+				});
+			} else if (typeof codes === 'string') {
+				reverse[codes] = action;
+			}
+		}
+		return reverse;
+	}
+	//#endregion
 
-    const isRepeat = activeKeys.has(action);
-    activeKeys.add(action);
+	//#region [SEC-03] Hardware Event Handlers & On-Screen Control Bindings
+	/**
+	 * Handles keyboard down events and buffers valid actions.
+	 * [State Mutating / Event Handler]
+	 * @param {KeyboardEvent} e - Keyboard event object.
+	 * @returns {void}
+	 */
+	function handleKeyDown(e) {
+		if (!isEnabled) return;
 
-    // Buffer unique action presses
-    if (!isRepeat) {
-      actionBuffer.push(action);
+		// Prevent default scrolling behavior for game controls
+		if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
+			if (typeof e.preventDefault === 'function') e.preventDefault();
+		}
 
-      if (eventBus && typeof eventBus.publish === 'function') {
-        eventBus.publish('input:action', { action, code: e.code });
-      }
-    }
-  }
+		const action = hardwareToKeyMap[e.code];
+		if (!action) return;
 
-  function handleKeyUp(e) {
-    const action = hardwareToKeyMap[e.code];
-    if (action) {
-      activeKeys.delete(action);
-    }
-  }
+		const isRepeat = activeKeys.has(action);
+		activeKeys.add(action);
 
-  const DPAD_BUTTONS = [
-    { id: 'dpad-up', action: 'UP' },
-    { id: 'dpad-down', action: 'DOWN' },
-    { id: 'dpad-left', action: 'LEFT' },
-    { id: 'dpad-right', action: 'RIGHT' },
-  ];
+		// Buffer unique action presses
+		if (!isRepeat) {
+			actionBuffer.push(action);
 
-  function bindOnScreenControls() {
-    if (typeof document === 'undefined') return;
+			if (eventBus && typeof eventBus.publish === 'function') {
+				eventBus.publish('input:action', { action, code: e.code });
+			}
+		}
+	}
 
-    DPAD_BUTTONS.forEach(({ id, action }) => {
-      const btn = document.getElementById(id);
-      if (btn) {
-        btn.onclick = (e) => {
-          if (e && typeof e.preventDefault === 'function') e.preventDefault();
-          if (!isEnabled) return;
-          actionBuffer.push(action);
-          if (eventBus && typeof eventBus.publish === 'function') {
-            eventBus.publish('input:action', { action, source: 'dpad' });
-          }
-        };
-      }
-    });
-  }
+	/**
+	 * Handles keyboard up events and clears active keys.
+	 * [State Mutating / Event Handler]
+	 * @param {KeyboardEvent} e - Keyboard event object.
+	 * @returns {void}
+	 */
+	function handleKeyUp(e) {
+		const action = hardwareToKeyMap[e.code];
+		if (action) {
+			activeKeys.delete(action);
+		}
+	}
 
-  function unbindOnScreenControls() {
-    if (typeof document === 'undefined') return;
+	const DPAD_BUTTONS = [
+		{ id: 'dpad-up', action: 'UP' },
+		{ id: 'dpad-down', action: 'DOWN' },
+		{ id: 'dpad-left', action: 'LEFT' },
+		{ id: 'dpad-right', action: 'RIGHT' },
+	];
 
-    DPAD_BUTTONS.forEach(({ id }) => {
-      const btn = document.getElementById(id);
-      if (btn) {
-        btn.onclick = null;
-      }
-    });
-  }
+	/**
+	 * Binds click handlers for on-screen touch DPAD controls.
+	 * [DOM State Mutating]
+	 * @returns {void}
+	 */
+	function bindOnScreenControls() {
+		if (typeof document === 'undefined') return;
 
-  function handleBlur() {
-    activeKeys.clear();
-    actionBuffer.length = 0;
-  }
+		DPAD_BUTTONS.forEach(({ id, action }) => {
+			const btn = /** @type {HTMLElement|null} */ (document.getElementById(id));
+			if (btn) {
+				btn.onclick = (e) => {
+					if (e && typeof e.preventDefault === 'function') e.preventDefault();
+					if (!isEnabled) return;
+					actionBuffer.push(action);
+					if (eventBus && typeof eventBus.publish === 'function') {
+						eventBus.publish('input:action', { action, source: 'dpad' });
+					}
+				};
+			}
+		});
+	}
 
-  return {
-    /**
-     * VSRP-001 Configuration Lifecycle Handler:
-     * Ingests operational configuration (keymap dictionaries, tuning parameters).
-     */
-    configure(config = {}) {
-      const keymap = config.keymap ||
-                     config.input?.keymap ||
-                     config.manifest?.DefaultSettings?.input?.keymap;
-      if (keymap && typeof keymap === 'object') {
-        this.setKeymap(keymap);
-      }
-    },
+	/**
+	 * Unbinds on-screen DPAD control click handlers.
+	 * [DOM State Mutating]
+	 * @returns {void}
+	 */
+	function unbindOnScreenControls() {
+		if (typeof document === 'undefined') return;
 
-    /**
-     * Connects Host EventBus and binds hardware peripheral listeners.
-     */
-    init(bus) {
-      this.destroy();
-      eventBus = bus;
-      if (typeof window !== 'undefined') {
-        window.addEventListener('keydown', handleKeyDown);
-        window.addEventListener('keyup', handleKeyUp);
-        window.addEventListener('blur', handleBlur);
-      }
-      bindOnScreenControls();
-    },
+		DPAD_BUTTONS.forEach(({ id }) => {
+			const btn = /** @type {HTMLElement|null} */ (document.getElementById(id));
+			if (btn) {
+				btn.onclick = null;
+			}
+		});
+	}
 
-    /**
-     * Sets a remapped key dictionary and recompiles the hardware lookup table.
-     */
-    setKeymap(keymap) {
-      if (!keymap || typeof keymap !== 'object') return;
-      currentKeymap = structuredClone(keymap);
-      hardwareToKeyMap = compileReverseKeymap(currentKeymap);
-    },
+	/**
+	 * Resets active inputs on window blur.
+	 * [State Mutating]
+	 * @returns {void}
+	 */
+	function handleBlur() {
+		activeKeys.clear();
+		actionBuffer.length = 0;
+	}
+	//#endregion
 
-    /**
-     * Retrieves an immutable copy of the active keymap dictionary.
-     */
-    getKeymap() {
-      return structuredClone(currentKeymap);
-    },
+	//#region [SEC-04] Canonical Peripheral Driver Interface Gateway
+	return {
+		/**
+		 * VSRP-001 Configuration Lifecycle Handler:
+		 * Ingests operational configuration (keymap dictionaries, tuning parameters).
+		 * [State Mutating]
+		 * @param {InputConfig} [config={}] - Configuration options dictionary.
+		 * @returns {void}
+		 */
+		configure(config = {}) {
+			const keymap = config.keymap ||
+				config.input?.keymap ||
+				config.manifest?.DefaultSettings?.input?.keymap;
+			if (keymap && typeof keymap === 'object') {
+				this.setKeymap(keymap);
+			}
+		},
 
-    /**
-     * Resets key mappings to canonical VSRP-001 defaults.
-     */
-    resetKeymap() {
-      currentKeymap = structuredClone(DEFAULT_KEYMAP);
-      hardwareToKeyMap = compileReverseKeymap(currentKeymap);
-    },
+		/**
+		 * Connects Host EventBus and binds hardware peripheral listeners.
+		 * [Lifecycle: INIT]
+		 * @param {any} bus - Event bus instance reference.
+		 * @returns {void}
+		 */
+		init(bus) {
+			this.destroy();
+			eventBus = bus;
+			if (typeof window !== 'undefined') {
+				window.addEventListener('keydown', handleKeyDown);
+				window.addEventListener('keyup', handleKeyUp);
+				window.addEventListener('blur', handleBlur);
+			}
+			bindOnScreenControls();
+		},
 
-    /**
-     * Dynamically binds a specific physical key code to an action token.
-     */
-    bindKey(code, action) {
-      if (!code || !action) return;
-      if (!currentKeymap[action]) {
-        currentKeymap[action] = [];
-      }
-      if (!currentKeymap[action].includes(code)) {
-        currentKeymap[action].push(code);
-      }
-      hardwareToKeyMap = compileReverseKeymap(currentKeymap);
-    },
+		/**
+		 * Sets a remapped key dictionary and recompiles the hardware lookup table.
+		 * [State Mutating]
+		 * @param {KeymapDictionary} keymap - Target keymap dictionary.
+		 * @returns {void}
+		 */
+		setKeymap(keymap) {
+			if (!keymap || typeof keymap !== 'object') return;
+			currentKeymap = structuredClone(keymap);
+			hardwareToKeyMap = compileReverseKeymap(currentKeymap);
+		},
 
-    /**
-     * Unbinds a specific physical key code from all action tokens.
-     */
-    unbindKey(code) {
-      if (!code) return;
-      for (const action of Object.keys(currentKeymap)) {
-        if (Array.isArray(currentKeymap[action])) {
-          currentKeymap[action] = currentKeymap[action].filter((c) => c !== code);
-        }
-      }
-      hardwareToKeyMap = compileReverseKeymap(currentKeymap);
-    },
+		/**
+		 * Retrieves an immutable copy of the active keymap dictionary.
+		 * [Pure Query]
+		 * @returns {KeymapDictionary} Active keymap copy.
+		 */
+		getKeymap() {
+			return structuredClone(currentKeymap);
+		},
 
-    clear() {
-      activeKeys.clear();
-      actionBuffer.length = 0;
-    },
+		/**
+		 * Resets key mappings to canonical VSRP-001 defaults.
+		 * [State Mutating]
+		 * @returns {void}
+		 */
+		resetKeymap() {
+			currentKeymap = structuredClone(DEFAULT_KEYMAP);
+			hardwareToKeyMap = compileReverseKeymap(currentKeymap);
+		},
 
-    // Polled queue consumption for active tenant update() cycles
-    consumeAction() {
-      return actionBuffer.shift() || null;
-    },
+		/**
+		 * Dynamically binds a specific physical key code to an action token.
+		 * [State Mutating]
+		 * @param {string} code - Hardware key code.
+		 * @param {string} action - Action token.
+		 * @returns {void}
+		 */
+		bindKey(code, action) {
+			if (!code || !action) return;
+			if (!currentKeymap[action]) {
+				currentKeymap[action] = [];
+			}
+			const codes = currentKeymap[action];
+			if (Array.isArray(codes) && !codes.includes(code)) {
+				codes.push(code);
+			}
+			hardwareToKeyMap = compileReverseKeymap(currentKeymap);
+		},
 
-    // Continuous down-state check
-    isDown(action) {
-      return activeKeys.has(action);
-    },
+		/**
+		 * Unbinds a specific physical key code from all action tokens.
+		 * [State Mutating]
+		 * @param {string} code - Hardware key code.
+		 * @returns {void}
+		 */
+		unbindKey(code) {
+			if (!code) return;
+			for (const action of Object.keys(currentKeymap)) {
+				const codes = currentKeymap[action];
+				if (Array.isArray(codes)) {
+					currentKeymap[action] = codes.filter((c) => c !== code);
+				}
+			}
+			hardwareToKeyMap = compileReverseKeymap(currentKeymap);
+		},
 
-    // Single-frame/continuous press assertion (capability alias)
-    isPressed(action) {
-      return activeKeys.has(action);
-    },
+		/**
+		 * Clears active input state and action buffer.
+		 * [State Mutating]
+		 * @returns {void}
+		 */
+		clear() {
+			activeKeys.clear();
+			actionBuffer.length = 0;
+		},
 
-    setEnabled(enabled) {
-      isEnabled = !!enabled;
-      if (!isEnabled) {
-        activeKeys.clear();
-        actionBuffer.length = 0;
-      }
-    },
+		/**
+		 * Polled queue consumption for active tenant update() cycles.
+		 * [State Mutating / Queue Drain]
+		 * @returns {string|null} Action token or null.
+		 */
+		consumeAction() {
+			return actionBuffer.shift() || null;
+		},
 
-    getDiagnostics() {
-      return {
-        driverId: 'input_driver',
-        activeKeysHeld: Array.from(activeKeys),
-        bufferedActions: actionBuffer.length,
-        keymapActionsCount: Object.keys(currentKeymap).length,
-        isEnabled,
-      };
-    },
+		/**
+		 * Continuous down-state check.
+		 * [Pure Query]
+		 * @param {string} action - Action token.
+		 * @returns {boolean} Down state assertion.
+		 */
+		isDown(action) {
+			return activeKeys.has(action);
+		},
 
-    destroy() {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('keydown', handleKeyDown);
-        window.removeEventListener('keyup', handleKeyUp);
-        window.removeEventListener('blur', handleBlur);
-      }
-      unbindOnScreenControls();
-      activeKeys.clear();
-      actionBuffer.length = 0;
-      eventBus = null;
-    },
-  };
+		/**
+		 * Single-frame/continuous press assertion (capability alias).
+		 * [Pure Query]
+		 * @param {string} action - Action token.
+		 * @returns {boolean} Press state assertion.
+		 */
+		isPressed(action) {
+			return activeKeys.has(action);
+		},
+
+		/**
+		 * Enables or disables input processing.
+		 * [State Mutating]
+		 * @param {boolean} enabled - Enable assertion flag.
+		 * @returns {void}
+		 */
+		setEnabled(enabled) {
+			isEnabled = !!enabled;
+			if (!isEnabled) {
+				activeKeys.clear();
+				actionBuffer.length = 0;
+			}
+		},
+
+		/**
+		 * Exports driver diagnostics.
+		 * [Pure Query]
+		 * @returns {InputDiagnostics} Diagnostic status report.
+		 */
+		getDiagnostics() {
+			return {
+				driverId: 'input_driver',
+				activeKeysHeld: Array.from(activeKeys),
+				bufferedActions: actionBuffer.length,
+				keymapActionsCount: Object.keys(currentKeymap).length,
+				isEnabled,
+			};
+		},
+
+		/**
+		 * Releases driver listeners and clears resources.
+		 * [Lifecycle: DESTROY]
+		 * @returns {void}
+		 */
+		destroy() {
+			if (typeof window !== 'undefined') {
+				window.removeEventListener('keydown', handleKeyDown);
+				window.removeEventListener('keyup', handleKeyUp);
+				window.removeEventListener('blur', handleBlur);
+			}
+			unbindOnScreenControls();
+			activeKeys.clear();
+			actionBuffer.length = 0;
+			eventBus = null;
+		},
+	};
+	//#endregion
 })();
 
+//#region [SEC-05] Global Environment & CommonJS Module Export
 if (typeof window !== 'undefined') {
-  window.EmberlightInput = EmberlightInput;
+	// @ts-ignore
+	window.EmberlightInput = EmberlightInput;
 }
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = EmberlightInput;
+	module.exports = EmberlightInput;
 }
+//#endregion

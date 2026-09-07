@@ -272,6 +272,120 @@ const EmberlightStatus = (() => {
 	}
 	//#endregion
 
+	/**
+	 * Handles casting field spells.
+	 * @param {CastFieldSpellAction} act - Action object.
+	 * @returns {void}
+	 */
+	function handleCastFieldSpell(act) {
+		executeFieldSpell(act.casterId, act.targetId, act.skillId);
+	}
+
+	/**
+	 * Handles toggling character combat rows.
+	 * @param {ToggleRowAction} act - Action object.
+	 * @returns {void}
+	 */
+	function handleToggleRow(act) {
+		if (!sim) return;
+		const char = sim.party.find((c) => c.id === act.characterId);
+		if (!char) return;
+		char.row = char.row === 'BACK' ? 'FRONT' : 'BACK';
+		if (hostContext?.eventBus?.publish) {
+			/** @type {SFXEventPayload} */
+			const sfxPayload = { sfx: 'SELECT' };
+			hostContext.eventBus.publish('overworld:sfx', sfxPayload);
+
+			/** @type {StatusUpdatedEventPayload} */
+			const updatePayload = {
+				party: structuredClone(sim.party),
+			};
+			hostContext.eventBus.publish('status:updated', updatePayload);
+		}
+	}
+
+	/**
+	 * Handles administering potions to party members.
+	 * @param {AdministerPotionAction} act - Action object.
+	 * @returns {void}
+	 */
+	function handleAdministerPotion(act) {
+		if (!sim) return;
+		const targetId = act.targetId || act.characterId;
+		const target = sim.party.find((c) => c.id === targetId);
+		if (!target || !(target.alive ?? true) || (sim.inventory?.POTION || 0) <= 0) return;
+		const maxHp = target.maxHp || 30;
+		if (target.hp >= maxHp) return;
+
+		sim.inventory.POTION -= 1;
+		const healed = Math.min(25, maxHp - target.hp);
+		target.hp += healed;
+		if (hostContext?.eventBus?.publish) {
+			/** @type {SFXEventPayload} */
+			const sfxPayload = { sfx: 'HEAL' };
+			hostContext.eventBus.publish('overworld:sfx', sfxPayload);
+
+			/** @type {StatusUpdatedEventPayload} */
+			const updatePayload = {
+				party: structuredClone(sim.party),
+				inventory: structuredClone(sim.inventory),
+			};
+			hostContext.eventBus.publish('status:updated', updatePayload);
+		}
+	}
+
+	/**
+	 * Handles cleansing character ailments.
+	 * @param {CleanseAilmentsAction} act - Action object.
+	 * @returns {void}
+	 */
+	function handleCleanseAilments(act) {
+		if (!sim) return;
+		const targetId = act.targetId || act.characterId;
+		const target = sim.party.find((c) => c.id === targetId);
+		if (!target) return;
+		target.ailments = [];
+		if (hostContext?.eventBus?.publish) {
+			/** @type {SFXEventPayload} */
+			const sfxPayload = { sfx: 'HEAL' };
+			hostContext.eventBus.publish('overworld:sfx', sfxPayload);
+
+			/** @type {StatusUpdatedEventPayload} */
+			const updatePayload = {
+				party: structuredClone(sim.party),
+			};
+			hostContext.eventBus.publish('status:updated', updatePayload);
+		}
+	}
+
+	/**
+	 * Handles notice display action tokens.
+	 * @param {NoticeAction} act - Action object.
+	 * @returns {void}
+	 */
+	function handleNotice(act) {
+		if (hostContext?.eventBus?.publish && act.msg) {
+			/** @type {StatusNoticeEventPayload} */
+			const noticePayload = { msg: act.msg };
+			hostContext.eventBus.publish('status:notice', noticePayload);
+		}
+	}
+
+	/**
+	 * Handles exit action tokens.
+	 * @returns {void}
+	 */
+	function handleExit() {
+		if (!sim) return;
+		if (hostContext?.eventBus?.publish) {
+			/** @type {StatusResolvedEventPayload} */
+			const resolvedPayload = {
+				party: structuredClone(sim.party),
+			};
+			hostContext.eventBus.publish('status:resolved', resolvedPayload);
+		}
+	}
+
 	return {
 		//#region [SEC-04] Canonical 9-Method Lifecycle Gateway
 		/**
@@ -335,7 +449,6 @@ const EmberlightStatus = (() => {
 		 * Pure projection lifecycle gateway.
 		 *
 		 * @param {StatusRenderer} [renderer] - Presentation renderer implementing renderStatus.
-		 * @param {any} [renderer] - Presentation renderer interface.
 		 * @param {any} [_context] - Host context snapshot.
 		 * @returns {void}
 		 */
@@ -425,90 +538,27 @@ const EmberlightStatus = (() => {
 
 			switch (act.type) {
 				case 'CAST_FIELD_SPELL':
-					executeFieldSpell(act.casterId, act.targetId, act.skillId);
+					handleCastFieldSpell(/** @type {CastFieldSpellAction} */(act));
 					break;
 
-				case 'TOGGLE_ROW': {
-					const char = sim.party.find((c) => c.id === act.characterId);
-					if (char) {
-						char.row = char.row === 'BACK' ? 'FRONT' : 'BACK';
-						if (hostContext?.eventBus?.publish) {
-							/** @type {SFXEventPayload} */
-							const sfxPayload = { sfx: 'SELECT' };
-							hostContext.eventBus.publish('overworld:sfx', sfxPayload);
-
-							/** @type {StatusUpdatedEventPayload} */
-							const updatePayload = {
-								party: structuredClone(sim.party),
-							};
-							hostContext.eventBus.publish('status:updated', updatePayload);
-						}
-					}
+				case 'TOGGLE_ROW':
+					handleToggleRow(/** @type {ToggleRowAction} */(act));
 					break;
-				}
 
-				case 'ADMINISTER_POTION': {
-					const targetId = act.targetId || act.characterId;
-					const target = sim.party.find((c) => c.id === targetId);
-					if (target && (target.alive ?? true) && (sim.inventory?.POTION || 0) > 0) {
-						const maxHp = target.maxHp || 30;
-						if (target.hp < maxHp) {
-							sim.inventory.POTION -= 1;
-							const healed = Math.min(25, maxHp - target.hp);
-							target.hp += healed;
-							if (hostContext?.eventBus?.publish) {
-								/** @type {SFXEventPayload} */
-								const sfxPayload = { sfx: 'HEAL' };
-								hostContext.eventBus.publish('overworld:sfx', sfxPayload);
-
-								/** @type {StatusUpdatedEventPayload} */
-								const updatePayload = {
-									party: structuredClone(sim.party),
-									inventory: structuredClone(sim.inventory),
-								};
-								hostContext.eventBus.publish('status:updated', updatePayload);
-							}
-						}
-					}
+				case 'ADMINISTER_POTION':
+					handleAdministerPotion(/** @type {AdministerPotionAction} */(act));
 					break;
-				}
 
-				case 'CLEANSE_AILMENTS': {
-					const targetId = act.targetId || act.characterId;
-					const target = sim.party.find((c) => c.id === targetId);
-					if (target) {
-						target.ailments = [];
-						if (hostContext?.eventBus?.publish) {
-							/** @type {SFXEventPayload} */
-							const sfxPayload = { sfx: 'HEAL' };
-							hostContext.eventBus.publish('overworld:sfx', sfxPayload);
-
-							/** @type {StatusUpdatedEventPayload} */
-							const updatePayload = {
-								party: structuredClone(sim.party),
-							};
-							hostContext.eventBus.publish('status:updated', updatePayload);
-						}
-					}
+				case 'CLEANSE_AILMENTS':
+					handleCleanseAilments(/** @type {CleanseAilmentsAction} */(act));
 					break;
-				}
 
 				case 'NOTICE':
-					if (hostContext?.eventBus?.publish && act.msg) {
-						/** @type {StatusNoticeEventPayload} */
-						const noticePayload = { msg: act.msg };
-						hostContext.eventBus.publish('status:notice', noticePayload);
-					}
+					handleNotice(/** @type {NoticeAction} */(act));
 					break;
 
 				case 'EXIT':
-					if (hostContext?.eventBus?.publish) {
-						/** @type {StatusResolvedEventPayload} */
-						const resolvedPayload = {
-							party: structuredClone(sim.party),
-						};
-						hostContext.eventBus.publish('status:resolved', resolvedPayload);
-					}
+					handleExit();
 					break;
 
 				default:

@@ -175,10 +175,10 @@ Instructions:
 
 \---
 
-\#\#\# CMD-DOC-JSDOC: Strict Type Contract Annotation (\`checkJs: true\`)
+### **CMD-DOC-JSDOC: Strict Type Contract Annotation (\`checkJs: true\`)**
 
-\* \*\*Purpose:\*\* Generates comprehensive JSDoc \`@typedef\`, \`@param\`, and \`@returns\` definitions so VS Code's internal language service provides static type checking without a TypeScript compiler.  
-\* \*\*Template Prompt:\*\*
+\* **Purpose:** Generates comprehensive JSDoc \`@typedef\`, \`@param\`, and \`@returns\` definitions so VS Code's internal language service provides static type checking without a TypeScript compiler.  
+\* **Template Prompt:**
 
 \`\`\`text  
 Target File: \[FILE\_NAME.js\]  

@@ -1,3 +1,4 @@
+/* cSpell:words VSRP ARCANIST */
 /**
  * ============================================================================
  * EMBERLIGHT SOVEREIGN ENGINE: STATUS DOM PRESENTATION RENDERER
@@ -378,6 +379,117 @@ const EmberlightStatusRenderer = (() => {
 
 	//#region [SEC-03] Deep Analysis Mode Stage & Workstation
 	/**
+	 * Formats status ailments container HTML for active character.
+	 * @param {CharacterState} activeChar
+	 * @returns {string}
+	 */
+	function formatAilmentsHtml(activeChar) {
+		if (Array.isArray(activeChar.ailments) && activeChar.ailments.length > 0) {
+			return activeChar.ailments
+				.map((a) => `<span style="color:var(--danger); font-weight:bold;">⚠️ ${a.id} (${a.duration}t)</span>`)
+				.join(", ");
+		}
+		return '<span style="color:var(--ok);">✔ UNENCUMBERED / ZERO TRAUMA</span>';
+	}
+
+	/**
+	 * Populates character selector buttons in roster ribbon.
+	 * @param {HTMLElement} panel
+	 * @param {CharacterState[]} party
+	 * @param {CharacterState} activeChar
+	 * @param {StatusStateSnapshot} state
+	 * @param {StatusDispatchFn} dispatch
+	 */
+	function populateRosterRibbon(panel, party, activeChar, state, dispatch) {
+		const rosterRibbon = panel.querySelector("#status-roster-ribbon");
+		if (!rosterRibbon) return;
+		party.forEach((char) => {
+			const btn = document.createElement("button");
+			btn.type = "button";
+			btn.className = `deep-roster-btn ${char.id === activeChar.id ? "active" : ""}`;
+			btn.innerHTML = `<span>${char.name}</span> <span style="font-size:6px; opacity:0.8;">(${char.phenotype || "HERO"})</span>`;
+			btn.addEventListener("click", () => {
+				selectedCharacterId = char.id;
+				EmberlightStatusRenderer.renderStatus(state, dispatch);
+			});
+			rosterRibbon.appendChild(btn);
+		});
+	}
+
+	/**
+	 * Populates vanguard and rearguard unit lists on the formation bench.
+	 * @param {HTMLElement} panel
+	 * @param {CharacterState[]} party
+	 * @param {CharacterState} activeChar
+	 * @param {StatusDispatchFn} dispatch
+	 */
+	function populateFormationBench(panel, party, activeChar, dispatch) {
+		const vList = panel.querySelector("#vanguard-unit-list");
+		const rList = panel.querySelector("#rearguard-unit-list");
+
+		party.forEach((char) => {
+			const isCharFront = char.row === "FRONT" || !char.row;
+			const pill = document.createElement("div");
+			pill.className = `formation-unit-pill ${char.id === activeChar.id ? "selected" : ""}`;
+			pill.innerHTML = `
+				<span>${char.name} (${char.phenotype || "HERO"})</span>
+				<button type="button" class="cmd-btn" style="font-size:6px; padding:1px 5px;">
+					${isCharFront ? "MOVE REAR ➡" : "⬅ MOVE FRONT"}
+				</button>
+			`;
+			/** @type {HTMLButtonElement | null} */
+			const pillBtn = pill.querySelector("button");
+			if (pillBtn) {
+				pillBtn.addEventListener("click", () => {
+					emit(dispatch, { type: "TOGGLE_ROW", characterId: char.id });
+				});
+			}
+
+			if (isCharFront && vList) vList.appendChild(pill);
+			else if (rList) rList.appendChild(pill);
+		});
+	}
+
+	/**
+	 * Binds medical action triggers and close status button.
+	 * @param {HTMLElement} panel
+	 * @param {CharacterState} activeChar
+	 * @param {any} learnedHeal
+	 * @param {StatusDispatchFn} dispatch
+	 */
+	function bindMedicalTriggers(panel, activeChar, learnedHeal, dispatch) {
+		/** @type {HTMLButtonElement | null} */
+		const healBtn = panel.querySelector("#field-heal-trigger-btn");
+		if (healBtn && learnedHeal) {
+			healBtn.addEventListener("click", () => {
+				emit(dispatch, {
+					type: "CAST_FIELD_SPELL",
+					casterId: activeChar.id,
+					targetId: activeChar.id,
+					skillId: learnedHeal.id,
+				});
+			});
+		}
+
+		/** @type {HTMLButtonElement | null} */
+		const potionBtn = panel.querySelector("#field-potion-trigger-btn");
+		if (potionBtn) {
+			potionBtn.addEventListener("click", () => {
+				emit(dispatch, {
+					type: "ADMINISTER_POTION",
+					targetId: activeChar.id,
+				});
+			});
+		}
+
+		/** @type {HTMLButtonElement | null} */
+		const closeBtn = panel.querySelector("#close-status-btn");
+		if (closeBtn) {
+			closeBtn.addEventListener("click", () => emit(dispatch, { type: "EXIT" }));
+		}
+	}
+
+	/**
 	 * Projects deep analysis workstation into DOM panel (biometrics, radar, ECG, formation bench, field medical).
 	 * State-mutating DOM projection procedure.
 	 *
@@ -391,24 +503,18 @@ const EmberlightStatusRenderer = (() => {
 		const party = state.party || [];
 		if (party.length === 0) return;
 
-		if (
-			!selectedCharacterId ||
-			!party.some((c) => c.id === selectedCharacterId)
-		) {
+		if (!selectedCharacterId || !party.some((c) => c.id === selectedCharacterId)) {
 			selectedCharacterId = party[0].id;
 		}
 
-		const activeChar =
-			party.find((c) => c.id === selectedCharacterId) || party[0];
-		const computedStats =
-			typeof manifest.computeCharacterStats === "function"
-				? manifest.computeCharacterStats(activeChar)
-				: activeChar;
+		const activeChar = party.find((c) => c.id === selectedCharacterId) || party[0];
+		const computedStats = typeof manifest.computeCharacterStats === "function"
+			? manifest.computeCharacterStats(activeChar)
+			: activeChar;
 
-		const gearStats =
-			typeof manifest.calculateGearStats === "function"
-				? manifest.calculateGearStats(activeChar)
-				: { atk: 0, def: 0 };
+		const gearStats = typeof manifest.calculateGearStats === "function"
+			? manifest.calculateGearStats(activeChar)
+			: { atk: 0, def: 0 };
 
 		const atkBonus = gearStats?.atk || 0;
 		const defBonus = gearStats?.def || 0;
@@ -417,10 +523,7 @@ const EmberlightStatusRenderer = (() => {
 		const hpPct = Math.max(0, Math.min(1.0, activeChar.hp / maxHp));
 		const mpPct = Math.max(0, Math.min(1.0, activeChar.mp / maxMp));
 		const nextExp = 20 * (activeChar.level || 1) ** 1.4;
-		const expPct = Math.min(
-			100,
-			Math.round(((activeChar.exp || 0) / nextExp) * 100),
-		);
+		const expPct = Math.min(100, Math.round(((activeChar.exp || 0) / nextExp) * 100));
 
 		const learnedHeal = findLearnedHealSkill(activeChar);
 		const isFront = activeChar.row === "FRONT" || !activeChar.row;
@@ -435,17 +538,7 @@ const EmberlightStatusRenderer = (() => {
 		const hasPotions = (state.inventory?.POTION || 0) > 0;
 		const isPotionDisabled = !hasPotions || activeChar.hp >= maxHp;
 		const potionDisabledAttr = isPotionDisabled ? "disabled" : "";
-
-		let ailmentsHtml =
-			'<span style="color:var(--ok);">✔ UNENCUMBERED / ZERO TRAUMA</span>';
-		if (Array.isArray(activeChar.ailments) && activeChar.ailments.length > 0) {
-			ailmentsHtml = activeChar.ailments
-				.map(
-					(a) =>
-						`<span style="color:var(--danger); font-weight:bold;">⚠️ ${a.id} (${a.duration}t)</span>`,
-				)
-				.join(", ");
-		}
+		const ailmentsHtml = formatAilmentsHtml(activeChar);
 
 		panel.innerHTML = `
 			<div class="deep-analysis-deck">
@@ -565,46 +658,8 @@ const EmberlightStatusRenderer = (() => {
 			</div>
 		`;
 
-		// Populate Roster Ribbon
-		const rosterRibbon = panel.querySelector("#status-roster-ribbon");
-		if (rosterRibbon) {
-			party.forEach((char) => {
-				const btn = document.createElement("button");
-				btn.type = "button";
-				btn.className = `deep-roster-btn ${char.id === activeChar.id ? "active" : ""}`;
-				btn.innerHTML = `<span>${char.name}</span> <span style="font-size:6px; opacity:0.8;">(${char.phenotype || "HERO"})</span>`;
-				btn.onclick = () => {
-					selectedCharacterId = char.id;
-					EmberlightStatusRenderer.renderStatus(state, dispatch);
-				};
-				rosterRibbon.appendChild(btn);
-			});
-		}
-
-		// Populate Formation Bench
-		const vList = panel.querySelector("#vanguard-unit-list");
-		const rList = panel.querySelector("#rearguard-unit-list");
-
-		party.forEach((char) => {
-			const isCharFront = char.row === "FRONT" || !char.row;
-			const pill = document.createElement("div");
-			pill.className = `formation-unit-pill ${char.id === activeChar.id ? "selected" : ""}`;
-			pill.innerHTML = `
-				<span>${char.name} (${char.phenotype || "HERO"})</span>
-				<button type="button" class="cmd-btn" style="font-size:6px; padding:1px 5px;">
-					${isCharFront ? "MOVE REAR ➡" : "⬅ MOVE FRONT"}
-				</button>
-			`;
-			const pillBtn = pill.querySelector("button");
-			if (pillBtn) {
-				pillBtn.onclick = () => {
-					emit(dispatch, { type: "TOGGLE_ROW", characterId: char.id });
-				};
-			}
-
-			if (isCharFront && vList) vList.appendChild(pill);
-			else if (rList) rList.appendChild(pill);
-		});
+		populateRosterRibbon(panel, party, activeChar, state, dispatch);
+		populateFormationBench(panel, party, activeChar, dispatch);
 
 		// Draw Visual Canvases
 		/** @type {HTMLCanvasElement | null} */
@@ -618,33 +673,7 @@ const EmberlightStatusRenderer = (() => {
 			drawEcgWaveform(ecgCanvas, hpPct);
 		}
 
-		// Bind Medical Triggers
-		const healBtn = panel.querySelector("#field-heal-trigger-btn");
-		if (healBtn && learnedHeal) {
-			healBtn.onclick = () => {
-				emit(dispatch, {
-					type: "CAST_FIELD_SPELL",
-					casterId: activeChar.id,
-					targetId: activeChar.id,
-					skillId: learnedHeal.id,
-				});
-			};
-		}
-
-		const potionBtn = panel.querySelector("#field-potion-trigger-btn");
-		if (potionBtn) {
-			potionBtn.onclick = () => {
-				emit(dispatch, {
-					type: "ADMINISTER_POTION",
-					targetId: activeChar.id,
-				});
-			};
-		}
-
-		const closeBtn = panel.querySelector("#close-status-btn");
-		if (closeBtn) {
-			closeBtn.onclick = () => emit(dispatch, { type: "EXIT" });
-		}
+		bindMedicalTriggers(panel, activeChar, learnedHeal, dispatch);
 	}
 	//#endregion
 
@@ -740,9 +769,10 @@ const EmberlightStatusRenderer = (() => {
 			};
 		});
 
+		/** @type {HTMLButtonElement | null} */
 		const closeBtn = panel.querySelector("#close-status-btn");
 		if (closeBtn) {
-			closeBtn.onclick = () => emit(dispatch, { type: "EXIT" });
+			closeBtn.addEventListener("click", () => emit(dispatch, { type: "EXIT" }));
 		}
 	}
 	//#endregion

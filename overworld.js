@@ -1,3 +1,4 @@
+/* cSpell:words VSRP UNCONFIGURED walkability autotile */
 /**
  * ============================================================================
  * EMBERLIGHT SOVEREIGN ENGINE: OVERWORLD EXPEDITION & CARTOGRAPHY SIMULATION
@@ -87,14 +88,14 @@ const EmberlightOverworld = (() => {
 	 * @property {string[]} capabilities - Declared subsystem capabilities.
 	 */
 
-	const State = {
+	const State = /** @type {const} */ ({
 		UNCONFIGURED: "UNCONFIGURED",
 		CONFIGURED: "CONFIGURED",
 		INITIALIZED: "INITIALIZED",
 		READY: "READY",
 		RUNNING: "RUNNING",
 		DESTROYED: "DESTROYED",
-	};
+	});
 
 	/** @type {OverworldLifecycleState} */
 	let lifecycleState = State.UNCONFIGURED;
@@ -205,7 +206,7 @@ const EmberlightOverworld = (() => {
 	function isTileWalkable(tile) {
 		const legend =
 			getActiveManifest()?.TileLegend ||
-			(typeof TILE_DEFS !== "undefined" ? TILE_DEFS : {});
+			(typeof EmberlightManifest !== "undefined" ? EmberlightManifest.TileLegend : {});
 		const def = legend[tile];
 		return def ? def.walkable !== false : tile !== "#";
 	}

@@ -1,312 +1,510 @@
-/* =========================================================================
-   DISTRICT 6: COMMERCE DISTRICT (VSRP-001 COMPLIANT TENANT)
-   -------------------------------------------------------------------------
-   Document Identifier: VSRP-001-MARKET-CORE
-   Protocol Version:    VSRP-001
-   Classification:      Ephemeral Simulation Tenant
-   Index Anchor:        PRS-001
-   ========================================================================= */
+/**
+ * ============================================================================
+ * EMBERLIGHT SOVEREIGN ENGINE: COMMERCE DISTRICT MARKET CORE
+ * Document Identifier: VSRP-001-MARKET-CORE
+ * Governing Protocol:  VSRP-001 / COMPONENT_PROTOCOL[cite: 4]
+ * Authority:           Ephemeral Simulation Tenant[cite: 4]
+ * Timestamp:           2026-09-07T10:54:29Z
+ * Index Anchor:        PRS-001[cite: 4]
+ * ============================================================================
+ *
+ * TABLE OF CONTENTS & NAVIGATION ANCHORS:
+ *   [SEC-01] Domain Type Contracts & JSDoc Schemas
+ *   [SEC-02] Lifecycle State Machine & Simulation Context Utilities
+ *   [SEC-03] Commerce Transaction Calculus & Stat Diff Preview Engine
+ *   [SEC-04] Canonical 9-Method VSRP-001 Lifecycle Gateway & Action Router
+ *   [SEC-05] Global Environment & CommonJS Module Export
+ * ============================================================================
+ */
 
 const EmberlightMarket = (() => {
-  'use strict';
+	'use strict';
 
-  const State = {
-    UNCONFIGURED: 'UNCONFIGURED',
-    CONFIGURED: 'CONFIGURED',
-    INITIALIZED: 'INITIALIZED',
-    READY: 'READY',
-    RUNNING: 'RUNNING',
-    DESTROYED: 'DESTROYED',
-  };
+	//#region [SEC-01] Domain Type Contracts & JSDoc Schemas
+	/**
+	 * @typedef {Object} MarketDeltas
+	 * @property {number} goldDelta - Net gold currency change.
+	 * @property {Record<string, number>} inventoryDelta - Net inventory item count changes.
+	 * @property {Array<any>} [partyEquipDelta] - Party equipment changes.
+	 * @property {Record<string, number>} [stockDelta] - Shop working stock changes.
+	 */
 
-  let lifecycleState = State.UNCONFIGURED;
-  let hostConfig = null;
-  let hostContext = null;
-  let sim = null;
+	/**
+	 * @typedef {Object} MarketSimulationState
+	 * @property {string|null} shopId - Active shop identifier token.
+	 * @property {Array<Object>} party - Active party roster.
+	 * @property {Record<string, number>} inventory - Player inventory counts.
+	 * @property {number} gold - Available currency count.
+	 * @property {Record<string, number>} workingStock - Current shop item quantities.
+	 * @property {'BUY'|'SELL'} currentTab - Active shop tab view.
+	 * @property {string|null} selectedItemId - Selected item identifier token.
+	 * @property {MarketDeltas} deltas - Pending session transaction deltas.
+	 * @property {boolean} [active] - Active simulation state flag.
+	 */
 
-  function assertLifecycle(...allowed) {
-    if (!allowed.includes(lifecycleState)) {
-      throw new Error(
-        `[VSRP-001:market_core] Lifecycle Error: Invoked while in state "${lifecycleState}". ` +
-        `Required: ${allowed.join(' | ')}`
-      );
-    }
-  }
+	/**
+	 * @typedef {Object} MarketResolvedPayload
+	 * @property {number} goldDelta - Final gold delta.
+	 * @property {Record<string, number>} inventoryDelta - Final inventory deltas.
+	 * @property {Array<any>} partyEquipDelta - Final equipment deltas.
+	 */
 
-  function deepFreeze(obj) {
-    if (!obj || typeof obj !== 'object') return obj;
-    Object.keys(obj).forEach((prop) => {
-      if (typeof obj[prop] === 'object' && obj[prop] !== null && !Object.isFrozen(obj[prop])) {
-        deepFreeze(obj[prop]);
-      }
-    });
-    return Object.freeze(obj);
-  }
+	/**
+	 * @typedef {Object} ItemDiffReport
+	 * @property {Record<string, number>} diff - Stat differential dictionary.
+	 * @property {'upgrade'|'downgrade'|'sidegrade'|'neutral'} rating - Comparative rating.
+	 * @property {string} currentEquippedLabel - Label of currently equipped item or 'Empty'.
+	 */
 
-  function getActiveManifest() {
-    return hostConfig?.manifest || (typeof EmberlightManifest !== 'undefined' ? EmberlightManifest : {});
-  }
+	/**
+	 * @typedef {Object} MarketDiagnostics
+	 * @property {string} moduleId - Module identifier.
+	 * @property {string} lifecycleState - Current lifecycle state string.
+	 * @property {string|null} activeShop - Active shop token.
+	 * @property {string|null} tab - Active UI tab.
+	 * @property {string|null} selectedItem - Selected item token.
+	 * @property {number} pendingGoldDelta - Pending gold delta.
+	 * @property {number} pendingInventoryDeltas - Count of pending inventory changes.
+	 */
 
-  function dispatchSFX(sfxName) {
-    if (hostContext?.eventBus?.publish) {
-      hostContext.eventBus.publish('market:sfx', { sfx: sfxName });
-    }
-  }
+	/**
+	 * @typedef {Object} MarketModuleInfo
+	 * @property {string} moduleId - Module identifier.
+	 * @property {string} version - Module version string.
+	 * @property {string} protocolVersion - Governing protocol version.
+	 * @property {string[]} dependencies - Module dependencies.
+	 * @property {string[]} capabilities - Supported capability tokens.
+	 */
 
-  function createDefaultState() {
-    return {
-      shopId: null,
-      party: [],
-      inventory: {},
-      gold: 0,
-      workingStock: {},
-      currentTab: 'BUY',
-      selectedItemId: null,
-      deltas: {
-        goldDelta: 0,
-        inventoryDelta: {},
-        partyEquipDelta: [],
-      },
-    };
-  }
+	/**
+	 * @typedef {Object} HostActionObject
+	 * @property {'BUY'|'SELL'|'SWITCH_TAB'|'SELECT_ITEM'|'EXIT'} type - Action type token.
+	 * @property {string} [itemId] - Target item identifier.
+	 * @property {'BUY'|'SELL'} [tab] - Target tab mode.
+	 */
+	//#endregion
 
-  function getItem(itemId) {
-    const manifest = getActiveManifest();
-    return manifest?.Items?.[itemId] || null;
-  }
+	//#region [SEC-02] Lifecycle State Machine & Simulation Context Utilities
+	const State = {
+		UNCONFIGURED: 'UNCONFIGURED',
+		CONFIGURED: 'CONFIGURED',
+		INITIALIZED: 'INITIALIZED',
+		READY: 'READY',
+		RUNNING: 'RUNNING',
+		DESTROYED: 'DESTROYED',
+	};
 
-  function getShop(shopId) {
-    const manifest = getActiveManifest();
-    return manifest?.Shops?.[shopId] || null;
-  }
+	let lifecycleState = State.UNCONFIGURED;
+	/** @type {Object|null} */
+	let hostConfig = null;
+	/** @type {Object|null} */
+	let hostContext = null;
+	/** @type {MarketSimulationState|null} */
+	let sim = null;
 
-  function buyItem(itemId) {
-    const item = getItem(itemId);
-    const shop = getShop(sim.shopId);
-    if (!item || !shop) return false;
+	/**
+	 * Asserts current module lifecycle state against allowed states.
+	 * [State Validation]
+	 * @param {...string} allowed - Allowed lifecycle states.
+	 * @returns {void}
+	 */
+	function assertLifecycle(...allowed) {
+		if (!allowed.includes(lifecycleState)) {
+			throw new Error(
+				`[VSRP-001:market_core] Lifecycle Error: Invoked while in state "${lifecycleState}". ` +
+				`Required: ${allowed.join(' | ')}`
+			);
+		}
+	}
 
-    const unitCost = Math.round(item.cost * (shop.buyRate || 1.0));
-    if (sim.gold < unitCost) return false;
+	/**
+	 * Deep freezes an object recursively.
+	 * [Pure Utility]
+	 * @param {any} obj - Target object to freeze.
+	 * @returns {any} Frozen object.
+	 */
+	function deepFreeze(obj) {
+		if (!obj || typeof obj !== 'object') return obj;
+		Object.keys(obj).forEach((prop) => {
+			if (typeof obj[prop] === 'object' && obj[prop] !== null && !Object.isFrozen(obj[prop])) {
+				deepFreeze(obj[prop]);
+			}
+		});
+		return Object.freeze(obj);
+	}
 
-    if (sim.workingStock[itemId] !== undefined && sim.workingStock[itemId] <= 0) {
-      return false;
-    }
+	/**
+	 * Retrieves active game manifest.
+	 * [Pure Query]
+	 * @returns {Object} Manifest object.
+	 */
+	function getActiveManifest() {
+		return hostConfig?.manifest || (typeof EmberlightManifest !== 'undefined' ? EmberlightManifest : {});
+	}
 
-    sim.gold -= unitCost;
-    sim.deltas.goldDelta -= unitCost;
-    sim.inventory[itemId] = (sim.inventory[itemId] || 0) + 1;
-    sim.deltas.inventoryDelta[itemId] = (sim.deltas.inventoryDelta[itemId] || 0) + 1;
+	/**
+	 * Dispatches sound effect triggers over host event bus.
+	 * [State Mutating / Bus Dispatch]
+	 * @param {string} sfxName - Sound effect name token.
+	 * @returns {void}
+	 */
+	function dispatchSFX(sfxName) {
+		if (hostContext?.eventBus?.publish) {
+			hostContext.eventBus.publish('market:sfx', { sfx: sfxName });
+		}
+	}
 
-    if (sim.workingStock[itemId] !== undefined) {
-      sim.workingStock[itemId] -= 1;
-    }
+	/**
+	 * Retrieves item definition from manifest.
+	 * [Pure Query]
+	 * @param {string} itemId - Item identifier token.
+	 * @returns {Object|null} Item definition.
+	 */
+	function getItem(itemId) {
+		const manifest = getActiveManifest();
+		return manifest?.Items?.[itemId] || null;
+	}
 
-    dispatchSFX('SELECT');
-    return true;
-  }
+	/**
+	 * Retrieves shop definition from manifest.
+	 * [Pure Query]
+	 * @param {string} shopId - Shop identifier token.
+	 * @returns {Object|null} Shop definition.
+	 */
+	function getShop(shopId) {
+		const manifest = getActiveManifest();
+		return manifest?.Shops?.[shopId] || null;
+	}
+	//#endregion
 
-  function sellItem(itemId) {
-    const item = getItem(itemId);
-    const shop = getShop(sim.shopId);
-    if (!item || !shop) return false;
-    if ((sim.inventory[itemId] || 0) <= 0) return false;
+	//#region [SEC-03] Commerce Transaction Calculus & Stat Diff Preview Engine
+	/**
+	 * Executes item purchase transaction.
+	 * [State Mutating]
+	 * @param {string} itemId - Item identifier token.
+	 * @returns {boolean} Success assertion flag.
+	 */
+	function buyItem(itemId) {
+		const item = getItem(itemId);
+		const shop = getShop(sim?.shopId);
+		if (!item || !shop || !sim) return false;
 
-    const unitValue = Math.max(1, Math.round(item.cost * (shop.sellRate || 0.5)));
+		const unitCost = Math.round(item.cost * (shop.buyRate || 1.0));
+		if (sim.gold < unitCost) return false;
 
-    sim.gold += unitValue;
-    sim.deltas.goldDelta += unitValue;
-    sim.inventory[itemId] -= 1;
-    sim.deltas.inventoryDelta[itemId] = (sim.deltas.inventoryDelta[itemId] || 0) - 1;
+		if (sim.workingStock[itemId] !== undefined && sim.workingStock[itemId] <= 0) {
+			return false;
+		}
 
-    if (sim.inventory[itemId] <= 0) {
-      delete sim.inventory[itemId];
-    }
+		sim.gold -= unitCost;
+		sim.deltas.goldDelta -= unitCost;
+		sim.inventory[itemId] = (sim.inventory[itemId] || 0) + 1;
+		sim.deltas.inventoryDelta[itemId] = (sim.deltas.inventoryDelta[itemId] || 0) + 1;
 
-    if (sim.workingStock[itemId] !== undefined) {
-      sim.workingStock[itemId] += 1;
-    }
+		if (sim.workingStock[itemId] !== undefined) {
+			sim.workingStock[itemId] -= 1;
+		}
 
-    dispatchSFX('SELECT');
-    return true;
-  }
+		dispatchSFX('SELECT');
+		return true;
+	}
 
-  function finalizeMarket() {
-    const payload = {
-      goldDelta: sim.deltas.goldDelta,
-      inventoryDelta: structuredClone(sim.deltas.inventoryDelta),
-      partyEquipDelta: structuredClone(sim.deltas.partyEquipDelta),
-    };
-    if (hostContext?.eventBus?.publish) {
-      hostContext.eventBus.publish('market:resolved', payload);
-    }
-  }
+	/**
+	 * Executes item sell transaction.
+	 * [State Mutating]
+	 * @param {string} itemId - Item identifier token.
+	 * @returns {boolean} Success assertion flag.
+	 */
+	function sellItem(itemId) {
+		const item = getItem(itemId);
+		const shop = getShop(sim?.shopId);
+		if (!item || !shop || !sim) return false;
+		if ((sim.inventory[itemId] || 0) <= 0) return false;
 
-  // --- Stateless Inspection Calculus ---
-  function computeItemDiff(character, item) {
-    if (!item?.slot) return null;
-    const manifest = getActiveManifest();
-    const currentEquippedId = character.equipment?.[item.slot];
-    const currentItem = currentEquippedId ? manifest.Items?.[currentEquippedId] : null;
+		const unitValue = Math.max(1, Math.round(item.cost * (shop.sellRate || 0.5)));
 
-    const currentDeltas = currentItem?.statDeltas || {};
-    const newDeltas = item.statDeltas || {};
+		sim.gold += unitValue;
+		sim.deltas.goldDelta += unitValue;
+		sim.inventory[itemId] -= 1;
+		sim.deltas.inventoryDelta[itemId] = (sim.deltas.inventoryDelta[itemId] || 0) - 1;
 
-    const diff = {};
-    const allStats = new Set([...Object.keys(currentDeltas), ...Object.keys(newDeltas)]);
-    let totalPositive = 0;
-    let totalNegative = 0;
+		if (sim.inventory[itemId] <= 0) {
+			delete sim.inventory[itemId];
+		}
 
-    allStats.forEach((st) => {
-      const delta = (newDeltas[st] || 0) - (currentDeltas[st] || 0);
-      if (delta !== 0) {
-        diff[st] = delta;
-        if (delta > 0) totalPositive += delta;
-        else totalNegative += Math.abs(delta);
-      }
-    });
+		if (sim.workingStock[itemId] !== undefined) {
+			sim.workingStock[itemId] += 1;
+		}
 
-    let rating = 'neutral';
-    if (totalPositive > 0 && totalNegative === 0) rating = 'upgrade';
-    else if (totalNegative > 0 && totalPositive === 0) rating = 'downgrade';
-    else if (totalPositive > 0 && totalNegative > 0) rating = 'sidegrade';
+		dispatchSFX('SELECT');
+		return true;
+	}
 
-    return { diff, rating, currentEquippedLabel: currentItem?.label || 'Empty' };
-  }
+	/**
+	 * Finalizes market session and publishes settlement payload.
+	 * [State Mutating / Bus Dispatch]
+	 * @returns {void}
+	 */
+	function finalizeMarket() {
+		if (!sim) return;
+		const payload = {
+			goldDelta: sim.deltas.goldDelta,
+			inventoryDelta: structuredClone(sim.deltas.inventoryDelta),
+			partyEquipDelta: structuredClone(sim.deltas.partyEquipDelta || []),
+		};
+		if (hostContext?.eventBus?.publish) {
+			hostContext.eventBus.publish('market:resolved', payload);
+		}
+	}
 
-  // --- Canonical 9-Method Interface Export ---
-  return {
-    configure(cfg) {
-      assertLifecycle(State.UNCONFIGURED);
-      if (!cfg || typeof cfg !== 'object') {
-        throw new TypeError('[VSRP-001:market_core] configure() requires a non-null configuration dictionary.');
-      }
-      hostConfig = deepFreeze({ ...cfg });
-      lifecycleState = State.CONFIGURED;
-    },
+	/**
+	 * Computes equipment stat differentials for inspection UI.
+	 * [Pure Calculation]
+	 * @param {Object} character - Target character object.
+	 * @param {Object} item - Candidate equipment item definition.
+	 * @returns {ItemDiffReport|null} Differential report.
+	 */
+	function computeItemDiff(character, item) {
+		if (!item?.slot) return null;
+		const manifest = getActiveManifest();
+		const currentEquippedId = character.equipment?.[item.slot];
+		const currentItem = currentEquippedId ? manifest.Items?.[currentEquippedId] : null;
 
-    init(context) {
-      assertLifecycle(State.CONFIGURED);
-      if (!context?.eventBus || typeof context.eventBus.publish !== 'function') {
-        throw new Error('[VSRP-001:market_core] Capability Error: Missing eventBus.publish handle.');
-      }
-      hostContext = context;
-      lifecycleState = State.INITIALIZED;
-    },
+		const currentDeltas = currentItem?.statDeltas || {};
+		const newDeltas = item.statDeltas || {};
 
-    reset(snapshot = {}) {
-      assertLifecycle(State.INITIALIZED, State.READY, State.RUNNING);
-      const incoming = snapshot || {};
-      const shopId = incoming.shopId || 'VILLAGE_BLACKSMITH';
-      const shop = getShop(shopId);
+		/** @type {Record<string, number>} */
+		const diff = {};
+		const allStats = new Set([...Object.keys(currentDeltas), ...Object.keys(newDeltas)]);
+		let totalPositive = 0;
+		let totalNegative = 0;
 
-      const workingStock = {};
-      if (shop?.stock) {
-        shop.stock.forEach((entry) => {
-          workingStock[entry.itemId] = entry.maxQuantity;
-        });
-      }
+		allStats.forEach((st) => {
+			const delta = (newDeltas[st] || 0) - (currentDeltas[st] || 0);
+			if (delta !== 0) {
+				diff[st] = delta;
+				if (delta > 0) totalPositive += delta;
+				else totalNegative += Math.abs(delta);
+			}
+		});
 
-      sim = {
-        shopId,
-        gold: typeof incoming.gold === 'number' ? incoming.gold : 100,
-        inventory: structuredClone(incoming.inventory || {}),
-        party: structuredClone(incoming.party || []),
-        workingStock,
-        currentTab: 'BUY',
-        selectedItemId: shop?.stock?.[0]?.itemId || null,
-        deltas: {
-          goldDelta: 0,
-          inventoryDelta: {},
-          stockDelta: {},
-        },
-        active: true,
-      };
+		/** @type {'upgrade'|'downgrade'|'sidegrade'|'neutral'} */
+		let rating = 'neutral';
+		if (totalPositive > 0 && totalNegative === 0) rating = 'upgrade';
+		else if (totalNegative > 0 && totalPositive === 0) rating = 'downgrade';
+		else if (totalPositive > 0 && totalNegative > 0) rating = 'sidegrade';
 
-      lifecycleState = State.READY;
-    },
+		return { diff, rating, currentEquippedLabel: currentItem?.label || 'Empty' };
+	}
+	//#endregion
 
-    update(_dt, context) {
-      assertLifecycle(State.READY, State.RUNNING);
-      if (!sim?.active) return;
-      lifecycleState = State.RUNNING;
+	//#region [SEC-04] Canonical 9-Method VSRP-001 Lifecycle Gateway & Action Router
+	return {
+		/**
+		 * Configures commerce district tenant settings.
+		 * [Lifecycle: CONFIGURE]
+		 * @param {Object} cfg - Configuration dictionary.
+		 * @returns {void}
+		 */
+		configure(cfg) {
+			assertLifecycle(State.UNCONFIGURED);
+			if (!cfg || typeof cfg !== 'object') {
+				throw new TypeError('[VSRP-001:market_core] configure() requires a non-null configuration dictionary.');
+			}
+			hostConfig = deepFreeze({ ...cfg });
+			lifecycleState = State.CONFIGURED;
+		},
 
-      const activeCtx = context || hostContext;
-      if (activeCtx?.inputs && Array.isArray(activeCtx.inputs)) {
-        for (const element of activeCtx.inputs) {
-          this.handleHostAction(element);
-        }
-      }
-    },
+		/**
+		 * Initializes commerce tenant with host runtime context.
+		 * [Lifecycle: INIT]
+		 * @param {Object} context - Host context reference.
+		 * @returns {void}
+		 */
+		init(context) {
+			assertLifecycle(State.CONFIGURED);
+			if (!context?.eventBus || typeof context.eventBus.publish !== 'function') {
+				throw new Error('[VSRP-001:market_core] Capability Error: Missing eventBus.publish handle.');
+			}
+			hostContext = context;
+			lifecycleState = State.INITIALIZED;
+		},
 
-    render(renderer, _context) {
-      assertLifecycle(State.READY, State.RUNNING);
-      if (renderer && typeof renderer.renderMarket === 'function') {
-        renderer.renderMarket(this.getState(), (action) => this.handleHostAction(action));
-      }
-    },
+		/**
+		 * Resets simulation snapshot and shop working stock.
+		 * [Lifecycle: RESET]
+		 * @param {Object} [snapshot={}] - Session state snapshot.
+		 * @returns {void}
+		 */
+		reset(snapshot = {}) {
+			assertLifecycle(State.INITIALIZED, State.READY, State.RUNNING);
+			const incoming = snapshot || {};
+			const shopId = incoming.shopId || 'VILLAGE_BLACKSMITH';
+			const shop = getShop(shopId);
 
-    getState() {
-      assertLifecycle(State.READY, State.RUNNING);
-      return structuredClone(sim);
-    },
+			/** @type {Record<string, number>} */
+			const workingStock = {};
+			if (shop?.stock) {
+				shop.stock.forEach((entry) => {
+					workingStock[entry.itemId] = entry.maxQuantity;
+				});
+			}
 
-    getDiagnostics() {
-      if (lifecycleState === State.DESTROYED) {
-        throw new Error('[VSRP-001:market_core] Cannot read diagnostics on a DESTROYED instance.');
-      }
-      return {
-        moduleId: 'market_core',
-        lifecycleState,
-        activeShop: sim?.shopId || null,
-        tab: sim?.currentTab || null,
-        selectedItem: sim?.selectedItemId || null,
-        pendingGoldDelta: sim?.deltas?.goldDelta || 0,
-        pendingInventoryDeltas: Object.keys(sim?.deltas?.inventoryDelta || {}).length,
-      };
-    },
+			sim = {
+				shopId,
+				gold: typeof incoming.gold === 'number' ? incoming.gold : 100,
+				inventory: structuredClone(incoming.inventory || {}),
+				party: structuredClone(incoming.party || []),
+				workingStock,
+				currentTab: 'BUY',
+				selectedItemId: shop?.stock?.[0]?.itemId || null,
+				deltas: {
+					goldDelta: 0,
+					inventoryDelta: {},
+					partyEquipDelta: [],
+					stockDelta: {},
+				},
+				active: true,
+			};
 
-    getModuleInfo() {
-      return {
-        moduleId: 'market_core',
-        version: '1.2.0',
-        protocolVersion: 'VSRP-001',
-        dependencies: ['manifest'],
-        capabilities: [
-          'commerce',
-          'stock_tracking',
-          'stat_diff_preview',
-          'events.market_sfx',
-          'events.market_resolved',
-        ],
-      };
-    },
+			lifecycleState = State.READY;
+		},
 
-    destroy() {
-      if (lifecycleState === State.DESTROYED) return;
-      sim = null;
-      hostConfig = null;
-      hostContext = null;
-      lifecycleState = State.DESTROYED;
-    },
+		/**
+		 * Updates simulation tick and processes input queues.
+		 * [Lifecycle: UPDATE]
+		 * @param {number} _dt - Delta time.
+		 * @param {Object} [context] - Update context.
+		 * @returns {void}
+		 */
+		update(_dt, context) {
+			assertLifecycle(State.READY, State.RUNNING);
+			if (!sim?.active) return;
+			lifecycleState = State.RUNNING;
 
-    handleHostAction(action) {
-      if (!action || !sim) return;
-      const type = typeof action === 'string' ? action : action.type;
-      if (type === 'BUY') {
-        buyItem(action.itemId);
-      } else if (type === 'SELL') {
-        sellItem(action.itemId);
-      } else if (type === 'SWITCH_TAB') {
-        sim.currentTab = action.tab || 'BUY';
-      } else if (type === 'SELECT_ITEM') {
-        sim.selectedItemId = action.itemId;
-      } else if (type === 'EXIT') {
-        finalizeMarket();
-      }
-    },
-  };
+			const activeCtx = context || hostContext;
+			if (activeCtx?.inputs && Array.isArray(activeCtx.inputs)) {
+				for (const element of activeCtx.inputs) {
+					this.handleHostAction(element);
+				}
+			}
+		},
+
+		/**
+		 * Renders market UI through host renderer.
+		 * [Lifecycle: RENDER]
+		 * @param {any} renderer - Target renderer.
+		 * @param {any} _context - Render context.
+		 * @returns {void}
+		 */
+		render(renderer, _context) {
+			assertLifecycle(State.READY, State.RUNNING);
+			if (renderer && typeof renderer.renderMarket === 'function') {
+				renderer.renderMarket(this.getState(), (action) => this.handleHostAction(action));
+			}
+		},
+
+		/**
+		 * Retrieves current simulation state clone.
+		 * [Pure Query]
+		 * @returns {MarketSimulationState} Simulation state copy.
+		 */
+		getState() {
+			assertLifecycle(State.READY, State.RUNNING);
+			return structuredClone(sim);
+		},
+
+		/**
+		 * Exports tenant diagnostics.
+		 * [Pure Query]
+		 * @returns {MarketDiagnostics} Diagnostic report.
+		 */
+		getDiagnostics() {
+			if (lifecycleState === State.DESTROYED) {
+				throw new Error('[VSRP-001:market_core] Cannot read diagnostics on a DESTROYED instance.');
+			}
+			return {
+				moduleId: 'market_core',
+				lifecycleState,
+				activeShop: sim?.shopId || null,
+				tab: sim?.currentTab || null,
+				selectedItem: sim?.selectedItemId || null,
+				pendingGoldDelta: sim?.deltas?.goldDelta || 0,
+				pendingInventoryDeltas: Object.keys(sim?.deltas?.inventoryDelta || {}).length,
+			};
+		},
+
+		/**
+		 * Exports module capability metadata.
+		 * [Pure Query]
+		 * @returns {MarketModuleInfo} Module info dictionary.
+		 */
+		getModuleInfo() {
+			return {
+				moduleId: 'market_core',
+				version: '1.2.0',
+				protocolVersion: 'VSRP-001',
+				dependencies: ['manifest'],
+				capabilities: [
+					'commerce',
+					'stock_tracking',
+					'stat_diff_preview',
+					'events.market_sfx',
+					'events.market_resolved',
+				],
+			};
+		},
+
+		/**
+		 * Destroys tenant instance and cleans up references.
+		 * [Lifecycle: DESTROY]
+		 * @returns {void}
+		 */
+		destroy() {
+			if (lifecycleState === State.DESTROYED) return;
+			sim = null;
+			hostConfig = null;
+			hostContext = null;
+			lifecycleState = State.DESTROYED;
+		},
+
+		/**
+		 * Handles incoming host actions and UI triggers.
+		 * [State Mutating / Action Router]
+		 * @param {string|HostActionObject} action - Action command or payload.
+		 * @returns {void}
+		 */
+		handleHostAction(action) {
+			if (!action || !sim) return;
+			/** @type {HostActionObject} */
+			const actionObj = typeof action === 'string'
+				? { type: /** @type {'BUY'|'SELL'|'SWITCH_TAB'|'SELECT_ITEM'|'EXIT'} */ (action) }
+				: /** @type {HostActionObject} */ (action);
+
+			if (actionObj.type === 'BUY') {
+				buyItem(actionObj.itemId || '');
+			} else if (actionObj.type === 'SELL') {
+				sellItem(actionObj.itemId || '');
+			} else if (actionObj.type === 'SWITCH_TAB') {
+				sim.currentTab = actionObj.tab || 'BUY';
+			} else if (actionObj.type === 'SELECT_ITEM') {
+				sim.selectedItemId = actionObj.itemId || null;
+			} else if (actionObj.type === 'EXIT') {
+				finalizeMarket();
+			}
+		},
+
+		computeItemDiff,
+	};
+	//#endregion
 })();
 
+//#region [SEC-05] Global Environment & CommonJS Module Export
 if (typeof window !== 'undefined') {
-  window.EmberlightMarket = EmberlightMarket;
+	// @ts-ignore
+	window.EmberlightMarket = EmberlightMarket;
 }
+if (typeof module !== 'undefined' && module.exports) {
+	module.exports = EmberlightMarket;
+}
+//#endregion
