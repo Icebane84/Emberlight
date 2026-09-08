@@ -4,270 +4,144 @@
  * Document Identifier: VSRP-001-EVENT-BUS
  * Governing Protocol:  VSRP-001 / SDCP-001
  * Authority:           Host SSOT
- * Timestamp:           2026-09-07T10:23:32Z
+ * Timestamp:           2026-09-08T12:20:00Z
  * Index Anchor:        PRS-001
- * ============================================================================
- *
- * TABLE OF CONTENTS & NAVIGATION ANCHORS:
- *   [SEC-01] Domain Type Contracts & JSDoc Schemas
- *   [SEC-02] Synchronous Event Broker & Subscriber State
- *   [SEC-03] SDCP-001 Semantic Capability Registry & Verification
- *   [SEC-04] Faraday-Protected Snapshot Evaluation & Settlement
- *   [SEC-05] Global Environment & CommonJS Export
  * ============================================================================
  */
 
 const EmberlightEventBus = (() => {
-	'use strict';
+  'use strict';
 
-	//#region [SEC-01] Domain Type Contracts & JSDoc Schemas
-	/**
-	 * @callback EventCallback
-	 * @param {any} [payload] - Event payload data.
-	 * @returns {void}
-	 */
+  const subscribers = Object.create(null);
+  const capabilities = new Map();
+  let capabilitiesSealed = false;
 
-	/**
-	 * @callback UnsubscribeHandle
-	 * @returns {void}
-	 */
+  function assertEventToken(event) {
+    if (typeof event !== 'string' || event.length === 0) {
+      throw new TypeError('[EventBus] event must be a non-empty string.');
+    }
+  }
 
-	/**
-	 * @typedef {Object} CapabilityAttestation
-	 * @property {boolean} authorized - Authorization assertion flag.
-	 * @property {string} [reason] - Failure reason string if unauthorized.
-	 */
+  const EventBus = {
+    subscribe(event, callback) {
+      assertEventToken(event);
+      if (typeof callback !== 'function') {
+        throw new TypeError(`[EventBus] subscriber for "${event}" must be a function.`);
+      }
+      if (!subscribers[event]) subscribers[event] = [];
+      subscribers[event].push(callback);
+      let active = true;
+      return () => {
+        if (!active) return;
+        active = false;
+        EventBus.unsubscribe(event, callback);
+      };
+    },
 
-	/**
-	 * @callback CapabilityEvaluate
-	 * @param {any} payload - Action or event payload.
-	 * @param {Object} readOnlySnapshot - Faraday-protected session snapshot.
-	 * @returns {CapabilityAttestation} Capability evaluation attestation.
-	 */
+    unsubscribe(event, callback) {
+      assertEventToken(event);
+      if (!subscribers[event]) return;
+      subscribers[event] = subscribers[event].filter((cb) => cb !== callback);
+      if (subscribers[event].length === 0) delete subscribers[event];
+    },
 
-	/**
-	 * @typedef {Object} CapabilityProvider
-	 * @property {CapabilityEvaluate} evaluate - Evaluation function contract.
-	 */
+    clear(event) {
+      if (event !== undefined) {
+        assertEventToken(event);
+        delete subscribers[event];
+        return;
+      }
+      Object.keys(subscribers).forEach((key) => delete subscribers[key]);
+    },
 
-	/**
-	 * @callback CapabilitySettlement
-	 * @param {string} token - Capability token.
-	 * @param {any} payload - Action payload.
-	 * @param {CapabilityAttestation} attestation - Evaluation attestation.
-	 * @returns {Object} Settlement result envelope.
-	 */
+    publish(event, payload) {
+      assertEventToken(event);
+      const listeners = subscribers[event];
+      if (!listeners || listeners.length === 0) return;
 
-	/**
-	 * @typedef {Object} CapabilityExecutionResult
-	 * @property {boolean} success - Execution success flag.
-	 * @property {string} [reason] - Failure reason token.
-	 * @property {CapabilityAttestation} [attestation] - Evaluated attestation.
-	 */
-	//#endregion
+      // Snapshot the listener list so unsubscription during dispatch cannot
+      // alter the current dispatch cycle. Listener failures intentionally
+      // propagate to the host; swallowing them makes architectural failures
+      // invisible to Sentinel and violates the host error-channel contract.
+      listeners.slice().forEach((callback) => callback(payload));
+    },
 
-	//#region [SEC-02] Synchronous Event Broker & Subscriber State
-	/** @type {Record<string, EventCallback[]>} */
-	const subscribers = {};
-	/** @type {Map<string, CapabilityProvider>} */
-	const capabilities = new Map();
-	let capabilitiesSealed = false;
+    registerCapability(token, providerDef) {
+      if (capabilitiesSealed) {
+        throw new Error(`[SDCP-001] Registration Error: Capability bus is sealed. Cannot register "${token}".`);
+      }
+      if (capabilities.has(token)) {
+        throw new Error(`[SDCP-001] Token Collision: "${token}" is already registered.`);
+      }
+      if (!providerDef || typeof providerDef.evaluate !== 'function') {
+        throw new TypeError(`[SDCP-001] Provider for "${token}" must export an evaluate() function.`);
+      }
+      capabilities.set(token, providerDef);
+    },
 
-	const EventBus = {
-		subscribers,
+    sealCapabilities() {
+      capabilitiesSealed = true;
+    },
 
-		/**
-		 * Subscribes a callback function to an event channel.
-		 * [State Mutating]
-		 * @param {string} event - Target event name token.
-		 * @param {EventCallback} callback - Event handler function.
-		 * @returns {UnsubscribeHandle} Unsubscribe cleanup handle.
-		 */
-		subscribe(event, callback) {
-			if (!subscribers[event]) subscribers[event] = [];
-			subscribers[event].push(callback);
-			return () => {
-				EventBus.unsubscribe(event, callback);
-			};
-		},
+    isSealed() {
+      return capabilitiesSealed;
+    },
 
-		/**
-		 * Unsubscribes a callback function from an event channel.
-		 * [State Mutating]
-		 * @param {string} event - Target event name token.
-		 * @param {EventCallback} callback - Event handler function.
-		 * @returns {void}
-		 */
-		unsubscribe(event, callback) {
-			if (!subscribers[event]) return;
-			subscribers[event] = subscribers[event].filter((cb) => cb !== callback);
-			if (subscribers[event].length === 0) {
-				delete subscribers[event];
-			}
-		},
+    hasCapability(token) {
+      return capabilities.has(token);
+    },
 
-		/**
-		 * Clears all subscribers for a given event or clears entire subscriber registry.
-		 * [State Mutating]
-		 * @param {string} [event] - Optional specific event channel.
-		 * @returns {void}
-		 */
-		clear(event) {
-			if (event) {
-				delete subscribers[event];
-			} else {
-				Object.keys(subscribers).forEach((k) => {
-					delete subscribers[k];
-				});
-			}
-		},
+    getCapability(token) {
+      return capabilities.get(token);
+    },
 
-		/**
-		 * Publishes an event payload to all registered subscribers.
-		 * [State Mutating / Execution Dispatch]
-		 * @param {string} event - Target event name token.
-		 * @param {any} [payload] - Event payload.
-		 * @returns {void}
-		 */
-		publish(event, payload) {
-			if (!subscribers[event]) return;
-			subscribers[event].forEach((cb) => {
-				try {
-					cb(payload);
-				} catch (err) {
-					console.error(`[EventBus] Error executing subscriber for "${event}":`, err);
-				}
-			});
-		},
-		//#endregion
+    getRegisteredTokens() {
+      return Array.from(capabilities.keys());
+    },
 
-		//#region [SEC-03] SDCP-001 Semantic Capability Registry & Verification
-		/**
-		 * Registers a semantic capability provider definition.
-		 * [State Mutating]
-		 * @param {string} token - Capability identifier token.
-		 * @param {CapabilityProvider} providerDef - Provider definition object.
-		 * @returns {void}
-		 */
-		registerCapability(token, providerDef) {
-			if (capabilitiesSealed) {
-				throw new Error(`[SDCP-001] Registration Error: Capability bus is sealed. Cannot register "${token}".`);
-			}
-			if (capabilities.has(token)) {
-				throw new Error(`[SDCP-001] Token Collision: "${token}" is already registered.`);
-			}
-			if (!providerDef || typeof providerDef.evaluate !== 'function') {
-				throw new TypeError(`[SDCP-001] Provider for "${token}" must export an evaluate() function.`);
-			}
-			capabilities.set(token, providerDef);
-		},
+    executeCapability(token, payload, contextSnapshot, settleCallback) {
+      const provider = capabilities.get(token);
+      if (!provider) {
+        return { success: false, reason: `UNREGISTERED_CAPABILITY: ${token}` };
+      }
 
-		/**
-		 * Permanently seals the capability registry against further registrations.
-		 * [State Mutating]
-		 * @returns {void}
-		 */
-		sealCapabilities() {
-			capabilitiesSealed = true;
-		},
+      const snapshot = contextSnapshot || (typeof EmberlightSessionStore !== 'undefined'
+        ? EmberlightSessionStore.getSnapshot()
+        : {});
 
-		/**
-		 * Checks if capability bus is sealed.
-		 * [Pure Query]
-		 * @returns {boolean} Sealing state flag.
-		 */
-		isSealed() {
-			return capabilitiesSealed;
-		},
+      const readOnlySnapshot = {
+        party: (snapshot.party || []).map((c) => ({
+          id: c.id,
+          name: c.name,
+          alive: c.alive,
+          mp: c.mp,
+          unlocked: Array.isArray(c.unlocked) ? [...c.unlocked] : [],
+          unlockedNodes: Array.isArray(c.unlockedNodes) ? [...c.unlockedNodes] : [],
+        })),
+        inventory: { ...(snapshot.inventory || {}) },
+        flags: { ...(snapshot.flags || {}) },
+      };
 
-		/**
-		 * Checks if a capability token is registered.
-		 * [Pure Query]
-		 * @param {string} token - Capability identifier token.
-		 * @returns {boolean} Presence assertion flag.
-		 */
-		hasCapability(token) {
-			return capabilities.has(token);
-		},
+      const attestation = provider.evaluate(payload, readOnlySnapshot);
+      if (!attestation?.authorized) {
+        const failureReason = attestation?.reason || 'NOT_AUTHORIZED';
+        return { success: false, reason: failureReason };
+      }
 
-		/**
-		 * Retrieves registered capability provider definition.
-		 * [Pure Query]
-		 * @param {string} token - Capability identifier token.
-		 * @returns {CapabilityProvider|undefined} Provider definition or undefined.
-		 */
-		getCapability(token) {
-			return capabilities.get(token);
-		},
+      if (typeof settleCallback === 'function') {
+        return settleCallback(token, payload, attestation);
+      }
 
-		/**
-		 * Retrieves all registered capability tokens.
-		 * [Pure Query]
-		 * @returns {string[]} Array of capability tokens.
-		 */
-		getRegisteredTokens() {
-			return Array.from(capabilities.keys());
-		},
-		//#endregion
+      return { success: true, attestation };
+    },
+  };
 
-		//#region [SEC-04] Faraday-Protected Snapshot Evaluation & Settlement
-		/**
-		 * Executes a registered capability through Faraday-protected evaluation and settlement.
-		 * [State Mutating / Evaluation Gateway]
-		 * @param {string} token - Capability identifier token.
-		 * @param {any} payload - Action payload.
-		 * @param {Object} [contextSnapshot] - Optional explicit session snapshot.
-		 * @param {CapabilitySettlement} [settleCallback] - Optional settlement callback.
-		 * @returns {CapabilityExecutionResult} Execution result envelope.
-		 */
-		executeCapability(token, payload, contextSnapshot, settleCallback) {
-			const provider = capabilities.get(token);
-			if (!provider) {
-				return { success: false, reason: `UNREGISTERED_CAPABILITY: ${token}` };
-			}
+  if (typeof window !== 'undefined') {
+    window.EmberlightEventBus = EventBus;
+  }
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = EventBus;
+  }
 
-			// 1. EVALUATION (Faraday-Protected Snapshot - Read Only)
-			const snapshot = contextSnapshot || (typeof EmberlightSessionStore !== 'undefined'
-				? EmberlightSessionStore.getSnapshot()
-				: {});
-
-			const readOnlySnapshot = {
-				party: (snapshot.party || []).map((c) => ({
-					id: c.id,
-					name: c.name,
-					alive: c.alive,
-					mp: c.mp,
-					unlocked: Array.isArray(c.unlocked) ? [...c.unlocked] : [],
-					unlockedNodes: Array.isArray(c.unlockedNodes) ? [...c.unlockedNodes] : [],
-				})),
-				inventory: { ...snapshot.inventory },
-				flags: { ...snapshot.flags },
-			};
-
-			const attestation = provider.evaluate(payload, readOnlySnapshot);
-			if (!attestation?.authorized) {
-				const failureReason = attestation?.reason || 'NOT_AUTHORIZED';
-				return { success: false, reason: failureReason };
-			}
-
-			// 2. SETTLEMENT (Delegated to Host Settlement Callback / Session Store)
-			if (typeof settleCallback === 'function') {
-				return settleCallback(token, payload, attestation);
-			}
-
-			return { success: true, attestation };
-		},
-	};
-
-	return EventBus;
-	//#endregion
+  return EventBus;
 })();
-
-//#region [SEC-05] Global Environment & CommonJS Export
-if (typeof window !== 'undefined') {
-	window.EmberlightEventBus = EmberlightEventBus;
-}
-if (typeof module !== 'undefined' && module.exports) {
-	module.exports = EmberlightEventBus;
-}
-//#endregion
