@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Emberlight — Tactical War Table Slice</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body {
+      background: #0d0e12;
+      color: #c9cdd4;
+      font-family: 'Courier New', monospace;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+    header {
+      padding: 6px 16px;
+      background: #141721;
+      border-bottom: 1px solid #2a3143;
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      letter-spacing: 1px;
+    }
+    .badge { color: #e68a3e; font-weight: bold; }
+    
+    /* 4-Quadrant Tactical Layout */
+    #war-table {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: 4px;
+      padding: 4px;
+      flex: 1;
+      background: #090a0f;
+    }
+    .quadrant {
+      background: #12151f;
+      border: 1px solid #232a3b;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .q-label {
+      position: absolute;
+      top: 6px;
+      left: 8px;
+      font-size: 11px;
+      color: #7b88a1;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      background: rgba(18, 21, 31, 0.85);
+      padding: 2px 6px;
+      border: 1px solid #2a334a;
+      z-index: 10;
+    }
+    canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+
+    /* Q4 Telemetry Styling */
+    #telemetry-deck {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      padding: 32px 16px 12px 16px;
+      gap: 12px;
+    }
+    .vital-row {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid #1e2538;
+      padding-bottom: 4px;
+      font-size: 13px;
+    }
+    .val-good { color: #5bc27d; }
+    .val-warn { color: #e68a3e; }
+    .val-crit { color: #e05252; }
+    #combat-log {
+      flex: 1;
+      background: #0a0c13;
+      border: 1px solid #1c2233;
+      padding: 8px;
+      font-size: 11px;
+      overflow-y: auto;
+      line-height: 1.4;
+      color: #929db2;
+    }
+    .log-alert { color: #e68a3e; font-weight: bold; }
+    .log-combat { color: #d65d5d; }
+    .log-success { color: #5bc27d; }
+
+    /* Tactical Quick Controls */
+    #controls-guide {
+      background: #141721;
+      border-top: 1px solid #2a3143;
+      padding: 6px 16px;
+      font-size: 11px;
+      color: #8c97ad;
+      display: flex;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div>EMBERLIGHT <span class="badge">[VSRP-001 / SDCP-001]</span></div>
+    <div>SIMULATION CORE: <span class="val-good">SYNCHRONIZED (60 FPS)</span></div>
+  </header>
+
+  <main id="war-table">
+    <!-- Q1: Tactical Cartography -->
+    <section class="quadrant" id="q1-cartography">
+      <div class="q-label">Q1: Tactical Journal</div>
+      <canvas id="canvas-q1" width="320" height="240"></canvas>
+    </section>
+
+    <!-- Q2: First-Person DDA Corridor Sensor -->
+    <section class="quadrant" id="q2-sensor">
+      <div class="q-label">Q2: Corridor Sensor (DDA)</div>
+      <canvas id="canvas-q2" width="320" height="240"></canvas>
+    </section>
+
+    <!-- Q3: Tactical Clash Arena -->
+    <section class="quadrant" id="q3-arena">
+      <div class="q-label">Q3: Threat Oracle & Clash</div>
+      <canvas id="canvas-q3" width="320" height="240"></canvas>
+    </section>
+
+    <!-- Q4: Readiness Deck & Telemetry -->
+    <section class="quadrant" id="q4-readiness">
+      <div class="q-label">Q4: Readiness Deck</div>
+      <div id="telemetry-deck">
+        <div class="vital-row">
+          <span>Vanguard (Kaelen):</span>
+          <span id="vital-hp" class="val-good">48 / 48 HP</span>
+        </div>
+        <div class="vital-row">
+          <span>Stamina Posture:</span>
+          <span id="vital-sta" class="val-good">100% (Steady)</span>
+        </div>
+        <div class="vital-row">
+          <span>Torch Fuel:</span>
+          <span id="vital-torch" class="val-warn">84%</span>
+        </div>
+        <div class="vital-row">
+          <span>Active Threat:</span>
+          <span id="vital-threat" class="val-crit">Dread Bone Archer</span>
+        </div>
+        <div id="combat-log"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer id="controls-guide">
+    <span>MOVE: [W / A / S / D] or [Arrows]</span>
+    <span>COMBAT: [1] Shield Slam (Knockback) | [2] Heavy Cleave | [3] Defend</span>
+    <span>EXPEDITION DESK: ACTIVE</span>
+  </footer>
+
+  <script>
+    /**
+     * ============================================================================
+     * EMBERLIGHT SOVEREIGN ENGINE: TACTICAL WAR TABLE SLICE
+     * Document Identifier: ARCH-SLICE-VSRP-001
+     * Governing Protocol:  VSRP-001 / SDCP-001 / PRS-SLICE-001
+     * Authority:           Host SSOT | Ephemeral Simulation | Peripheral Presentation
+     * ============================================================================
+     * 
+     * TABLE OF CONTENTS & NAVIGATION ANCHORS:
+     *   [SEC-01] Type Definitions & Contract Schemas
+     *   [SEC-02] Procedural Web Audio DSP Engine
+     *   [SEC-03] World State Ledger & Static Map Matrix
+     *   [SEC-04] Telemetry & Combat Log Dispatcher
+     *   [SEC-05] Q1: Tactical Cartography 2D Renderer
+     *   [SEC-06] Q2: First-Person DDA Corridor Raycaster
+     *   [SEC-07] Q3: Procedural Vector Battler Bakers
+     *   [SEC-08] Q3: Tactical Clash Arena Renderer
+     *   [SEC-09] Kinetic Combat Engine & Row Displacement
+     *   [SEC-10] Input Router & 60 FPS Presentation Loop
+     * ============================================================================
+     */
+
+    //#region [SEC-01] Type Definitions & Contract Schemas
+
+    /**
+     * Discrete combat action identifier.
+     * 1 = SHIELD_SLAM (Row displacement & wall recoil)
+     * 2 = HEAVY_CLEAVE (High-impact strike; blocked by backline cover)
+     * 3 = DEFEND (Tactical posture & stamina recovery)
+     * @typedef {1 | 2 | 3} CombatActionId
+     */
+
+    /**
+     * Tactical formation rank index.
+     * 0 = Front Row (Vanguard / Melee engagement rank)
+     * 1 = Back Row (Rearguard / Protected cover rank)
+     * @typedef {0 | 1} TacticalRowIndex
+     */
+
+    /**
+     * CSS class selector for categorized combat telemetry.
+     * @typedef {'' | 'log-alert' | 'log-combat' | 'log-success'} LogStyleClass
+     */
+
+    /**
+     * RGB color channel tuple represented as [red, green, blue].
+     * @typedef {[number, number, number]} RGBColorTuple
+     */
+
+    /**
+     * Canonical player state ledger.
+     * @typedef {Object} PlayerState
+     * @property {number} x Continuous grid X position coordinate in map space
+     * @property {number} y Continuous grid Y position coordinate in map space
+     * @property {number} dirX Normalized camera view direction vector X
+     * @property {number} dirY Normalized camera view direction vector Y
+     * @property {number} planeX Camera projection plane vector X
+     * @property {number} planeY Camera projection plane vector Y
+     * @property {number} hp Current health point balance
+     * @property {number} maxHp Baseline maximum health points
+     * @property {number} stamina Physical posture readiness percentage [0 - 100]
+     * @property {number} torch Remaining light fuel percentage [0 - 100]
+     * @property {number} flash In-flight white hit-flash frame countdown counter
+     * @property {number} speed Current continuous movement velocity in tiles per second
+     * @property {number} rotVel Current continuous rotational yaw velocity in radians per second
+     * @property {number} stepAccum Traversed distance accumulator for procedural footstep cadence
+     */
+
+    /**
+     * Active combatant state ledger.
+     * @typedef {Object} CombatEnemy
+     * @property {string} name Display identity moniker
+     * @property {TacticalRowIndex} row Active tactical rank (0 = Front / 88px, 1 = Back / 232px)
+     * @property {number} hp Current health point balance
+     * @property {number} maxHp Baseline maximum health points
+     * @property {number} flash In-flight white hit-flash frame countdown counter
+     * @property {number} renderX Current interpolated horizontal coordinate on canvas
+     * @property {number} targetX Destination horizontal coordinate for slide lerp
+     */
+
+    /**
+     * Sub-ledger for active combat encounter.
+     * @typedef {Object} CombatLedger
+     * @property {boolean} active Active encounter engagement flag
+     * @property {number} turn Monotonic encounter turn counter
+     * @property {CombatEnemy} enemy Active hostile combatant entity
+     */
+
+    /**
+     * Unified root state ledger (Single Source of Truth).
+     * @typedef {Object} SliceState
+     * @property {PlayerState} player Canonical expedition vanguard ledger
+     * @property {CombatLedger} combat Active threat encounter sub-ledger
+     * @property {Array<boolean>} explored Flat visibility boolean array of size MAP_SIZE * MAP_SIZE
+     */
+
+    //#endregion
+
+    //#region [SEC-02] Procedural Web Audio DSP Engine
+
+    /**
+     * Real-time Web Audio DSP synthesizer for synthesized foley and combat percussion.
+     */
+    class AudioDriver {
+      /**
+       * Instantiates the Web Audio driver.
+       */
+      constructor() {
+        /**
+         * Low-level Web Audio hardware context reference.
+         * @type {AudioContext | null}
+         */
+        this.ctx = null;
+      }
+
+      /**
+       * Lazily initializes hardware audio context upon first user gesture.
+       * @returns {void}
+       */
+      init() {
+        if (!this.ctx) {
+          const AudioContextClass = window.AudioContext || /** @type {any} */ (window).webkitAudioContext;
+          this.ctx = new AudioContextClass();
+        }
+      }
+
+      /**
+       * Synthesizes a low-frequency damped physical footstep thud.
+       * @returns {void}
+       */
+      playThud() {
+        this.init();
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(110, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.12);
+        gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.12);
+      }
+
+      /**
+       * Synthesizes a bright metallic saw clash with exponential decay.
+       * @returns {void}
+       */
+      playClash() {
+        this.init();
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(440, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(80, this.ctx.currentTime + 0.25);
+        gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.25);
+      }
+    }
+
+    /** @type {AudioDriver} */
+    const audio = new AudioDriver();
+
+    //#endregion
+
+    //#region [SEC-03] World State Ledger & Static Map Matrix
+
+    /**
+     * Map dimension width and height in discrete grid tiles.
+     * @type {number}
+     */
+    const MAP_SIZE = 12;
+
+    /**
+     * Flat 12x12 discrete terrain matrix.
+     * 0 = Walkable Flagstone Corridor
+     * 1 = Chiseled Granite Wall
+     * 2 = Ambush Encounter Trigger Stone
+     * @type {ReadonlyArray<number>}
+     */
+    const MAP = [
+      1,1,1,1,1,1,1,1,1,1,1,1,
+      1,0,0,0,1,0,0,0,0,0,0,1,
+      1,0,1,0,1,0,1,1,1,1,0,1,
+      1,0,1,0,0,0,0,0,0,1,0,1,
+      1,0,1,1,1,1,1,1,0,1,0,1,
+      1,0,0,0,0,0,2,1,0,0,0,1,
+      1,1,1,1,0,1,1,1,1,1,0,1,
+      1,0,0,0,0,0,0,0,0,1,0,1,
+      1,0,1,1,1,1,0,1,0,1,0,1,
+      1,0,1,0,0,0,0,1,0,0,0,1,
+      1,0,0,0,1,1,0,0,0,1,0,1,
+      1,1,1,1,1,1,1,1,1,1,1,1
+    ];
+
+    /**
+     * Authoritative Single Source of Truth (SSOT) state ledger.
+     * @type {SliceState}
+     */
+    const state = {
+      player: {
+        x: 1.5,
+        y: 1.5,
+        dirX: 1,
+        dirY: 0,
+        planeX: 0,
+        planeY: 0.66,
+        hp: 48,
+        maxHp: 48,
+        stamina: 100,
+        torch: 84,
+        flash: 0,
+        speed: 0,
+        rotVel: 0,
+        stepAccum: 0
+      },
+      combat: {
+        active: false,
+        turn: 0,
+        enemy: {
+          name: "Dread Archer",
+          row: 1,
+          hp: 32,
+          maxHp: 32,
+          flash: 0,
+          renderX: 232,
+          targetX: 232
+        }
+      },
+      explored: new Array(MAP_SIZE * MAP_SIZE).fill(false)
+    };
+
+    //#endregion
+
+    //#region [SEC-04] Telemetry & Combat Log Dispatcher
+
+    const logBox = /** @type {HTMLElement} */ (document.getElementById('combat-log'));
+
+    /**
+     * Appends a formatted operational entry to the Q4 tactical event stream.
+     * STATE-MUTATING: Appends DOM child nodes and adjusts container scroll.
+     * 
+     * @param {string} msg Human-readable log entry text
+     * @param {LogStyleClass} [cls=''] Optional styling variant class
+     * @returns {void}
+     */
+    function appendLog(msg, cls = '') {
+      const line = document.createElement('div');
+      if (cls) line.className = cls;
+      line.textContent = `> ${msg}`;
+      logBox.appendChild(line);
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+    appendLog("Expedition deployed. Grid initialized.", "log-success");
+
+    //#endregion
+
+    //#region [SEC-05] Q1: Tactical Cartography 2D Renderer
+
+    const q1Canvas = /** @type {HTMLCanvasElement} */ (document.getElementById('canvas-q1'));
+    const q1Ctx = /** @type {CanvasRenderingContext2D} */ (q1Canvas.getContext('2d'));
+
+    /**
+     * Paints the 2D top-down field journal, surveyed fog matrix, and orientation needle.
+     * STATE-MUTATING: Flags player's current tile as explored within `state.explored`.
+     * 
+     * @returns {void}
+     */
+    function renderQ1() {
+      q1Ctx.fillStyle = '#0f121a';
+      q1Ctx.fillRect(0, 0, 320, 240);
+
+      const tileSize = 16;
+      const offsetX = 20;
+      const offsetY = 24;
+
+      const curX = Math.floor(state.player.x);
+      const curY = Math.floor(state.player.y);
+      state.explored[curY * MAP_SIZE + curX] = true;
+
+      for (let y = 0; y < MAP_SIZE; y++) {
+        for (let x = 0; x < MAP_SIZE; x++) {
+          const idx = y * MAP_SIZE + x;
+          const isExplored = state.explored[idx];
+          const tile = MAP[idx];
+
+          if (isExplored) {
+            if (tile === 1) {
+              q1Ctx.fillStyle = '#3a445c';
+              q1Ctx.fillRect(offsetX + x * tileSize, offsetY + y * tileSize, tileSize - 1, tileSize - 1);
+            } else if (tile === 2) {
+              q1Ctx.fillStyle = '#6b2d2d';
+              q1Ctx.fillRect(offsetX + x * tileSize, offsetY + y * tileSize, tileSize - 1, tileSize - 1);
+            } else {
+              q1Ctx.fillStyle = '#1e2433';
+              q1Ctx.fillRect(offsetX + x * tileSize, offsetY + y * tileSize, tileSize - 1, tileSize - 1);
+            }
+          } else {
+            q1Ctx.fillStyle = '#0a0c12';
+            q1Ctx.fillRect(offsetX + x * tileSize, offsetY + y * tileSize, tileSize - 1, tileSize - 1);
+          }
+        }
+      }
+
+      const px = offsetX + state.player.x * tileSize;
+      const py = offsetY + state.player.y * tileSize;
+
+      q1Ctx.fillStyle = '#e68a3e';
+      q1Ctx.beginPath();
+      q1Ctx.arc(px, py, 4, 0, Math.PI * 2);
+      q1Ctx.fill();
+
+      q1Ctx.strokeStyle = '#f5b567';
+      q1Ctx.lineWidth = 2;
+      q1Ctx.beginPath();
+      q1Ctx.moveTo(px, py);
+      q1Ctx.lineTo(px + state.player.dirX * 12, py + state.player.dirY * 12);
+      q1Ctx.stroke();
+    }
+
+    //#endregion
+
+    //#region [SEC-06] Q2: First-Person DDA Corridor Raycaster
+
+    const q2Canvas = /** @type {HTMLCanvasElement} */ (document.getElementById('canvas-q2'));
+    const q2Ctx = /** @type {CanvasRenderingContext2D} */ (q2Canvas.getContext('2d'));
+
+    /**
+     * Executes the 60 FPS DDA (Digital Differential Analyzer) raycaster.
+     * STATE-MUTATING: Flags line-of-sight perimeter wall tiles as explored in `state.explored`.
+     * 
+     * @returns {void}
+     */
+    function renderQ2() {
+      const w = q2Canvas.width;
+      const h = q2Canvas.height;
+
+      const skyGrad = q2Ctx.createLinearGradient(0, 0, 0, h / 2);
+      skyGrad.addColorStop(0, '#06070a');
+      skyGrad.addColorStop(1, '#131824');
+      q2Ctx.fillStyle = skyGrad;
+      q2Ctx.fillRect(0, 0, w, h / 2);
+
+      const floorGrad = q2Ctx.createLinearGradient(0, h / 2, 0, h);
+      floorGrad.addColorStop(0, '#0f131c');
+      floorGrad.addColorStop(1, '#050608');
+      q2Ctx.fillStyle = floorGrad;
+      q2Ctx.fillRect(0, h / 2, w, h / 2);
+
+      for (let x = 0; x < w; x++) {
+        const cameraX = (2 * x) / w - 1;
+        const rayDirX = state.player.dirX + state.player.planeX * cameraX;
+        const rayDirY = state.player.dirY + state.player.planeY * cameraX;
+
+        let mapX = Math.floor(state.player.x);
+        let mapY = Math.floor(state.player.y);
+
+        /** @type {number} */
+        let sideDistX;
+        /** @type {number} */
+        let sideDistY;
+
+        const deltaDistX = Math.abs(1 / rayDirX);
+        const deltaDistY = Math.abs(1 / rayDirY);
+        /** @type {number} */
+        let perpWallDist;
+
+        /** @type {number} */
+        let stepX;
+        /** @type {number} */
+        let stepY;
+
+        let hit = 0;
+        let side = 0;
+        let hitType = 0;
+
+        if (rayDirX < 0) {
+          stepX = -1;
+          sideDistX = (state.player.x - mapX) * deltaDistX;
+        } else {
+          stepX = 1;
+          sideDistX = (mapX + 1.0 - state.player.x) * deltaDistX;
+        }
+        if (rayDirY < 0) {
+          stepY = -1;
+          sideDistY = (state.player.y - mapY) * deltaDistY;
+        } else {
+          stepY = 1;
+          sideDistY = (mapY + 1.0 - state.player.y) * deltaDistY;
+        }
+
+        while (hit === 0) {
+          if (sideDistX < sideDistY) {
+            sideDistX += deltaDistX;
+            mapX += stepX;
+            side = 0;
+          } else {
+            sideDistY += deltaDistY;
+            mapY += stepY;
+            side = 1;
+          }
+          const tileValue = MAP[mapY * MAP_SIZE + mapX];
+          if (tileValue > 0) {
+            hit = 1;
+            hitType = tileValue;
+            state.explored[mapY * MAP_SIZE + mapX] = true;
+          }
+        }
+
+        if (side === 0) perpWallDist = (mapX - state.player.x + (1 - stepX) / 2) / rayDirX;
+        else perpWallDist = (mapY - state.player.y + (1 - stepY) / 2) / rayDirY;
+
+        const lineHeight = Math.floor(h / perpWallDist);
+        let drawStart = -lineHeight / 2 + h / 2;
+        if (drawStart < 0) drawStart = 0;
+        let drawEnd = lineHeight / 2 + h / 2;
+        if (drawEnd >= h) drawEnd = h - 1;
+
+        /** @type {RGBColorTuple} */
+        let baseColor = hitType === 2 ? [160, 40, 40] : [70, 85, 115];
+        if (side === 1) {
+          baseColor = /** @type {RGBColorTuple} */ (baseColor.map(c => Math.floor(c * 0.7)));
+        }
+
+        const fogFactor = Math.max(0, 1 - perpWallDist / 7.5);
+        const r = Math.floor(baseColor[0] * fogFactor);
+        const g = Math.floor(baseColor[1] * fogFactor);
+        const b = Math.floor(baseColor[2] * fogFactor);
+
+        q2Ctx.strokeStyle = `rgb(${r},${g},${b})`;
+        q2Ctx.beginPath();
+        q2Ctx.moveTo(x, drawStart);
+        q2Ctx.lineTo(x, drawEnd);
+        q2Ctx.stroke();
+      }
+    }
+
+    //#endregion
+
+    //#region [SEC-07] Q3: Procedural Vector Battler Bakers
+
+    /**
+     * Bakes the Allied Vanguard battler (Kaelen) via continuous vector paths.
+     * PURE FUNCTION: Paints directly to canvas context using passed arguments; zero parent closure state mutation.
+     * 
+     * @param {CanvasRenderingContext2D} ctx Destination 2D graphics rendering context
+     * @param {number} cx Center origin horizontal coordinate in screen space
+     * @param {number} cy Center origin vertical coordinate in screen space
+     * @param {boolean} isExhausted Stance flag triggering dull exhausted visor glow
+     * @param {number} flashFrames Active white hit-flash frame countdown counter
+     * @returns {void}
+     */
+    function drawVanguard(ctx, cx, cy, isExhausted, flashFrames) {
+      ctx.save();
+      ctx.translate(cx, cy);
+
+      if (flashFrames > 0) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(-20, -32, 44, 60);
+        ctx.restore();
+        return;
+      }
+
+      // 1. Cape / Tabard
+      ctx.fillStyle = '#4a1e1b';
+      ctx.beginPath();
+      ctx.moveTo(-14, -8);
+      ctx.lineTo(14, -8);
+      ctx.lineTo(18, 26);
+      ctx.lineTo(-18, 26);
+      ctx.closePath();
+      ctx.fill();
+
+      // 2. Cuirass / Torso Plate
+      const plateGrad = ctx.createLinearGradient(-12, -16, 12, 16);
+      plateGrad.addColorStop(0, '#78849e');
+      plateGrad.addColorStop(0.5, '#47536d');
+      plateGrad.addColorStop(1, '#262f42');
+      ctx.fillStyle = plateGrad;
+
+      ctx.beginPath();
+      ctx.moveTo(-12, -14);
+      ctx.lineTo(12, -14);
+      ctx.lineTo(10, 12);
+      ctx.lineTo(0, 18);
+      ctx.lineTo(-10, 12);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#96a5c7';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Pauldrons
+      ctx.fillStyle = '#5a6680';
+      ctx.fillRect(-17, -15, 6, 8);
+      ctx.fillRect(11, -15, 6, 8);
+
+      // 3. Great Helm & Visor
+      ctx.fillStyle = '#394254';
+      ctx.beginPath();
+      ctx.arc(0, -22, 9, Math.PI, 0, false);
+      ctx.lineTo(7, -14);
+      ctx.lineTo(-7, -14);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = isExhausted ? '#754829' : '#e68a3e';
+      ctx.fillRect(-5, -20, 10, 2);
+
+      // 4. Notched Kite Shield
+      const shieldGrad = ctx.createLinearGradient(-26, -18, -6, 20);
+      shieldGrad.addColorStop(0, '#535e75');
+      shieldGrad.addColorStop(1, '#1b202c');
+      ctx.fillStyle = shieldGrad;
+
+      ctx.beginPath();
+      ctx.moveTo(-8, -16);
+      ctx.lineTo(-24, -16);
+      ctx.lineTo(-24, 6);
+      ctx.bezierCurveTo(-22, 10, -26, 14, -22, 16);
+      ctx.lineTo(-16, 26);
+      ctx.lineTo(-8, 6);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#c49a45';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.fillStyle = '#c49a45';
+      ctx.beginPath();
+      ctx.arc(-16, 0, 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 5. Arming Blade
+      ctx.strokeStyle = '#b0bccc';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(14, 4);
+      ctx.lineTo(24, -22);
+      ctx.stroke();
+
+      ctx.strokeStyle = '#c49a45';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(10, -2);
+      ctx.lineTo(18, 1);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    /**
+     * Bakes the Dread Archer battler via continuous vector paths.
+     * PURE FUNCTION: Paints directly to canvas context using passed arguments; zero parent closure state mutation.
+     * 
+     * @param {CanvasRenderingContext2D} ctx Destination 2D graphics rendering context
+     * @param {number} cx Center origin horizontal coordinate in screen space
+     * @param {number} cy Center origin vertical coordinate in screen space
+     * @param {number} coverRatio Normalized rear cover ratio [0 = Exposed, 1 = Full Cover]
+     * @param {number} flashFrames Active white hit-flash frame countdown counter
+     * @returns {void}
+     */
+    function drawDreadArcher(ctx, cx, cy, coverRatio, flashFrames) {
+      ctx.save();
+      ctx.translate(cx, cy);
+
+      ctx.globalAlpha = 1.0 - (0.45 * coverRatio);
+
+      if (flashFrames > 0) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(-18, -32, 46, 62);
+        ctx.restore();
+        return;
+      }
+
+      // 1. Shroud / Cowl
+      ctx.fillStyle = '#1c1f26';
+      ctx.beginPath();
+      ctx.moveTo(0, -28);
+      ctx.bezierCurveTo(-16, -26, -18, -10, -14, 18);
+      ctx.lineTo(-10, 26);
+      ctx.lineTo(-6, 20);
+      ctx.lineTo(0, 26);
+      ctx.lineTo(6, 20);
+      ctx.lineTo(12, 28);
+      ctx.bezierCurveTo(18, 0, 16, -26, 0, -28);
+      ctx.closePath();
+      ctx.fill();
+
+      // 2. Skeletal Ribcage
+      ctx.strokeStyle = '#9ca8a6';
+      ctx.lineWidth = 1.5;
+      for (let r = -6; r <= 10; r += 4) {
+        ctx.beginPath();
+        ctx.moveTo(-6, r);
+        ctx.lineTo(6, r);
+        ctx.stroke();
+      }
+      ctx.beginPath();
+      ctx.moveTo(0, -8);
+      ctx.lineTo(0, 14);
+      ctx.stroke();
+
+      // 3. Horned Skull
+      ctx.fillStyle = '#cbd6d4';
+      ctx.beginPath();
+      ctx.arc(0, -18, 7, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = coverRatio > 0.4 ? '#552222' : '#e05252';
+      ctx.beginPath();
+      ctx.arc(-2.5, -18, 1.5, 0, Math.PI * 2);
+      ctx.arc(2.5, -18, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 4. Recurve Bow & Arrow
+      ctx.strokeStyle = '#e6ede8';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(16, -26);
+      ctx.bezierCurveTo(24, -12, 24, 8, 16, 22);
+      ctx.stroke();
+
+      ctx.strokeStyle = '#5a6663';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(16, -26);
+      ctx.lineTo(8, -2);
+      ctx.lineTo(16, 22);
+      ctx.stroke();
+
+      ctx.strokeStyle = '#e05252';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(6, -2);
+      ctx.lineTo(26, -2);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    //#endregion
+
+    //#region [SEC-08] Q3: Tactical Clash Arena Renderer
+
+    const q3Canvas = /** @type {HTMLCanvasElement} */ (document.getElementById('canvas-q3'));
+    const q3Ctx = /** @type {CanvasRenderingContext2D} */ (q3Canvas.getContext('2d'));
+
+    /**
+     * Renders the tactical arena grid, active battlers, lifebars, and displacement lerps.
+     * STATE-MUTATING: Advances smooth lerp interpolation for enemy renderX and decrements flash counters.
+     * 
+     * @returns {void}
+     */
+    function renderQ3() {
+      q3Ctx.fillStyle = '#0a0d14';
+      q3Ctx.fillRect(0, 0, 320, 240);
+
+      // Arena Field Boundary
+      q3Ctx.strokeStyle = '#1b2333';
+      q3Ctx.lineWidth = 1;
+      q3Ctx.strokeRect(16, 20, 288, 85);
+      q3Ctx.strokeRect(16, 115, 288, 85);
+
+      // Partition Lines
+      q3Ctx.strokeStyle = '#222b3d';
+      q3Ctx.setLineDash([4, 4]);
+      q3Ctx.beginPath();
+      q3Ctx.moveTo(160, 20);  q3Ctx.lineTo(160, 105);
+      q3Ctx.moveTo(160, 115); q3Ctx.lineTo(160, 200);
+      q3Ctx.stroke();
+      q3Ctx.setLineDash([]);
+
+      q3Ctx.font = '10px monospace';
+      q3Ctx.fillStyle = '#56637d';
+      q3Ctx.fillText("VANGUARD (MELEE)", 36, 16);
+      q3Ctx.fillText("REARGUARD (COVER)", 175, 16);
+
+      if (!state.combat.active) {
+        q3Ctx.fillStyle = '#374154';
+        q3Ctx.font = '12px monospace';
+        q3Ctx.fillText("ORACLE: SECTOR CLEAR OF HOSTILES", 44, 66);
+        q3Ctx.fillText("Traverse corridor red stone to engage", 30, 155);
+        return;
+      }
+
+      // Procedural Idle Breathing
+      const now = performance.now();
+      const allyBreathing = Math.sin(now * 0.003) * 2;
+      const enemyBreathing = Math.cos(now * 0.0025) * 2.5;
+
+      // 1. Render Allied Vanguard (Kaelen)
+      const isExhausted = state.player.hp < 15;
+      drawVanguard(q3Ctx, 88, 155 + allyBreathing, isExhausted, state.player.flash);
+      if (state.player.flash > 0) state.player.flash--;
+
+      q3Ctx.fillStyle = '#c9cdd4';
+      q3Ctx.font = '10px monospace';
+      q3Ctx.fillText("KAELEN (LVL 1)", 54, 194);
+
+      // 2. Procedural Smooth Slide Lerp (Dread Archer)
+      state.combat.enemy.renderX += (state.combat.enemy.targetX - state.combat.enemy.renderX) * 0.14;
+      if (Math.abs(state.combat.enemy.renderX - state.combat.enemy.targetX) < 0.2) {
+        state.combat.enemy.renderX = state.combat.enemy.targetX;
+      }
+
+      const coverRatio = Math.max(0, Math.min(1, (state.combat.enemy.renderX - 88) / (232 - 88)));
+      const enemyX = state.combat.enemy.renderX;
+      const enemyY = 62 + enemyBreathing;
+
+      drawDreadArcher(q3Ctx, enemyX, enemyY, coverRatio, state.combat.enemy.flash);
+      if (state.combat.enemy.flash > 0) state.combat.enemy.flash--;
+
+      // Dynamic Row Indicator Tag
+      const isExposed = coverRatio < 0.25;
+      q3Ctx.fillStyle = isExposed ? '#e05252' : '#7c8799';
+      q3Ctx.font = '10px monospace';
+      const rowTag = isExposed ? "[EXPOSED]" : "[COVER]";
+      q3Ctx.fillText(`${state.combat.enemy.name} ${rowTag}`, enemyX - 44, 28);
+
+      // Enemy Health Bar
+      const barW = 54;
+      const barH = 5;
+      q3Ctx.fillStyle = '#141721';
+      q3Ctx.fillRect(enemyX - barW / 2, 94, barW, barH);
+      
+      const hpPct = Math.max(0, state.combat.enemy.hp / state.combat.enemy.maxHp);
+      q3Ctx.fillStyle = isExposed ? '#e05252' : '#8c3838';
+      q3Ctx.fillRect(enemyX - barW / 2, 94, Math.floor(barW * hpPct), barH);
+      
+      q3Ctx.strokeStyle = '#2d374a';
+      q3Ctx.lineWidth = 1;
+      q3Ctx.strokeRect(enemyX - barW / 2, 94, barW, barH);
+    }
+
+    //#endregion
+
+    //#region [SEC-09] Kinetic Combat Engine & Row Displacement
+
+    /**
+     * Initializes and mounts an ambush encounter inside the combat sub-ledger.
+     * STATE-MUTATING: Rehydrates enemy vitals, sets formation rank, and logs alert.
+     * 
+     * @returns {void}
+     */
+    function triggerEncounter() {
+      if (state.combat.active) return;
+      state.combat.active = true;
+      state.combat.enemy.hp = state.combat.enemy.maxHp;
+      state.combat.enemy.row = 1;
+      state.combat.enemy.renderX = 232;
+      state.combat.enemy.targetX = 232;
+      state.combat.enemy.flash = 0;
+      audio.playClash();
+      appendLog("AMBUSH: Dread Archer spotted in protected backline!", "log-alert");
+    }
+
+    /**
+     * Executes player-commanded kinetic tactical actions.
+     * STATE-MUTATING: Alters HP balances, row formations, stamina, and schedules hostile counter-strike.
+     * 
+     * @param {CombatActionId} actionId Action command token (1: Slam, 2: Cleave, 3: Defend)
+     * @returns {void}
+     */
+    function executeCombatAction(actionId) {
+      if (!state.combat.active) {
+        appendLog("Oracle reports no target in range.", "log-alert");
+        return;
+      }
+
+      audio.playClash();
+
+      if (actionId === 1) {
+        if (state.combat.enemy.row === 1) {
+          state.combat.enemy.row = 0;
+          state.combat.enemy.targetX = 88;
+          state.combat.enemy.hp -= 8;
+          state.combat.enemy.flash = 4;
+          appendLog("Vanguard SHIELD SLAM hits! Dread Archer dragged into FRONT ROW!", "log-combat");
+        } else {
+          state.combat.enemy.hp -= 14;
+          state.combat.enemy.flash = 4;
+          state.combat.enemy.renderX = 64; 
+          state.combat.enemy.targetX = 88;
+          appendLog("Vanguard SHIELD SLAM slams hostile into back wall! -14 HP", "log-combat");
+        }
+      } else if (actionId === 2) {
+        if (state.combat.enemy.row === 1) {
+          appendLog("CLEAVE deflected! Target is behind protected back row cover!", "log-alert");
+          return;
+        }
+        state.combat.enemy.hp -= 20;
+        state.combat.enemy.flash = 5;
+        appendLog("HEAVY CLEAVE cleaves Dread Archer for 20 damage!", "log-combat");
+      } else if (actionId === 3) {
+        state.player.stamina = Math.min(100, state.player.stamina + 25);
+        appendLog("Vanguard assumes defensive posture. Stamina recovered.", "log-success");
+      }
+
+      // Check Victory Condition
+      if (state.combat.enemy.hp <= 0) {
+        appendLog("VICTORY: Dread Archer eradicated. Corridor secured.", "log-success");
+        state.combat.active = false;
+        return;
+      }
+
+      // Hostile Retaliation Turn
+      setTimeout(() => {
+        if (!state.combat.active) return;
+        audio.playThud();
+        const dmg = state.combat.enemy.row === 1 ? 12 : 6;
+        state.player.hp -= dmg;
+        state.player.flash = 4;
+        appendLog(`Dread Archer fires hollow shaft! Vanguard absorbs ${dmg} damage.`, "log-alert");
+        const hpElem = document.getElementById('vital-hp');
+        if (hpElem) {
+          hpElem.textContent = `${state.player.hp} / ${state.player.maxHp} HP`;
+          if (state.player.hp <= 15) {
+            hpElem.className = "val-crit";
+          }
+        }
+      }, 500);
+    }
+
+    //#endregion
+
+    //#region [SEC-10] Input Router & 60 FPS Presentation Loop
+
+    /**
+     * Active continuous keyboard input state map.
+     * Replaces OS-dependent key-repeat intervals with continuous polling.
+     */
+    const inputState = {
+      forward: false,
+      backward: false,
+      turnLeft: false,
+      turnRight: false
+    };
+
+    /** Kinematic motion and rotation configuration constants */
+    const MAX_FORWARD_SPEED = 2.8;     // Tiles per second
+    const MAX_REVERSE_SPEED = 1.8;     // Tiles per second
+    const MAX_TURN_SPEED = 2.6;        // Radians per second
+    const LINEAR_ACCEL = 10.0;         // Acceleration & deceleration friction factor
+    const ROTATIONAL_ACCEL = 14.0;     // Yaw damping and responsiveness factor
+    const WALL_BOUNDING_RADIUS = 0.22; // Physical hull collision padding
+
+    /**
+     * Evaluates whether a candidate circle position is completely unobstructed by granite walls.
+     * Tests all 4 radial corners against the discrete terrain matrix.
+     * 
+     * @param {number} x Candidate horizontal continuous map coordinate
+     * @param {number} y Candidate vertical continuous map coordinate
+     * @returns {boolean} True if the entity hull fits without clipping geometry
+     */
+    function isPositionWalkable(x, y) {
+      const minX = Math.floor(x - WALL_BOUNDING_RADIUS);
+      const maxX = Math.floor(x + WALL_BOUNDING_RADIUS);
+      const minY = Math.floor(y - WALL_BOUNDING_RADIUS);
+      const maxY = Math.floor(y + WALL_BOUNDING_RADIUS);
+
+      for (let testY = minY; testY <= maxY; testY++) {
+        for (let testX = minX; testX <= maxX; testX++) {
+          if (testX < 0 || testX >= MAP_SIZE || testY < 0 || testY >= MAP_SIZE) return false;
+          if (MAP[testY * MAP_SIZE + testX] === 1) return false;
+        }
+      }
+      return true;
+    }
+
+    /**
+     * Updates continuous player yaw rotation, sliding translation, and distance-metered audio.
+     * STATE-MUTATING: Updates `state.player` position, vectors, velocities, and audio triggers.
+     * 
+     * @param {number} dt Delta time in seconds since the previous frame
+     * @returns {void}
+     */
+    function updatePlayerKinematics(dt) {
+      // 1. Smooth Yaw Rotation (Rotational Inertia & Damping)
+      let targetRotVel = 0;
+      if (inputState.turnLeft) targetRotVel -= MAX_TURN_SPEED;
+      if (inputState.turnRight) targetRotVel += MAX_TURN_SPEED;
+
+      state.player.rotVel += (targetRotVel - state.player.rotVel) * Math.min(1, ROTATIONAL_ACCEL * dt);
+
+      if (Math.abs(state.player.rotVel) > 0.001) {
+        const rotAngle = state.player.rotVel * dt;
+        const cosR = Math.cos(rotAngle);
+        const sinR = Math.sin(rotAngle);
+
+        const oldDirX = state.player.dirX;
+        state.player.dirX = state.player.dirX * cosR - state.player.dirY * sinR;
+        state.player.dirY = oldDirX * sinR + state.player.dirY * cosR;
+
+        const oldPlaneX = state.player.planeX;
+        state.player.planeX = state.player.planeX * cosR - state.player.planeY * sinR;
+        state.player.planeY = oldPlaneX * sinR + state.player.planeY * cosR;
+      }
+
+      // 2. Smooth Linear Velocity (Translational Acceleration & Friction)
+      let targetSpeed = 0;
+      if (inputState.forward) targetSpeed += MAX_FORWARD_SPEED;
+      if (inputState.backward) targetSpeed -= MAX_REVERSE_SPEED;
+
+      state.player.speed += (targetSpeed - state.player.speed) * Math.min(1, LINEAR_ACCEL * dt);
+
+      // 3. Wall-Sliding Collision Physics
+      if (Math.abs(state.player.speed) > 0.001) {
+        const moveDist = state.player.speed * dt;
+        let deltaX = state.player.dirX * moveDist;
+        let deltaY = state.player.dirY * moveDist;
+
+        // Slide along X axis
+        const candidateX = state.player.x + deltaX;
+        if (isPositionWalkable(candidateX, state.player.y)) {
+          state.player.x = candidateX;
+        } else {
+          deltaX = 0; // Friction arrest on X wall
+        }
+
+        // Slide along Y axis
+        const candidateY = state.player.y + deltaY;
+        if (isPositionWalkable(state.player.x, candidateY)) {
+          state.player.y = candidateY;
+        } else {
+          deltaY = 0; // Friction arrest on Y wall
+        }
+
+        // 4. Traversed Distance Footstep Cadence
+        const actualStepDist = Math.hypot(deltaX, deltaY);
+        state.player.stepAccum += actualStepDist;
+        if (state.player.stepAccum >= 0.82) {
+          audio.playThud();
+          state.player.stepAccum -= 0.82;
+        }
+
+        // 5. Dynamic Encounter Stone Trigger
+        const currentTile = MAP[Math.floor(state.player.y) * MAP_SIZE + Math.floor(state.player.x)];
+        if (currentTile === 2) {
+          triggerEncounter();
+        }
+      }
+    }
+
+    /**
+     * Dispatches keydown state to continuous input map or discrete combat actions.
+     */
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') inputState.forward = true;
+      if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') inputState.backward = true;
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') inputState.turnLeft = true;
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') inputState.turnRight = true;
+
+      // Discrete Tactical Combat Actions
+      if (!e.repeat) {
+        if (e.key === '1') executeCombatAction(1);
+        if (e.key === '2') executeCombatAction(2);
+        if (e.key === '3') executeCombatAction(3);
+      }
+    });
+
+    /**
+     * Resets input state flags on key release.
+     */
+    window.addEventListener('keyup', (e) => {
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') inputState.forward = false;
+      if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') inputState.backward = false;
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') inputState.turnLeft = false;
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') inputState.turnRight = false;
+    });
+
+    let lastTimestamp = performance.now();
+
+    /**
+     * Authoritative presentation and simulation loop with delta-time integration.
+     * @param {number} timestamp Current continuous high-resolution DOM timestamp
+     * @returns {void}
+     */
+    function tick(timestamp) {
+      const dt = Math.min((timestamp - lastTimestamp) / 1000, 0.05);
+      lastTimestamp = timestamp;
+
+      updatePlayerKinematics(dt);
+      renderQ1();
+      renderQ2();
+      renderQ3();
+
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+
+    //#endregion
+  </script>
+</body>
+</html>

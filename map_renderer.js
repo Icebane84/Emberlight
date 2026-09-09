@@ -18,8 +18,6 @@
  */
 
 const EmberlightMapRenderer = (() => {
-	'use strict';
-
 	//#region [SEC-01] Type Definitions, Atlas Caching & Canvas Initializers
 	/**
 	 * Configuration options dictionary for the map renderer.
@@ -224,11 +222,51 @@ const EmberlightMapRenderer = (() => {
 		renderCtx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
 		const stones = [
 			{ x: 1, y: 1, w: 14, h: 9, col: '#1a1a2e', hi: '#2d2d4f', sh: '#0f0f1c' },
-			{ x: 16, y: 1, w: 15, h: 11, col: '#202038', hi: '#36365c', sh: '#121221' },
-			{ x: 2, y: 11, w: 13, h: 10, col: '#161626', hi: '#282845', sh: '#0d0d17' },
-			{ x: 16, y: 13, w: 14, h: 9, col: '#1d1d33', hi: '#303054', sh: '#10101d' },
-			{ x: 1, y: 22, w: 14, h: 9, col: '#22223b', hi: '#38385e', sh: '#131322' },
-			{ x: 16, y: 23, w: 15, h: 8, col: '#181829', hi: '#2a2a47', sh: '#0e0e19' },
+			{
+				x: 16,
+				y: 1,
+				w: 15,
+				h: 11,
+				col: '#202038',
+				hi: '#36365c',
+				sh: '#121221',
+			},
+			{
+				x: 2,
+				y: 11,
+				w: 13,
+				h: 10,
+				col: '#161626',
+				hi: '#282845',
+				sh: '#0d0d17',
+			},
+			{
+				x: 16,
+				y: 13,
+				w: 14,
+				h: 9,
+				col: '#1d1d33',
+				hi: '#303054',
+				sh: '#10101d',
+			},
+			{
+				x: 1,
+				y: 22,
+				w: 14,
+				h: 9,
+				col: '#22223b',
+				hi: '#38385e',
+				sh: '#131322',
+			},
+			{
+				x: 16,
+				y: 23,
+				w: 15,
+				h: 8,
+				col: '#181829',
+				hi: '#2a2a47',
+				sh: '#0e0e19',
+			},
 		];
 		stones.forEach((s) => drawStoneBlock(renderCtx, s));
 		tileAtlas.set('PATH', cobbleCanvas);
@@ -398,11 +436,11 @@ const EmberlightMapRenderer = (() => {
 	}
 
 	/**
-		 * Populates particle pool buffers with initial positions and velocities.
-		 * State-mutating particle initialization procedure.
-		 *
-		 * @returns {void}
-		 */
+	 * Populates particle pool buffers with initial positions and velocities.
+	 * State-mutating particle initialization procedure.
+	 *
+	 * @returns {void}
+	 */
 	function initParticles() {
 		particleNoiseSeed = 1337;
 		for (let i = 0; i < PARTICLE_COUNT; i++) {
@@ -415,13 +453,9 @@ const EmberlightMapRenderer = (() => {
 			particlePool[idx + 1] = (nextParticleFloat() - 0.5) * 400;
 			particlePool[idx + 2] = (nextParticleFloat() - 0.5) * 12;
 			particlePool[idx + 3] =
-				type === 0
-					? -8 - nextParticleFloat() * 10
-					: -2 - nextParticleFloat() * 4;
+				type === 0 ? -8 - nextParticleFloat() * 10 : -2 - nextParticleFloat() * 4;
 			particlePool[idx + 4] =
-				type === 0
-					? 1.5 + nextParticleFloat() * 2
-					: 1 + nextParticleFloat() * 1.5;
+				type === 0 ? 1.5 + nextParticleFloat() * 2 : 1 + nextParticleFloat() * 1.5;
 			particlePool[idx + 5] = 0.2 + nextParticleFloat() * 0.6;
 			particlePool[idx + 6] = type;
 		}
@@ -457,8 +491,7 @@ const EmberlightMapRenderer = (() => {
 			const screenY = h / 2 + particlePool[idx + 1];
 			const size = particlePool[idx + 4];
 
-			renderCtx.globalAlpha =
-				particlePool[idx + 5] * (0.8 + Math.sin(globalTime * 4 + i) * 0.2);
+			renderCtx.globalAlpha = particlePool[idx + 5] * (0.8 + Math.sin(globalTime * 4 + i) * 0.2);
 
 			if (type === 0) {
 				renderCtx.fillStyle = '#f59e0b';
@@ -592,16 +625,10 @@ const EmberlightMapRenderer = (() => {
 			const tileY = Math.floor((mouseY - offsetY) / TILE_SIZE);
 
 			const map = currentSnapshot.map || [];
-			if (
-				tileY >= 0 &&
-				tileY < map.length &&
-				tileX >= 0 &&
-				tileX < (map[0]?.length || 0)
-			) {
+			if (tileY >= 0 && tileY < map.length && tileX >= 0 && tileX < (map[0]?.length || 0)) {
 				const tileType = map[tileY][tileX];
 				const isPlayer =
-					tileX === currentSnapshot.playerPos?.x &&
-					tileY === currentSnapshot.playerPos?.y;
+					tileX === currentSnapshot.playerPos?.x && tileY === currentSnapshot.playerPos?.y;
 				const bus = resolveGlobalEventBus();
 				if (bus && typeof bus.publish === 'function') {
 					bus.publish('overworld:hover_tile', {
@@ -679,8 +706,7 @@ const EmberlightMapRenderer = (() => {
 	function resize() {
 		if (!canvas?.parentElement || !ctx) return;
 		const rect = canvas.parentElement.getBoundingClientRect();
-		const dpr =
-			typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+		const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
 		const w = Math.max(VIEW_WIDTH, Math.floor(rect.width || VIEW_WIDTH));
 		const h = Math.max(VIEW_HEIGHT, Math.floor(rect.height || VIEW_HEIGHT));
 		canvas.width = Math.floor(w * dpr);
@@ -702,13 +728,9 @@ const EmberlightMapRenderer = (() => {
 		if (typeof document === 'undefined') return;
 		const threatBar = document.getElementById('overworld-threat-gauge');
 		if (threatBar) {
-			const threatPct = Math.min(
-				100,
-				Math.round(((snapshot.dangerSteps || 0) / 5) * 100)
-			);
+			const threatPct = Math.min(100, Math.round(((snapshot.dangerSteps || 0) / 5) * 100));
 			threatBar.style.width = `${threatPct}%`;
-			threatBar.style.backgroundColor =
-				threatPct > 60 ? 'var(--danger)' : 'var(--ember)';
+			threatBar.style.backgroundColor = threatPct > 60 ? 'var(--danger)' : 'var(--ember)';
 		}
 	}
 
@@ -722,8 +744,7 @@ const EmberlightMapRenderer = (() => {
 	function updateCatacombMode(snapshot) {
 		if (typeof document === 'undefined') return;
 		const isCatacombs = Boolean(
-			(snapshot.dungeonDepth && snapshot.dungeonDepth > 0) ||
-			(snapshot.depth && snapshot.depth > 0)
+			(snapshot.dungeonDepth && snapshot.dungeonDepth > 0) || (snapshot.depth && snapshot.depth > 0)
 		);
 		const gridWrapper = document.getElementById('overworld-grid-wrapper');
 		if (gridWrapper) {
@@ -852,7 +873,11 @@ const EmberlightMapRenderer = (() => {
 	function renderEntitiesLayer(renderCtx, snapshot, visibleTiles, offsetX, offsetY) {
 		const playerPos = snapshot.playerPos || snapshot.pos || { x: 1, y: 1 };
 		const facing = snapshot.facing || 'DOWN';
-		const avatar = snapshot.avatar || { phenotype: 'HERO', weapon: 'IRON_SWORD', armor: null };
+		const avatar = snapshot.avatar || {
+			phenotype: 'HERO',
+			weapon: 'IRON_SWORD',
+			armor: null,
+		};
 		const entities = snapshot.entities || snapshot.monsters || [];
 
 		const drawList = [];
@@ -954,10 +979,22 @@ const EmberlightMapRenderer = (() => {
 		ctx.fillRect(0, 0, w, h);
 
 		const visibleTiles = computeLineOfSight(map, playerPos.x, playerPos.y, 7);
-		renderTerrainLayer(ctx, map, visibleTiles, { offsetX, offsetY, w, h, time: globalTime });
+		renderTerrainLayer(ctx, map, visibleTiles, {
+			offsetX,
+			offsetY,
+			w,
+			h,
+			time: globalTime,
+		});
 		renderQuestTargetLine(ctx, currentSnapshot, offsetX, offsetY, w, h);
 
-		const { pScreenX, pScreenY } = renderEntitiesLayer(ctx, currentSnapshot, visibleTiles, offsetX, offsetY);
+		const { pScreenX, pScreenY } = renderEntitiesLayer(
+			ctx,
+			currentSnapshot,
+			visibleTiles,
+			offsetX,
+			offsetY
+		);
 
 		renderDynamicLighting(ctx, w, h, pScreenX, pScreenY);
 		updateAndRenderAtmosphere(ctx, w, h, dt);
@@ -1023,10 +1060,7 @@ const EmberlightMapRenderer = (() => {
 			initParticles();
 			ensureCanvas();
 
-			if (
-				typeof window !== 'undefined' &&
-				typeof window.addEventListener === 'function'
-			) {
+			if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
 				window.addEventListener('resize', resize);
 			}
 			if (!animFrameId && typeof requestAnimationFrame !== 'undefined') {
@@ -1161,10 +1195,7 @@ const EmberlightMapRenderer = (() => {
 				cancelAnimationFrame(animFrameId);
 				animFrameId = null;
 			}
-			if (
-				typeof window !== 'undefined' &&
-				typeof window.removeEventListener === 'function'
-			) {
+			if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
 				window.removeEventListener('resize', resize);
 			}
 			if (canvas?.parentElement && typeof canvas.remove === 'function') {

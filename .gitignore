@@ -1,2 +1,5 @@
 .aider*
 .env
+.tmp.drivedownload
+.tmp.driveupload
+scratch/
