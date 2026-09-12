@@ -185,9 +185,15 @@ const EmberlightDistrictRouter = (() => {
 		const matrix = document.getElementById("war-table-matrix");
 		if (matrix) matrix.classList.remove("minimalist-travel-mode");
 		const rig = document.getElementById("expedition-rig");
-		if (rig) rig.classList.remove("minimalist-travel-mode");
+		if (rig) {
+			rig.classList.remove("minimalist-travel-mode", "navigation-suspended");
+		}
 		showElement("party-hud-panel");
 		hideElement("district-mount-container");
+		const q1Tag = document.getElementById("q1-pane-tag");
+		if (q1Tag) q1Tag.textContent = "[WASD] Step";
+		const q2Tag = document.getElementById("q2-pane-tag");
+		if (q2Tag) q2Tag.textContent = "Acoustic Frustum";
 		const q4Title = document.getElementById("q4-pane-title");
 		const q4Tag = document.getElementById("q4-pane-tag");
 		if (q4Title) q4Title.textContent = "🛡️ Q4: PARTY READINESS DECK";
@@ -212,13 +218,24 @@ const EmberlightDistrictRouter = (() => {
 		const matrix = document.getElementById("war-table-matrix");
 		const rig = document.getElementById("expedition-rig");
 		if (matrix) matrix.classList.remove("q2-immersion-deck");
-		if (rig) rig.classList.remove("q2-immersion-deck");
+		if (rig) {
+			rig.classList.remove("q2-immersion-deck");
+			rig.classList.add("navigation-suspended");
+		}
 		hideElement("party-hud-panel");
 		showElement("district-mount-container");
+		const q1Tag = document.getElementById("q1-pane-tag");
+		if (q1Tag) {
+			q1Tag.innerHTML = '<span style="color:var(--danger); font-weight:bold;">🔒 NAV LOCKED</span> <span style="color:var(--ember)">[ESC]</span>';
+		}
+		const q2Tag = document.getElementById("q2-pane-tag");
+		if (q2Tag) {
+			q2Tag.innerHTML = '<span style="color:var(--text-dim)">🔒 STANDBY</span>';
+		}
 		const q4Title = document.getElementById("q4-pane-title");
 		const q4Tag = document.getElementById("q4-pane-tag");
 		if (q4Title) q4Title.textContent = `📋 Q4: ${district} DISTRICT`;
-		if (q4Tag) q4Tag.textContent = "[ESC] Return";
+		if (q4Tag) q4Tag.innerHTML = '<span style="color:var(--ember); font-weight:bold;">[ESC] Return to Move</span>';
 
 		DISTRICT_VIEWS.forEach((id) => {
 			if (id === activeViewId) {
@@ -248,7 +265,9 @@ const EmberlightDistrictRouter = (() => {
 			hideElement("dialogue-view");
 		}
 
+		const cockpit = document.getElementById("game-cockpit");
 		if (district === "TITLE") {
+			if (cockpit) cockpit.classList.add("title-mode");
 			hideElement("war-table-matrix");
 			hideElement("district-nav");
 			hideElement("game-over-view");
@@ -256,6 +275,7 @@ const EmberlightDistrictRouter = (() => {
 			return;
 		}
 
+		if (cockpit) cockpit.classList.remove("title-mode");
 		hideElement("title-view");
 		hideElement("game-over-view");
 		showElement("war-table-matrix");

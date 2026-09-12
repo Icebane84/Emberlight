@@ -1,23 +1,23 @@
 ---
 name: zero-dependency-sovereign-engine
-description: Enforces flat-directory engine topology, zero-npm boundaries, VSRP-001 Faraday isolation, Action-Inversion contracts, and headless Node test execution.
-globs: "*.js, index.html, index.css, testing/*.js, data/settings.json"
+description: Enforces flat-directory and MPFS-001 modular pipeline topology, zero-npm boundaries, VSRP-001 Faraday isolation, load_order.js SSOT governance, Action-Inversion contracts, and headless Node test execution.
+globs: "*.js, index.html, index.css, testing/*.js, data/settings.json, manifest/*.js, combat/*.js, battler_baker/*.js, pseudo_3d/*.js, auditor/*.js"
 alwaysApply: true
-version: 2.2.0
+version: 3.0.0
 ---
 
 # AGENT OPERATIONAL SPECIFICATION: Zero-Dependency Sovereign Engine
 
-**Document Identifier:** SKILL-EMBERLIGHT-002-LOCKED
-**Protocol Version:** VSRP-001 / PMIP-001 / ARCH-001-EMBERLIGHT / PRS-001
-**Timestamp:** 2026-09-06T13:20:00-04:00
+**Document Identifier:** SKILL-EMBERLIGHT-003-LOCKED
+**Protocol Version:** VSRP-001 / PMIP-001 / ARCH-001-EMBERLIGHT / PRS-001 / MPFS-001
+**Timestamp:** 2026-09-11T07:30:00-04:00
 **Environment:** Pure Vanilla Browser Engine (Zero npm Dependencies) + Native Node Headless Test Harnesses
 
 ---
 
 ## 1. Non-Negotiable Environmental Invariants
 
-You are operating on a browser-native game engine whose core source modules reside in a single flat root directory. You MUST strictly adhere to the following boundaries:
+You are operating on a browser-native game engine whose architecture is governed by pure zero-npm execution, single-source load order, Faraday tenant isolation, and MPFS-001 modular pipelines. You MUST strictly adhere to the following boundaries:
 
 1. **ZERO NPM / PACKAGE-MANAGER DEPENDENCIES:**
    - NEVER suggest, run, or generate `npm`, `npx`, `yarn`, `pnpm`, or `bun`.
@@ -34,11 +34,17 @@ You are operating on a browser-native game engine whose core source modules resi
    - These test harnesses run strictly on Node's native built-in standard library (`node:vm`, `node:fs`, `node:path`, `node:assert`) with ZERO external packages.
    - NEVER introduce third-party test libraries (e.g., Jest, Mocha, Chai, Vitest, JSDOM).
 
-4. **FLAT SOURCE TOPOLOGY & DIRECTORY BOUNDARIES:**
-   - ALL core engine source modules, master styles (`index.css`), and host HTML shells (`index.html`) reside strictly at the PROJECT ROOT.
-   - NEVER create source code subdirectories (e.g., `/src`, `/lib`, `/core`, `/dist`).
-   - The only valid subdirectories are `/testing` (headless VM test scripts) and `/data` (immutable JSON manifests).
-   - Local engine script imports and references MUST use flat relative paths (e.g., `./manifest.js`).
+4. **DIRECTORY TOPOLOGY & MPFS-001 MODULAR PIPELINES:**
+   - Standalone engine modules, master styles (`index.css`), and host HTML shells (`index.html`) reside at the PROJECT ROOT.
+   - **Permitted Domain Subdirectories (MPFS-001):** Sub-modules are strictly confined to five canonical domain directories:
+     - `manifest/` (static configuration, actors, items, progression, world, narrative, calculators)
+     - `combat/` (calculation, displacement, queue, AI, state)
+     - `battler_baker/` (primitives, heroes, equipment, enemies, pipeline)
+     - `pseudo_3d/` (textures, DDA raycaster, billboards, pipeline)
+     - `auditor/` (kernel, contracts, district sims, combat extended, persistence, constitutional, endgame)
+   - **Faraday Staging Membrane Pattern:** Domain sub-modules populate temporary staging objects (e.g., `window._ManifestInternal`, `window._CombatInternal`, `window._BattlerBakerInternal`, `window._Pseudo3DInternal`, `window._AuditorInternal`).
+   - **Root Facade Sealing:** The corresponding root facade (`manifest.js`, `combat.js`, `battler_baker.js`, `pseudo_3d_renderer.js`, `auditor.js`) ingests the staging membrane, seals/freezes it into the public singleton (`EmberlightManifest`, `EmberlightCombat`, etc.), and completely purges the staging object (`delete window._*Internal`).
+   - **Banned Directories:** NEVER create arbitrary nested subdirectories (e.g., `/src`, `/lib`, `/core`, `/dist`, `/components`, `/utils`).
 
 5. **NO ES MODULE SYNTAX (DUAL-BINDING IIFE PATTERN):**
    - NEVER use `import ... from` or `export default / export const` in engine source files. Engine files are evaluated as global scripts in both the browser and `node:vm`.
@@ -47,49 +53,63 @@ You are operating on a browser-native game engine whose core source modules resi
      ```javascript
      const EmberlightModuleName = (() => {
        // Private simulation/driver closure
-       return { /* public interface */ };
+       return {
+         /* public interface */
+       };
      })();
 
-     if (typeof window !== 'undefined') window.EmberlightModuleName = EmberlightModuleName;
-     if (typeof module !== 'undefined') module.exports = EmberlightModuleName;
+     if (typeof window !== "undefined")
+       window.EmberlightModuleName = EmberlightModuleName;
+     if (typeof module !== "undefined") module.exports = EmberlightModuleName;
      ```
 
-6. **TOPOLOGICAL LOAD-ORDER SYNCHRONIZATION:**
-   - Because scripts are loaded sequentially without bundlers, load order matters.
-   - If you create or rename any script, you MUST register it in topological dependency order in TWO places:
-     1. As a `<script src="..."></script>` tag in `index.html`.
-     2. In the `scripts` array across all test suites: `testing/test_sentinel.js`, `testing/test_combat_input.js`, `testing/test_hotkeys_and_expansion.js`, and `testing/test_persistence_wiring.js`.
+6. **TOPOLOGICAL LOAD-ORDER SSOT GOVERNANCE (`testing/load_order.js`):**
+   - Sequential script evaluation order is authored in exactly ONE single source of truth: `testing/load_order.js`.
+   - When adding, removing, or reordering any module:
+     1. Insert the script path in dependency order into `testing/load_order.js`.
+     2. Insert the corresponding `<script src="..."></script>` tag in `index.html`.
+     3. Run `node testing/gen_html_scripts.js` to assert zero drift between the SSOT and `index.html`.
+     4. Run `node testing/test_sentinel.js` to assert 100% test pass.
 
 7. **FARADAY TENANT ISOLATION & DEEP CLONING (VSRP-001):**
-   - Tier 2 Simulation Tenants (`combat.js`, `overworld.js`, `progression.js`, etc.) MUST remain pure headless state machines operating in private closures.
+   - Tier 2 Simulation Tenants (`combat.js`, `overworld.js`, `progression.js`, `armory.js`, `market.js`, `chronicle.js`, `status.js`, `relic_forge.js`, `lockpick.js`, `dungeon_gen.js`, `settings.js`) MUST remain pure headless state machines operating in private closures.
    - Tier 2 code MUST NEVER reference DOM or browser globals (`document`, `window`, `localStorage`, `HTMLElement`, `alert`).
-   - Snapshot ingestion inside `reset(snapshot)` MUST use `structuredClone(snapshot)` to sever all object references. Shallow copies (`{ ...snapshot }`) violate AC-02.
+   - Snapshot ingestion inside `reset(snapshot)` MUST use `structuredClone(snapshot)` to sever all object references. Shallow copies violate AC-02.
    - State mutations leave simulation tenants exclusively via sealed delta envelopes published to `eventBus`.
 
 8. **DETERMINISTIC ENTROPY & PRNG FORK STREAMING (MULBERRY32):**
-   - Global unseeded `Math.random()` is STRICTLY FORBIDDEN in all simulation logic (Tier 2).
+   - Global unseeded `Math.random()` is STRICTLY FORBIDDEN in all simulation logic (Tier 2 and Tier 4).
    - All procedural generation, dice rolls, critical hit checks, encounter calculations, and relic forging MUST use `EmberlightPRNG` (`prng.js`).
-   - **PRNG State Ingestion & Branching:** The PRNG stream must ingest seed snapshots deterministically and support non-destructive cloning via `prng.fork()`. Lookahead forecasting (e.g., Threat Oracle damage predictions) MUST operate on forked streams to prevent corrupting the authoritative simulation entropy thread.
+   - Lookahead forecasting (e.g., Threat Oracle damage predictions) MUST operate on forked streams (`prng.fork()`) to prevent corrupting the authoritative simulation entropy thread.
    - Tier 3 presentation drivers MAY use `Math.random()` strictly for visual particle dispersion and acoustic jitter.
+
+9. **MULTI-SLOT PERSISTENCE & STORAGE ISOLATION (v1.4.0):**
+   - Persistence is orchestrated exclusively via `save_manager.js`.
+   - Supports multi-slot storage (`SLOT_1`, `SLOT_2`, `SLOT_3`, `AUTO_SAVE`) with metadata descriptors and sparse coordinate delta compression (<2.5KB budget).
+   - State rehydration must run through schema migration (`_autoMigrateLegacy()`) to safeguard backward compatibility.
+
+10. **DEDICATED TITLE SCREEN & COCKPIT MODAL TOPOLOGY:**
+    - The title screen runs in `#game-cockpit.title-mode`, decoupling title navigation and save slot management from the active game session.
+    - District modals (Shop, Forge, Audit) are triggered via in-world interaction gateways (`@`/`$` for Market, `B`/`F` for Forge), keeping the command bar uncluttered and context-aware.
 
 ---
 
-## 2. Component Tier Classification & Action-Inversion Matrix
+## 2. Component Tier Classification & 72-Module Authority Matrix
 
 Before writing or editing code, identify the target file's tier and obey its authority boundaries:
 
-| Tier | Resident Files | Authority & Strict Boundaries |
-| :--- | :--- | :--- |
-| **Tier 1: Host Harness** | `runtime.js`, `session_store.js`, `event_bus.js`, `district_router.js`, `world_ecology.js`, `save_manager.js` | Owns persistent SSOT (`canonicalParty`, `canonicalGold`, inventory), lifecycle orchestration, transactional commits, and event arbitration. Direct simulation combat math and direct presentation DOM rendering are forbidden. |
-| **Tier 2: Ephemeral Districts** | `combat.js`, `overworld.js`, `script.js`, `armory.js`, `progression.js`, `status.js`, `market.js`, `chronicle.js`, `relic_forge.js`, `lockpick.js`, `settings.js` | Headless simulation closures implementing the 9-method VSRP-001 contract. Zero DOM, zero autonomous clocks (`setTimeout`, `setInterval`, RAF), zero global `Math.random()`. **Interactive Communication:** Tier 2 tenants must NEVER call Tier 3 presentation handlers directly. All user inputs and control signals MUST be ingested via normalized action tokens (`handleHostAction(action)`), preserving 100% headless testability. |
-| **Tier 3: Peripheral Drivers** | `combat_renderer.js`, `map_renderer.js`, `armory_renderer.js`, `chronicle_renderer.js`, `progression_renderer.js`, `market_renderer.js`, `status_renderer.js`, `relic_forge_renderer.js`, `cockpit_renderer.js`, `acoustic_sfx.js`, `synth_soundtrack.js`, `synthetic_voice.js`, `input.js`, `icons.js`, `skill_icons.js`, `party_icons.js`, `sprite_baker.js`, `battler_baker.js`, `battle_backdrop.js`, `combat_vfx.js`, `dynamic_lights.js`, `pseudo_3d_renderer.js`, `shader_compositor.js`, `threat_oracle.js` | Pure presentation and hardware translation. Owns DOM elements, canvas buffers, CSS classes, Web Audio synthesis, and hardware input normalization. ZERO simulation authority. Communicates strictly by emitting normalized action tokens to callbacks. |
-| **Tier 4: Kernels & Gatekeepers** | `manifest.js`, `prng.js`, `dungeon_gen.js`, `auditor.js` | Pure deterministic math kernels, static schema SSOT (frozen via `Object.freeze`), procedural floor carvers, and the 19-pass verification gate. |
+| Tier                                                    | Resident Modules (72 Canonical Files)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Authority & Strict Boundaries                                                                                                                                                                                                                                                                   |
+| :------------------------------------------------------ | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Tier 1: Host Harness & Persistence**                  | `runtime.js`, `session_store.js`, `event_bus.js`, `district_router.js`, `world_ecology.js`, `save_manager.js`                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Owns persistent SSOT (`canonicalParty`, `canonicalGold`, inventory, quest state), lifecycle orchestration, transactional commits, multi-slot persistence, and event arbitration. Direct simulation combat math and direct presentation DOM rendering are forbidden.                             |
+| **Tier 2: Ephemeral Districts (11 Simulation Tenants)** | `combat.js` (+ `combat/*.js`), `overworld.js`, `progression.js`, `armory.js`, `market.js`, `chronicle.js`, `status.js`, `relic_forge.js`, `dungeon_gen.js`, `lockpick.js`, `settings.js`, `script.js`                                                                                                                                                                                                                                                                                                                                                             | Headless simulation closures implementing the 9-method VSRP-001 contract. Zero DOM, zero autonomous clocks (`setTimeout`, `setInterval`, RAF), zero global `Math.random()`. User inputs and control signals are ingested exclusively via normalized action tokens (`handleHostAction(action)`). |
+| **Tier 3: Peripheral Drivers & Renderers**              | `combat_renderer.js`, `map_renderer.js`, `armory_renderer.js`, `chronicle_renderer.js`, `progression_renderer.js`, `market_renderer.js`, `status_renderer.js`, `relic_forge_renderer.js`, `cockpit_renderer.js`, `pseudo_3d_renderer.js` (+ `pseudo_3d/*.js`), `battler_baker.js` (+ `battler_baker/*.js`), `battle_backdrop.js`, `combat_vfx.js`, `dynamic_lights.js`, `shader_compositor.js`, `threat_oracle.js`, `acoustic_sfx.js`, `synth_soundtrack.js`, `synthetic_voice.js`, `input.js`, `icons.js`, `skill_icons.js`, `party_icons.js`, `sprite_baker.js` | Pure presentation, canvas graphics, asset baking, audio synthesis, and hardware input normalization. ZERO simulation authority. Communicates strictly by emitting normalized action tokens to callbacks or listening to EventBus deltas.                                                        |
+| **Tier 4: Kernels & Gatekeepers**                       | `manifest.js` (+ `manifest/*.js`), `prng.js`, `auditor.js` (+ `auditor/*.js`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Pure deterministic math kernels, static schema SSOT (frozen via `Object.freeze`), procedural generation algorithms, and the 19-pass verification gatekeeper.                                                                                                                                    |
 
 ---
 
 ## 3. Large File Editing & Partitioning Rules
 
-When modifying files exceeding 500 lines (e.g., `combat.js`, `runtime.js`, `manifest.js`):
+When modifying large or sectioned engine files:
 
 1. **Read Table of Contents & Anchors First:**
    - Inspect lines 1–60 to find the file's architectural index and locate the exact section anchor (e.g., `[SEC-03] DAMAGE FORMULAS`).
@@ -102,7 +122,7 @@ When modifying files exceeding 500 lines (e.g., `combat.js`, `runtime.js`, `mani
    - NEVER leak closure-scoped variables across region boundaries.
    - NEVER delete, rename, or collapse region headers without an explicit refactoring instruction.
 3. **Preserve JSDoc Type Contracts:**
-   - Maintain all `@typedef`, `@param`, and `@returns` annotations to preserve VS Code's `checkJs: true` static type analysis and ensure calculation functions remain extraction-ready.
+   - Maintain all `@typedef`, `@param`, and `@returns` annotations to preserve VS Code's `checkJs: true` static type analysis.
 
 ---
 
@@ -116,73 +136,78 @@ After any architectural or functional modification, execute the master 19-pass S
 
 ```bash
 node testing/test_sentinel.js
-
 ```
 
-- **What:** Spawns an isolated `node:vm` context, loads all engine scripts, boots `GameRuntime`, and executes `EmberlightAuditor` across all 19 passes (127/127 checks).
-- **Invariant Assertions:** Asserts VSRP-001 9-method compliance, Faraday memory isolation, deterministic Mulberry32 PRNG authority, formation shielding, boss enrage phases, persistence compression (<2.5KB), and EventBus listener teardown.
 - **Acceptance Criteria:** The script MUST exit with code 0:
-`=== SENTINEL AUDIT 100% SUCCESS: 127/127 CHECKS PASSED ===`
+  `=== SENTINEL AUDIT 100% SUCCESS: 127/127 CHECKS PASSED ===`
+
+### Load Order & Script Parity Gate (Mandatory Run on Script Changes)
+
+Whenever creating, renaming, or reordering scripts:
+
+```bash
+node testing/gen_html_scripts.js
+```
+
+- **Acceptance Criteria:** Exits code 0 with zero drift detected between `testing/load_order.js` and `index.html`.
 
 ### Targeted Subsystem Test Suites
 
 When modifying specific engine domains, run the corresponding targeted test suite:
 
-- **Combat Input, Command Hub & Tab Hotkeys:**
+- **Combat Input, Command Hub & Hotkeys:**
 
-```bash
-node testing/test_combat_input.js
-
-```
+  ```bash
+  node testing/test_combat_input.js
+  ```
 
 - **Viewport Expansion & 3D Crawler Kinematics:**
 
-```bash
-node testing/test_hotkeys_and_expansion.js
-
-```
+  ```bash
+  node testing/test_hotkeys_and_expansion.js
+  ```
 
 - **Combat Victory Lifecycle & Transitions:**
 
-```bash
-node testing/test_combat_victory_transition.js
+  ```bash
+  node testing/test_combat_victory_transition.js
+  ```
 
-```
+- **Persistence, Multi-Slot Storage & Migrations:**
 
-- **Persistence, Migrations & Storage Faults:**
-
-```bash
-node testing/test_persistence_wiring.js
-
-```
+  ```bash
+  node testing/test_persistence_wiring.js
+  ```
 
 - **Decoupled Input & Centralized Settings SSOT:**
 
-```bash
-node testing/test_input_settings_integration.js
+  ```bash
+  node testing/test_input_settings_integration.js
+  ```
 
-```
+### 19-Pass Sentinel Architecture Reference
 
-### Static Oracle Cross-Reference
+Before writing code, inspect the corresponding pass in `auditor.js` / `auditor/*.js` to satisfy the exact assertions:
 
-Before writing code, inspect the corresponding pass in `auditor.js` to ensure your implementation satisfies the exact assertions that the test runner enforces:
-
-- **Lifecycle & Faraday Traps:** Pass 1 & Pass 17 (`AC-01` to `AC-10`)
-- **Combat Simulation & Damage Formulas:** Pass 2
-- **Overworld Navigation & Collision:** Pass 3 & Pass 15
-- **Market Commerce & Purse Deltas:** Pass 4
-- **Progression Constellation Graph & Respec:** Pass 5
-- **Harmonic Lockpick Waves:** Pass 6
-- **Relic Forge Determinism:** Pass 7
-- **Pseudo-3D Raycaster & Buffer Telemetry:** Pass 8 & Pass 12
-- **SDCP Capabilities & Anti-Entropy Seal:** Pass 9
-- **Formation Shielding & Vanguard Interception:** Pass 10
-- **Boss Enrage Phases & Status Ailment DOTs:** Pass 11
-- **Persistence Compression & EventBus Teardown:** Pass 13
-- **Battler Paper-Doll Art & Biome Backdrops:** Pass 14
-- **Surfacing & Stat Projections:** Pass 16
-- **Tactical Displacement (Knockback / Pull):** Pass 18
-- **Deep Analysis Workstation & ECG Oscilloscope:** Pass 19
+- **Pass 1:** Contract & Faraday Isolation Battery (`AC-01` to `AC-10`)
+- **Pass 2:** Headless Combat Simulation (20 Matches, Zero NaN, Zero Leak)
+- **Pass 3:** Overworld Simulation & Collision Matrix
+- **Pass 4:** Market Commerce & Economy Balance
+- **Pass 5:** Progression & Skill Tree Graph Validation (77 Nodes, Respec)
+- **Pass 6:** Harmonic Lockpick Resonance & Envelope Battery
+- **Pass 7:** Relic Forge Determinism & Economic Envelope Battery
+- **Pass 8:** Pseudo-3D Raycaster Headless Buffer & Telemetry Battery
+- **Pass 9:** SDCP-001 Capability Registry & Anti-Entropy Seal
+- **Pass 10:** Formation Topology & Backline Shielding Invariance
+- **Pass 11:** Boss Phase Shaders & Status Ailment Invariance
+- **Pass 12:** Dual-Perspective & 3D Raycaster Immersion Battery (960x360 / 75° FOV)
+- **Pass 13:** Persistence Compression (<2.5KB) & EventBus Teardown Battery
+- **Pass 14:** Battler Sprite Synthesis (10/10 Battlers) & Procedural Backdrops (4 Biomes)
+- **Pass 15:** Overworld Mutability, Chest Looting & Navigation Invariance
+- **Pass 16:** Surfacing & Legibility Engine Battery (Dynamic Stats, 5 Quests, Pouch)
+- **Pass 17:** VSRP-001 Constitutional Compliance Battery (`AC-01` to `AC-10`)
+- **Pass 18:** Tactical Displacement & Row Invariance (Knockback / Pull / Boss Immunity)
+- **Pass 19:** Deep Analysis Mode & Workstation Architecture (Biometrics, Radar Canvas)
 
 ---
 
@@ -191,6 +216,6 @@ Before writing code, inspect the corresponding pass in `auditor.js` to ensure yo
 If executing any test harness emits an assertion failure or non-zero exit code:
 
 1. **Analyze the Trace:** Read the exact error message and stack trace emitted by `node:assert`.
-2. **Isolate the Violation:** Determine whether the failure was caused by a contract violation, a Faraday isolation breach, or a mathematical divergence.
+2. **Isolate the Violation:** Determine whether the failure was caused by a contract violation, a Faraday isolation breach, a load order mismatch, or a mathematical divergence.
 3. **Self-Correct & Re-Run:** Refactor the code strictly within its tier boundaries and re-run the failed test script until it passes cleanly.
-4. **Final Gate Attestation:** Re-run `node testing/test_sentinel.js` to confirm no secondary regressions were introduced across the other 18 passes.
+4. **Final Gate Attestation:** Re-run `node testing/test_sentinel.js` and `node testing/gen_html_scripts.js` to confirm 100% clean verification across all passes and load-order parity.

@@ -134,6 +134,8 @@ const EmberlightMapRenderer = (() => {
 	let actionDispatch = null;
 	/** @type {any} */
 	let eventBusRef = null;
+	/** @type {{ x: number, y: number } | null} */
+	let targetedTileCoord = null;
 
 	// Damped Camera State (World Pixels)
 	/** @type {MapCameraState} */
@@ -143,6 +145,14 @@ const EmberlightMapRenderer = (() => {
 		targetX: 48,
 		targetY: 48,
 		damping: 0.18,
+	};
+
+	// Cached Viewport Matrix (for screen-to-world coordinate translation)
+	let lastViewportState = {
+		zoom: 1.0,
+		offsetX: 0,
+		offsetY: 0,
+		rect: { left: 0, top: 0, width: 480, height: 320 },
 	};
 
 	// Zero-Allocation Sprite Cache
@@ -268,7 +278,9 @@ const EmberlightMapRenderer = (() => {
 				sh: '#0e0e19',
 			},
 		];
-		stones.forEach((s) => drawStoneBlock(renderCtx, s));
+		stones.forEach((s) => {
+			drawStoneBlock(renderCtx, s);
+		});
 		tileAtlas.set('PATH', cobbleCanvas);
 	}
 
@@ -403,6 +415,109 @@ const EmberlightMapRenderer = (() => {
 		}
 	}
 
+	function bakeTownWall() {
+		const wallCanvas = createOffscreenCanvas();
+		if (!wallCanvas) return;
+		const wallCtx = wallCanvas.getContext('2d');
+		if (!wallCtx) return;
+
+		// Deep dark foundation
+		wallCtx.fillStyle = '#140c06';
+		wallCtx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+
+		// Warm horizontal wooden planks
+		for (let y = 4; y < 28; y += 4) {
+			wallCtx.fillStyle = (y % 8 === 0) ? '#965a2a' : '#aa6a35';
+			wallCtx.fillRect(2, y, 28, 3.5);
+			// Wood grain highlights
+			wallCtx.fillStyle = '#b87640';
+			wallCtx.fillRect(4, y + 1, 10, 1);
+			wallCtx.fillRect(18, y + 1, 8, 1);
+		}
+
+		// Dark oak timber framing studs
+		wallCtx.fillStyle = '#4a250c';
+		wallCtx.fillRect(2, 2, 4, 28); // Left heavy post
+		wallCtx.fillRect(26, 2, 4, 28); // Right heavy post
+		wallCtx.fillRect(14, 2, 4, 28); // Center beam
+		wallCtx.fillRect(2, 2, 28, 3); // Top horizontal beam
+		wallCtx.fillRect(2, 27, 28, 3); // Bottom sill
+
+		// Diagonal timber brace
+		wallCtx.fillStyle = '#3d1e0a';
+		wallCtx.beginPath();
+		wallCtx.moveTo(6, 6);
+		wallCtx.lineTo(14, 14);
+		wallCtx.lineTo(14, 17);
+		wallCtx.lineTo(6, 9);
+		wallCtx.closePath();
+		wallCtx.fill();
+
+		// Iron rivet studs
+		wallCtx.fillStyle = '#1e1e1e';
+		wallCtx.fillRect(4, 4, 2, 2);
+		wallCtx.fillRect(26, 4, 2, 2);
+		wallCtx.fillRect(4, 26, 2, 2);
+		wallCtx.fillRect(26, 26, 2, 2);
+		wallCtx.fillRect(15, 15, 2, 2);
+
+		// Terracotta/timber eave cap
+		wallCtx.fillStyle = '#78350f';
+		wallCtx.fillRect(0, 0, TILE_SIZE, 3);
+
+		tileAtlas.set('TOWN_WALL', wallCanvas);
+	}
+
+	function bakeTownPath() {
+		const cobbleCanvas = createOffscreenCanvas();
+		if (!cobbleCanvas) return;
+		const renderCtx = cobbleCanvas.getContext('2d');
+		if (!renderCtx) return;
+		renderCtx.fillStyle = '#141320';
+		renderCtx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+		const stones = [
+			{ x: 1, y: 1, w: 14, h: 9, col: '#2c293e', hi: '#423d5d', sh: '#181624' },
+			{ x: 16, y: 1, w: 15, h: 11, col: '#333048', hi: '#4b476b', sh: '#1d1b2b' },
+			{ x: 2, y: 11, w: 13, h: 10, col: '#28253a', hi: '#3e3a58', sh: '#161422' },
+			{ x: 16, y: 13, w: 14, h: 9, col: '#302d44', hi: '#484366', sh: '#1b1928' },
+			{ x: 1, y: 22, w: 14, h: 9, col: '#35324c', hi: '#4f4b71', sh: '#1f1d2e' },
+			{ x: 16, y: 23, w: 15, h: 8, col: '#2a273c', hi: '#403c5b', sh: '#171523' },
+		];
+		stones.forEach((s) => {
+			drawStoneBlock(renderCtx, s);
+		});
+		tileAtlas.set('TOWN_PATH', cobbleCanvas);
+	}
+
+	function bakeTownGate() {
+		const gateCanvas = createOffscreenCanvas();
+		if (!gateCanvas) return;
+		const ctx = gateCanvas.getContext('2d');
+		if (!ctx) return;
+		ctx.fillStyle = '#0a0a14';
+		ctx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+		// Stone pillars
+		ctx.fillStyle = '#334155';
+		ctx.fillRect(1, 2, 7, 28);
+		ctx.fillRect(24, 2, 7, 28);
+		ctx.fillStyle = '#64748b';
+		ctx.fillRect(0, 0, TILE_SIZE, 6);
+		// Archway opening
+		ctx.fillStyle = '#181410';
+		ctx.fillRect(8, 6, 16, 26);
+		// Iron portcullis teeth
+		ctx.fillStyle = '#94a3b8';
+		for (let x = 9; x <= 22; x += 3) {
+			ctx.fillRect(x, 6, 1.5, 18);
+		}
+		ctx.fillRect(8, 12, 16, 1.5);
+		// Golden warning torches
+		ctx.fillStyle = '#f59e0b';
+		ctx.fillRect(3, 10, 3, 5);
+		ctx.fillRect(26, 10, 3, 5);
+		tileAtlas.set('TOWN_GATE', gateCanvas);
+	}
+
 	/**
 	 * Pre-renders procedural textures for all terrain tiles.
 	 * State-mutating texture atlas baking procedure.
@@ -413,6 +528,9 @@ const EmberlightMapRenderer = (() => {
 		if (typeof document === 'undefined') return;
 		bakeCobblestonePath();
 		bakeBedrockWall();
+		bakeTownWall();
+		bakeTownPath();
+		bakeTownGate();
 		bakeWaterFrames();
 		bakeGrassFrames();
 		bakeIceAndMiasma();
@@ -760,18 +878,24 @@ const EmberlightMapRenderer = (() => {
 		const worldPixelWidth = mapCols * TILE_SIZE;
 		const worldPixelHeight = mapRows * TILE_SIZE;
 
-		camera.targetX = playerPos.x * TILE_SIZE + TILE_SIZE / 2;
-		camera.targetY = playerPos.y * TILE_SIZE + TILE_SIZE / 2;
-		camera.x += (camera.targetX - camera.x) * camera.damping;
-		camera.y += (camera.targetY - camera.y) * camera.damping;
-
 		const halfViewW = w / 2;
 		const halfViewH = h / 2;
 
-		if (worldPixelWidth > w) {
+		if (worldPixelWidth <= w) {
+			camera.targetX = worldPixelWidth / 2;
+			camera.x = worldPixelWidth / 2;
+		} else {
+			camera.targetX = playerPos.x * TILE_SIZE + TILE_SIZE / 2;
+			camera.x += (camera.targetX - camera.x) * camera.damping;
 			camera.x = Math.max(halfViewW, Math.min(worldPixelWidth - halfViewW, camera.x));
 		}
-		if (worldPixelHeight > h) {
+
+		if (worldPixelHeight <= h) {
+			camera.targetY = worldPixelHeight / 2;
+			camera.y = worldPixelHeight / 2;
+		} else {
+			camera.targetY = playerPos.y * TILE_SIZE + TILE_SIZE / 2;
+			camera.y += (camera.targetY - camera.y) * camera.damping;
 			camera.y = Math.max(halfViewH, Math.min(worldPixelHeight - halfViewH, camera.y));
 		}
 	}
@@ -787,23 +911,221 @@ const EmberlightMapRenderer = (() => {
 			renderCtx.fillRect(screenX + 8, screenY + 10, 16, 12);
 			renderCtx.strokeStyle = '#fbbf24';
 			renderCtx.strokeRect(screenX + 8, screenY + 10, 16, 12);
+		} else if (tile === 'H') {
+			// The Hearth Inn — cozy golden beacon and timber roof
+			renderCtx.fillStyle = 'rgba(245, 158, 11, 0.25)';
+			renderCtx.beginPath();
+			renderCtx.arc(screenX + 16, screenY + 16, 12 + Math.sin(globalTime * 4) * 2, 0, Math.PI * 2);
+			renderCtx.fill();
+			renderCtx.fillStyle = '#78350f';
+			renderCtx.fillRect(screenX + 6, screenY + 11, 20, 15);
+			renderCtx.fillStyle = '#fbbf24';
+			renderCtx.fillRect(screenX + 13, screenY + 15, 6, 8);
+			renderCtx.fillStyle = '#b45309';
+			renderCtx.beginPath();
+			renderCtx.moveTo(screenX + 4, screenY + 11);
+			renderCtx.lineTo(screenX + 16, screenY + 3);
+			renderCtx.lineTo(screenX + 28, screenY + 11);
+			renderCtx.closePath();
+			renderCtx.fill();
+		} else if (tile === 'N') {
+			// Town Notice Board — wooden post with double parchment notices
+			renderCtx.fillStyle = '#78350f';
+			renderCtx.fillRect(screenX + 14, screenY + 18, 4, 12);
+			renderCtx.fillStyle = '#92400e';
+			renderCtx.fillRect(screenX + 6, screenY + 6, 20, 14);
+			renderCtx.fillStyle = '#fef3c7';
+			renderCtx.fillRect(screenX + 8, screenY + 8, 6, 9);
+			renderCtx.fillRect(screenX + 17, screenY + 8, 6, 9);
+		} else if (tile === 'A') {
+			// Ancient Aether Shrine — glowing celestial monolith
+			const pulse = Math.sin(globalTime * 5) * 2.5;
+			renderCtx.fillStyle = 'rgba(56, 189, 248, 0.3)';
+			renderCtx.beginPath();
+			renderCtx.arc(screenX + 16, screenY + 16, 13 + pulse, 0, Math.PI * 2);
+			renderCtx.fill();
+			renderCtx.fillStyle = '#0f172a';
+			renderCtx.fillRect(screenX + 8, screenY + 6, 16, 20);
+			renderCtx.strokeStyle = '#38bdf8';
+			renderCtx.lineWidth = 1.5;
+			renderCtx.strokeRect(screenX + 8, screenY + 6, 16, 20);
+			renderCtx.fillStyle = '#7dd3fc';
+			renderCtx.beginPath();
+			renderCtx.arc(screenX + 16, screenY + 14, 4, 0, Math.PI * 2);
+			renderCtx.fill();
+		} else if (tile === '*') {
+			// Resource Cache — shimmering emerald diamond glint
+			const sparkle = Math.sin(globalTime * 7) * 2;
+			renderCtx.fillStyle = 'rgba(52, 211, 153, 0.25)';
+			renderCtx.beginPath();
+			renderCtx.arc(screenX + 16, screenY + 16, 10 + sparkle, 0, Math.PI * 2);
+			renderCtx.fill();
+			renderCtx.fillStyle = '#34d399';
+			renderCtx.beginPath();
+			renderCtx.moveTo(screenX + 16, screenY + 8);
+			renderCtx.lineTo(screenX + 23, screenY + 16);
+			renderCtx.lineTo(screenX + 16, screenY + 24);
+			renderCtx.lineTo(screenX + 9, screenY + 16);
+			renderCtx.closePath();
+			renderCtx.fill();
+			renderCtx.strokeStyle = '#a7f3d0';
+			renderCtx.stroke();
+		} else if (tile === 'E') {
+			// Elder Rowan — cloaked sage figure with golden wisdom halo
+			renderCtx.fillStyle = 'rgba(234, 179, 8, 0.2)';
+			renderCtx.beginPath();
+			renderCtx.arc(screenX + 16, screenY + 16, 11, 0, Math.PI * 2);
+			renderCtx.fill();
+			renderCtx.fillStyle = '#0369a1';
+			renderCtx.fillRect(screenX + 10, screenY + 12, 12, 14);
+			renderCtx.fillStyle = '#fef08a';
+			renderCtx.beginPath();
+			renderCtx.arc(screenX + 16, screenY + 9, 4, 0, Math.PI * 2);
+			renderCtx.fill();
+		} else if (tile === 'D') {
+			// Oakhaven Town Archway
+			renderCtx.fillStyle = '#334155';
+			renderCtx.fillRect(screenX + 4, screenY + 4, 8, 24);
+			renderCtx.fillRect(screenX + 20, screenY + 4, 8, 24);
+			renderCtx.fillStyle = '#64748b';
+			renderCtx.fillRect(screenX + 4, screenY + 4, 24, 6);
+		} else if (tile === 'S') {
+			// Catacombs Crypt Gate — pulsing void violet gateway
+			renderCtx.fillStyle = 'rgba(168, 85, 247, 0.3)';
+			renderCtx.beginPath();
+			renderCtx.arc(screenX + 16, screenY + 16, 13 + Math.sin(globalTime * 6) * 2, 0, Math.PI * 2);
+			renderCtx.fill();
+			renderCtx.fillStyle = '#1e1b4b';
+			renderCtx.fillRect(screenX + 6, screenY + 6, 20, 20);
+			renderCtx.strokeStyle = '#c084fc';
+			renderCtx.lineWidth = 1.5;
+			renderCtx.strokeRect(screenX + 6, screenY + 6, 20, 20);
+			renderCtx.fillStyle = '#581c87';
+			renderCtx.fillRect(screenX + 10, screenY + 10, 12, 12);
+		} else if (tile === 'V') {
+			// Afflicted Villager / Traveler — hooded figure in purple tunic
+			renderCtx.fillStyle = 'rgba(168, 85, 247, 0.2)';
+			renderCtx.beginPath();
+			renderCtx.arc(screenX + 16, screenY + 16, 10, 0, Math.PI * 2);
+			renderCtx.fill();
+			// Torso / Tunic
+			renderCtx.fillStyle = '#6b21a8';
+			renderCtx.fillRect(screenX + 10, screenY + 13, 12, 13);
+			// Hood / Head
+			renderCtx.fillStyle = '#c084fc';
+			renderCtx.beginPath();
+			renderCtx.arc(screenX + 16, screenY + 10, 4.5, 0, Math.PI * 2);
+			renderCtx.fill();
+			renderCtx.fillStyle = '#fed7aa';
+			renderCtx.fillRect(screenX + 14, screenY + 10, 4, 3);
+		} else if (tile === 'G') {
+			// Gate Captain Kael / Armored Guard — steel helm, cobalt tabard & shield
+			renderCtx.fillStyle = 'rgba(59, 130, 246, 0.25)';
+			renderCtx.beginPath();
+			renderCtx.arc(screenX + 16, screenY + 16, 11, 0, Math.PI * 2);
+			renderCtx.fill();
+			// Armor body
+			renderCtx.fillStyle = '#1e3a8a';
+			renderCtx.fillRect(screenX + 10, screenY + 12, 12, 14);
+			// Steel Helmet
+			renderCtx.fillStyle = '#94a3b8';
+			renderCtx.fillRect(screenX + 11, screenY + 6, 10, 8);
+			renderCtx.fillStyle = '#f59e0b';
+			renderCtx.fillRect(screenX + 13, screenY + 9, 6, 2); // visor
+			// Shield
+			renderCtx.fillStyle = '#cbd5e1';
+			renderCtx.fillRect(screenX + 6, screenY + 12, 4, 12);
+			renderCtx.strokeStyle = '#3b82f6';
+			renderCtx.lineWidth = 1;
+			renderCtx.strokeRect(screenX + 6, screenY + 12, 4, 12);
+		} else if (tile === '@') {
+			// Merchant Caravan / Pack Camel — camel silhouette with cargo bundles
+			renderCtx.fillStyle = 'rgba(217, 119, 6, 0.2)';
+			renderCtx.beginPath();
+			renderCtx.arc(screenX + 16, screenY + 16, 12, 0, Math.PI * 2);
+			renderCtx.fill();
+			// Camel body
+			renderCtx.fillStyle = '#b45309';
+			renderCtx.fillRect(screenX + 7, screenY + 12, 18, 12);
+			// Cargo pack
+			renderCtx.fillStyle = '#f59e0b';
+			renderCtx.fillRect(screenX + 11, screenY + 7, 10, 8);
+			renderCtx.strokeStyle = '#78350f';
+			renderCtx.lineWidth = 1;
+			renderCtx.strokeRect(screenX + 11, screenY + 7, 10, 8);
+			// Neck & head
+			renderCtx.fillStyle = '#b45309';
+			renderCtx.fillRect(screenX + 22, screenY + 6, 5, 10);
+			renderCtx.fillRect(screenX + 24, screenY + 4, 6, 5);
+		} else if (tile === 'B') {
+			// Blacksmith Forge / Armory — glowing anvil and forge hearth
+			renderCtx.fillStyle = 'rgba(239, 68, 68, 0.25)';
+			renderCtx.beginPath();
+			renderCtx.arc(screenX + 16, screenY + 16, 12 + Math.sin(globalTime * 5) * 2, 0, Math.PI * 2);
+			renderCtx.fill();
+			renderCtx.fillStyle = '#451a03';
+			renderCtx.fillRect(screenX + 6, screenY + 10, 20, 16);
+			renderCtx.fillStyle = '#ef4444';
+			renderCtx.fillRect(screenX + 12, screenY + 14, 8, 8);
+			renderCtx.fillStyle = '#fbbf24';
+			renderCtx.fillRect(screenX + 14, screenY + 16, 4, 4);
+		} else if (tile === 'F') {
+			// Relic Crucible / Arcane Forge — spinning arcane crucible
+			const runePulse = Math.sin(globalTime * 6) * 2;
+			renderCtx.fillStyle = 'rgba(168, 85, 247, 0.3)';
+			renderCtx.beginPath();
+			renderCtx.arc(screenX + 16, screenY + 16, 11 + runePulse, 0, Math.PI * 2);
+			renderCtx.fill();
+			renderCtx.fillStyle = '#312e81';
+			renderCtx.fillRect(screenX + 8, screenY + 8, 16, 16);
+			renderCtx.strokeStyle = '#a855f7';
+			renderCtx.lineWidth = 1.5;
+			renderCtx.strokeRect(screenX + 8, screenY + 8, 16, 16);
+		} else if (tile === 'P') {
+			// Portcullis Locked — heavy iron gate
+			renderCtx.fillStyle = '#0f172a';
+			renderCtx.fillRect(screenX + 2, screenY + 2, 28, 28);
+			renderCtx.fillStyle = '#94a3b8';
+			for (let gx = screenX + 5; gx <= screenX + 25; gx += 4) {
+				renderCtx.fillRect(gx, screenY + 4, 2, 24);
+			}
+			renderCtx.fillRect(screenX + 3, screenY + 12, 26, 2.5);
+			renderCtx.fillRect(screenX + 3, screenY + 20, 26, 2.5);
+		} else if (tile === '/') {
+			// Portcullis Open — raised gate
+			renderCtx.fillStyle = '#0f172a';
+			renderCtx.fillRect(screenX + 2, screenY + 2, 28, 6);
+			renderCtx.fillStyle = '#64748b';
+			renderCtx.fillRect(screenX + 4, screenY + 2, 24, 4);
+		} else if (tile === '_') {
+			// Stone Pressure Plate
+			renderCtx.fillStyle = '#334155';
+			renderCtx.fillRect(screenX + 6, screenY + 6, 20, 20);
+			renderCtx.fillStyle = '#38bdf8';
+			renderCtx.fillRect(screenX + 11, screenY + 11, 10, 10);
 		} else if (tile === '>') {
 			renderCtx.fillStyle = '#1e1b4b';
 			renderCtx.fillRect(screenX + 6, screenY + 6, 20, 20);
 			renderCtx.strokeStyle = '#a855f7';
 			renderCtx.strokeRect(screenX + 6, screenY + 6, 20, 20);
+		} else if (tile === '<') {
+			renderCtx.fillStyle = '#0f172a';
+			renderCtx.fillRect(screenX + 6, screenY + 6, 20, 20);
+			renderCtx.strokeStyle = '#38bdf8';
+			renderCtx.strokeRect(screenX + 6, screenY + 6, 20, 20);
 		}
 	}
 
-	function drawTile(renderCtx, tile, screenX, screenY, waterFrame, grassFrame) {
+	function drawTile(renderCtx, tile, screenX, screenY, waterFrame, grassFrame, isTown = false) {
 		let tileImg = null;
-		if (tile === '.') tileImg = tileAtlas.get('PATH');
-		else if (tile === '#') tileImg = tileAtlas.get('WALL');
+		if (tile === '.') tileImg = tileAtlas.get(isTown ? 'TOWN_PATH' : 'PATH');
+		else if (tile === '#') tileImg = tileAtlas.get(isTown ? 'TOWN_WALL' : 'WALL');
+		else if (tile === 'O' || (isTown && tile === 'D')) tileImg = tileAtlas.get('TOWN_GATE');
 		else if (tile === '~') tileImg = tileAtlas.get(`WATER_${waterFrame}`);
 		else if (tile === '"') tileImg = tileAtlas.get(`GRASS_${grassFrame}`);
 		else if (tile === '=') tileImg = tileAtlas.get('ICE');
 		else if (tile === '%') tileImg = tileAtlas.get('MIASMA');
-		else tileImg = tileAtlas.get('PATH');
+		else tileImg = tileAtlas.get(isTown ? 'TOWN_PATH' : 'PATH');
 
 		if (tileImg) {
 			renderCtx.drawImage(tileImg, screenX, screenY, TILE_SIZE, TILE_SIZE);
@@ -822,11 +1144,11 @@ const EmberlightMapRenderer = (() => {
 	 * @param {CanvasRenderingContext2D | any} renderCtx - Target 2D canvas context.
 	 * @param {string[][]} map - Terrain grid matrix.
 	 * @param {Set<string>} visibleTiles - Line of sight coordinate set.
-	 * @param {ViewportContext} viewport - Viewport dimensions and offset struct.
+	 * @param {ViewportContext & { isTown?: boolean }} viewport - Viewport dimensions and offset struct.
 	 * @returns {void}
 	 */
 	function renderTerrainLayer(renderCtx, map, visibleTiles, viewport) {
-		const { offsetX, offsetY, w, h, time } = viewport;
+		const { offsetX, offsetY, w, h, time, isTown } = viewport;
 		const waterFrame = Math.floor(time * 6) % 4;
 		const grassFrame = Math.floor(time * 3) % 2;
 
@@ -841,7 +1163,7 @@ const EmberlightMapRenderer = (() => {
 
 				const isVisible = visibleTiles.has(`${x},${y}`);
 				const tile = map[y][x];
-				drawTile(renderCtx, tile, screenX, screenY, waterFrame, grassFrame);
+				drawTile(renderCtx, tile, screenX, screenY, waterFrame, grassFrame, Boolean(isTown));
 
 				if (!isVisible) {
 					renderCtx.fillStyle = 'rgba(2, 2, 8, 0.82)';
@@ -969,24 +1291,68 @@ const EmberlightMapRenderer = (() => {
 
 		const map = currentSnapshot.map || [];
 		const playerPos = currentSnapshot.playerPos || currentSnapshot.pos || { x: 1, y: 1 };
+		const mapCols = map[0]?.length || 15;
+		const mapRows = map.length || 11;
 
-		updateCameraPosition(playerPos, map, w, h);
-		const offsetX = Math.floor(w / 2 - camera.x);
-		const offsetY = Math.floor(h / 2 - camera.y);
+		const mapPixelW = mapCols * TILE_SIZE;
+		const mapPixelH = mapRows * TILE_SIZE;
+
+		// Target tactical viewing window: ensure at least ~22 tiles visible across, or ~15 tiles vertically
+		// If the viewport is compact (windowed mode), zoom scales down to 0.55–0.70 so the world map doesn't feel cramped.
+		// If the map is small (e.g. 12x10 dungeon), zoom scales up to 1.35–1.50 to comfortably fill the screen.
+		const targetCols = Math.min(mapCols, 24);
+		const targetRows = Math.min(mapRows, 16);
+		const desiredPixelW = targetCols * TILE_SIZE;
+		const desiredPixelH = targetRows * TILE_SIZE;
+
+		let zoom = 1.0;
+		if (w > 0 && h > 0 && desiredPixelW > 0 && desiredPixelH > 0) {
+			const scaleX = w / desiredPixelW;
+			const scaleY = h / desiredPixelH;
+			zoom = Math.max(0.55, Math.min(1.5, Math.min(scaleX, scaleY)));
+		}
+
+		const effectiveW = w / zoom;
+		const effectiveH = h / zoom;
+
+		updateCameraPosition(playerPos, map, effectiveW, effectiveH);
+		const offsetX = Math.floor(effectiveW / 2 - camera.x);
+		const offsetY = Math.floor(effectiveH / 2 - camera.y);
+
+		lastViewportState = {
+			zoom,
+			offsetX,
+			offsetY,
+			rect: {
+				left: rect.left || 0,
+				top: rect.top || 0,
+				width: w,
+				height: h,
+				right: (rect.left || 0) + w,
+				bottom: (rect.top || 0) + h,
+			},
+		};
 
 		ctx.clearRect(0, 0, w, h);
 		ctx.fillStyle = '#020206';
 		ctx.fillRect(0, 0, w, h);
 
 		const visibleTiles = computeLineOfSight(map, playerPos.x, playerPos.y, 7);
+
+		ctx.save();
+		ctx.scale(zoom, zoom);
+
+		const isTown = Boolean(currentSnapshot.townId || currentSnapshot.pos?.inTown || currentSnapshot.playerPos?.inTown);
+
 		renderTerrainLayer(ctx, map, visibleTiles, {
 			offsetX,
 			offsetY,
-			w,
-			h,
+			w: effectiveW,
+			h: effectiveH,
 			time: globalTime,
+			isTown,
 		});
-		renderQuestTargetLine(ctx, currentSnapshot, offsetX, offsetY, w, h);
+		renderQuestTargetLine(ctx, currentSnapshot, offsetX, offsetY, effectiveW, effectiveH);
 
 		const { pScreenX, pScreenY } = renderEntitiesLayer(
 			ctx,
@@ -996,7 +1362,19 @@ const EmberlightMapRenderer = (() => {
 			offsetY
 		);
 
-		renderDynamicLighting(ctx, w, h, pScreenX, pScreenY);
+		if (targetedTileCoord) {
+			const tx = offsetX + targetedTileCoord.x * TILE_SIZE;
+			const ty = offsetY + targetedTileCoord.y * TILE_SIZE;
+			ctx.save();
+			const pulse = 0.5 + 0.5 * Math.sin(globalTime * 6);
+			ctx.fillStyle = `rgba(255, 157, 77, ${0.18 + pulse * 0.14})`;
+			ctx.fillRect(tx, ty, TILE_SIZE, TILE_SIZE);
+			ctx.restore();
+		}
+
+		renderDynamicLighting(ctx, effectiveW, effectiveH, pScreenX, pScreenY);
+		ctx.restore();
+
 		updateAndRenderAtmosphere(ctx, w, h, dt);
 		renderVignetteOverlay(ctx, w, h);
 	}
@@ -1083,10 +1461,13 @@ const EmberlightMapRenderer = (() => {
 				currentSnapshot = structuredClone(snapshot);
 			}
 			globalTime = 0;
-			camera.x = 48;
-			camera.y = 48;
-			camera.targetX = 48;
-			camera.targetY = 48;
+			const p = snapshot?.playerPos || snapshot?.pos || { x: 1, y: 1 };
+			const startX = p.x * TILE_SIZE + TILE_SIZE / 2;
+			const startY = p.y * TILE_SIZE + TILE_SIZE / 2;
+			camera.x = startX;
+			camera.y = startY;
+			camera.targetX = startX;
+			camera.targetY = startY;
 		},
 
 		/**
@@ -1123,11 +1504,26 @@ const EmberlightMapRenderer = (() => {
 		 */
 		renderOverworld(snapshot, dispatch) {
 			if (!snapshot) return;
+			const prevMap = currentSnapshot?.map;
 			currentSnapshot = snapshot;
 			actionDispatch = dispatch;
 			ensureCanvas();
 			updateThreatGauge(snapshot);
 			updateCatacombMode(snapshot);
+
+			// Snap camera immediately on new map or large teleport (> 250px)
+			const p = snapshot.playerPos || snapshot.pos;
+			if (p) {
+				const pX = p.x * TILE_SIZE + TILE_SIZE / 2;
+				const pY = p.y * TILE_SIZE + TILE_SIZE / 2;
+				if (!prevMap || prevMap !== snapshot.map || Math.hypot(camera.x - pX, camera.y - pY) > 250) {
+					camera.x = pX;
+					camera.y = pY;
+					camera.targetX = pX;
+					camera.targetY = pY;
+				}
+			}
+
 			if (ctx) {
 				renderMapFrame(0.016);
 			}
@@ -1142,6 +1538,70 @@ const EmberlightMapRenderer = (() => {
 		getState() {
 			if (!currentSnapshot) return null;
 			return structuredClone(currentSnapshot);
+		},
+
+		/**
+		 * Resolves tile coordinates and screen bounding box from mouse screen coordinates.
+		 * @param {number} screenX - Mouse clientX.
+		 * @param {number} screenY - Mouse clientY.
+		 * @returns {{ tileX: number, tileY: number, tile: string, bbox: { left: number, top: number, width: number, height: number } } | null}
+		 */
+		resolveTileFromScreen(screenX, screenY) {
+			if (!canvas || !currentSnapshot?.map) return null;
+			const rect = canvas.getBoundingClientRect();
+			if (screenX < rect.left || screenX > rect.right || screenY < rect.top || screenY > rect.bottom) {
+				return null;
+			}
+			const zoom = lastViewportState.zoom || 1.0;
+			const localX = (screenX - rect.left) / zoom;
+			const localY = (screenY - rect.top) / zoom;
+			const tileX = Math.floor((localX - lastViewportState.offsetX) / TILE_SIZE);
+			const tileY = Math.floor((localY - lastViewportState.offsetY) / TILE_SIZE);
+
+			const map = currentSnapshot.map;
+			if (tileY < 0 || tileY >= map.length || tileX < 0 || tileX >= (map[0]?.length || 0)) {
+				return null;
+			}
+
+			const tile = map[tileY][tileX];
+			const bbox = this.getTileBoundingBox(tileX, tileY);
+			return { tileX, tileY, tile, bbox };
+		},
+
+		/**
+		 * Computes the viewport-relative bounding box for a given tile coordinate.
+		 * @param {number} tileX - Map column index.
+		 * @param {number} tileY - Map row index.
+		 * @returns {{ left: number, top: number, width: number, height: number }}
+		 */
+		getTileBoundingBox(tileX, tileY) {
+			if (!canvas) {
+				return { left: 0, top: 0, width: 32, height: 32 };
+			}
+			const rect = canvas.getBoundingClientRect();
+			const zoom = lastViewportState.zoom || 1.0;
+			const left = rect.left + (lastViewportState.offsetX + tileX * TILE_SIZE) * zoom;
+			const top = rect.top + (lastViewportState.offsetY + tileY * TILE_SIZE) * zoom;
+			const size = TILE_SIZE * zoom;
+			return { left, top, width: size, height: size };
+		},
+
+		/**
+		 * Illuminates and targets a specific map tile coordinate with a radiant canvas shader.
+		 * @param {number} tileX - Map column index.
+		 * @param {number} tileY - Map row index.
+		 * @returns {void}
+		 */
+		setTargetedTile(tileX, tileY) {
+			targetedTileCoord = { x: tileX, y: tileY };
+		},
+
+		/**
+		 * Clears active targeted tile illumination on the map canvas.
+		 * @returns {void}
+		 */
+		clearTargetedTile() {
+			targetedTileCoord = null;
 		},
 
 		/**
@@ -1206,6 +1666,7 @@ const EmberlightMapRenderer = (() => {
 			currentSnapshot = null;
 			actionDispatch = null;
 			eventBusRef = null;
+			targetedTileCoord = null;
 			tileAtlas.clear();
 			spriteAtlas.clear();
 			initialized = false;

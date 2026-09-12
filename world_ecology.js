@@ -360,10 +360,40 @@ const EmberlightWorldEcology = (() => {
 		if (tile === 'E') return { type: 'OPEN_DIALOGUE', scriptKey: 'VILLAGE_ELDER' };
 		if (tile === 'G') return { type: 'OPEN_DIALOGUE', scriptKey: 'TOWN_GUARD' };
 		if (tile === 'V') return { type: 'OPEN_DIALOGUE', scriptKey: 'AFFLICTED_SCOUT' };
+		if (tile === 'H') return { type: 'INN_REST', message: 'Rested at The Hearth Inn. HP and MP fully restored, ailments cleansed, and expedition saved!' };
+		if (tile === 'N') return { type: 'OPEN_DIALOGUE', scriptKey: 'NOTICE_BOARD' };
+		if (tile === 'A') return { type: 'SHRINE_COMMUNE', message: 'Communed with Ancient Aether Shrine. Party MP fully restored!' };
 		if (tile === 'B') return { type: 'OPEN_SHOP', shopId: 'VILLAGE_BLACKSMITH' };
 		if (tile === 'F') return { type: 'OPEN_FORGE' };
 		if (tile === 'C') return { type: 'CAMP_REST', message: 'Rested at Sanctuary Campsite. Party HP & MP fully restored!' };
 		return null;
+	}
+
+	/**
+	 * Evaluates wilderness and dungeon resource foraging nodes.
+	 * Pure evaluation helper.
+	 * @param {string} tile - Map glyph tile.
+	 * @param {GridCoord} targetPos - Target node position.
+	 * @param {PRNGService | null} prng - PRNG service handle.
+	 * @returns {TileTriggerResult | null} Forage outcome or null.
+	 */
+	function evaluateForageTrigger(tile, targetPos, prng) {
+		if (tile !== '*' || !targetPos) return null;
+		const pool = [
+			{ item: 'POTION', name: 'Healing Potion', gold: 15 },
+			{ item: 'ETHER', name: 'Celestial Ether', gold: 20 },
+			{ item: 'PHOENIX_EMBER', name: 'Phoenix Ash', gold: 30 },
+			{ item: 'SWIFT_RING', name: 'Resonant Crystal', gold: 25 },
+		];
+		const idx = prng ? prng.nextInt(0, pool.length - 1) : 0;
+		const reward = pool[idx];
+		return {
+			type: 'FORAGE_RESOURCE',
+			targetPos: { ...targetPos },
+			rewardItem: reward.item,
+			bonusGold: reward.gold,
+			message: `✨ Foraged ${reward.name} and found ${reward.gold}G!`,
+		};
 	}
 
 	/**
@@ -527,6 +557,11 @@ const EmberlightWorldEcology = (() => {
 
 		const chestRes = evaluateChestTrigger(tile, targetPos, townId, dungeonDepth, flags, lastInteractedChestPos, prng);
 		if (chestRes) return chestRes;
+
+		if (isInteraction) {
+			const forageRes = evaluateForageTrigger(tile, targetPos, prng);
+			if (forageRes) return forageRes;
+		}
 
 		const stairsRes = evaluateStairsTrigger(tile, dungeonDepth, flags, dungeonGen, prng);
 		if (stairsRes) return stairsRes;

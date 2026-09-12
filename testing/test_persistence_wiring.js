@@ -5,53 +5,8 @@ const assert = require('assert');
 
 const baseDir = path.resolve(__dirname, '..');
 
-const scripts = [
-  'manifest.js',
-  'prng.js',
-  'session_store.js',
-  'event_bus.js',
-  'world_ecology.js',
-  'district_router.js',
-  'acoustic_sfx.js',
-  'synth_soundtrack.js',
-  'synthetic_voice.js',
-  'input.js',
-  'icons.js',
-  'skill_icons.js',
-  'party_icons.js',
-  'sprite_baker.js',
-  'combat_vfx.js',
-  'dynamic_lights.js',
-  'pseudo_3d_renderer.js',
-  'shader_compositor.js',
-  'battler_baker.js',
-  'battle_backdrop.js',
-  'threat_oracle.js',
-  'cockpit_renderer.js',
-  'combat_renderer.js',
-  'map_renderer.js',
-  'armory_renderer.js',
-  'chronicle_renderer.js',
-  'progression_renderer.js',
-  'market_renderer.js',
-  'status_renderer.js',
-  'relic_forge_renderer.js',
-  'progression.js',
-  'combat.js',
-  'script.js',
-  'overworld.js',
-  'armory.js',
-  'market.js',
-  'chronicle.js',
-  'status.js',
-  'auditor.js',
-  'relic_forge.js',
-  'dungeon_gen.js',
-  'lockpick.js',
-  'settings.js',
-  'save_manager.js',
-  'runtime.js',
-];
+// SSOT: canonical topological load order — edit testing/load_order.js, not here.
+const scripts = require('./load_order.js');
 
 function createMockElement(id = '', tag = 'div') {
   const el = {

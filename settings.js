@@ -93,12 +93,47 @@ const EmberlightSettings = (() => {
 	//#endregion
 
 	//#region [SEC-03] Menu Registry & Action Configuration
+	const LAYOUT_PRESETS = {
+		CINEMATIC: { nav: '1.6fr', deck: '0.9fr', label: 'CINEMATIC (65/35)' },
+		BALANCED: { nav: '1.2fr', deck: '1.0fr', label: 'BALANCED (55/45)' },
+		CLASSIC: { nav: '1.0fr', deck: '1.0fr', label: 'CLASSIC (50/50)' },
+	};
+
+	const FONT_PRESETS = {
+		STANDARD: { scale: '1.0', label: 'STANDARD (100%)' },
+		LARGE: { scale: '1.15', label: 'LARGE (115%)' },
+		HUGE: { scale: '1.30', label: 'HUGE (130%)' },
+	};
+
+	/**
+	 * Applies viewport ratios and font scaling dynamically to DOM root CSS variables.
+	 * @param {string} layoutKey - Layout preset key.
+	 * @param {string} fontKey - Font scale preset key.
+	 */
+	function applyLayoutSettings(layoutKey, fontKey) {
+		if (typeof document !== 'undefined' && document.documentElement) {
+			const layout = LAYOUT_PRESETS[layoutKey] || LAYOUT_PRESETS.CINEMATIC;
+			const font = FONT_PRESETS[fontKey] || FONT_PRESETS.STANDARD;
+			document.documentElement.style.setProperty('--nav-row-ratio', layout.nav);
+			document.documentElement.style.setProperty('--deck-row-ratio', layout.deck);
+			document.documentElement.style.setProperty('--ui-font-scale', font.scale);
+			try {
+				if (typeof localStorage !== 'undefined') {
+					localStorage.setItem('emberlight_layout_preset', layoutKey);
+					localStorage.setItem('emberlight_font_scale', fontKey);
+				}
+			} catch (_) {}
+		}
+	}
+
 	/** @type {MenuItem[]} */
 	const MENU_ITEMS = [
+		{ id: 'LAYOUT', label: 'VIEWPORT RATIO', type: 'TOGGLE' },
+		{ id: 'FONTSCALE', label: 'FONT SCALING', type: 'TOGGLE' },
 		{ id: 'MUTE', label: 'MASTER AUDIO', type: 'TOGGLE' },
 		{ id: 'FULLSCREEN', label: 'DISPLAY MODE', type: 'TOGGLE' },
 		{ id: 'SCANLINES', label: 'CRT SCANLINES', type: 'TOGGLE' },
-		{ id: 'SAVE', label: 'SAVE PROGRESS', type: 'ACTION', actionLabel: 'COMMIT DATA' },
+		{ id: 'SAVE', label: 'EXPEDITION ARCHIVES', type: 'ACTION', actionLabel: 'MANAGE ARCHIVES' },
 		{ id: 'TITLE', label: 'RETURN TO TITLE', type: 'ACTION', actionLabel: 'EJECT SESSION' },
 		{ id: 'RESET', label: 'FACTORY RESET', type: 'ACTION', actionLabel: 'WIPE STORAGE', danger: true },
 	];
@@ -153,8 +188,23 @@ const EmberlightSettings = (() => {
 	 * @returns {SettingsSimulation} Default settings simulation state.
 	 */
 	function createDefaultState() {
+		let savedLayout = 'CINEMATIC';
+		let savedFont = 'STANDARD';
+		try {
+			if (typeof localStorage !== 'undefined') {
+				savedLayout = localStorage.getItem('emberlight_layout_preset') || 'CINEMATIC';
+				savedFont = localStorage.getItem('emberlight_font_scale') || 'STANDARD';
+			}
+		} catch (_) {}
+
+		const initialLayout = hostConfig?.layoutPreset || savedLayout;
+		const initialFont = hostConfig?.fontScale || savedFont;
+		applyLayoutSettings(initialLayout, initialFont);
+
 		return {
 			selectedIndex: 0,
+			layoutPreset: initialLayout,
+			fontScale: initialFont,
 			isMuted: Boolean(hostConfig?.isMuted ?? false),
 			isFullscreen: Boolean(hostConfig?.isFullscreen ?? false),
 			crtEnabled: hostConfig?.crtEnabled !== undefined ? Boolean(hostConfig.crtEnabled) : true,
@@ -195,14 +245,31 @@ const EmberlightSettings = (() => {
 	/**
 	 * Toggles the currently highlighted configuration option or triggers action.
 	 * State-mutating simulation state update procedure.
+	 * @param {number} [dir=1] - Direction delta (1 for next, -1 for previous).
 	 * @returns {void}
 	 */
-	function toggleCurrentOption() {
+	function toggleCurrentOption(dir = 1) {
 		if (!sim) return;
 		const current = MENU_ITEMS[sim.selectedIndex];
 		if (!current) return;
 
-		if (current.id === 'MUTE') {
+		if (current.id === 'LAYOUT') {
+			const keys = Object.keys(LAYOUT_PRESETS);
+			const currIdx = keys.indexOf(sim.layoutPreset || 'CINEMATIC');
+			const nextIdx = (currIdx + dir + keys.length) % keys.length;
+			sim.layoutPreset = keys[nextIdx];
+			applyLayoutSettings(sim.layoutPreset, sim.fontScale);
+			emitSystemCommand('SET_LAYOUT_RATIO', { layoutPreset: sim.layoutPreset });
+			dispatchSFX('SELECT');
+		} else if (current.id === 'FONTSCALE') {
+			const keys = Object.keys(FONT_PRESETS);
+			const currIdx = keys.indexOf(sim.fontScale || 'STANDARD');
+			const nextIdx = (currIdx + dir + keys.length) % keys.length;
+			sim.fontScale = keys[nextIdx];
+			applyLayoutSettings(sim.layoutPreset, sim.fontScale);
+			emitSystemCommand('SET_FONT_SCALE', { fontScale: sim.fontScale });
+			dispatchSFX('SELECT');
+		} else if (current.id === 'MUTE') {
 			sim.isMuted = !sim.isMuted;
 			emitSystemCommand('TOGGLE_MUTE', { isMuted: sim.isMuted });
 			dispatchSFX('SELECT');
@@ -232,8 +299,8 @@ const EmberlightSettings = (() => {
 		if (!current) return;
 
 		if (current.id === 'SAVE') {
-			emitSystemCommand('SAVE_GAME');
-			dispatchSFX('VICTORY');
+			emitSystemCommand('OPEN_SAVE_MODAL');
+			dispatchSFX('SELECT');
 		} else if (current.id === 'TITLE') {
 			dispatchSFX('SELECT');
 			emitSystemCommand('RETURN_TO_TITLE');
@@ -286,24 +353,91 @@ const EmberlightSettings = (() => {
 	 * @param {boolean} isSelected - Row selection state flag.
 	 * @returns {string} Rendered HTML string.
 	 */
-	function getItemValueDisplay(item, simState, isSelected) {
+	/**
+	 * Formats value indicator HTML string for a menu row with dedicated interactive buttons.
+	 * Pure string generation helper.
+	 * @param {MenuItem} item - Menu item configuration.
+	 * @param {SettingsSimulation} simState - Current simulation snapshot.
+	 * @param {number} idx - Menu item index.
+	 * @param {boolean} isSelected - Row selection state flag.
+	 * @returns {string} Rendered HTML string.
+	 */
+	function getItemValueDisplay(item, simState, idx, isSelected) {
+		if (item.id === 'LAYOUT') {
+			const preset = LAYOUT_PRESETS[simState.layoutPreset] || LAYOUT_PRESETS.CINEMATIC;
+			return `
+				<div style="display:flex; align-items:center; gap:6px;">
+					<button type="button" class="settings-nav-btn prev-btn" data-action="prev" data-idx="${idx}" style="background:rgba(255,255,255,0.08); border:1px solid var(--border-dim); color:var(--ember); padding:2px 8px; font-size:calc(11px * var(--ui-font-scale, 1.0)); cursor:pointer; border-radius:2px;">&lt;</button>
+					<span class="settings-val-label" data-action="toggle" data-idx="${idx}" style="color:var(--ember); font-weight:bold; min-width:130px; text-align:center; cursor:pointer;">[ ${preset.label} ]</span>
+					<button type="button" class="settings-nav-btn next-btn" data-action="next" data-idx="${idx}" style="background:rgba(255,255,255,0.08); border:1px solid var(--border-dim); color:var(--ember); padding:2px 8px; font-size:calc(11px * var(--ui-font-scale, 1.0)); cursor:pointer; border-radius:2px;">&gt;</button>
+				</div>
+			`;
+		}
+		if (item.id === 'FONTSCALE') {
+			const preset = FONT_PRESETS[simState.fontScale] || FONT_PRESETS.STANDARD;
+			return `
+				<div style="display:flex; align-items:center; gap:6px;">
+					<button type="button" class="settings-nav-btn prev-btn" data-action="prev" data-idx="${idx}" style="background:rgba(255,255,255,0.08); border:1px solid var(--border-dim); color:var(--ember); padding:2px 8px; font-size:calc(11px * var(--ui-font-scale, 1.0)); cursor:pointer; border-radius:2px;">&lt;</button>
+					<span class="settings-val-label" data-action="toggle" data-idx="${idx}" style="color:var(--ember); font-weight:bold; min-width:130px; text-align:center; cursor:pointer;">[ ${preset.label} ]</span>
+					<button type="button" class="settings-nav-btn next-btn" data-action="next" data-idx="${idx}" style="background:rgba(255,255,255,0.08); border:1px solid var(--border-dim); color:var(--ember); padding:2px 8px; font-size:calc(11px * var(--ui-font-scale, 1.0)); cursor:pointer; border-radius:2px;">&gt;</button>
+				</div>
+			`;
+		}
 		if (item.id === 'MUTE') {
 			const color = simState.isMuted ? 'var(--danger)' : 'var(--ok)';
 			const label = simState.isMuted ? 'MUTED' : 'ACTIVE';
-			return `<span style="color:${color}">&lt; [ ${label} ] &gt;</span>`;
+			return `
+				<div style="display:flex; align-items:center; gap:6px;">
+					<button type="button" class="settings-nav-btn prev-btn" data-action="prev" data-idx="${idx}" style="background:rgba(255,255,255,0.08); border:1px solid var(--border-dim); color:${color}; padding:2px 8px; font-size:calc(11px * var(--ui-font-scale, 1.0)); cursor:pointer; border-radius:2px;">&lt;</button>
+					<span class="settings-val-label" data-action="toggle" data-idx="${idx}" style="color:${color}; font-weight:bold; min-width:130px; text-align:center; cursor:pointer;">[ ${label} ]</span>
+					<button type="button" class="settings-nav-btn next-btn" data-action="next" data-idx="${idx}" style="background:rgba(255,255,255,0.08); border:1px solid var(--border-dim); color:${color}; padding:2px 8px; font-size:calc(11px * var(--ui-font-scale, 1.0)); cursor:pointer; border-radius:2px;">&gt;</button>
+				</div>
+			`;
 		}
 		if (item.id === 'FULLSCREEN') {
 			const color = simState.isFullscreen ? 'var(--ok)' : 'var(--text-dim)';
 			const label = simState.isFullscreen ? 'FULLSCREEN' : 'WINDOWED';
-			return `<span style="color:${color}">&lt; [ ${label} ] &gt;</span>`;
+			return `
+				<div style="display:flex; align-items:center; gap:6px;">
+					<button type="button" class="settings-nav-btn prev-btn" data-action="prev" data-idx="${idx}" style="background:rgba(255,255,255,0.08); border:1px solid var(--border-dim); color:${color}; padding:2px 8px; font-size:calc(11px * var(--ui-font-scale, 1.0)); cursor:pointer; border-radius:2px;">&lt;</button>
+					<span class="settings-val-label" data-action="toggle" data-idx="${idx}" style="color:${color}; font-weight:bold; min-width:130px; text-align:center; cursor:pointer;">[ ${label} ]</span>
+					<button type="button" class="settings-nav-btn next-btn" data-action="next" data-idx="${idx}" style="background:rgba(255,255,255,0.08); border:1px solid var(--border-dim); color:${color}; padding:2px 8px; font-size:calc(11px * var(--ui-font-scale, 1.0)); cursor:pointer; border-radius:2px;">&gt;</button>
+				</div>
+			`;
 		}
 		if (item.id === 'SCANLINES') {
 			const color = simState.crtEnabled ? 'var(--ok)' : 'var(--text-dim)';
 			const label = simState.crtEnabled ? 'ENABLED' : 'DISABLED';
-			return `<span style="color:${color}">&lt; [ ${label} ] &gt;</span>`;
+			return `
+				<div style="display:flex; align-items:center; gap:6px;">
+					<button type="button" class="settings-nav-btn prev-btn" data-action="prev" data-idx="${idx}" style="background:rgba(255,255,255,0.08); border:1px solid var(--border-dim); color:${color}; padding:2px 8px; font-size:calc(11px * var(--ui-font-scale, 1.0)); cursor:pointer; border-radius:2px;">&lt;</button>
+					<span class="settings-val-label" data-action="toggle" data-idx="${idx}" style="color:${color}; font-weight:bold; min-width:130px; text-align:center; cursor:pointer;">[ ${label} ]</span>
+					<button type="button" class="settings-nav-btn next-btn" data-action="next" data-idx="${idx}" style="background:rgba(255,255,255,0.08); border:1px solid var(--border-dim); color:${color}; padding:2px 8px; font-size:calc(11px * var(--ui-font-scale, 1.0)); cursor:pointer; border-radius:2px;">&gt;</button>
+				</div>
+			`;
 		}
 		const actionCol = getActionColor(item, isSelected);
-		return `<span style="color:${actionCol}; font-weight:bold;">[ ${item.actionLabel} ]</span>`;
+		return `<button type="button" class="cmd-btn ${item.danger ? 'danger' : 'action'}" data-action="exec" data-idx="${idx}" style="color:${actionCol}; font-weight:bold; font-size:calc(10.5px * var(--ui-font-scale, 1.0)); padding:4px 12px; cursor:pointer;">[ ${item.actionLabel} ]</button>`;
+	}
+
+	/**
+	 * Updates the selection highlight on existing DOM rows without rebuilding the DOM.
+	 * @param {number} newIdx - Target item index.
+	 */
+	function updateSelectionHighlight(newIdx) {
+		if (typeof document === 'undefined' || !sim) return;
+		sim.selectedIndex = newIdx;
+		const rows = document.querySelectorAll('.settings-menu-row');
+		rows.forEach((row, i) => {
+			const isSel = i === sim?.selectedIndex;
+			/** @type {HTMLElement} */ (row).style.border = isSel ? '1px solid var(--ember)' : '1px solid var(--border-dim)';
+			/** @type {HTMLElement} */ (row).style.background = isSel ? 'rgba(255, 157, 77, 0.12)' : 'rgba(0, 0, 0, 0.35)';
+			/** @type {HTMLElement} */ (row).style.boxShadow = isSel ? '0 0 8px rgba(255, 157, 77, 0.3)' : 'none';
+			const tagSpan = row.querySelector('.settings-row-tag');
+			if (tagSpan) /** @type {HTMLElement} */ (tagSpan).style.color = isSel ? 'var(--ember)' : 'var(--text-dim)';
+			const nameSpan = row.querySelector('.settings-row-label');
+			if (nameSpan) /** @type {HTMLElement} */ (nameSpan).style.color = isSel ? 'var(--text)' : 'var(--text-dim)';
+		});
 	}
 
 	/**
@@ -322,15 +456,15 @@ const EmberlightSettings = (() => {
 		panel.style.borderColor = 'var(--ember)';
 		panel.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-dim); padding-bottom:6px; margin-bottom:12px;">
-        <div class="panel-title" style="color:var(--ember); margin:0; border:none; padding:0;">DISTRICT 11: SYSTEM & CONFIGURATION</div>
-        <div style="font-size:7px; color:var(--text-dim);">BIOS CONFIG V1.0</div>
+        <div class="panel-title" style="color:var(--ember); font-size:calc(12px * var(--ui-font-scale, 1.0)); margin:0; border:none; padding:0;">DISTRICT 11: SYSTEM & CONFIGURATION</div>
+        <div style="font-size:calc(9.5px * var(--ui-font-scale, 1.0)); color:var(--text-dim);">BIOS CONFIG V1.0</div>
       </div>
       <div id="settings-menu-list" style="display:flex; flex-direction:column; gap:6px; margin-bottom:14px;"></div>
       <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border-dim); padding-top:10px;">
-        <div style="font-size:7px; color:var(--text-dim);">
-          <b style="color:var(--text)">[W/S]</b> Navigate  |  <b style="color:var(--text)">[A/D]</b> Toggle  |  <b style="color:var(--ok)">[ENTER]</b> Select
+        <div style="font-size:calc(10px * var(--ui-font-scale, 1.0)); color:var(--text-dim);">
+          <b style="color:var(--text)">[W/S]</b> Navigate  |  <b style="color:var(--text)">[A/D]</b> Toggle  |  <b style="color:var(--ok)">[ENTER]</b> Select  |  <b style="color:var(--ember)">[CLICK]</b> Direct Interact
         </div>
-        <button type="button" class="cmd-btn action" id="close-settings-btn" style="font-size:8px;">✔ DONE / RESUME</button>
+        <button type="button" class="cmd-btn action" id="close-settings-btn" style="font-size:calc(10.5px * var(--ui-font-scale, 1.0)); padding:4px 10px; cursor:pointer;">✔ DONE / RESUME</button>
       </div>
     `;
 
@@ -340,40 +474,45 @@ const EmberlightSettings = (() => {
 		MENU_ITEMS.forEach((item, idx) => {
 			const isSelected = idx === sim?.selectedIndex;
 			const row = document.createElement('div');
+			row.className = 'settings-menu-row';
 			row.style.display = 'flex';
 			row.style.justifyContent = 'space-between';
 			row.style.alignItems = 'center';
-			row.style.padding = '6px 10px';
+			row.style.padding = '8px 12px';
 			row.style.border = isSelected ? '1px solid var(--ember)' : '1px solid var(--border-dim)';
 			row.style.background = isSelected ? 'rgba(255, 157, 77, 0.12)' : 'rgba(0, 0, 0, 0.35)';
 			row.style.boxShadow = isSelected ? '0 0 8px rgba(255, 157, 77, 0.3)' : 'none';
 			row.style.cursor = 'pointer';
 
-			const valueDisplay = sim ? getItemValueDisplay(item, sim, isSelected) : '';
+			const valueDisplay = sim ? getItemValueDisplay(item, sim, idx, isSelected) : '';
 
 			row.innerHTML = `
-        <div style="font-size:8px; display:flex; align-items:center; gap:6px;">
-          <span style="color:${isSelected ? 'var(--ember)' : 'var(--text-dim)'}">[${idx + 1}]</span>
-          <span style="color:${isSelected ? 'var(--text)' : 'var(--text-dim)'}">${item.label}</span>
+        <div style="font-size:calc(11px * var(--ui-font-scale, 1.0)); display:flex; align-items:center; gap:8px; pointer-events:none;">
+          <span class="settings-row-tag" style="color:${isSelected ? 'var(--ember)' : 'var(--text-dim)'}">[${idx + 1}]</span>
+          <span class="settings-row-label" style="color:${isSelected ? 'var(--text)' : 'var(--text-dim)'}">${item.label}</span>
         </div>
-        <div style="font-size:8px;">${valueDisplay}</div>
+        <div style="font-size:calc(11px * var(--ui-font-scale, 1.0));">${valueDisplay}</div>
       `;
 
 			row.onmouseenter = () => {
-				if (sim) {
-					sim.selectedIndex = idx;
-					renderDefaultPresentation();
-				}
+				updateSelectionHighlight(idx);
 			};
 
-			row.onclick = () => {
-				if (sim) {
-					sim.selectedIndex = idx;
-					if (item.type === 'TOGGLE') {
-						toggleCurrentOption();
-					} else {
-						executeCurrentAction();
-					}
+			row.onclick = (e) => {
+				const target = /** @type {HTMLElement|null} */ (e.target);
+				if (!target || !sim) return;
+				sim.selectedIndex = idx;
+				updateSelectionHighlight(idx);
+
+				const action = target.getAttribute('data-action');
+				if (action === 'prev') {
+					toggleCurrentOption(-1);
+				} else if (action === 'next' || action === 'toggle') {
+					toggleCurrentOption(1);
+				} else if (action === 'exec' || item.type === 'ACTION') {
+					executeCurrentAction();
+				} else {
+					toggleCurrentOption(1);
 				}
 			};
 
@@ -500,6 +639,8 @@ const EmberlightSettings = (() => {
 				moduleId: 'settings_core',
 				lifecycleState,
 				selectedIndex: sim?.selectedIndex || 0,
+				layoutPreset: sim?.layoutPreset || 'CINEMATIC',
+				fontScale: sim?.fontScale || 'STANDARD',
 				isMuted: sim?.isMuted || false,
 				crtEnabled: sim?.crtEnabled || false,
 			};
@@ -550,7 +691,8 @@ const EmberlightSettings = (() => {
 
 			if (type === 'UP') moveCursor(-1);
 			else if (type === 'DOWN') moveCursor(1);
-			else if (type === 'LEFT' || type === 'RIGHT') toggleCurrentOption();
+			else if (type === 'LEFT') toggleCurrentOption(-1);
+			else if (type === 'RIGHT') toggleCurrentOption(1);
 			else if (type === 'CONFIRM') executeCurrentAction();
 			else if (type === 'CANCEL') finalizeSettings();
 			else if (type.startsWith('CHOICE_')) {

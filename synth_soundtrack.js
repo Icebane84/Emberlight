@@ -439,14 +439,25 @@ const EmberlightSoundtrack = (() => {
 				let lastAmbientMood = 'SURFACE';
 
 				unsubs.push(
+					eventBus.subscribe('world:zone_change', (evt = {}) => {
+						const zone = evt?.zone || (evt?.townId ? 'TOWN' : 'SURFACE');
+						lastAmbientMood = zone === 'TOWN' ? 'TOWN' : (zone === 'CATACOMBS' ? 'CATACOMBS' : 'SURFACE');
+						if (currentMood !== 'COMBAT' && currentMood !== 'BOSS') {
+							this.setMood(lastAmbientMood);
+						}
+					}),
 					eventBus.subscribe('overworld:step', (evt = {}) => {
 						const pos = evt?.pos;
 						if (pos) {
 							let amb = 'SURFACE';
-							if (pos.x >= 8 || (pos.depth && pos.depth > 0)) {
-								amb = 'CATACOMBS';
-							} else if (pos.inTown || (typeof pos.tile === 'string' && pos.tile === 'T')) {
+							if (evt.townId || pos.townId || pos.inTown) {
 								amb = 'TOWN';
+							} else if (pos.depth && pos.depth > 0) {
+								amb = 'CATACOMBS';
+							} else if (pos.tile === 'T' || pos.tile === 'D') {
+								amb = 'TOWN';
+							} else {
+								amb = 'SURFACE';
 							}
 							lastAmbientMood = amb;
 							if (currentMood !== 'COMBAT' && currentMood !== 'BOSS') {

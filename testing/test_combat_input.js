@@ -5,53 +5,8 @@ const assert = require('node:assert');
 
 const baseDir = path.resolve(__dirname, '..');
 
-const scripts = [
-  'manifest.js',
-  'prng.js',
-  'session_store.js',
-  'event_bus.js',
-  'world_ecology.js',
-  'district_router.js',
-  'acoustic_sfx.js',
-  'synth_soundtrack.js',
-  'synthetic_voice.js',
-  'input.js',
-  'icons.js',
-  'skill_icons.js',
-  'party_icons.js',
-  'sprite_baker.js',
-  'combat_vfx.js',
-  'dynamic_lights.js',
-  'pseudo_3d_renderer.js',
-  'shader_compositor.js',
-  'battler_baker.js',
-  'battle_backdrop.js',
-  'threat_oracle.js',
-  'cockpit_renderer.js',
-  'combat_renderer.js',
-  'map_renderer.js',
-  'armory_renderer.js',
-  'chronicle_renderer.js',
-  'progression_renderer.js',
-  'market_renderer.js',
-  'status_renderer.js',
-  'relic_forge_renderer.js',
-  'progression.js',
-  'combat.js',
-  'script.js',
-  'overworld.js',
-  'armory.js',
-  'market.js',
-  'chronicle.js',
-  'status.js',
-  'auditor.js',
-  'relic_forge.js',
-  'dungeon_gen.js',
-  'lockpick.js',
-  'settings.js',
-  'save_manager.js',
-  'runtime.js',
-];
+// SSOT: canonical topological load order — edit testing/load_order.js, not here.
+const scripts = require('./load_order.js');
 
 function createMockElement(id = '', tag = 'div') {
   const listeners = {};
@@ -131,12 +86,25 @@ function createMockElement(id = '', tag = 'div') {
         }
       }
     },
-    style: {},
+    style: {
+      setProperty: (prop, val) => {},
+    },
+    getBoundingClientRect: () => ({
+      left: 100,
+      top: 100,
+      right: 200,
+      bottom: 200,
+      width: 100,
+      height: 100,
+      x: 100,
+      y: 100,
+    }),
     innerHTML: '',
     textContent: '',
     children: [],
     querySelector: (_sel) => createMockElement(),
     querySelectorAll: (_sel) => [createMockElement()],
+    closest: (_sel) => null,
     appendChild: function(child) {
       this.children.push(child);
       return child;
@@ -150,6 +118,7 @@ function createMockElement(id = '', tag = 'div') {
 
 const mockDom = {
   document: {
+    documentElement: createMockElement('html', 'html'),
     getElementById: (id) => createMockElement(id),
     createElement: (tag) => createMockElement('', tag),
     querySelector: (_sel) => createMockElement(),
@@ -246,5 +215,72 @@ state = combat.getState();
 assert.ok(state.enemies[0].hp < enemyHpBefore || !state.enemies[0].alive, 'CONFIRM in ATTACK tab should damage enemy');
 console.log('[PASS] Test 5: CONFIRM executes strike on living enemy');
 
-console.log('=== ALL COMBAT INPUT VERIFICATION TESTS PASSED ===');
+// Test 6: Priority 1 Universal Unwind Invariance (ARCH-SPEC-RMB-INTEGRATION-001)
+combat.update(1.0);
+state = combat.getState();
+while (state.phase === 'ENEMY_ACTION') {
+  combat.update(1.0);
+  state = combat.getState();
+}
+combat.handleHostAction('CHOICE_2'); // Open SKILLS
+combat.handleHostAction('CONFIRM');  // Select first skill -> TARGETING_ENEMY
+state = combat.getState();
+if (state.phase === 'TARGETING_ENEMY' || state.pendingSkill) {
+  const unwound = runtime.handleCancelAction();
+  assert.strictEqual(unwound, true, 'handleCancelAction should return true and consume cancel');
+  state = combat.getState();
+  assert.ok(state.phase === 'PLAYER_INPUT' || state.selectedTab === 'ATTACK' || !state.pendingSkill, 'Cancel should unwind targeting to player input');
+}
+console.log('[PASS] Test 6: Priority 1 Universal Unwind cancels staged targeting');
+
+// Test 7: Polar Direction Vector Math (ARCH-SPEC-RMB-INTEGRATION-001)
+assert.strictEqual(runtime.calculatePolarDirection(0, -50), 'NORTH', 'Vector (0, -50) must evaluate to NORTH');
+assert.strictEqual(runtime.calculatePolarDirection(50, 0), 'EAST', 'Vector (50, 0) must evaluate to EAST');
+assert.strictEqual(runtime.calculatePolarDirection(0, 50), 'SOUTH', 'Vector (0, 50) must evaluate to SOUTH');
+assert.strictEqual(runtime.calculatePolarDirection(-50, 0), 'WEST', 'Vector (-50, 0) must evaluate to WEST');
+console.log('[PASS] Test 7: Polar direction calculation returns 4 canonical cardinal axes');
+
+// Test 8: Target Metadata Resolution & Dynamic East Action
+const mockEnemyCard = {
+  closest: (sel) => (sel.includes('enemy') ? { querySelector: () => ({ textContent: 'Malakor' }) } : null)
+};
+const enemyMeta = runtime.resolveTargetMetadata(mockEnemyCard, 300, 200);
+assert.ok(enemyMeta, 'Enemy metadata should resolve');
+assert.strictEqual(enemyMeta.category, 'ENEMY', 'Target category should be ENEMY');
+assert.strictEqual(enemyMeta.title, 'Malakor', 'Target title should match enemy name');
+assert.strictEqual(enemyMeta.eastAction.id, 'THREAT_ORACLE', 'East action for hostile should bind THREAT_ORACLE');
+console.log('[PASS] Test 8: Target metadata dynamically resolves Threat Oracle on hostile');
+
+// Test 9: Hold-and-Snap Gesture Lifecycle
+runtime.handlePointerContextDown({ button: 2, clientX: 200, clientY: 200, target: mockEnemyCard });
+runtime.handlePointerContextMove({ clientX: 250, clientY: 200 }); // +50px East (>24px threshold)
+runtime.handlePointerContextUp({ button: 2 });
+// Test 10: Universal Right-Click Cancel in Menus
+runtime.switchDistrict('ARMORY');
+assert.strictEqual(runtime.getActiveDistrict(), 'ARMORY', 'District should be ARMORY');
+runtime.handlePointerContextDown({ button: 2, clientX: 100, clientY: 100, target: {} });
+assert.strictEqual(runtime.getActiveDistrict(), 'OVERWORLD', 'Right click in ARMORY should cancel back to OVERWORLD');
+
+runtime.switchDistrict('STATUS');
+assert.strictEqual(runtime.getActiveDistrict(), 'STATUS', 'District should be STATUS');
+runtime.handlePointerContextDown({ button: 2, clientX: 100, clientY: 100, target: {} });
+assert.strictEqual(runtime.getActiveDistrict(), 'OVERWORLD', 'Right click in STATUS should cancel back to OVERWORLD');
+console.log('[PASS] Test 10: Universal Right Click in dedicated menus cancels back to OVERWORLD');
+
+// Test 11: Right Click in Combat sub-tab cancels back to ATTACK
+runtime.EventBus.publish('overworld:encounter', { encounterKey: 'DEFAULT' });
+state = combat.getState();
+while (state.phase === 'ENEMY_ACTION') {
+  combat.update(1.0);
+  state = combat.getState();
+}
+combat.handleHostAction('CHOICE_4'); // POUCH tab
+state = combat.getState();
+assert.strictEqual(state.selectedTab, 'POUCH', 'Combat tab should be POUCH');
+runtime.handlePointerContextDown({ button: 2, clientX: 100, clientY: 100, target: {} });
+state = combat.getState();
+assert.strictEqual(state.selectedTab, 'ATTACK', 'Right click in Combat POUCH tab should cancel back to ATTACK tab');
+console.log('[PASS] Test 11: Right Click in Combat sub-tab cancels back to ATTACK');
+
+console.log('=== ALL COMBAT & RMB INPUT VERIFICATION TESTS PASSED ===');
 process.exit(0);

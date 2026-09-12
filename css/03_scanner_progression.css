@@ -28,7 +28,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 7.5px;
+  font-size: 11px;
 }
 
 .threat-label {
@@ -44,9 +44,9 @@
 }
 
 .scanner-alerts {
-  font-size: 7.5px;
+  font-size: 11px;
   color: var(--ok);
-  line-height: 1.8;
+  line-height: 1.6;
 }
 
 /* --- INTEGRATED TACTICAL DOCK --- */
@@ -61,8 +61,8 @@
   border: 1px solid var(--border-dim);
   color: var(--text);
   font-family: inherit;
-  font-size: 7px;
-  padding: 8px 4px;
+  font-size: 10.5px;
+  padding: 6px 4px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -71,8 +71,8 @@
   transition: all 0.15s ease;
 }
 
-.tactical-btn .keycap { color: var(--text-dim); font-size: 6.5px; }
-.tactical-btn .cost { color: var(--text-dim); font-size: 6px; }
+.tactical-btn .keycap { color: var(--text-dim); font-size: 9.5px; }
+.tactical-btn .cost { color: var(--text-dim); font-size: 9px; }
 .tactical-btn:hover { transform: translateY(-1px); }
 .tactical-btn.scorch { border-color: var(--ember); color: var(--ember); }
 .tactical-btn.scorch:hover { background: rgba(255, 157, 77, 0.15); box-shadow: 0 0 6px var(--shadow-ember); }
@@ -97,7 +97,8 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  max-height: 290px;
+  max-height: none;
+  flex: 1 1 auto;
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 4px;
@@ -120,9 +121,15 @@
 }
 
 #party-hud-grid {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
+}
+
+@media (max-width: 860px) {
+  #party-hud-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .hud-char-card {
@@ -131,7 +138,7 @@
   align-items: center;
   background: rgba(0, 0, 0, 0.45);
   border: 1px solid var(--border-dim);
-  padding: 6px 8px;
+  padding: 5px 8px;
   transition: all 0.15s ease;
 }
 
@@ -146,8 +153,8 @@
 }
 
 .hud-char-crest {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   flex-shrink: 0;
   border: 1px solid var(--border-dim);
   border-radius: 2px;
@@ -162,7 +169,7 @@
 }
 
 .hud-char-name {
-  font-size: 7.5px;
+  font-size: 11.5px;
   color: var(--text);
   margin-bottom: 3px;
   display: flex;
@@ -174,18 +181,19 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 6.5px;
+  font-size: 10px;
   margin-bottom: 2px;
 }
 
 .hud-stat-label {
-  width: 16px;
+  width: 20px;
   color: var(--text-dim);
+  font-size: 10px;
 }
 
 .hud-bar-track {
   flex: 1;
-  height: 5px;
+  height: 6px;
   background: #000;
   border: 1px solid var(--border-dim);
 }
@@ -199,9 +207,9 @@
 .hud-bar-fill.mp { background: var(--mp); }
 
 .hud-stat-val {
-  font-size: 6.5px;
+  font-size: 10px;
   color: var(--text);
-  min-width: 40px;
+  min-width: 50px;
   text-align: right;
 }
 

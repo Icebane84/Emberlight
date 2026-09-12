@@ -92,8 +92,15 @@ const EmberlightSaveManager = (() => {
 	'use strict';
 
 	//#region [SEC-01] Type Definitions, Storage Fallback Drivers & LocalStorage Wrappers
-	const STORAGE_KEY = 'EMBERLIGHT_SAVE_V1';
+	const LEGACY_STORAGE_KEY = 'EMBERLIGHT_SAVE_V1';
 	const CURRENT_VERSION = '1.4.0';
+
+	const SAVE_SLOTS = Object.freeze([
+		{ id: 'SLOT_1', label: 'Archive Slot 1', storageKey: 'EMBERLIGHT_SAVE_SLOT_1', isAuto: false },
+		{ id: 'SLOT_2', label: 'Archive Slot 2', storageKey: 'EMBERLIGHT_SAVE_SLOT_2', isAuto: false },
+		{ id: 'SLOT_3', label: 'Archive Slot 3', storageKey: 'EMBERLIGHT_SAVE_SLOT_3', isAuto: false },
+		{ id: 'AUTO_SAVE', label: 'Auto-Save [Checkpoint]', storageKey: 'EMBERLIGHT_SAVE_AUTO', isAuto: true },
+	]);
 
 	// Internal in-memory storage fallback for headless environments or quota errors
 	/** @type {Map<string, string>} */
@@ -111,7 +118,7 @@ const EmberlightSaveManager = (() => {
 				return window.localStorage.getItem(key);
 			}
 		} catch {
-			// Fallback to in-memory store[cite: 6]
+			// Fallback to in-memory store
 		}
 		return _memoryStorage.get(key) || null;
 	}
@@ -130,7 +137,7 @@ const EmberlightSaveManager = (() => {
 				return true;
 			}
 		} catch {
-			// Fallback to in-memory store[cite: 6]
+			// Fallback to in-memory store
 		}
 		_memoryStorage.set(key, String(value));
 		return true;
@@ -148,10 +155,33 @@ const EmberlightSaveManager = (() => {
 				window.localStorage.removeItem(key);
 			}
 		} catch {
-			// Fallback to in-memory store[cite: 6]
+			// Fallback to in-memory store
 		}
 		_memoryStorage.delete(key);
 		return true;
+	}
+
+	function _resolveStorageKey(slotId) {
+		if (!slotId) return 'EMBERLIGHT_SAVE_SLOT_1';
+		const norm = String(slotId).toUpperCase();
+		const match = SAVE_SLOTS.find((s) => s.id === norm || s.storageKey === norm);
+		if (match) return match.storageKey;
+		return 'EMBERLIGHT_SAVE_SLOT_1';
+	}
+
+	function _autoMigrateLegacy() {
+		const legacy = _getStorageItem(LEGACY_STORAGE_KEY);
+		if (legacy && !_getStorageItem('EMBERLIGHT_SAVE_SLOT_1')) {
+			try {
+				let parsed = JSON.parse(legacy);
+				if (typeof EmberlightSaveManager !== 'undefined' && typeof EmberlightSaveManager.migrate === 'function') {
+					parsed = EmberlightSaveManager.migrate(parsed);
+				}
+				_setStorageItem('EMBERLIGHT_SAVE_SLOT_1', JSON.stringify(parsed));
+			} catch {
+				_setStorageItem('EMBERLIGHT_SAVE_SLOT_1', legacy);
+			}
+		}
 	}
 	//#endregion
 
@@ -159,6 +189,25 @@ const EmberlightSaveManager = (() => {
 	/** @type {Object.<string, MigrationHandler>} */
 	const MIGRATIONS = {
 		'1.0.0': (raw) => {
+			if (!raw.canonicalParty && Array.isArray(raw.party)) {
+				raw.canonicalParty = raw.party;
+			}
+			if (typeof raw.canonicalGold !== 'number' && typeof raw.gold === 'number') {
+				raw.canonicalGold = raw.gold;
+			}
+			if (!raw.canonicalInventory && raw.inventory) {
+				raw.canonicalInventory = raw.inventory;
+			}
+			if (!raw.canonicalWorldPos && raw.worldPos) {
+				raw.canonicalWorldPos = raw.worldPos;
+			}
+			if (!raw.canonicalFlags && raw.flags) {
+				raw.canonicalFlags = raw.flags;
+			}
+			if (!raw.canonicalQuests && raw.quests) {
+				raw.canonicalQuests = raw.quests;
+			}
+
 			if (Array.isArray(raw.canonicalParty)) {
 				raw.canonicalParty.forEach((c) => {
 					if (!c.equipment) c.equipment = { weapon: null, armor: null, accessory: null };
@@ -172,11 +221,11 @@ const EmberlightSaveManager = (() => {
 			return raw;
 		},
 		'1.1.0': (raw) => {
-			if (!raw.canonicalFlags) raw.canonicalFlags = {};
-			if (!raw.canonicalQuests) raw.canonicalQuests = {};
-			if (!raw.canonicalInventory) raw.canonicalInventory = {};
-			if (typeof raw.canonicalGold !== 'number') raw.canonicalGold = 100;
-			if (!raw.canonicalWorldPos) raw.canonicalWorldPos = { x: 1, y: 1 };
+			if (!raw.canonicalFlags) raw.canonicalFlags = raw.flags || {};
+			if (!raw.canonicalQuests) raw.canonicalQuests = raw.quests || {};
+			if (!raw.canonicalInventory) raw.canonicalInventory = raw.inventory || {};
+			if (typeof raw.canonicalGold !== 'number') raw.canonicalGold = typeof raw.gold === 'number' ? raw.gold : 100;
+			if (!raw.canonicalWorldPos) raw.canonicalWorldPos = raw.worldPos || { x: 1, y: 1 };
 
 			if (Array.isArray(raw.canonicalParty)) {
 				raw.canonicalParty.forEach((c) => {
@@ -239,7 +288,9 @@ const EmberlightSaveManager = (() => {
 	//#region [SEC-03] Public Persistence Gateway (Save, Load, Metadata & Hydration)
 	const EmberlightSaveManager = {
 		CURRENT_VERSION,
-		STORAGE_KEY,
+		STORAGE_KEY: 'EMBERLIGHT_SAVE_SLOT_1',
+		LEGACY_STORAGE_KEY,
+		SAVE_SLOTS,
 		MIGRATIONS,
 
 		/**
@@ -261,30 +312,155 @@ const EmberlightSaveManager = (() => {
 		/**
 		 * Checks if a save file exists in persistent storage.
 		 * (Pure lookup utility)
+		 * @param {string} [slotId] Optional slot ID to check. If omitted, checks all slots.
 		 * @returns {boolean} True if save exists.
 		 */
-		hasSave() {
-			return !!_getStorageItem(STORAGE_KEY);
+		hasSave(slotId) {
+			_autoMigrateLegacy();
+			if (slotId) {
+				const key = _resolveStorageKey(slotId);
+				return !!_getStorageItem(key);
+			}
+			return SAVE_SLOTS.some((s) => !!_getStorageItem(s.storageKey)) || !!_getStorageItem(LEGACY_STORAGE_KEY);
 		},
 
 		/**
-		 * Retrieves metadata summary for the active save file.
+		 * Identifies the most recently modified save slot.
+		 * @returns {string} Most recent slot ID ('SLOT_1' | 'SLOT_2' | 'SLOT_3' | 'AUTO_SAVE').
+		 */
+		getMostRecentSlotId() {
+			_autoMigrateLegacy();
+			let newestSlot = 'SLOT_1';
+			let newestTime = -1;
+
+			for (const slot of SAVE_SLOTS) {
+				const raw = _getStorageItem(slot.storageKey);
+				if (raw) {
+					try {
+						const data = JSON.parse(raw);
+						const t = data.timestamp ? new Date(data.timestamp).getTime() : 0;
+						if (t >= newestTime) {
+							newestTime = t;
+							newestSlot = slot.id;
+						}
+					} catch {
+						// Ignore corrupted slots
+					}
+				}
+			}
+			return newestSlot;
+		},
+
+		/**
+		 * Resolves readable location title from save data.
+		 * @param {any} data
+		 * @returns {string}
+		 */
+		resolveLocationName(data) {
+			if (data?.canonicalDungeonDepth && data.canonicalDungeonDepth > 0) {
+				return `⛩️ Catacombs (Floor ${data.canonicalDungeonDepth})`;
+			}
+			if (data?.canonicalTownId === 'OAKHAVEN' || data?.canonicalFlags?.in_town) {
+				return '🏰 Oakhaven Hamlet';
+			}
+			return '🌲 The Ashen Wilds';
+		},
+
+		/**
+		 * Lists descriptors and status for all available save slots.
+		 * @returns {Array<Object>}
+		 */
+		listSlots() {
+			_autoMigrateLegacy();
+			return SAVE_SLOTS.map((slot) => {
+				const raw = _getStorageItem(slot.storageKey);
+				if (!raw) {
+					return {
+						id: slot.id,
+						label: slot.label,
+						isAuto: slot.isAuto,
+						exists: false,
+						timestamp: null,
+						isoTimestamp: null,
+						locationName: 'Empty Archive Slot',
+						party: [],
+						avgLevel: 0,
+						gold: 0,
+					};
+				}
+
+				try {
+					const data = JSON.parse(raw);
+					const dateObj = data.timestamp ? new Date(data.timestamp) : null;
+					const formattedTime = dateObj && !isNaN(dateObj.getTime())
+						? `${dateObj.toLocaleDateString()} ${dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+						: 'Saved Expedition';
+
+					const party = Array.isArray(data.canonicalParty) ? data.canonicalParty : [];
+					const avgLevel = party.length > 0
+						? Math.round(party.reduce((acc, c) => acc + (c.level || 1), 0) / party.length)
+						: 1;
+
+					return {
+						id: slot.id,
+						label: slot.label,
+						isAuto: slot.isAuto,
+						exists: true,
+						version: data.version || '1.4.0',
+						timestamp: formattedTime,
+						isoTimestamp: data.timestamp || null,
+						locationName: this.resolveLocationName(data),
+						party: party.map((c) => ({
+							name: c.name || 'Hero',
+							phenotype: c.phenotype || 'HERO',
+							level: c.level || 1,
+							hp: c.hp || 30,
+							maxHp: c.maxHp || 30,
+						})),
+						avgLevel,
+						gold: data.canonicalGold || 0,
+					};
+				} catch {
+					return {
+						id: slot.id,
+						label: slot.label,
+						isAuto: slot.isAuto,
+						exists: false,
+						locationName: 'Corrupted Archive',
+						party: [],
+						avgLevel: 0,
+						gold: 0,
+					};
+				}
+			});
+		},
+
+		/**
+		 * Retrieves metadata summary for the specified save slot.
 		 * (Pure accessor utility)
+		 * @param {string} [slotId]
 		 * @returns {SaveMetadata|null} Metadata dictionary or null.
 		 */
-		getSaveMetadata() {
+		getSaveMetadata(slotId) {
 			try {
-				const raw = _getStorageItem(STORAGE_KEY);
+				_autoMigrateLegacy();
+				const targetSlot = slotId || this.getMostRecentSlotId();
+				const key = _resolveStorageKey(targetSlot);
+				const raw = _getStorageItem(key);
 				if (!raw) return null;
 				const data = JSON.parse(raw);
+				const party = Array.isArray(data.canonicalParty) ? data.canonicalParty : (Array.isArray(data.party) ? data.party : []);
+				const avgLevel = party.length > 0
+					? Math.round(party.reduce((acc, c) => acc + (c.level || 1), 0) / party.length)
+					: 1;
 				return {
+					slotId: targetSlot,
 					version: data.version || '1.0.0',
 					timestamp: data.timestamp || 'Unknown',
-					partySize: data.canonicalParty?.length || 0,
-					avgLevel: data.canonicalParty && data.canonicalParty.length > 0
-						? Math.round(data.canonicalParty.reduce((acc, c) => acc + (c.level || 1), 0) / data.canonicalParty.length)
-						: 1,
-					gold: data.canonicalGold || 0,
+					partySize: party.length,
+					avgLevel,
+					gold: typeof data.canonicalGold === 'number' ? data.canonicalGold : (typeof data.gold === 'number' ? data.gold : 0),
+					locationName: this.resolveLocationName(data),
 				};
 			} catch {
 				return null;
@@ -292,18 +468,20 @@ const EmberlightSaveManager = (() => {
 		},
 
 		/**
-		 * Serializes and persists a state snapshot to storage.
+		 * Serializes and persists a state snapshot to specified slot.
 		 * (State-mutating persistence gateway)
 		 * @param {SavePayload} stateSnapshot Game state snapshot object.
+		 * @param {string} [slotId='SLOT_1'] Target save slot ID.
 		 * @returns {boolean} True if successfully saved.
 		 */
-		save(stateSnapshot) {
+		save(stateSnapshot, slotId = 'SLOT_1') {
 			try {
 				if (!stateSnapshot || typeof stateSnapshot !== 'object') {
 					console.error('[EmberlightSaveManager] Save failed: Invalid state snapshot provided.');
 					return false;
 				}
 
+				const key = _resolveStorageKey(slotId);
 				const payload = {
 					version: this.CURRENT_VERSION,
 					timestamp: new Date().toISOString(),
@@ -323,7 +501,11 @@ const EmberlightSaveManager = (() => {
 				};
 
 				const serialized = JSON.stringify(payload);
-				_setStorageItem(STORAGE_KEY, serialized);
+				_setStorageItem(key, serialized);
+				// Mirror to primary slot for legacy compatibility
+				if (slotId === 'SLOT_1') {
+					_setStorageItem(LEGACY_STORAGE_KEY, serialized);
+				}
 				return true;
 			} catch (err) {
 				console.error('[EmberlightSaveManager] Save failed:', err);
@@ -332,13 +514,17 @@ const EmberlightSaveManager = (() => {
 		},
 
 		/**
-		 * Loads, migrates, and re-hydrates the save payload into a canonical game state.
+		 * Loads, migrates, and re-hydrates save payload from specified slot.
 		 * (State-mutating loader gateway)
+		 * @param {string} [slotId] Target save slot ID. If omitted, loads most recent slot.
 		 * @returns {SavePayload|null} Fully hydrated save payload object or null.
 		 */
-		load() {
+		load(slotId) {
 			try {
-				const raw = _getStorageItem(STORAGE_KEY);
+				_autoMigrateLegacy();
+				const targetSlot = slotId || this.getMostRecentSlotId();
+				const key = _resolveStorageKey(targetSlot);
+				const raw = _getStorageItem(key) || _getStorageItem(LEGACY_STORAGE_KEY);
 				if (!raw) return null;
 
 				let payload = JSON.parse(raw);
@@ -439,6 +625,7 @@ const EmberlightSaveManager = (() => {
 				}
 
 				return {
+					slotId: targetSlot,
 					version: payload.version,
 					timestamp: payload.timestamp,
 					canonicalParty: payload.canonicalParty,
@@ -462,13 +649,39 @@ const EmberlightSaveManager = (() => {
 		},
 
 		/**
+		 * Deletes a specific save slot.
+		 * @param {string} slotId
+		 * @returns {boolean}
+		 */
+		deleteSlot(slotId) {
+			try {
+				const key = _resolveStorageKey(slotId);
+				_removeStorageItem(key);
+				if (slotId === 'SLOT_1') {
+					_removeStorageItem(LEGACY_STORAGE_KEY);
+				}
+				return true;
+			} catch (err) {
+				console.error('[EmberlightSaveManager] Delete error:', err);
+				return false;
+			}
+		},
+
+		/**
 		 * Purges save data from persistent storage.
 		 * (State-mutating cleanup gateway)
+		 * @param {string} [slotId] Optional slot ID to clear. If omitted, clears all slots.
 		 * @returns {boolean} True if successfully cleared.
 		 */
-		clear() {
+		clear(slotId) {
 			try {
-				_removeStorageItem(STORAGE_KEY);
+				if (slotId) {
+					return this.deleteSlot(slotId);
+				}
+				SAVE_SLOTS.forEach((s) => {
+					_removeStorageItem(s.storageKey);
+				});
+				_removeStorageItem(LEGACY_STORAGE_KEY);
 				return true;
 			} catch (err) {
 				console.error('[EmberlightSaveManager] Clear error:', err);

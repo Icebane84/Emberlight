@@ -152,7 +152,7 @@ const EmberlightInput = (() => {
 			actionBuffer.push(action);
 
 			if (eventBus && typeof eventBus.publish === 'function') {
-				eventBus.publish('input:action', { action, code: e.code });
+				eventBus.publish('input:action', { action, code: e.code, shiftKey: Boolean(e.shiftKey) });
 			}
 		}
 	}
@@ -217,6 +217,60 @@ const EmberlightInput = (() => {
 	}
 
 	/**
+	 * Suppresses native browser context menu for absolute immersion.
+	 * @param {MouseEvent} e - Pointer event.
+	 * @returns {void}
+	 */
+	function handleContextMenu(e) {
+		if (e && typeof e.preventDefault === 'function') {
+			e.preventDefault();
+		}
+	}
+
+	/**
+	 * Handles pointer mousedown: dispatches RMB context triggers to GameRuntime.
+	 * @param {MouseEvent} e - Pointer event.
+	 * @returns {void}
+	 */
+	function handlePointerDown(e) {
+		if (!isEnabled) return;
+		if (e.button === 2) {
+			const runtime = typeof window !== 'undefined' && window.GameRuntime ? window.GameRuntime : (typeof GameRuntime !== 'undefined' ? GameRuntime : null);
+			if (runtime && typeof runtime.handlePointerContextDown === 'function') {
+				runtime.handlePointerContextDown(e);
+			}
+		}
+	}
+
+	/**
+	 * Handles pointer mousemove: forwards vector movement to GameRuntime.
+	 * @param {MouseEvent} e - Pointer event.
+	 * @returns {void}
+	 */
+	function handlePointerMove(e) {
+		if (!isEnabled) return;
+		const runtime = typeof window !== 'undefined' && window.GameRuntime ? window.GameRuntime : (typeof GameRuntime !== 'undefined' ? GameRuntime : null);
+		if (runtime && typeof runtime.handlePointerContextMove === 'function') {
+			runtime.handlePointerContextMove(e);
+		}
+	}
+
+	/**
+	 * Handles pointer mouseup: dispatches RMB gesture release to GameRuntime.
+	 * @param {MouseEvent} e - Pointer event.
+	 * @returns {void}
+	 */
+	function handlePointerUp(e) {
+		if (!isEnabled) return;
+		if (e.button === 2) {
+			const runtime = typeof window !== 'undefined' && window.GameRuntime ? window.GameRuntime : (typeof GameRuntime !== 'undefined' ? GameRuntime : null);
+			if (runtime && typeof runtime.handlePointerContextUp === 'function') {
+				runtime.handlePointerContextUp(e);
+			}
+		}
+	}
+
+	/**
 	 * Resets active inputs on window blur.
 	 * [State Mutating]
 	 * @returns {void}
@@ -258,6 +312,10 @@ const EmberlightInput = (() => {
 				window.addEventListener('keydown', handleKeyDown);
 				window.addEventListener('keyup', handleKeyUp);
 				window.addEventListener('blur', handleBlur);
+				window.addEventListener('contextmenu', handleContextMenu);
+				window.addEventListener('mousedown', handlePointerDown);
+				window.addEventListener('mousemove', handlePointerMove);
+				window.addEventListener('mouseup', handlePointerUp);
 			}
 			bindOnScreenControls();
 		},
@@ -407,6 +465,10 @@ const EmberlightInput = (() => {
 				window.removeEventListener('keydown', handleKeyDown);
 				window.removeEventListener('keyup', handleKeyUp);
 				window.removeEventListener('blur', handleBlur);
+				window.removeEventListener('contextmenu', handleContextMenu);
+				window.removeEventListener('mousedown', handlePointerDown);
+				window.removeEventListener('mousemove', handlePointerMove);
+				window.removeEventListener('mouseup', handlePointerUp);
 			}
 			unbindOnScreenControls();
 			activeKeys.clear();

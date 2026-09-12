@@ -1,17 +1,17 @@
 # PROJECT CONSTITUTION: Emberlight Sovereign Engine Architecture
 
-**Document Identifier:** ARCH-001-EMBERLIGHT  
-**Governing Standard:** VSRP-001 (Universal Module Contract Specification)  
-**Parent Protocol:** PMIP-001 (Phoenix Modularization & Integration Protocol) / SDCP-001 / PRS-ARC-020  
-**Version:** 5.0.0-LOCKED  
-**Timestamp:** 2026-09-03T22:45:00Z  
-**Index Anchor:** PRS-001  
+**Document Identifier:** ARCH-001-EMBERLIGHT
+**Governing Standard:** VSRP-001 (Universal Module Contract Specification)
+**Parent Protocol:** PMIP-001 (Phoenix Modularization & Integration Protocol) / SDCP-001 / PRS-ARC-020
+**Version:** 5.0.0-LOCKED
+**Timestamp:** 2026-09-03T22:45:00Z
+**Index Anchor:** PRS-001
 
 ---
 
 ## 1. 4-Tier Sovereign Architecture
 
-``` plain text
+```plain text
 ┌────────────────────────────────────────────────────────────────────────┐
 │                        TIER 1: THE HOST HARNESS                        │
 │                 GameRuntime (runtime.js) & StorageManager              │
@@ -96,17 +96,17 @@
     - `AC-09`: Idempotent destruction and post-destruction gate assertions (`destroy()`).
     - `AC-10`: Authentic, non-theater verification assertions across all subsystems.
 22. **Performance Budget Plan & GPU-Accelerated Compositing ($\le 16.67\text{ms}$ / 60 FPS):** Guarantees rock-solid 60 FPS rendering under active CRT shaders:
-    - *Zero-Allocation Canvas Caching (`battler_baker.js`):* Pre-renders all $64\times64$ battler figures (4 heroes, 6 hostiles) into cached Base64 PNG Data URLs (`cache.set()`) on boot, eliminating mid-combat GC spikes.
-    - *GPU-Accelerated Motion Pipeline:* Drives idle breathing (`translateY`), forward attack lunges (`translateX`), and hit flinches (`scale`/`filter`) strictly through CSS hardware transforms on the compositor thread.
-    - *Low-Overhead Parallax Backdrops (`battle_backdrop.js`):* Renders canvas biomes (`MEADOW`, `TOWN`, `CRYPT`, `BOSS`) using optimized vector primitives and gradient stops ($<1.2\text{ms}$ budget).
-    - *Batched DOM Mutation Pipeline:* Reconciles formation wings via in-place class toggling (`.unit-lunging`, `.unit-hit-recoil`, `.has-ailment-burn`) rather than destructive innerHTML thrashing.
+    - _Zero-Allocation Canvas Caching (`battler_baker.js`):_ Pre-renders all $64\times64$ battler figures (4 heroes, 6 hostiles) into cached Base64 PNG Data URLs (`cache.set()`) on boot, eliminating mid-combat GC spikes.
+    - _GPU-Accelerated Motion Pipeline:_ Drives idle breathing (`translateY`), forward attack lunges (`translateX`), and hit flinches (`scale`/`filter`) strictly through CSS hardware transforms on the compositor thread.
+    - _Low-Overhead Parallax Backdrops (`battle_backdrop.js`):_ Renders canvas biomes (`MEADOW`, `TOWN`, `CRYPT`, `BOSS`) using optimized vector primitives and gradient stops ($<1.2\text{ms}$ budget).
+    - _Batched DOM Mutation Pipeline:_ Reconciles formation wings via in-place class toggling (`.unit-lunging`, `.unit-hit-recoil`, `.has-ailment-burn`) rather than destructive innerHTML thrashing.
 23. **Audiovisual & Combat Architecture Optimization (PRS-ARC-022):**
-    - *Layout-Thrash-Free Particle Emitter (`combat_vfx.js`):* Replaces 60Hz per-frame DOM queries and `getBoundingClientRect()` layout calculations with an indexed slot centroid buffer (`cachedAilmentSlots`) updated every 250ms or on dirty render triggers, eliminating micro-stutters during combat.
-    - *Lifecycle-Managed Backdrop RAF (`battle_backdrop.js`):* Implements active viewport visibility detection (`canvas.offsetParent !== null`), pausing RAF animation cycles when transitioning out of combat to preserve CPU/GPU cycles.
-    - *Acoustically Pure Single-Trigger Audio Graph (`acoustic_sfx.js`):* Strips redundant SFX invocations from `combat:damage` subscriptions, reserving sound generation exclusively for `combat:sfx` to eliminate oscillator double-triggering and phase flanging.
-    - *Dynamic Battler Paper-Doll Compositing (`battler_baker.js`):* Supports dynamic paper-doll composite specs (`{ phenotype, weapon, armor }`), rendering socketed weapon overlays and armor trims directly onto 64x64 combat battlers mirroring overworld sprite mechanics.
-    - *Boss Scale Clamping & Threat Stature (`index.css` & `combat.js`):* Enlarges Malakor and major bosses to $88\times88\text{px}$ (`.boss-battler`) with proportional red-tinted contact shadows ($80\times16\text{px}$) and heat pulsation.
-    - *Contextual Soundtrack State Restoration (`synth_soundtrack.js`):* Tracks exploration biomes (`SURFACE`, `TOWN`, `CATACOMBS`) and restores the ambient mood immediately upon `combat:resolved`.
+    - _Layout-Thrash-Free Particle Emitter (`combat_vfx.js`):_ Replaces 60Hz per-frame DOM queries and `getBoundingClientRect()` layout calculations with an indexed slot centroid buffer (`cachedAilmentSlots`) updated every 250ms or on dirty render triggers, eliminating micro-stutters during combat.
+    - _Lifecycle-Managed Backdrop RAF (`battle_backdrop.js`):_ Implements active viewport visibility detection (`canvas.offsetParent !== null`), pausing RAF animation cycles when transitioning out of combat to preserve CPU/GPU cycles.
+    - _Acoustically Pure Single-Trigger Audio Graph (`acoustic_sfx.js`):_ Strips redundant SFX invocations from `combat:damage` subscriptions, reserving sound generation exclusively for `combat:sfx` to eliminate oscillator double-triggering and phase flanging.
+    - _Dynamic Battler Paper-Doll Compositing (`battler_baker.js`):_ Supports dynamic paper-doll composite specs (`{ phenotype, weapon, armor }`), rendering socketed weapon overlays and armor trims directly onto 64x64 combat battlers mirroring overworld sprite mechanics.
+    - _Boss Scale Clamping & Threat Stature (`index.css` & `combat.js`):_ Enlarges Malakor and major bosses to $88\times88\text{px}$ (`.boss-battler`) with proportional red-tinted contact shadows ($80\times16\text{px}$) and heat pulsation.
+    - _Contextual Soundtrack State Restoration (`synth_soundtrack.js`):_ Tracks exploration biomes (`SURFACE`, `TOWN`, `CATACOMBS`) and restores the ambient mood immediately upon `combat:resolved`.
 
 24. **Combat Zoning Remediation (ARCH-ZONE-COMBAT-001):** `combat.js` is the Tier 2 simulation tenant and owns authoritative turns, damage, status effects, seeded randomness, and resolution envelopes. `combat_renderer.js` is the Tier 3 presentation driver and owns DOM projection, target controls, and presentation callbacks. The host invokes `combat.render(renderer, state)` with a detached snapshot; renderer-originated gestures return normalized action tokens to the tenant and never mutate tenant state directly.
 
@@ -115,15 +115,15 @@
 26. **District Renderer Zoning (ARCH-ZONE-DISTRICTS-001):** `armory.js` and `chronicle.js` retain equipment and quest simulation authority while `armory_renderer.js` and `chronicle_renderer.js` own DOM projection. Renderer callbacks return normalized actions to the tenants; renderer code never commits canonical state.
 
 27. **Subterranean Lighting & Creepy Catacomb Ambiance Engine (PRS-ATM-001):**
-    - *Atmospheric Lighting Compositor (`dynamic_lights.js`):* Implements a dynamic illumination gradient differentiating open daylight overworld ($0.0$ ambient darkness mask) from deep subterranean catacombs ($0.94$ darkness mask). Subterranean levels feature a warm flickering emberlight lantern cone ($\approx 105\text{px}$ radius with organic per-frame micro-flicker), dynamic geometric shadow extrusion against solid walls (`#`), glowing static sconces/braziers (`C`, `>`, `<`), and 24 floating procedural crypt dust motes and spectral wisps.
-    - *Atmospheric Corridor Projection (`pseudo_3d_renderer.js`):* Subterranean mode clamps horizon fog depth to $5.4$ units with high-contrast abyssal void shading (`#020206`), tightens radial vignette falloff ($0.50$ factor with eerie ember amber and shadow purple coloration), and projects dark crypt slate ceilings.
-    - *Catacomb Tile & Cartography Shaders (`index.css` & `overworld.js`):* Toggles `.catacomb-mode` across the 2D cartography grid when `dungeonDepth > 0`, transitioning terrain tiles from daylight grass/stone to abyssal obsidian/crypt slate (`#0d0c15`), dark pathways (`#05050b`), pulsing poisonous miasma (`#12041c`), and rune-inscribed glowing crypt gates.
+    - _Atmospheric Lighting Compositor (`dynamic_lights.js`):_ Implements a dynamic illumination gradient differentiating open daylight overworld ($0.0$ ambient darkness mask) from deep subterranean catacombs ($0.94$ darkness mask). Subterranean levels feature a warm flickering emberlight lantern cone ($\approx 105\text{px}$ radius with organic per-frame micro-flicker), dynamic geometric shadow extrusion against solid walls (`#`), glowing static sconces/braziers (`C`, `>`, `<`), and 24 floating procedural crypt dust motes and spectral wisps.
+    - _Atmospheric Corridor Projection (`pseudo_3d_renderer.js`):_ Subterranean mode clamps horizon fog depth to $5.4$ units with high-contrast abyssal void shading (`#020206`), tightens radial vignette falloff ($0.50$ factor with eerie ember amber and shadow purple coloration), and projects dark crypt slate ceilings.
+    - _Catacomb Tile & Cartography Shaders (`index.css` & `overworld.js`):_ Toggles `.catacomb-mode` across the 2D cartography grid when `dungeonDepth > 0`, transitioning terrain tiles from daylight grass/stone to abyssal obsidian/crypt slate (`#0d0c15`), dark pathways (`#05050b`), pulsing poisonous miasma (`#12041c`), and rune-inscribed glowing crypt gates.
 
 28. **Progression Zoning Remediation (ARCH-ZONE-PROGRESSION-001):** `progression.js` is the Tier 2 simulation tenant and owns authoritative Aether Matrix constellation graphs, SP allocation rules, prerequisite adjacency checking, pure functional stat aggregation, and respec refund mechanics. `progression_renderer.js` is the Tier 3 presentation driver and owns hero roster tabs, essence filter bars, constellation node card layouts, and the Aether Attunement Inspector Card. User interactions emit normalized action tokens (`SELECT_CHARACTER`, `SELECT_ESSENCE`, `SELECT_NODE`, `UNLOCK_NODE`, `RESPEC_CHARACTER`) to `progression.handleHostAction(action)` which updates simulation state and re-renders presentation with zero direct DOM mutation from the simulation engine.
 
 29. **VSRP-001 Verification Governance & Testing Taxonomy (ARCH-GOV-TEST-001):** Formally separates verification scopes between simulation and presentation layers:
-    - *Tier 2 Simulation Tenants:* Verified via headless deterministic state machine simulation across 19 Sentinel passes (`auditor.js` Pass 2 through Pass 19), validating Mulberry32 PRNG authority, state round-trip idempotency, replay invariance, and non-mutating update loops. All interactive tenants (`combat`, `overworld`, `progression`, `script`, `lockpick`, `settings`) must expose `handleHostAction(action)`.
-    - *Tier 3 Presentation Drivers:* Verified via Action-Inversion unit testing (`test_sentinel.js`), asserting that UI triggers programmatically emit canonical action tokens (`SELECT_TAB`, `ATTACK`, `GUARD`, `FLEE`, etc.) to the tenant dispatch callback with zero simulation authority and zero direct state mutation. Production boot gatekeeper (`runBootGatekeeper()`) remains lightweight, validating structural contracts and renderer callback delegation without running heavy DOM simulation loops during browser boot.
+    - _Tier 2 Simulation Tenants:_ Verified via headless deterministic state machine simulation across 19 Sentinel passes (`auditor.js` Pass 2 through Pass 19), validating Mulberry32 PRNG authority, state round-trip idempotency, replay invariance, and non-mutating update loops. All interactive tenants (`combat`, `overworld`, `progression`, `script`, `lockpick`, `settings`) must expose `handleHostAction(action)`.
+    - _Tier 3 Presentation Drivers:_ Verified via Action-Inversion unit testing (`test_sentinel.js`), asserting that UI triggers programmatically emit canonical action tokens (`SELECT_TAB`, `ATTACK`, `GUARD`, `FLEE`, etc.) to the tenant dispatch callback with zero simulation authority and zero direct state mutation. Production boot gatekeeper (`runBootGatekeeper()`) remains lightweight, validating structural contracts and renderer callback delegation without running heavy DOM simulation loops during browser boot.
 
 30. **Tactical Displacement & Dynamic Row Shifting (Pass 18 / PRS-SPEC-025 / ARCH-SPEC-DISPLACEMENT-001):** Authoritative dynamic formation relocation in combat. Supports `KNOCKBACK` (relocating vanguard frontline units to the protected rear row) and `PULL` (dragging protected backline spellcasters/archers forward into the frontline vanguard) purely routed through EventBus envelopes (`combat:animation`) and updated in `target.row`. Boss archetypes are certified immune to displacement.
 
@@ -138,9 +138,14 @@
 33. **Instant Battle End Detection & Interactive Victory Protocol (ARCH-SPEC-COMBAT-VICTORY-001):** Evaluates `checkBattleEnd()` immediately upon lethal damage in physical strikes or skill execution. Dispatches `combat:victory` and `combat:banner` events, computes EXP/Gold spoils and item drops, and mounts an interactive Victory Card with `▶ CONTINUE EXPEDITION [SPACE]` button and automatic scheduled fallback transition to overworld cartography.
 
 34. **Decoupled Host Input Architecture & Centralized Settings Profile (ARCH-SPEC-INPUT-SETTINGS-001):**
-    - *Three-Layer Input Architecture:*
+    - _Three-Layer Input Architecture:_
       1. **Remappable Keymap Dictionary (Configuration):** Physical key bindings are defined externally in mutable keymap profiles (`data/settings.json` and `EmberlightManifest.DefaultSettings.input.keymap`) mapping hardware event codes (e.g. `KeyW`, `ArrowUp`) to canonical action tokens (`UP`, `CONFIRM`, `TOGGLE_EXPAND_DECK`, `CHOICE_1`, etc.). Ingested into `EmberlightInput.configure({ keymap })`.
       2. **Host Input Manager (Event Translation):** The host peripheral driver (`EmberlightInput`) strictly owns all DOM listeners (`keydown`, `keyup`, `blur`, on-screen DPAD). It maps raw hardware events to canonical action tokens and buffers them into an internal queue while publishing `input:action` events across `EmberlightEventBus`. Direct DOM event listener registration inside simulation tenants is strictly forbidden.
       3. **Capability-Scoped Delivery (`ModuleContext`):** During simulation ticks, the host injects active action tokens and input state into tenants via `update(dt, context)` or `handleHostAction(action)`. Simulation code evaluates `context.input.isPressed('ACTION')` or `isDown('ACTION')`, ensuring 100% headless testability with mock input fixtures.
-    - *Centralized Settings SSOT (`data/settings.json` & `EmberlightManifest.DefaultSettings`):* A unified JSON manifest defining immutable operational profiles across 5 domains: `input.keymap`, `audio` (`masterVolume`, `sfxVolume`, `bgmVolume`, `isMuted`), `tuning` (`combatEncounterRate`, `criticalMultiplier`, `stepPoisonTickRate`), `accessibility` (`screenShake`, `highContrastUI`, `crtScanlines`), and `debug` (`godMode`, `showCollisionMesh`, `logTelemetry`).
+    - _Centralized Settings SSOT (`data/settings.json` & `EmberlightManifest.DefaultSettings`):_ A unified JSON manifest defining immutable operational profiles across 5 domains: `input.keymap`, `audio` (`masterVolume`, `sfxVolume`, `bgmVolume`, `isMuted`), `tuning` (`combatEncounterRate`, `criticalMultiplier`, `stepPoisonTickRate`), `accessibility` (`screenShake`, `highContrastUI`, `crtScanlines`), and `debug` (`godMode`, `showCollisionMesh`, `logTelemetry`).
 
+35. **VSRP-001 Facade / Subsystem Topology & Faraday Staging Protocol (ARCH-SPEC-FACADE-001):**
+    Complex or large-scale tenants (e.g. Static Manifest, Battler Baker, Pseudo-3D Raycaster, Combat Engine, Sentinel Auditor) are partitioned into domain-specific sub-modules residing in dedicated sub-directories (`manifest/`, `battler_baker/`, `pseudo_3d/`, `combat/`, `auditor/`).
+    - _Isomorphic Staging Membrane:_ Sub-modules declare a defensive preamble (`if (typeof window !== 'undefined') window._[Name]Internal = window._[Name]Internal || {};`) and attach their localized functions/constants to the staging object.
+    - _Root Facade Sealing & Export:_ The root facade script (`manifest.js`, `battler_baker.js`, `pseudo_3d_renderer.js`, `combat.js`, `auditor.js`) loads after all domain sub-modules, ingests the staging membrane, seals the public contract (`EmberlightManifest`, `EmberlightBattlerBaker`, `EmberlightPseudo3D` / `EmberlightCorridorSensor`, `EmberlightCombat`, `EmberlightAuditor`), mounts VSRP-001 canonical lifecycle methods, and **completely purges the staging global** (`delete window._[Name]Internal`).
+    - _Zero-Bundler Isolation:_ Guarantees high modularity, regional file navigation, and zero namespace collision while strictly preserving double-click `file://` browser execution and zero external build tooling.

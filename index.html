@@ -125,6 +125,14 @@
             >
               ⚔ INITIALIZE MISSION
             </button>
+            <button
+              type="button"
+              class="cmd-btn"
+              id="menu-load-btn"
+              style="padding: 10px; font-size: 9.5px"
+            >
+              📂 LOAD EXPEDITION
+            </button>
             <div style="display: flex; gap: 8px">
               <button
                 type="button"
@@ -254,7 +262,7 @@
           <section class="quadrant-pane" id="pane-cartography">
             <div class="pane-header">
               <span class="pane-title">🛰️ Q1: STRATEGIC CARTOGRAPHY</span>
-              <span class="pane-tag">[WASD] Step</span>
+              <span class="pane-tag" id="q1-pane-tag">[WASD] Step</span>
             </div>
             <div id="overworld-view" class="pane-content">
               <div id="overworld-grid-wrapper">
@@ -411,22 +419,8 @@
               <button type="button" class="subnav-tab" data-nav="POUCH">
                 <span class="keycap">[I]</span> 🎒 POUCH
               </button>
-              <button type="button" class="subnav-tab" data-nav="SHOP">
-                <span class="keycap">[B]</span> 🛒 SHOP
-              </button>
               <button type="button" class="subnav-tab" data-nav="CHRONICLE">
                 <span class="keycap">[J]</span> 📖 JOURNAL
-              </button>
-              <button type="button" class="subnav-tab" data-nav="FORGE">
-                🔥 FORGE
-              </button>
-              <button
-                type="button"
-                class="subnav-tab"
-                data-nav="AUDIT"
-                style="border-color: #b07fe0; color: #b07fe0"
-              >
-                🔬 AUDIT
               </button>
               <button
                 type="button"
@@ -656,25 +650,11 @@
         <button type="button" class="cmd-btn nav-btn" id="nav-pouch-btn">
           <span class="keycap">[I]</span> 🎒 POUCH
         </button>
-        <button type="button" class="cmd-btn nav-btn" id="nav-shop-btn">
-          <span class="keycap">[B]</span> 🛒 SHOP
-        </button>
         <button type="button" class="cmd-btn nav-btn" id="nav-chronicle-btn">
           <span class="keycap">[J]</span> 📖 JOURNAL
         </button>
-        <button type="button" class="cmd-btn nav-btn" id="nav-forge-btn">
-          🔥 FORGE
-        </button>
         <button type="button" class="cmd-btn nav-btn" id="nav-rest-btn">
           ▲ REST
-        </button>
-        <button
-          type="button"
-          class="cmd-btn nav-btn"
-          id="nav-audit-btn"
-          style="border-color: #b07fe0; color: #b07fe0"
-        >
-          🔬 AUDIT
         </button>
         <button
           type="button"
@@ -714,39 +694,169 @@
           [ CLICK OR SPACE TO ADVANCE ]
         </div>
       </div>
+
+      <!-- CINEMATIC ZONE TRANSITION OVERLAY -->
+      <div id="zone-transition-overlay" class="hidden zone-transition-layer">
+        <div class="zone-transition-banner">
+          <div id="zone-transition-title" class="zone-title">ENTERING OAKHAVEN HAMLET</div>
+          <div id="zone-transition-subtitle" class="zone-subtitle">AETHERIC SANCTUARY // SAFE REFUGE</div>
+        </div>
+      </div>
+
+      <!-- MASTER MULTI-SLOT SAVE / LOAD ARCHIVES MODAL -->
+      <div
+        id="save-load-modal"
+        class="panel hidden modal-layer save-load-modal"
+      >
+        <div class="modal-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid var(--border-dim); padding-bottom: 8px;">
+          <div>
+            <div id="save-load-modal-title" style="font-size: 13px; font-weight: bold; color: var(--ember); letter-spacing: 2px;">
+              💾 EXPEDITION ARCHIVES
+            </div>
+            <div id="save-load-modal-subtitle" style="font-size: 7.5px; color: var(--text-dim); letter-spacing: 1px; margin-top: 2px;">
+              SELECT A CHRONICLE SLOT TO MANAGE
+            </div>
+          </div>
+          <button
+            type="button"
+            class="cmd-btn"
+            id="close-save-load-btn"
+            style="font-size: 7.5px; padding: 4px 8px;"
+          >
+            ✕ CLOSE
+          </button>
+        </div>
+
+        <!-- Slots Container -->
+        <div id="save-slots-container" class="save-slots-grid">
+          <!-- Dynamic slot cards -->
+        </div>
+
+        <div class="modal-footer-row" style="margin-top: 14px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-dim); padding-top: 10px; font-size: 7px; color: var(--text-dim);">
+          <span id="save-load-status-hint">💡 Auto-Save updates upon entering zones and victorious battles.</span>
+          <button
+            type="button"
+            class="cmd-btn"
+            id="save-load-back-btn"
+            style="font-size: 7.5px; padding: 4px 12px;"
+          >
+            ← BACK
+          </button>
+        </div>
+      </div>
     </div>
 
-    <!-- CLASSIC SCRIPT LOADER (STRICT DEPENDENCY CHAIN) -->
-    <!-- 1. Core Foundations & Utilities -->
+    <!-- Tactical Vignette & Focal Ring Chassis (ARCH-SPEC-RMB-INTEGRATION-001) -->
+    <div id="tactical-vignette"></div>
+
+    <div id="focal-ring">
+      <div id="target-bounding-bracket">
+        <div class="target-corner corner-tl"></div>
+        <div class="target-corner corner-tr"></div>
+        <div class="target-corner corner-bl"></div>
+        <div class="target-corner corner-br"></div>
+      </div>
+
+      <div id="crown-banner">
+        <span class="crown-title" id="crown-title">TARGET</span>
+        <div class="crown-gauge-track">
+          <div class="crown-gauge-fill" id="crown-gauge"></div>
+        </div>
+        <div class="crown-badge-row">
+          <span id="badge-1">TAG1</span>
+          <span>•</span>
+          <span id="badge-2">TAG2</span>
+        </div>
+      </div>
+
+      <div class="ring-leaf" id="leaf-north" data-direction="NORTH" data-tooltip-title="Expedition Pouch" data-tooltip-desc="Access squad inventory and consumable elixirs.">
+        <span>🎒</span>
+        <span>Pouch</span>
+      </div>
+
+      <div class="ring-leaf" id="leaf-east" data-direction="EAST" data-tooltip-title="Context Action" data-tooltip-desc="Execute primary tactical interaction with target.">
+        <span id="leaf-east-icon">⚡</span>
+        <span id="leaf-east-label">Action</span>
+      </div>
+
+      <div class="ring-leaf" id="leaf-south" data-direction="SOUTH" data-tooltip-title="Tactical Stance" data-tooltip-desc="Assume defensive posture or rest at camp.">
+        <span id="leaf-south-icon">🛡️</span>
+        <span id="leaf-south-label">Guard</span>
+      </div>
+
+      <div class="ring-leaf" id="leaf-west" data-direction="WEST" data-tooltip-title="Area Survey" data-tooltip-desc="Scan surrounding sector for hidden hazards.">
+        <span id="leaf-west-icon">👁️</span>
+        <span id="leaf-west-label">Scan</span>
+      </div>
+
+      <div id="scroll-tooltip">
+        <div class="scroll-header" id="scroll-title">TITLE</div>
+        <div class="scroll-body" id="scroll-desc">Description text...</div>
+      </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- SCRIPT LOADER — order governed by testing/load_order.js (SSOT)   -->
+    <!-- To add/rename a module: edit load_order.js, then re-sync here.   -->
+    <!-- Run `node testing/gen_html_scripts.js` to audit for drift.        -->
+    <!-- ================================================================ -->
+
+    <!-- 1. Tier 4: Kernels & Static Schema -->
+    <!-- Manifest Domain Subsystems (Loaded in Dependency Order) -->
+    <script src="manifest/manifest_config.js"></script>
+    <script src="manifest/manifest_actors.js"></script>
+    <script src="manifest/manifest_items.js"></script>
+    <script src="manifest/manifest_progression.js"></script>
+    <script src="manifest/manifest_world.js"></script>
+    <script src="manifest/manifest_narrative.js"></script>
+    <script src="manifest/manifest_calculators.js"></script>
+    <!-- Root Manifest Facade (Seals & Exports EmberlightManifest SSOT) -->
     <script src="manifest.js"></script>
     <script src="prng.js"></script>
+
+    <!-- 2. Tier 1: Host Harness Core -->
     <script src="session_store.js"></script>
     <script src="event_bus.js"></script>
-    <script src="input.js"></script>
 
-    <!-- 2. World, Mechanics, & Audio Systems -->
+    <!-- 3. Tier 1: World & Ecology Systems -->
     <script src="world_ecology.js"></script>
     <script src="district_router.js"></script>
-    <script src="threat_oracle.js"></script>
-    <script src="dungeon_gen.js"></script>
-    <script src="lockpick.js"></script>
+
+    <!-- 4. Tier 3: Audio Peripheral Drivers -->
     <script src="acoustic_sfx.js"></script>
     <script src="synth_soundtrack.js"></script>
     <script src="synthetic_voice.js"></script>
 
-    <!-- 3. Assets & Baker Systems -->
+    <!-- 5. Tier 3: Input Peripheral Driver -->
+    <script src="input.js"></script>
+
+    <!-- 6. Tier 3: Icon & Asset Bakers -->
     <script src="icons.js"></script>
     <script src="skill_icons.js"></script>
     <script src="party_icons.js"></script>
     <script src="sprite_baker.js"></script>
-    <script src="battler_baker.js"></script>
 
-    <!-- 4. Rendering Pipeline & Compositors -->
+    <!-- 7. Tier 3: Rendering Pipeline & Compositors -->
     <script src="combat_vfx.js"></script>
+    <script src="dynamic_lights/dynamic_lights_primitives.js"></script>
+    <script src="dynamic_lights/dynamic_lights_shadows.js"></script>
+    <script src="dynamic_lights/dynamic_lights_emitters.js"></script>
+    <script src="dynamic_lights/dynamic_lights_pipeline.js"></script>
     <script src="dynamic_lights.js"></script>
+    <script src="pseudo_3d/pseudo_3d_textures.js"></script>
+    <script src="pseudo_3d/pseudo_3d_dda.js"></script>
+    <script src="pseudo_3d/pseudo_3d_billboards.js"></script>
+    <script src="pseudo_3d/pseudo_3d_pipeline.js"></script>
     <script src="pseudo_3d_renderer.js"></script>
     <script src="shader_compositor.js"></script>
+    <script src="battler_baker/battler_primitives.js"></script>
+    <script src="battler_baker/battler_heroes.js"></script>
+    <script src="battler_baker/battler_equipment.js"></script>
+    <script src="battler_baker/battler_enemies.js"></script>
+    <script src="battler_baker/battler_pipeline.js"></script>
+    <script src="battler_baker.js"></script>
     <script src="battle_backdrop.js"></script>
+    <script src="threat_oracle.js"></script>
     <script src="cockpit_renderer.js"></script>
     <script src="combat_renderer.js"></script>
     <script src="map_renderer.js"></script>
@@ -757,21 +867,46 @@
     <script src="status_renderer.js"></script>
     <script src="relic_forge_renderer.js"></script>
 
-    <!-- 5. Game Logic & State Systems -->
+    <!-- 8. Tier 2: Ephemeral Simulation Districts -->
     <script src="progression.js"></script>
+    <!-- Combat Domain Subsystems (Loaded in Dependency Order) -->
+    <script src="combat/combat_calc.js"></script>
+    <script src="combat/combat_displacement.js"></script>
+    <script src="combat/combat_queue.js"></script>
+    <script src="combat/combat_ai.js"></script>
+    <script src="combat/combat_state.js"></script>
+    <!-- Root Combat Facade (Seals & Exports EmberlightCombat) -->
     <script src="combat.js"></script>
     <script src="overworld.js"></script>
     <script src="armory.js"></script>
     <script src="market.js"></script>
     <script src="chronicle.js"></script>
     <script src="status.js"></script>
-    <script src="auditor.js"></script>
+
+    <!-- 9. Tier 4: Audit Kernel (VSRP-001 staged membrane sub-modules) -->
+    <script src="auditor/auditor_kernel.js"></script>
+    <script src="auditor/auditor_contracts.js"></script>
+    <script src="auditor/auditor_district_sims.js"></script>
+    <script src="auditor/auditor_combat_extended.js"></script>
+    <script src="auditor/auditor_persistence.js"></script>
+    <script src="auditor/auditor_constitutional.js"></script>
+    <script src="auditor/auditor_endgame.js"></script>
+    <script src="auditor.js"></script><!-- Facade: ingests membrane, purges _AuditorInternal, exports EmberlightAuditor -->
+
+
+    <!-- 10. Tier 2 (cont.) & Persistence -->
     <script src="relic_forge.js"></script>
+    <script src="dungeon_gen/dungeon_bsp.js"></script>
+    <script src="dungeon_gen/dungeon_drunkard.js"></script>
+    <script src="dungeon_gen/dungeon_hazards.js"></script>
+    <script src="dungeon_gen.js"></script>
+    <script src="lockpick.js"></script>
     <script src="settings.js"></script>
     <script src="save_manager.js"></script>
 
-    <!-- 6. Orchestration & Entry Point -->
+    <!-- 11. Tier 1: Orchestration & Entry Points -->
     <script src="script.js"></script>
     <script src="runtime.js"></script>
+
   </body>
 </html>

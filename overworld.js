@@ -220,7 +220,15 @@ const EmberlightOverworld = (() => {
 	 */
 	function isDangerZone(targetTile) {
 		if (SAFE_TILES.has(targetTile)) return false;
-		if (sim?.flags?.in_town || sim?.flags?.town || targetTile === "T")
+		if (
+			sim?.townId ||
+			sim?.inTown ||
+			sim?.flags?.in_town ||
+			sim?.flags?.town ||
+			sim?.flags?.townId ||
+			targetTile === "T" ||
+			targetTile === "O"
+		)
 			return false;
 		return (sim?.dangerSteps ?? 0) >= MIN_DANGER_STEPS;
 	}
@@ -335,19 +343,36 @@ const EmberlightOverworld = (() => {
 		sim.playerPos.x = nx;
 		sim.playerPos.y = ny;
 		sim.stepAnimFrame = (sim.stepAnimFrame || 0) + 1;
-		sim.dangerSteps = (sim.dangerSteps || 0) + 1;
+
+		const inTown = Boolean(
+			sim.townId ||
+			sim.inTown ||
+			sim.flags?.in_town ||
+			sim.flags?.townId ||
+			targetTile === "T" ||
+			targetTile === "O"
+		);
+
+		if (inTown) {
+			sim.dangerSteps = 0;
+		} else {
+			sim.dangerSteps = (sim.dangerSteps || 0) + 1;
+		}
 
 		if (hostContext?.eventBus?.publish) {
 			// Faraday Isolation: Publish detached position clone
 			hostContext.eventBus.publish("overworld:step", {
-				pos: { ...sim.playerPos },
+				pos: { ...sim.playerPos, inTown, townId: sim.townId || null },
 				tile: targetTile,
 				facing: sim.facing,
 				depth: sim.dungeonDepth || 0,
+				townId: sim.townId || null,
 			});
 		}
 
-		checkRandomEncounter(nx, ny, targetTile);
+		if (!inTown) {
+			checkRandomEncounter(nx, ny, targetTile);
+		}
 	}
 
 	const FACING_DELTAS = {
@@ -546,6 +571,13 @@ const EmberlightOverworld = (() => {
 					: [],
 				flags: incoming.flags ? { ...incoming.flags } : {},
 				facing: incoming.facing || sim?.facing || "DOWN",
+				townId: incoming.townId || incoming.flags?.townId || null,
+				inTown: Boolean(
+					incoming.inTown ||
+					incoming.townId ||
+					incoming.flags?.in_town ||
+					incoming.flags?.townId
+				),
 				dungeonDepth:
 					incoming.dungeonDepth ?? /** @type {any} */ (incoming).depth ?? 0,
 				dangerSteps: incoming.dangerSteps || 0,

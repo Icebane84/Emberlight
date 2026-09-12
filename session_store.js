@@ -112,6 +112,8 @@ const EmberlightSessionStore = (() => {
 	let canonicalStepCounter = 0;
 	/** @type {{ x: number, y: number }|null} */
 	let lastInteractedChestPos = null;
+	/** @type {string} */
+	let activeSlotId = 'SLOT_1';
 
 	// --- Sparse World Mutation Helpers ---
 	/**
@@ -437,38 +439,81 @@ const EmberlightSessionStore = (() => {
 		/**
 		 * Checks if a local save record exists.
 		 * [Pure Query]
+		/**
+		 * Checks if a save file exists.
+		 * [Pure Query]
+		 * @param {string} [slotId]
 		 * @returns {boolean} Existence flag.
 		 */
-		hasSave() {
-			return typeof EmberlightSaveManager !== 'undefined' && EmberlightSaveManager.hasSave();
+		hasSave(slotId) {
+			return typeof EmberlightSaveManager !== 'undefined' && EmberlightSaveManager.hasSave(slotId);
+		},
+
+		/**
+		 * Retrieves active save slot ID.
+		 * @returns {string}
+		 */
+		getActiveSlotId() {
+			return activeSlotId || 'SLOT_1';
+		},
+
+		/**
+		 * Sets active save slot ID.
+		 * @param {string} slotId
+		 * @returns {void}
+		 */
+		setActiveSlotId(slotId) {
+			if (slotId) activeSlotId = String(slotId).toUpperCase();
+		},
+
+		/**
+		 * Lists all save slot descriptors.
+		 * @returns {Array<Object>}
+		 */
+		listSlots() {
+			return typeof EmberlightSaveManager !== 'undefined' ? EmberlightSaveManager.listSlots() : [];
 		},
 
 		/**
 		 * Retrieves save metadata.
 		 * [Pure Query]
+		 * @param {string} [slotId]
 		 * @returns {SaveMetadata|null} Save metadata or null.
 		 */
-		getSaveMetadata() {
-			return typeof EmberlightSaveManager !== 'undefined' ? EmberlightSaveManager.getSaveMetadata() : null;
+		getSaveMetadata(slotId) {
+			return typeof EmberlightSaveManager !== 'undefined' ? EmberlightSaveManager.getSaveMetadata(slotId) : null;
 		},
 
 		/**
 		 * Persists session snapshot to local storage.
 		 * [State Mutating]
-		 * @param {Object|function(string): void} [arg] - Snapshot object or notification callback.
+		 * @param {Object|string|function(string): void} [arg1] - Snapshot object, slotId string, or notification callback.
+		 * @param {string|function(string): void} [arg2] - Optional slotId or notification callback.
+		 * @param {function(string): void} [arg3] - Optional notification callback.
 		 * @returns {boolean} Success assertion flag.
 		 */
-		save(arg) {
+		save(arg1, arg2, arg3) {
 			if (typeof EmberlightSaveManager === 'undefined') {
 				return false;
 			}
 			let snapshot;
+			let targetSlot = activeSlotId || 'SLOT_1';
 			/** @type {function(string): void|null} */
 			let notifyFn = null;
-			if (arg && typeof arg === 'object' && !Array.isArray(arg)) {
-				snapshot = arg;
+
+			if (arg1 && typeof arg1 === 'object' && !Array.isArray(arg1)) {
+				snapshot = arg1;
+				if (typeof arg2 === 'string') targetSlot = arg2;
+				else if (typeof arg2 === 'function') notifyFn = arg2;
+				if (typeof arg3 === 'function') notifyFn = arg3;
 			} else {
-				if (typeof arg === 'function') notifyFn = arg;
+				if (typeof arg1 === 'string') {
+					targetSlot = arg1;
+					if (typeof arg2 === 'function') notifyFn = arg2;
+				} else if (typeof arg1 === 'function') {
+					notifyFn = arg1;
+				}
+
 				snapshot = {
 					canonicalParty,
 					canonicalGold,
@@ -485,9 +530,11 @@ const EmberlightSessionStore = (() => {
 					canonicalStepCounter,
 				};
 			}
-			const ok = EmberlightSaveManager.save(snapshot);
+
+			activeSlotId = targetSlot;
+			const ok = EmberlightSaveManager.save(snapshot, targetSlot);
 			if (ok && typeof notifyFn === 'function') {
-				notifyFn('Game state saved to local storage.');
+				notifyFn(`Game state saved to ${targetSlot}.`);
 			}
 			return ok;
 		},
@@ -495,17 +542,31 @@ const EmberlightSessionStore = (() => {
 		/**
 		 * Restores session state from local storage.
 		 * [State Mutating]
-		 * @param {function(string): void} [notifyFn] - Notification callback.
+		 * @param {string|function(string): void} [arg1] - Slot ID or notification callback.
+		 * @param {function(string): void} [arg2] - Notification callback if slotId passed as arg1.
 		 * @returns {boolean} Success assertion flag.
 		 */
-		load(notifyFn) {
+		load(arg1, arg2) {
 			if (typeof EmberlightSaveManager === 'undefined') {
 				console.warn('[StorageManager] Load failed: EmberlightSaveManager is undefined.');
 				return false;
 			}
-			const payload = EmberlightSaveManager.load();
+
+			let targetSlot = null;
+			/** @type {function(string): void|null} */
+			let notifyFn = null;
+
+			if (typeof arg1 === 'string') {
+				targetSlot = arg1;
+				if (typeof arg2 === 'function') notifyFn = arg2;
+			} else if (typeof arg1 === 'function') {
+				notifyFn = arg1;
+			}
+
+			const payload = EmberlightSaveManager.load(targetSlot);
 			if (!payload) return false;
 
+			activeSlotId = payload.slotId || targetSlot || 'SLOT_1';
 			canonicalParty = payload.canonicalParty;
 			sanitizeCanonicalParty();
 			canonicalGold = typeof payload.canonicalGold === 'number' ? payload.canonicalGold : 100;
@@ -524,29 +585,46 @@ const EmberlightSessionStore = (() => {
 			canonicalStepCounter = typeof payload.canonicalStepCounter === 'number' ? payload.canonicalStepCounter : 0;
 
 			if (typeof notifyFn === 'function') {
-				notifyFn(`Session restored (v${payload.version}).`);
+				notifyFn(`Expedition restored from ${activeSlotId} (v${payload.version}).`);
 			}
 			return true;
 		},
 
 		/**
+		 * Deletes a specific save slot.
+		 * @param {string} slotId
+		 * @returns {boolean}
+		 */
+		deleteSlot(slotId) {
+			if (typeof EmberlightSaveManager !== 'undefined') {
+				return EmberlightSaveManager.deleteSlot(slotId);
+			}
+			return false;
+		},
+
+		/**
 		 * Clears local storage save records.
 		 * [State Mutating]
-		 * @param {function(string): void} [notifyFn] - Notification callback.
+		 * @param {string|function(string): void} [arg1] - Optional slot ID or notification callback.
+		 * @param {function(string): void} [arg2] - Notification callback if slotId passed as arg1.
 		 * @returns {void}
 		 */
-		clear(notifyFn) {
+		clear(arg1, arg2) {
+			let targetSlot = null;
+			let notifyFn = null;
+			if (typeof arg1 === 'string') {
+				targetSlot = arg1;
+				if (typeof arg2 === 'function') notifyFn = arg2;
+			} else if (typeof arg1 === 'function') {
+				notifyFn = arg1;
+			}
+
 			if (typeof EmberlightSaveManager !== 'undefined') {
-				EmberlightSaveManager.clear();
+				EmberlightSaveManager.clear(targetSlot);
 			}
 			if (typeof notifyFn === 'function') {
-				notifyFn('Data cleared. Reloading...');
+				notifyFn(targetSlot ? `Slot ${targetSlot} wiped.` : 'All archives cleared.');
 			}
-			setTimeout(() => {
-				if (typeof window !== 'undefined' && window.location) {
-					window.location.reload();
-				}
-			}, 400);
 		},
 	};
 	//#endregion

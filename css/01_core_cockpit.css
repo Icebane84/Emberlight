@@ -31,9 +31,23 @@
 	--ember: #ff9d4d;
 	--danger: #ff5555;
 	--ok: #4ade80;
+	--cyan: #38bdf8;
 	--shadow-ember: rgba(255, 157, 77, 0.35);
 	--font-display: 'Press Start 2P', monospace;
 	--font-mono: 'JetBrains Mono', 'VT323', 'Consolas', 'Courier New', monospace;
+
+	/* Tactical Reticle Attunement Tokens (ARCH-SPEC-RMB-INTEGRATION-001) */
+	--reticle-accent: #ff9d4d;
+	--reticle-glow: rgba(255, 157, 77, 0.45);
+
+	/* Viewport Hierarchy & Layout Token Controls */
+	--nav-row-ratio: 1.6fr;
+	--deck-row-ratio: 0.9fr;
+	--q1-q2-split: 1.05fr 0.95fr;
+	--ui-font-scale: 1.0;
+	--font-size-base: 13px;
+	--font-size-sm: 11px;
+	--font-size-xs: 10px;
 	box-sizing: border-box;
 }
 
@@ -47,14 +61,16 @@ body {
 	background: var(--bg);
 	color: var(--text);
 	font-family: var(--font-mono);
-	font-size: 11px;
-	line-height: 1.5;
+	font-size: calc(var(--font-size-base) * var(--ui-font-scale, 1.0));
+	line-height: 1.4;
 	margin: 0;
-	padding: 10px;
+	padding: 4px;
 	display: flex;
 	justify-content: center;
-	align-items: center;
-	min-height: 100vh;
+	align-items: stretch;
+	width: 100vw;
+	height: 100vh;
+	overflow: hidden;
 	user-select: none;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
@@ -90,12 +106,15 @@ body.crt-enabled::before {
 
 /* --- MASTER COCKPIT ENCLOSURE --- */
 #game-cockpit {
-	width: min(1280px, 98vw);
-	min-height: 94vh;
+	width: 100%;
+	max-width: 100vw;
+	height: 100%;
+	max-height: 100vh;
 	display: flex;
 	flex-direction: column;
 	justify-content: space-between;
-	gap: 8px;
+	gap: 6px;
+	overflow: hidden;
 }
 
 .panel {
@@ -104,7 +123,7 @@ body.crt-enabled::before {
 	box-shadow:
 		inset 0 0 0 1px rgba(255, 255, 255, 0.04),
 		0 4px 16px rgba(0, 0, 0, 0.7);
-	padding: 8px 12px;
+	padding: 6px 10px;
 	transition:
 		border-color 0.2s ease,
 		box-shadow 0.2s ease;
@@ -112,10 +131,10 @@ body.crt-enabled::before {
 
 .panel-title {
 	color: var(--text-dim);
-	font-size: 7.5px;
-	margin-bottom: 6px;
+	font-size: 10.5px;
+	margin-bottom: 4px;
 	border-bottom: 1px solid var(--border-dim);
-	padding-bottom: 4px;
+	padding-bottom: 3px;
 	letter-spacing: 1px;
 }
 
@@ -127,14 +146,14 @@ body.crt-enabled::before {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	padding: 8px 14px;
+	padding: 6px 12px;
 	border-color: var(--border);
 	background: rgba(12, 12, 28, 0.98);
 }
 
 .brand-title {
 	color: var(--ember);
-	font-size: 11px;
+	font-size: 13px;
 	font-weight: bold;
 	letter-spacing: 2px;
 	text-shadow: 0 0 8px var(--shadow-ember);
@@ -143,10 +162,27 @@ body.crt-enabled::before {
 .telemetry-channel-group {
 	display: flex;
 	flex-direction: column;
-	gap: 3px;
+	gap: 2px;
 	flex: 1;
-	max-width: 650px;
+	max-width: 750px;
 	min-width: 0;
+	padding: 0 12px;
+}
+
+.quest-ticker {
+	font-size: 11px;
+	color: var(--text);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.ticker {
+	font-size: 11px;
+	color: var(--text-dim);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .quest-ticker {
@@ -187,14 +223,14 @@ body.crt-enabled::before {
 
 .gold-counter {
 	color: var(--ember);
-	font-size: 8.5px;
+	font-size: 11px;
 	font-weight: bold;
 	text-shadow: 0 0 4px rgba(255, 157, 77, 0.4);
 }
 
 .quick-settings-btn {
-	font-size: 7.5px;
-	padding: 5px 8px;
+	font-size: 10.5px;
+	padding: 4px 8px;
 	border-color: var(--border-dim);
 }
 
@@ -202,8 +238,8 @@ body.crt-enabled::before {
 #q4-persistent-mini-hud {
 	display: grid;
 	grid-template-columns: repeat(4, 1fr);
-	gap: 4px;
-	padding: 4px 6px;
+	gap: 6px;
+	padding: 4px 8px;
 	background: rgba(8, 8, 20, 0.95);
 	border-bottom: 1px solid var(--border-dim);
 }
@@ -212,7 +248,7 @@ body.crt-enabled::before {
 	background: rgba(0, 0, 0, 0.5);
 	border: 1px solid var(--border-dim);
 	border-radius: 2px;
-	padding: 2px 4px;
+	padding: 3px 6px;
 	display: flex;
 	flex-direction: column;
 	gap: 2px;
@@ -228,7 +264,7 @@ body.crt-enabled::before {
 }
 
 .mini-hud-name {
-	font-size: 6px;
+	font-size: 10px;
 	font-weight: bold;
 	color: var(--text-dim);
 	display: flex;
@@ -236,7 +272,7 @@ body.crt-enabled::before {
 }
 
 .mini-hud-bar-track {
-	height: 3px;
+	height: 4px;
 	background: rgba(255, 255, 255, 0.1);
 	border-radius: 1px;
 	overflow: hidden;
@@ -256,7 +292,7 @@ body.crt-enabled::before {
 /* --- Q4 DISTRICT SUB-NAV DOCK --- */
 #q4-sub-nav {
 	display: flex;
-	gap: 4px;
+	gap: 6px;
 	margin-bottom: 6px;
 	border-bottom: 1px solid var(--border-dim);
 	padding-bottom: 4px;
@@ -267,8 +303,8 @@ body.crt-enabled::before {
 	background: rgba(255, 255, 255, 0.05);
 	border: 1px solid var(--border-dim);
 	color: var(--text-dim);
-	font-size: 6.5px;
-	padding: 3px 6px;
+	font-size: 10px;
+	padding: 4px 8px;
 	cursor: pointer;
 	border-radius: 2px;
 	white-space: nowrap;
@@ -319,7 +355,7 @@ body.crt-enabled::before {
 	color: var(--text);
 	cursor: pointer;
 	border-radius: 3px;
-	font-size: 6.5px;
+	font-size: 10.5px;
 	text-align: center;
 }
 
@@ -350,7 +386,7 @@ body.crt-enabled::before {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	font-size: 7px;
+	font-size: 11px;
 	color: var(--ok);
 	font-weight: bold;
 	border-bottom: 1px dashed var(--border-dim);
@@ -368,7 +404,7 @@ body.crt-enabled::before {
 	border: 1px solid var(--border-dim);
 	color: var(--text);
 	font-family: inherit;
-	font-size: 6.5px;
+	font-size: 10px;
 	padding: 6px 4px;
 	cursor: pointer;
 	border-radius: 2px;
@@ -391,13 +427,67 @@ body.crt-enabled::before {
 }
 
 .pouch-target-hp {
-	font-size: 6px;
+	font-size: 9.5px;
 	color: var(--hp);
 }
 
 .pouch-target-mp {
-	font-size: 6px;
+	font-size: 9.5px;
 	color: var(--mp);
+}
+
+/* --- CINEMATIC ZONE TRANSITION OVERLAY --- */
+.zone-transition-layer {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: radial-gradient(circle at center, rgba(10, 15, 30, 0.85) 0%, rgba(2, 2, 8, 0.95) 100%);
+	backdrop-filter: blur(8px);
+	z-index: 10000;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 0.35s ease;
+}
+
+.zone-transition-layer:not(.hidden) {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.zone-transition-banner {
+	background: rgba(12, 16, 32, 0.96);
+	border-top: 2px solid var(--ember);
+	border-bottom: 2px solid var(--ember);
+	padding: 24px 48px;
+	text-align: center;
+	box-shadow: 0 0 32px rgba(255, 157, 77, 0.35);
+	animation: banner-glide 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes banner-glide {
+	from { transform: scale(0.92) translateY(8px); opacity: 0; }
+	to { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.zone-title {
+	font-family: var(--font-display);
+	font-size: calc(16px * var(--ui-font-scale, 1.0));
+	color: var(--ember);
+	letter-spacing: 2px;
+	margin-bottom: 8px;
+	text-shadow: 0 0 12px rgba(255, 157, 77, 0.6);
+}
+
+.zone-subtitle {
+	font-family: var(--font-mono);
+	font-size: calc(11px * var(--ui-font-scale, 1.0));
+	color: var(--text-dim);
+	letter-spacing: 1.5px;
 }
 
 /* #endregion */
@@ -408,15 +498,79 @@ body.crt-enabled::before {
 	flex: 1;
 	display: flex;
 	flex-direction: column;
+	min-height: 0;
+	overflow: hidden;
 }
 
 .matrix-grid {
 	flex: 1;
 	display: grid;
-	grid-template-columns: 1.05fr 0.95fr;
-	grid-template-rows: minmax(310px, 1.1fr) minmax(280px, 0.9fr);
-	gap: 8px;
+	grid-template-columns: var(--q1-q2-split, 1.05fr 0.95fr);
+	grid-template-rows: minmax(0, var(--nav-row-ratio, 1.6fr)) minmax(0, var(--deck-row-ratio, 0.9fr));
+	gap: 6px;
+	min-height: 0;
+	overflow: hidden;
 	transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Hide External Footer Nav Bar at Root Level (Subnav is hoisted in Q4) */
+#district-nav,
+footer#district-nav {
+	display: none !important;
+}
+
+/* =========================================================================
+   NAVIGATION SUSPENDED / MODAL WORKSTATION INPUT FOCUSED STATE
+   ========================================================================= */
+
+.navigation-suspended #pane-cartography,
+.navigation-suspended #pane-sensor,
+.navigation-suspended #pane-scanner {
+	border-color: var(--border-dim);
+}
+
+.navigation-suspended #pane-cartography .pane-content,
+.navigation-suspended #pane-sensor .pane-content {
+	filter: brightness(0.55) saturate(0.35);
+	transition: filter 0.25s ease;
+	position: relative;
+}
+
+.navigation-suspended #pane-cartography::after {
+	content: "🔒 MOVEMENT LOCKED // [ESC] RESUME";
+	position: absolute;
+	bottom: 12px;
+	left: 50%;
+	transform: translateX(-50%);
+	background: rgba(18, 10, 28, 0.94);
+	border: 1px solid var(--danger);
+	color: #fca5a5;
+	font-family: var(--font-display);
+	font-size: calc(9.5px * var(--ui-font-scale, 1.0));
+	padding: 5px 14px;
+	border-radius: 4px;
+	letter-spacing: 1px;
+	box-shadow: 0 0 16px rgba(239, 68, 68, 0.45);
+	z-index: 60;
+	pointer-events: none;
+	animation: pulse-nav-lock 2s infinite ease-in-out;
+}
+
+@keyframes pulse-nav-lock {
+	0%, 100% {
+		opacity: 0.88;
+		transform: translateX(-50%) scale(1);
+	}
+	50% {
+		opacity: 1;
+		transform: translateX(-50%) scale(1.03);
+		box-shadow: 0 0 22px rgba(239, 68, 68, 0.7);
+	}
+}
+
+.navigation-suspended #pane-readiness {
+	border-color: var(--ember);
+	box-shadow: 0 0 16px rgba(255, 157, 77, 0.3);
 }
 
 /* =========================================================================
@@ -530,7 +684,7 @@ body.crt-enabled::before {
 	}
 
 	& .subnav-tab {
-		font-size: 7.5px;
+		font-size: 10px;
 		padding: 4px 9px;
 		border-radius: 3px;
 		font-family: var(--font-display);
@@ -586,12 +740,14 @@ body.crt-enabled::before {
 		overflow-y: auto;
 	}
 
-	/* Hide External Footer Nav Bar During Deck Expansion */
+	/* Hide External Footer Nav Bar (Unified Subnav Dock is Hoisted in Q4) */
+	#district-nav,
 	&~#district-nav,
+	#war-table-matrix+#district-nav,
 	#war-table-matrix.q4-expanded-deck+#district-nav,
 	body:has(.q4-expanded-deck) #district-nav,
 	#district-nav.deck-expanded-hidden {
-		display: none;
+		display: none !important;
 	}
 
 	/* Interactive Elements Pointer Pass-Through */
@@ -611,4 +767,149 @@ body.crt-enabled::before {
 	}
 }
 
+/* #endregion */
+
+/* #region [SEC-06] Title Screen Dedicated Instance & Multi-Slot Archive Modals */
+/* --- TITLE SCREEN ISOLATION --- */
+#game-cockpit.title-mode #cockpit-top-bar {
+	display: none !important;
+}
+
+#game-cockpit.title-mode #district-nav {
+	display: none !important;
+}
+
+#game-cockpit.title-mode #title-view {
+	min-height: 100vh;
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	background: radial-gradient(circle at 50% 35%, rgba(26, 18, 48, 0.98) 0%, rgba(4, 4, 12, 0.99) 75%);
+}
+
+/* --- MULTI-SLOT SAVE / LOAD ARCHIVES MODAL --- */
+.save-load-modal {
+	max-width: 560px;
+	width: 90%;
+	background: rgba(12, 12, 28, 0.98);
+	border: 2px solid var(--border);
+	box-shadow: 0 0 35px rgba(0, 0, 0, 0.95), inset 0 0 20px rgba(255, 157, 77, 0.05);
+	border-radius: 4px;
+	z-index: 120;
+}
+
+.save-slots-grid {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	max-height: 380px;
+	overflow-y: auto;
+	padding: 4px 2px;
+}
+
+.save-slot-card {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	background: rgba(0, 0, 0, 0.55);
+	border: 1px solid var(--border-dim);
+	padding: 10px 14px;
+	border-radius: 4px;
+	transition: all 0.2s ease;
+}
+
+.save-slot-card:hover {
+	border-color: var(--ember);
+	background: rgba(255, 157, 77, 0.08);
+}
+
+.save-slot-card.active-slot {
+	border-color: var(--ok);
+	box-shadow: inset 0 0 10px rgba(74, 222, 128, 0.15);
+}
+
+.save-slot-card.auto-save {
+	border-left: 4px solid var(--cyan);
+}
+
+.save-slot-card.empty-slot {
+	opacity: 0.75;
+	border-style: dashed;
+}
+
+.save-slot-info {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	flex: 1;
+	min-width: 0;
+}
+
+.save-slot-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.save-slot-badge {
+	font-size: 8px;
+	font-weight: bold;
+	padding: 2px 6px;
+	border-radius: 2px;
+	background: rgba(255, 255, 255, 0.08);
+	color: var(--ember);
+	border: 1px solid var(--border-dim);
+}
+
+.save-slot-badge.auto {
+	background: rgba(56, 189, 248, 0.15);
+	color: var(--cyan);
+	border-color: var(--cyan);
+}
+
+.save-slot-title {
+	font-size: 11px;
+	font-weight: bold;
+	color: var(--text);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.save-slot-meta {
+	font-size: 8.5px;
+	color: var(--text-dim);
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+}
+
+.save-slot-actions {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+	margin-left: 12px;
+}
+
+.slot-action-btn {
+	padding: 6px 12px;
+	font-size: 8.5px;
+	cursor: pointer;
+}
+
+.slot-delete-btn {
+	padding: 6px 8px;
+	font-size: 8.5px;
+	border-color: var(--danger);
+	color: var(--danger);
+	cursor: pointer;
+}
+
+.slot-delete-btn:hover {
+	background: rgba(255, 85, 85, 0.2);
+}
 /* #endregion */
