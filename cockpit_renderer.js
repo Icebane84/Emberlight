@@ -814,7 +814,23 @@ const EmberlightCockpitRenderer = (() => {
 				leafWest.style.top = `${centerY}px`;
 			}
 
-			// 5. Dynamic East Context Binding
+			// 5. Dynamic Cardinal Leaves Context Binding
+			const northLabel = document.getElementById('leaf-north-label');
+			const northIcon = document.getElementById('leaf-north-icon');
+			if (leafNorth) {
+				if (meta.northAction) {
+					if (northIcon) northIcon.textContent = meta.northAction.icon || '🎒';
+					if (northLabel) northLabel.textContent = meta.northAction.label || 'Pouch';
+					leafNorth.setAttribute('data-tooltip-title', meta.northAction.title || 'Field Pouch');
+					leafNorth.setAttribute('data-tooltip-desc', meta.northAction.desc || 'Open field supply pouch.');
+				} else {
+					if (northIcon) northIcon.textContent = '🎒';
+					if (northLabel) northLabel.textContent = 'Pouch';
+					leafNorth.setAttribute('data-tooltip-title', 'Expedition Pouch');
+					leafNorth.setAttribute('data-tooltip-desc', 'Access squad inventory and consumable elixirs.');
+				}
+			}
+
 			if (meta.eastAction) {
 				if (eastIcon) eastIcon.textContent = meta.eastAction.icon || '⚡';
 				if (eastLabel) eastLabel.textContent = meta.eastAction.label || 'Action';
@@ -824,7 +840,6 @@ const EmberlightCockpitRenderer = (() => {
 				}
 			}
 
-			// 6. Dynamic South Stance Binding
 			const southLabel = document.getElementById('leaf-south-label');
 			const southIcon = document.getElementById('leaf-south-icon');
 			if (leafSouth) {
@@ -838,6 +853,22 @@ const EmberlightCockpitRenderer = (() => {
 					if (southLabel) southLabel.textContent = 'Guard';
 					leafSouth.setAttribute('data-tooltip-title', 'Tactical Stance');
 					leafSouth.setAttribute('data-tooltip-desc', 'Assume defensive posture or rest at camp.');
+				}
+			}
+
+			const westLabel = document.getElementById('leaf-west-label');
+			const westIcon = document.getElementById('leaf-west-icon');
+			if (leafWest) {
+				if (meta.westAction) {
+					if (westIcon) westIcon.textContent = meta.westAction.icon || '📖';
+					if (westLabel) westLabel.textContent = meta.westAction.label || 'Journal';
+					leafWest.setAttribute('data-tooltip-title', meta.westAction.title || 'Expedition Chronicle');
+					leafWest.setAttribute('data-tooltip-desc', meta.westAction.desc || 'Access active quests and regional chronicle records.');
+				} else {
+					if (westIcon) westIcon.textContent = '👁️';
+					if (westLabel) westLabel.textContent = 'Scan';
+					leafWest.setAttribute('data-tooltip-title', 'Area Survey');
+					leafWest.setAttribute('data-tooltip-desc', 'Scan surrounding sector for hidden hazards.');
 				}
 			}
 

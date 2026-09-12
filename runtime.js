@@ -1519,7 +1519,238 @@ const GameRuntime = (() => {
 			};
 		}
 
-		// 2. Overworld & Dungeon Map Inspection
+		// 2. Q2 3D Environment Sensor Viewport Inspection
+		const el = /** @type {HTMLElement|null} */ (target);
+		const isSensorPane =
+			is3DViewExpanded ||
+			Boolean(
+				el?.closest &&
+					el.closest(
+						"#pane-sensor, #corridor-canvas, .sensor-viewport, .corridor-viewport",
+					),
+			);
+		if (isSensorPane) {
+			const facing = store?.getFlag("facingDirection") || "DOWN";
+			const pos = getWorldPos() || { x: 1, y: 1 };
+			const map = getActiveWorldMap() || [];
+			const inTown = Boolean(getTownId());
+			const depth = getDungeonDepth();
+			/** @type {Record<string, { x: number, y: number }>} */
+			const facingDeltas = {
+				UP: { x: 0, y: -1 },
+				RIGHT: { x: 1, y: 0 },
+				DOWN: { x: 0, y: 1 },
+				LEFT: { x: -1, y: 0 },
+			};
+			const d = facingDeltas[facing] || { x: 0, y: 1 };
+			const aheadPos = { x: pos.x + d.x, y: pos.y + d.y };
+			const aheadTile = map[aheadPos.y]?.[aheadPos.x] || "#";
+
+			/** @type {Record<string, { title: string, icon: string, desc: string, isAdvance: boolean }>} */
+			const tileDescriptions = {
+				"#": {
+					title: inTown
+						? "🪵 Timber Wall"
+						: depth > 0
+							? "🏔️ Bedrock Wall"
+							: "🏔️ Stone Wall",
+					icon: "🧱",
+					desc: "Solid perimeter barrier. Acoustic damping detected.",
+					isAdvance: false,
+				},
+				".": {
+					title: inTown ? "🛤️ Cobblestone Pathway" : "🌲 Wild Trail",
+					icon: "🚶",
+					desc: "Clear corridor pathway. Free traversal ahead.",
+					isAdvance: true,
+				},
+				$: {
+					title: "📦 Ancient Relic Chest",
+					icon: "📦",
+					desc: "Auric energy signature detected. Ready to loot.",
+					isAdvance: false,
+				},
+				"*": {
+					title: "✨ Resource Cache",
+					icon: "✨",
+					desc: "Sparkling natural bounty. Scavenge for supplies.",
+					isAdvance: false,
+				},
+				C: {
+					title: "🔥 Sanctuary Campsite",
+					icon: "🔥",
+					desc: "Active campfire hearth. Rest to replenish party vitality.",
+					isAdvance: false,
+				},
+				H: {
+					title: "🏨 The Hearth Inn",
+					icon: "🏨",
+					desc: "Rest haven. Cleanses afflictions and fully heals party.",
+					isAdvance: false,
+				},
+				N: {
+					title: "📋 Town Notice Board",
+					icon: "📋",
+					desc: "Settlement board. 3 active bulletins posted.",
+					isAdvance: false,
+				},
+				A: {
+					title: "⛩ Ancient Aether Shrine",
+					icon: "⛩",
+					desc: "Celestial stone monolith. Restores party MP.",
+					isAdvance: false,
+				},
+				E: {
+					title: "🧓 Elder Rowan",
+					icon: "🧓",
+					desc: "Hamlet elder. Imparts vital tactical directives.",
+					isAdvance: false,
+				},
+				G: {
+					title: "🛡️ Gate Captain Kael",
+					icon: "🛡️",
+					desc: "Armored town guard patrolling boundary.",
+					isAdvance: false,
+				},
+				V: {
+					title: "🔮 Afflicted Villager",
+					icon: "🔮",
+					desc: "Shrouded traveler bearing dark tidings.",
+					isAdvance: false,
+				},
+				"@": {
+					title: "🐪 Merchant Caravan",
+					icon: "🐪",
+					desc: "Traveling market vendor. Trade weapons and elixirs.",
+					isAdvance: false,
+				},
+				B: {
+					title: "⚔️ Blacksmith Armory",
+					icon: "⚔️",
+					desc: "Town forge. Ready to equip vanguard champions.",
+					isAdvance: false,
+				},
+				F: {
+					title: "🔮 Relic Crucible",
+					icon: "🔮",
+					desc: "Arcane forge for transmuting artifact essences.",
+					isAdvance: false,
+				},
+				P: {
+					title: "⛓️ Iron Portcullis",
+					icon: "⛓️",
+					desc: "Reinforced gate blocking further descent.",
+					isAdvance: false,
+				},
+				_: {
+					title: "⚙️ Pressure Plate",
+					icon: "⚙️",
+					desc: "Mechanical trigger linked to security mechanisms.",
+					isAdvance: false,
+				},
+				"~": {
+					title: "💧 Abyssal Water Chasm",
+					icon: "💧",
+					desc: "Subterranean chasm. Target with Glacial Freeze [G].",
+					isAdvance: false,
+				},
+				'"': {
+					title: "🌿 Dry Bramble Brush",
+					icon: "🌿",
+					desc: "Combustible obstacle. Target with Pyretic Scorch [F].",
+					isAdvance: false,
+				},
+				"%": {
+					title: "☠️ Toxic Miasma Cloud",
+					icon: "☠️",
+					desc: "Poisonous vapor. Dispel with Aetheric Gale [V].",
+					isAdvance: false,
+				},
+				">": {
+					title: "⛩️ Descent Gate Portal",
+					icon: "⛩️",
+					desc: "Runic portal leading deeper underground.",
+					isAdvance: false,
+				},
+				"<": {
+					title: "🪜 Ascent Ladder Beacon",
+					icon: "🪜",
+					desc: "Ladder pathway ascending to surface world.",
+					isAdvance: false,
+				},
+				O: {
+					title: "🏰 Town Gateway",
+					icon: "🏰",
+					desc: "Fortified archway leading into the settlement.",
+					isAdvance: false,
+				},
+				D: {
+					title: "🏰 Town Archway",
+					icon: "🏰",
+					desc: "Fortified archway leading into the settlement.",
+					isAdvance: false,
+				},
+			};
+
+			const info = tileDescriptions[aheadTile] || {
+				title: `Sector Object [${aheadTile}]`,
+				icon: "🔭",
+				desc: "Unknown spatial entity ahead.",
+				isAdvance: false,
+			};
+
+			return {
+				category: "3D_SENSOR",
+				title: `🔭 ${info.title}`,
+				hpPct: 100,
+				accent: "#38bdf8",
+				glow: "rgba(56, 189, 248, 0.45)",
+				badge1: `BEARING: ${facing}`,
+				badge2: `AHEAD: [${aheadTile}]`,
+				northAction: {
+					id: "3D_ADVANCE",
+					label: info.isAdvance ? "Advance" : "Interact",
+					icon: info.isAdvance ? "🚶" : "⚡",
+					title: info.isAdvance ? "Step Forward" : "Engage Object",
+					desc: info.isAdvance
+						? "Advance forward into the open pathway."
+						: "Physically engage or interact with the object ahead.",
+				},
+				eastAction: {
+					id: "3D_DEEP_SCAN",
+					label: "Deep Scan",
+					icon: "📡",
+					title: "Optical & Acoustic Telemetry",
+					desc: "Run comprehensive structural and aetheric analysis on facing sector.",
+				},
+				southAction: {
+					id: "3D_ABOUT_FACE",
+					label: "About-Face",
+					icon: "🔄",
+					title: "180° Tactical Turn",
+					desc: "Execute an immediate 180° turnaround.",
+				},
+				westAction: {
+					id: "3D_TOGGLE_EXPAND",
+					label: is3DViewExpanded ? "Collapse [Z]" : "Expand [Z]",
+					icon: "⛶",
+					title: is3DViewExpanded
+						? "Collapse 3D Viewport"
+						: "Expand 3D Viewport",
+					desc: is3DViewExpanded
+						? "Collapse back to standard 4-quadrant War Table Matrix."
+						: "Expand 3D environment sensor to 960x360 High-Res Viewport.",
+				},
+				bbox: {
+					left: clientX - 24,
+					top: clientY - 24,
+					width: 48,
+					height: 48,
+				},
+			};
+		}
+
+		// 3. Overworld & Dungeon Map Inspection (Q1 Cartography)
 		if (
 			typeof EmberlightMapRenderer !== "undefined" &&
 			typeof EmberlightMapRenderer.resolveTileFromScreen === "function"
@@ -1815,35 +2046,7 @@ const GameRuntime = (() => {
 			}
 		}
 
-		return {
-			category: "GENERAL",
-			title: "Tactical Reticle",
-			hpPct: 100,
-			accent: "#ff9d4d",
-			glow: "rgba(255, 157, 77, 0.45)",
-			badge1: "TACTICAL",
-			badge2: "READY",
-			eastAction: {
-				id: "INTERACT",
-				label: "Interact",
-				icon: "⚡",
-				title: "Context Action",
-				desc: "Execute primary contextual interaction.",
-			},
-			southAction: {
-				id: "REST",
-				label: "Rest",
-				icon: "🛡️",
-				title: "Tactical Stance",
-				desc: "Rest or assume defensive stance.",
-			},
-			bbox: {
-				left: clientX - 24,
-				top: clientY - 24,
-				width: 48,
-				height: 48,
-			},
-		};
+		return null;
 	};
 
 	/**
@@ -1857,7 +2060,25 @@ const GameRuntime = (() => {
 
 		switch (dir) {
 			case "NORTH":
-				if (activeDistrict === "COMBAT") {
+				if (meta?.northAction?.id === "3D_ADVANCE") {
+					const map = getActiveWorldMap();
+					const pos = getWorldPos();
+					const facing = store?.getFlag("facingDirection") || "DOWN";
+					/** @type {Record<string, { x: number, y: number }>} */
+					const facingDeltas = {
+						UP: { x: 0, y: -1 },
+						RIGHT: { x: 1, y: 0 },
+						DOWN: { x: 0, y: 1 },
+						LEFT: { x: -1, y: 0 },
+					};
+					const d = facingDeltas[facing] || { x: 0, y: 1 };
+					const targetPos = { x: pos.x + d.x, y: pos.y + d.y };
+					if (isTilePassable(map, targetPos)) {
+						moveParty(d.x, d.y);
+					} else {
+						interactFacing();
+					}
+				} else if (activeDistrict === "COMBAT") {
 					if (
 						typeof EmberlightCombat !== "undefined" &&
 						typeof EmberlightCombat.handleHostAction === "function"
@@ -1869,7 +2090,25 @@ const GameRuntime = (() => {
 				}
 				break;
 			case "EAST":
-				if (meta?.eastAction?.id) {
+				if (meta?.eastAction?.id === "3D_DEEP_SCAN") {
+					const aheadDesc = meta.title || "Forward Sector";
+					notifyStatus(
+						`Deep Scan: Analyzing ${aheadDesc}. Sensor signature nominal.`,
+						"info",
+					);
+					if (typeof updateTelegraphPane === "function") {
+						updateTelegraphPane({
+							title: `3D SENSOR SCAN: ${aheadDesc.toUpperCase()}`,
+							subtitle: "ACOUSTIC & OPTICAL SIGNATURES",
+							lines: [
+								`Target Profile: ${meta.badge1 || "NOMINAL"} // ${meta.badge2 || "CLEAR"}`,
+								"Sensor Telemetry: Line-of-sight confirmed.",
+								`Tactical Advisory: ${meta.eastAction.desc || "No immediate hostile anomalies detected."}`,
+							],
+						});
+					}
+					publishSfx("sfx_confirm");
+				} else if (meta?.eastAction?.id) {
 					const actId = meta.eastAction.id;
 					if (actId === "THREAT_ORACLE") {
 						notifyStatus(
@@ -1896,7 +2135,18 @@ const GameRuntime = (() => {
 				}
 				break;
 			case "SOUTH":
-				if (activeDistrict === "COMBAT") {
+				if (meta?.southAction?.id === "3D_ABOUT_FACE") {
+					const facingOrder = ["UP", "RIGHT", "DOWN", "LEFT"];
+					const currentFacing = store?.getFlag("facingDirection") || "DOWN";
+					const foundFacingIdx = facingOrder.indexOf(currentFacing);
+					const currentIdx = foundFacingIdx !== -1 ? foundFacingIdx : 2;
+					const newFacing = facingOrder[(currentIdx + 2) % 4];
+					pivotFacing(newFacing);
+					notifyStatus(
+						`Tactical Turn: Performed 180° about-face to ${newFacing}.`,
+						"info",
+					);
+				} else if (activeDistrict === "COMBAT") {
 					if (
 						typeof EmberlightCombat !== "undefined" &&
 						typeof EmberlightCombat.handleHostAction === "function"
@@ -1908,7 +2158,9 @@ const GameRuntime = (() => {
 				}
 				break;
 			case "WEST":
-				if (activeDistrict === "COMBAT") {
+				if (meta?.westAction?.id === "3D_TOGGLE_EXPAND") {
+					toggle3DViewportExpansion();
+				} else if (activeDistrict === "COMBAT") {
 					switchDistrict("STATUS");
 				} else {
 					switchDistrict("CHRONICLE");
@@ -1932,8 +2184,24 @@ const GameRuntime = (() => {
 			return;
 		}
 
-		if (store?.getFlag("pouchOpen") || isQ4DeckExpanded || is3DViewExpanded) {
+		if (store?.getFlag("pouchOpen") || isQ4DeckExpanded) {
 			handleCancelAction();
+			return;
+		}
+
+		// Q4 Hero Card Right Click: Directly opens that Hero's Armory/Status sheet
+		const targetEl = /** @type {HTMLElement|null} */ (e?.target);
+		const heroCard = targetEl?.closest
+			? targetEl.closest(".hud-char-card, [data-hero-idx]")
+			: null;
+		if (heroCard) {
+			const heroIdxAttr =
+				heroCard.getAttribute("data-hero-idx") ||
+				heroCard.getAttribute("data-idx");
+			if (heroIdxAttr !== null && heroIdxAttr !== undefined) {
+				store?.setFlag("selectedHeroIdx", parseInt(heroIdxAttr, 10));
+			}
+			switchDistrict("ARMORY");
 			return;
 		}
 

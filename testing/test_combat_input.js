@@ -282,5 +282,44 @@ state = combat.getState();
 assert.strictEqual(state.selectedTab, 'ATTACK', 'Right click in Combat POUCH tab should cancel back to ATTACK tab');
 console.log('[PASS] Test 11: Right Click in Combat sub-tab cancels back to ATTACK');
 
+// Test 12: Q2 3D Viewport RMB resolves 3D_SENSOR metadata
+runtime.switchDistrict('OVERWORLD');
+const mockSensorElement = {
+  closest: (sel) => (sel.includes('#pane-sensor') || sel.includes('#corridor-canvas') || sel.includes('.sensor-viewport') ? {} : null)
+};
+const q2Meta = runtime.resolveTargetMetadata(mockSensorElement, 400, 200);
+assert.ok(q2Meta, 'Q2 Sensor click must return 3D_SENSOR metadata');
+assert.strictEqual(q2Meta.category, '3D_SENSOR', 'Category should be 3D_SENSOR');
+assert.strictEqual(q2Meta.northAction.id, '3D_ADVANCE', 'North action should be 3D_ADVANCE');
+assert.strictEqual(q2Meta.eastAction.id, '3D_DEEP_SCAN', 'East action should be 3D_DEEP_SCAN');
+assert.strictEqual(q2Meta.southAction.id, '3D_ABOUT_FACE', 'South action should be 3D_ABOUT_FACE');
+assert.strictEqual(q2Meta.westAction.id, '3D_TOGGLE_EXPAND', 'West action should be 3D_TOGGLE_EXPAND');
+console.log('[PASS] Test 12: Q2 3D Viewport RMB resolves 3D_SENSOR metadata with 4 canonical actions');
+
+// Test 13: Q4 Hero Card Right-Click routes directly to ARMORY/STATUS sheet
+runtime.switchDistrict('OVERWORLD');
+assert.strictEqual(runtime.getActiveDistrict(), 'OVERWORLD', 'Reset to OVERWORLD');
+const mockHeroCard = {
+  closest: (sel) => (sel.includes('hud-char-card') ? mockHeroCard : null),
+  getAttribute: (attr) => (attr === 'data-hero-idx' || attr === 'data-idx' ? '2' : null)
+};
+runtime.handlePointerContextDown({ button: 2, clientX: 300, clientY: 500, target: mockHeroCard });
+assert.strictEqual(runtime.getActiveDistrict(), 'ARMORY', 'Right-clicking hero card should navigate directly to ARMORY');
+assert.strictEqual(context.window.EmberlightSessionStore.getFlags().selectedHeroIdx, 2, 'Hero index 2 should be selected');
+console.log('[PASS] Test 13: Q4 Hero Card RMB navigates directly to ARMORY sheet with selected hero index');
+
+// Test 14: In 3D Fullscreen/Expanded mode, RMB spawns 3D_SENSOR radial wheel without collapsing 3D view
+runtime.switchDistrict('OVERWORLD');
+runtime.EventBus.publish('input:action', { action: 'TOGGLE_3D_VIEW', code: 'KeyX' });
+assert.strictEqual(runtime.is3DViewExpanded(), true, '3D view should be expanded');
+const anyScreenElement = { closest: () => null };
+const q2FullscreenMeta = runtime.resolveTargetMetadata(anyScreenElement, 500, 300);
+assert.ok(q2FullscreenMeta, 'RMB in 3D fullscreen should resolve metadata');
+assert.strictEqual(q2FullscreenMeta.category, '3D_SENSOR', 'Category in 3D fullscreen should be 3D_SENSOR');
+assert.strictEqual(q2FullscreenMeta.westAction.label, 'Collapse [Z]', 'West action in 3D fullscreen should be Collapse [Z]');
+runtime.handlePointerContextDown({ button: 2, clientX: 500, clientY: 300, target: anyScreenElement });
+assert.strictEqual(runtime.is3DViewExpanded(), true, '3D view should remain expanded after RMB mousedown');
+console.log('[PASS] Test 14: In 3D Fullscreen mode, RMB spawns 3D_SENSOR radial without collapsing fullscreen');
+
 console.log('=== ALL COMBAT & RMB INPUT VERIFICATION TESTS PASSED ===');
 process.exit(0);
