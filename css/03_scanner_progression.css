@@ -279,9 +279,9 @@
 }
 
 .telegraph-banner.alert {
-  background: rgba(239, 68, 68, 0.15);
+  background: #2a0c0c;
   border: 1px solid var(--danger);
-  color: #fca5a5;
+  color: #fecaca;
   animation: pulse-danger 1s infinite alternate;
 }
 
@@ -307,7 +307,7 @@
 .enemy-affinity-row { margin-bottom: 3px; display: flex; align-items: center; gap: 6px; }
 .pip { padding: 2px 5px; border-radius: 2px; font-size: 6px; font-weight: bold; }
 .pip.weak { background: rgba(255, 157, 77, 0.2); border: 1px solid var(--ember); color: var(--ember); }
-.pip.resist { background: rgba(100, 116, 139, 0.2); border: 1px solid #64748b; color: #94a3b8; }
+.pip.resist { background: #1e293b; border: 1px solid #64748b; color: #e2e8f0; }
 .pip.neutral { color: var(--text-dim); }
 
 /* --- TACTICAL FORMATION MATRIX (QUADRANT 1) --- */
@@ -350,7 +350,7 @@
 .formation-slot.blocked {
   opacity: 0.45;
   filter: grayscale(0.8);
-  cursor: not-allowed !important;
+  cursor: not-allowed;
 }
 
 .backline-tag {
@@ -496,11 +496,10 @@
   border-color: var(--text);
   color: var(--text);
 }
-
 .aether-essence-tab.active {
   color: #fff;
   border-color: var(--ember);
-  background: rgba(255, 157, 77, 0.25);
+  background: #3d1c08;
   box-shadow: 0 0 8px rgba(255, 157, 77, 0.4);
 }
 
@@ -541,57 +540,52 @@
   padding-bottom: 4px;
 }
 
-.aether-nodes-grid {
+.aether-nodes-scroll {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 8px;
-  max-height: 290px;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 6px;
   overflow-y: auto;
+  max-height: 280px;
   padding-right: 4px;
 }
 
-.aether-nodes-grid::-webkit-scrollbar {
+.aether-nodes-scroll::-webkit-scrollbar {
   width: 5px;
 }
-.aether-nodes-grid::-webkit-scrollbar-thumb {
+.aether-nodes-scroll::-webkit-scrollbar-thumb {
   background: var(--border-dim);
   border-radius: 3px;
 }
 
 /* --- Node Card Styling --- */
 .aether-node-card {
-  background: rgba(15, 23, 42, 0.9);
+  background: rgba(12, 16, 32, 0.85);
   border: 1px solid var(--border-dim);
-  color: var(--text);
   padding: 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.15s ease;
+  border-radius: 3px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   gap: 6px;
-  text-align: left;
-  min-height: 72px;
+  cursor: pointer;
+  transition: all 0.15s ease;
   position: relative;
 }
 
 .aether-node-card:hover {
-  border-color: #38bdf8;
+  border-color: var(--ember);
+  background: rgba(255, 157, 77, 0.08);
   transform: translateY(-1px);
-  background: rgba(30, 41, 59, 0.95);
 }
 
 .aether-node-card.unlocked {
   border-color: var(--ok);
-  background: rgba(74, 222, 128, 0.15);
-  box-shadow: 0 0 8px rgba(74, 222, 128, 0.35);
+  background: rgba(74, 222, 128, 0.08);
 }
 
 .aether-node-card.available {
   border-color: var(--ember);
-  background: rgba(255, 157, 77, 0.18);
-  animation: pulse-node-avail 1.8s infinite alternate ease-in-out;
+  background: rgba(255, 157, 77, 0.1);
+  animation: pulse-node-avail 2s infinite alternate ease-in-out;
 }
 
 @keyframes pulse-node-avail {
@@ -606,8 +600,8 @@
 }
 
 .aether-node-card.selected {
-  border-color: #fff !important;
-  box-shadow: 0 0 14px rgba(255, 255, 255, 0.9), inset 0 0 8px rgba(255, 255, 255, 0.25) !important;
+  border-color: #fff;
+  box-shadow: 0 0 14px rgba(255, 255, 255, 0.9), inset 0 0 8px rgba(255, 255, 255, 0.25);
   transform: scale(1.02);
   z-index: 5;
 }
@@ -674,6 +668,7 @@
   line-height: 1.35;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -692,21 +687,21 @@
 }
 
 .node-status-badge.unlocked {
-  background: rgba(74, 222, 128, 0.25);
+  background: #0d2e18;
   border: 1px solid var(--ok);
-  color: #86efac;
+  color: #bbf7d0;
 }
 
 .node-status-badge.available {
-  background: rgba(255, 157, 77, 0.25);
+  background: #3d1c08;
   border: 1px solid var(--ember);
-  color: #fdba74;
+  color: #ffedd5;
 }
 
 .node-status-badge.locked {
-  background: rgba(100, 116, 139, 0.25);
+  background: #1e293b;
   border: 1px solid #64748b;
-  color: #94a3b8;
+  color: #cbd5e1;
 }
 
 /* --- Right Pane: Aether Attunement Inspector Card --- */
@@ -806,9 +801,9 @@
 }
 
 .stat-chip {
-  background: rgba(56, 189, 248, 0.18);
+  background: #082f49;
   border: 1px solid #38bdf8;
-  color: #7dd3fc;
+  color: #e0f2fe;
   font-size: 9.5px;
   font-weight: bold;
   padding: 2px 6px;
@@ -816,9 +811,9 @@
 }
 
 .inspector-capability-box {
-  background: rgba(74, 222, 128, 0.15);
+  background: #052e16;
   border: 1px solid var(--ok);
-  color: #86efac;
+  color: #bbf7d0;
   font-size: 9.5px;
   padding: 5px 8px;
   border-radius: 3px;
@@ -833,15 +828,15 @@
 }
 
 .prereq-status.ok {
-  background: rgba(74, 222, 128, 0.15);
+  background: #052e16;
   border: 1px solid var(--ok);
-  color: #86efac;
+  color: #bbf7d0;
 }
 
 .prereq-status.ready {
-  background: rgba(255, 157, 77, 0.22);
+  background: #3d1c08;
   border: 1px solid var(--ember);
-  color: #fdba74;
+  color: #ffedd5;
   animation: pulse-ready 1.4s infinite alternate ease-in-out;
 }
 
@@ -851,9 +846,9 @@
 }
 
 .prereq-status.locked {
-  background: rgba(239, 68, 68, 0.15);
+  background: #2a0c0c;
   border: 1px solid rgba(239, 68, 68, 0.5);
-  color: #fca5a5;
+  color: #fecaca;
 }
 
 .inspector-details-table {
@@ -915,9 +910,9 @@
 }
 
 .aether-attune-btn.already-attuned {
-  background: rgba(74, 222, 128, 0.2);
+  background: #052e16;
   border: 1px solid var(--ok);
-  color: #86efac;
+  color: #bbf7d0;
   cursor: default;
 }
 
@@ -930,9 +925,9 @@
 }
 
 .aether-respec-btn {
-  background: rgba(239, 68, 68, 0.15);
+  background: #2a0c0c;
   border: 1px solid rgba(239, 68, 68, 0.6);
-  color: #fca5a5;
+  color: #fecaca;
   font-family: var(--font-display);
   font-size: 8px;
   font-weight: bold;
@@ -944,7 +939,7 @@
 }
 
 .aether-respec-btn:hover {
-  background: rgba(239, 68, 68, 0.3);
+  background: #450a0a;
   border-color: var(--danger);
   color: #fff;
   box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);

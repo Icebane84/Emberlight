@@ -1286,8 +1286,21 @@ const EmberlightMapRenderer = (() => {
 			width: VIEW_WIDTH,
 			height: VIEW_HEIGHT,
 		};
-		const w = rect.width || VIEW_WIDTH;
-		const h = rect.height || VIEW_HEIGHT;
+		const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+		const w = Math.max(VIEW_WIDTH, Math.floor(rect.width || VIEW_WIDTH));
+		const h = Math.max(VIEW_HEIGHT, Math.floor(rect.height || VIEW_HEIGHT));
+
+		// Auto-synchronize internal buffer resolution to matching visible DOM dimensions and DPR
+		const expectedCanvasW = Math.floor(w * dpr);
+		const expectedCanvasH = Math.floor(h * dpr);
+		if (canvas.width !== expectedCanvasW || canvas.height !== expectedCanvasH) {
+			canvas.width = expectedCanvasW;
+			canvas.height = expectedCanvasH;
+			if (typeof ctx.setTransform === 'function') {
+				ctx.setTransform(1, 0, 0, 1, 0, 0);
+				ctx.scale(dpr, dpr);
+			}
+		}
 
 		const map = currentSnapshot.map || [];
 		const playerPos = currentSnapshot.playerPos || currentSnapshot.pos || { x: 1, y: 1 };
@@ -1602,6 +1615,14 @@ const EmberlightMapRenderer = (() => {
 		 */
 		clearTargetedTile() {
 			targetedTileCoord = null;
+		},
+
+		/**
+		 * Triggers immediate canvas buffer re-measurement and scaling.
+		 * @returns {void}
+		 */
+		resize() {
+			resize();
 		},
 
 		/**

@@ -666,6 +666,8 @@ const EmberlightCombatBackdrop = (() => {
 			}
 		}
 
+		let overlayCallback = null;
+
 		/**
 		 * Single RAF animation loop step; advances time and triggers render passes.
 		 * State-mutating animation procedure.
@@ -686,6 +688,9 @@ const EmberlightCombatBackdrop = (() => {
 			if (ctx.clearRect) ctx.clearRect(0, 0, w, h);
 			renderCinematicBackground(w, h);
 			renderPostProcessingShaders(w, h);
+			if (typeof overlayCallback === 'function') {
+				overlayCallback(ctx, w, h);
+			}
 			time += 0.016;
 			if (!isHeadless && typeof requestAnimationFrame !== 'undefined') {
 				animFrameId = requestAnimationFrame(renderFrame);
@@ -901,6 +906,15 @@ const EmberlightCombatBackdrop = (() => {
 					sim = synthesizeCinematicStage(sim.seed || 1337, activeBiome);
 				}
 				startLoop();
+			},
+
+			/**
+			 * Registers an overlay rendering hook executed after background & post-processing passes.
+			 * @param {function(CanvasRenderingContext2D, number, number): void} [fn] - Callback hook.
+			 * @returns {void}
+			 */
+			setOverlayRenderer(fn) {
+				overlayCallback = typeof fn === 'function' ? fn : null;
 			},
 
 			/**

@@ -18,7 +18,6 @@ if (typeof window !== 'undefined') window._DungeonGenInternal = window._DungeonG
 if (typeof globalThis !== 'undefined') globalThis._DungeonGenInternal = globalThis._DungeonGenInternal || {};
 
 (() => {
-	'use strict';
 
 	/**
 	 * Creates a seeded pseudorandom number generator.

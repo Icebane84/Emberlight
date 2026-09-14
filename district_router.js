@@ -165,14 +165,23 @@ const EmberlightDistrictRouter = (() => {
 		const matrix = document.getElementById("war-table-matrix");
 		const rig = document.getElementById("expedition-rig");
 		if (matrix) {
-			matrix.classList.remove("q2-immersion-deck", "q4-expanded-deck");
+			matrix.classList.remove("q2-immersion-deck", "q4-expanded-deck", "navigation-suspended");
+			matrix.classList.add("combat-active-matrix");
 		}
 		if (rig) {
-			rig.classList.remove("q2-immersion-deck", "q4-expanded-deck");
+			rig.classList.remove("q2-immersion-deck", "q4-expanded-deck", "navigation-suspended");
+			rig.classList.add("combat-active-matrix");
 		}
-		hideElement("expedition-rig");
-		showElement("combat-theater");
-		showElement("district-nav");
+		hideElement("district-nav");
+
+		const q1Tag = document.getElementById("q1-pane-tag");
+		if (q1Tag) q1Tag.textContent = "⚔️ Formations";
+		const q2Tag = document.getElementById("q2-pane-tag");
+		if (q2Tag) q2Tag.textContent = "Clash Arena";
+		const q4Title = document.getElementById("q4-pane-title");
+		const q4Tag = document.getElementById("q4-pane-tag");
+		if (q4Title) q4Title.textContent = "🎯 Q4: ACTION & COMMAND DECK";
+		if (q4Tag) q4Tag.textContent = "Orders Active";
 	}
 
 	/**
@@ -183,10 +192,12 @@ const EmberlightDistrictRouter = (() => {
 	 */
 	function applyOverworldViewport() {
 		const matrix = document.getElementById("war-table-matrix");
-		if (matrix) matrix.classList.remove("minimalist-travel-mode");
+		if (matrix) {
+			matrix.classList.remove("minimalist-travel-mode", "combat-active-matrix");
+		}
 		const rig = document.getElementById("expedition-rig");
 		if (rig) {
-			rig.classList.remove("minimalist-travel-mode", "navigation-suspended");
+			rig.classList.remove("minimalist-travel-mode", "navigation-suspended", "combat-active-matrix");
 		}
 		showElement("party-hud-panel");
 		hideElement("district-mount-container");
@@ -203,6 +214,12 @@ const EmberlightDistrictRouter = (() => {
 			typeof EmberlightDynamicLights.resize === "function"
 		) {
 			EmberlightDynamicLights.resize();
+		}
+		if (
+			typeof EmberlightMapRenderer !== "undefined" &&
+			typeof EmberlightMapRenderer.resize === "function"
+		) {
+			EmberlightMapRenderer.resize();
 		}
 	}
 
@@ -285,8 +302,6 @@ const EmberlightDistrictRouter = (() => {
 			return;
 		}
 
-		showElement("expedition-rig");
-		hideElement("combat-theater");
 		showElement("district-nav");
 
 		if (district === "OVERWORLD") {

@@ -1,29 +1,173 @@
-const assert = require('assert');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const assert = require('node:assert');
 
-// 1. Load Host & Systems
-const EmberlightManifest = require('../manifest.js');
-global.EmberlightManifest = EmberlightManifest;
+const baseDir = path.resolve(__dirname, '..');
+const scripts = require('./load_order.js');
 
-const EmberlightPRNG = require('../prng.js');
-global.EmberlightPRNG = EmberlightPRNG;
+function createMockElement(id = '', tag = 'div') {
+  const listeners = {};
+  const classSet = new Set();
+  const el = {
+    id,
+    tagName: tag.toUpperCase(),
+    dataset: {},
+    classList: {
+      add: (cls) => classSet.add(cls),
+      remove: (cls) => classSet.delete(cls),
+      contains: (cls) => classSet.has(cls),
+      toggle: (cls, force) => {
+        if (typeof force === 'boolean') {
+          if (force) classSet.add(cls);
+          else classSet.delete(cls);
+        } else {
+          if (classSet.has(cls)) classSet.delete(cls);
+          else classSet.add(cls);
+        }
+      }
+    },
+    style: {},
+    innerHTML: '',
+    textContent: '',
+    children: [],
+    appendChild: (child) => { el.children.push(child); return child; },
+    removeChild: (child) => {
+      const idx = el.children.indexOf(child);
+      if (idx !== -1) el.children.splice(idx, 1);
+      return child;
+    },
+    querySelector: () => null,
+    querySelectorAll: () => [],
+    addEventListener: (type, handler) => {
+      listeners[type] = listeners[type] || [];
+      listeners[type].push(handler);
+    },
+    removeEventListener: () => {},
+    focus: () => {},
+    blur: () => {},
+    width: 480,
+    height: 260,
+    toDataURL: () => 'data:image/png;base64,mock',
+    getContext: () => ({
+      createImageData: (w, h) => ({ data: new Uint8ClampedArray(w * h * 4) }),
+      putImageData: () => {},
+      drawImage: () => {},
+      fillRect: () => {},
+      clearRect: () => {},
+      strokeRect: () => {},
+      fillText: () => {},
+      strokeText: () => {},
+      createRadialGradient: () => ({ addColorStop: () => {} }),
+      createLinearGradient: () => ({ addColorStop: () => {} }),
+      save: () => {},
+      restore: () => {},
+      beginPath: () => {},
+      closePath: () => {},
+      clip: () => {},
+      arc: () => {},
+      ellipse: () => {},
+      rect: () => {},
+      roundRect: () => {},
+      bezierCurveTo: () => {},
+      quadraticCurveTo: () => {},
+      fill: () => {},
+      stroke: () => {},
+      moveTo: () => {},
+      lineTo: () => {},
+      translate: () => {},
+      rotate: () => {},
+      scale: () => {},
+      setTransform: () => {},
+      resetTransform: () => {},
+      measureText: () => ({ width: 10 })
+    })
+  };
+  return el;
+}
 
-const EmberlightEventBus = require('../event_bus.js');
-global.EmberlightEventBus = EmberlightEventBus;
+const domElements = {};
+const mockDocument = {
+  getElementById: (id) => {
+    if (!domElements[id]) domElements[id] = createMockElement(id);
+    return domElements[id];
+  },
+  createElement: (tag) => createMockElement('', tag),
+  querySelector: (sel) => {
+    if (sel.startsWith('#')) return mockDocument.getElementById(sel.slice(1));
+    return createMockElement('', 'div');
+  },
+  querySelectorAll: () => [],
+  addEventListener: () => {},
+  removeEventListener: () => {},
+  body: createMockElement('body')
+};
 
-const EmberlightSessionStore = require('../session_store.js');
-global.EmberlightSessionStore = EmberlightSessionStore;
+const sandbox = {
+  console,
+  setTimeout,
+  clearTimeout,
+  setInterval,
+  clearInterval,
+  document: mockDocument,
+  window: {
+    document: mockDocument,
+    innerWidth: 1024,
+    innerHeight: 768,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    AudioContext: class {
+      createOscillator() { return { connect: () => {}, start: () => {}, stop: () => {}, frequency: { setValueAtTime: () => {} } }; }
+      createGain() { return { connect: () => {}, gain: { setValueAtTime: () => {}, linearRampToValueAtTime: () => {} } }; }
+      createBufferSource() { return { connect: () => {}, start: () => {} }; }
+      get destination() { return {}; }
+      get currentTime() { return 0; }
+    }
+  },
+  AudioContext: class {
+    createOscillator() { return { connect: () => {}, start: () => {}, stop: () => {}, frequency: { setValueAtTime: () => {} } }; }
+    createGain() { return { connect: () => {}, gain: { setValueAtTime: () => {}, linearRampToValueAtTime: () => {} } }; }
+    createBufferSource() { return { connect: () => {}, start: () => {} }; }
+    get destination() { return {}; }
+    get currentTime() { return 0; }
+  },
+  localStorage: {
+    _data: {},
+    getItem: (k) => sandbox.localStorage._data[k] || null,
+    setItem: (k, v) => { sandbox.localStorage._data[k] = String(v); },
+    removeItem: (k) => { delete sandbox.localStorage._data[k]; },
+    clear: () => { sandbox.localStorage._data = {}; }
+  },
+  requestAnimationFrame: (cb) => setTimeout(cb, 16),
+  cancelAnimationFrame: (id) => clearTimeout(id),
+  Math,
+  Date,
+  Array,
+  Object,
+  String,
+  Number,
+  Boolean,
+  RegExp,
+  Set,
+  Map,
+  JSON,
+  structuredClone: (obj) => (typeof structuredClone === 'function' ? structuredClone(obj) : JSON.parse(JSON.stringify(obj)))
+};
 
-const EmberlightDistrictRouter = require('../district_router.js');
-global.EmberlightDistrictRouter = EmberlightDistrictRouter;
+const context = vm.createContext(sandbox);
 
-const EmberlightCombat = require('../combat.js');
-global.EmberlightCombat = EmberlightCombat;
+for (const scriptFile of scripts) {
+  const filePath = path.join(baseDir, scriptFile);
+  const code = fs.readFileSync(filePath, 'utf8');
+  vm.runInContext(code, context, { filename: scriptFile });
+}
 
-const EmberlightCombatVFX = require('../combat_vfx.js');
-global.EmberlightCombatVFX = EmberlightCombatVFX;
-
-const GameRuntime = require('../runtime.js');
-global.GameRuntime = GameRuntime;
+const {
+  GameRuntime,
+  EmberlightSessionStore,
+  EmberlightEventBus,
+  EmberlightCombat
+} = sandbox.window;
 
 // Initialize Runtime
 GameRuntime.init();

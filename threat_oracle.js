@@ -30,6 +30,7 @@
  * @property {boolean} [alive] Vital status flag.
  * @property {string} [weakness] Elemental weakness descriptor.
  * @property {string} [resistance] Elemental resistance descriptor.
+ * @property {number} [index] Positional array index.
  */
 
 /**
@@ -42,6 +43,7 @@
  * @property {string} [key] Enemy key.
  * @property {boolean} [isProjected] Projected forecast flag.
  * @property {number} [delayCost] Additional turn delay cost.
+ * @property {number} [entityIndex] Array index in party or enemies.
  */
 
 /**
@@ -49,6 +51,7 @@
  * @property {string} name Boss or combatant name.
  * @property {string} [actionName] Prepared telegraph action name.
  * @property {number} [eta] Estimated turns until execution.
+ * @property {string} [enemyId] Enemy ID.
  */
 
 /**
@@ -57,6 +60,8 @@
  * @property {ThreatCombatant[]} [enemies] Active enemy combatants array.
  * @property {BossIntent|null} [bossIntent] Active boss intention telegraph.
  * @property {ThreatTimelineTurn[]} [forecastQueue] Pre-calculated forecast timeline queue.
+ * @property {string} [activeHeroId] Currently active hero identifier.
+ * @property {number} [actionPreviewCost] Delay delta for action preview forecasting.
  */
 
 /**
@@ -96,7 +101,7 @@ const EmberlightThreatOracle = (() => {
 	function calculateTimeline(party = [], enemies = [], maxTurns = 12) {
 		const combatants = [];
 
-		party.forEach((hero) => {
+		party.forEach((hero, pIdx) => {
 			if (hero.alive) {
 				const agi = Math.max(1, hero.agi || 10);
 				const delay = 1000 / agi;
@@ -108,11 +113,13 @@ const EmberlightThreatOracle = (() => {
 					agi,
 					delay,
 					currentDelay: hero.accumulatedDelay !== undefined ? hero.accumulatedDelay : delay,
+					entityIndex: pIdx,
+					isProjected: false,
 				});
 			}
 		});
 
-		enemies.forEach((enemy) => {
+		enemies.forEach((enemy, eIdx) => {
 			if (!enemy.isDead && (enemy.hp === undefined || enemy.hp > 0) && enemy.alive !== false) {
 				const agi = Math.max(1, enemy.agi || 8);
 				const delay = 1000 / agi;
@@ -124,6 +131,8 @@ const EmberlightThreatOracle = (() => {
 					agi,
 					delay,
 					currentDelay: enemy.accumulatedDelay !== undefined ? enemy.accumulatedDelay : delay,
+					entityIndex: eIdx,
+					isProjected: false,
 				});
 			}
 		});
@@ -144,6 +153,91 @@ const EmberlightThreatOracle = (() => {
 				type: nextUnit.type,
 				phenotype: nextUnit.phenotype,
 				key: nextUnit.key,
+				entityIndex: nextUnit.entityIndex,
+				isProjected: false,
+			});
+
+			const stepTime = nextUnit.currentDelay || 0;
+			simulatedClocks.forEach((c) => {
+				c.currentDelay = Math.max(0, (c.currentDelay || 0) - stepTime);
+			});
+			nextUnit.currentDelay = nextUnit.delay;
+		}
+
+		return timeline;
+	}
+
+	/**
+	 * Pure domain calculation for 12-turn forward CTB timeline with preview action cost.
+	 * (Pure calculation utility)
+	 * @param {ThreatCombatant[]} [party=[]] Active party combatants array.
+	 * @param {ThreatCombatant[]} [enemies=[]] Active enemy combatants array.
+	 * @param {string|null} [activeHeroId=null] Active hero ID previewing an action.
+	 * @param {number} [actionDelayCost=0] Added delay cost for the previewed action.
+	 * @param {number} [maxTurns=12] Maximum forward simulation turns.
+	 * @returns {ThreatTimelineTurn[]} Projected timeline queue array.
+	 */
+	function forecastActionTimeline(party = [], enemies = [], activeHeroId = null, actionDelayCost = 0, maxTurns = 12) {
+		const combatants = [];
+
+		party.forEach((hero, pIdx) => {
+			if (hero.alive) {
+				const agi = Math.max(1, hero.agi || 10);
+				const delay = 1000 / agi;
+				const isActor = Boolean(activeHeroId && hero.id === activeHeroId);
+				combatants.push({
+					id: hero.id,
+					name: hero.name,
+					type: 'HERO',
+					phenotype: hero.phenotype,
+					agi,
+					delay,
+					currentDelay: isActor ? delay + actionDelayCost : (hero.accumulatedDelay !== undefined ? hero.accumulatedDelay : delay),
+					entityIndex: pIdx,
+					isProjected: isActor,
+					delayCost: isActor ? actionDelayCost : 0,
+				});
+			}
+		});
+
+		enemies.forEach((enemy, eIdx) => {
+			if (!enemy.isDead && (enemy.hp === undefined || enemy.hp > 0) && enemy.alive !== false) {
+				const agi = Math.max(1, enemy.agi || 8);
+				const delay = 1000 / agi;
+				combatants.push({
+					id: enemy.id,
+					name: enemy.name || 'Enemy',
+					type: 'ENEMY',
+					key: enemy.key,
+					agi,
+					delay,
+					currentDelay: enemy.accumulatedDelay !== undefined ? enemy.accumulatedDelay : delay,
+					entityIndex: eIdx,
+					isProjected: false,
+					delayCost: 0,
+				});
+			}
+		});
+
+		if (combatants.length === 0) return [];
+
+		const timeline = [];
+		const simulatedClocks = combatants.map((c) => ({ ...c }));
+
+		for (let t = 0; t < maxTurns; t++) {
+			simulatedClocks.sort((a, b) => (a.currentDelay || 0) - (b.currentDelay || 0));
+			const nextUnit = simulatedClocks[0];
+
+			timeline.push({
+				turnIndex: t + 1,
+				id: nextUnit.id,
+				name: nextUnit.name,
+				type: nextUnit.type,
+				phenotype: nextUnit.phenotype,
+				key: nextUnit.key,
+				entityIndex: nextUnit.entityIndex,
+				isProjected: Boolean(nextUnit.isProjected && t > 0),
+				delayCost: nextUnit.delayCost || 0,
 			});
 
 			const stepTime = nextUnit.currentDelay || 0;
@@ -193,19 +287,127 @@ const EmberlightThreatOracle = (() => {
 	}
 
 	/**
+	 * Binds interactive hover and targeting handlers onto rendered CTB turn slots.
+	 * @param {HTMLElement} ribbonContainer Target turn ribbon element.
+	 * @param {function(any): void} [onDispatch] Action dispatch callback.
+	 * @returns {void}
+	 */
+	function bindRibbonEvents(ribbonContainer, onDispatch) {
+		if (!ribbonContainer) return;
+		const slots = ribbonContainer.querySelectorAll('.turn-slot');
+		const win = /** @type {any} */ (typeof window !== 'undefined' ? window : {});
+
+		slots.forEach((slot) => {
+			const id = slot.getAttribute('data-entity-id') || '';
+			const type = slot.getAttribute('data-entity-type') || 'ENEMY';
+			const entityIdx = parseInt(slot.getAttribute('data-entity-index') || '0', 10);
+
+			slot.addEventListener('mouseenter', () => {
+				if (win.EmberlightCombatRenderer && typeof win.EmberlightCombatRenderer.setEphemeralHover === 'function') {
+					win.EmberlightCombatRenderer.setEphemeralHover({ id, type, index: entityIdx });
+				}
+			});
+
+			slot.addEventListener('mouseleave', () => {
+				if (win.EmberlightCombatRenderer && typeof win.EmberlightCombatRenderer.setEphemeralHover === 'function') {
+					win.EmberlightCombatRenderer.setEphemeralHover(null);
+				}
+			});
+
+			slot.addEventListener('click', () => {
+				if (typeof onDispatch === 'function') {
+					onDispatch({
+						type: 'SELECT_TARGET',
+						targetIndex: entityIdx,
+						isAlly: type === 'HERO',
+						targetId: id,
+					});
+				} else if (win.EmberlightCombatRenderer && typeof win.EmberlightCombatRenderer.dispatchAction === 'function') {
+					win.EmberlightCombatRenderer.dispatchAction({
+						type: 'SELECT_TARGET',
+						targetIndex: entityIdx,
+						isAlly: type === 'HERO',
+						targetId: id,
+					});
+				}
+			});
+
+			slot.addEventListener('contextmenu', (ev) => {
+				ev?.preventDefault?.();
+				if (win.EmberlightCombatRenderer && typeof win.EmberlightCombatRenderer.openRadial === 'function') {
+					win.EmberlightCombatRenderer.openRadial(ev.clientX, ev.clientY, {
+						centerIcon: '⏱️',
+						north: {
+							icon: '⏳',
+							label: 'DELAY',
+							onCommit: () => {
+								if (typeof onDispatch === 'function') onDispatch({ type: 'SELECT_TAB', tab: 'SKILLS' });
+							},
+							onHover: () => {},
+						},
+						east: {
+							icon: '🔮',
+							label: 'RESONATE',
+							onCommit: () => {
+								if (typeof onDispatch === 'function') onDispatch({ type: 'HARMONIC_TUNE' });
+							},
+							onHover: () => {},
+						},
+						south: {
+							icon: '🛡️',
+							label: 'BRACE',
+							onCommit: () => {
+								if (typeof onDispatch === 'function') onDispatch({ type: 'GUARD' });
+							},
+							onHover: () => {},
+						},
+						west: {
+							icon: '🔍',
+							label: 'INSPECT',
+							onCommit: () => {
+								if (win.EmberlightCombatRenderer?.setEphemeralHover) {
+									win.EmberlightCombatRenderer.setEphemeralHover({ id, type, index: entityIdx });
+								}
+							},
+							onHover: () => {
+								if (win.EmberlightCombatRenderer?.setEphemeralHover) {
+									win.EmberlightCombatRenderer.setEphemeralHover({ id, type, index: entityIdx });
+								}
+							},
+						},
+					});
+				}
+			});
+		});
+	}
+
+	/**
 	 * Renders the Threat Oracle ribbon and telegraphs into the DOM container.
 	 * (State-mutating DOM presentation procedure)
 	 * @param {string|HTMLElement|null} [containerId] Target container element or ID string.
 	 * @param {CombatStateSnapshot} [combatState={}] Combat state payload snapshot.
+	 * @param {function(any): void} [dispatchHandler] Action dispatch callback.
 	 * @returns {void}
 	 */
-	function render(containerId, combatState = {}) {
+	function render(containerId, combatState = {}, dispatchHandler) {
 		if (typeof document === 'undefined') return;
 		const ribbonBar = document.getElementById('combat-ctb-ribbon-bar');
 		const targetContainer = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;
 
-		const { party = [], enemies = [], bossIntent = null, forecastQueue = null } = combatState;
-		const timeline = forecastQueue || calculateTimeline(party, enemies, 12);
+		const {
+			party = [],
+			enemies = [],
+			bossIntent = null,
+			forecastQueue = null,
+			activeHeroId = null,
+			actionPreviewCost = 0,
+		} = combatState;
+
+		const timeline = forecastQueue || (
+			actionPreviewCost !== 0 && activeHeroId
+				? forecastActionTimeline(party, enemies, activeHeroId, actionPreviewCost, 12)
+				: calculateTimeline(party, enemies, 12)
+		);
 
 		const ribbonHtml = timeline.map((turn, idx) => {
 			const isHero = turn.type === 'HERO';
@@ -216,7 +418,11 @@ const EmberlightThreatOracle = (() => {
 			const iconMarkup = resolveSlotIconMarkup(turn, isHero, crest);
 
 			return `
-        <div class="turn-slot ${isTurnNow ? 'active-slot' : ''} ${isProjected ? 'projected-slot' : ''} ${isHero ? 'hero-slot' : 'enemy-slot'}" title="Turn ${turn.turnIndex || (idx + 1)}: ${turn.name}${delayLabel}">
+        <div class="turn-slot ${isTurnNow ? 'active-slot' : ''} ${isProjected ? 'projected-slot ghost-turn-slot' : ''} ${isHero ? 'hero-slot' : 'enemy-slot'}"
+             data-entity-id="${turn.id}"
+             data-entity-type="${turn.type}"
+             data-entity-index="${turn.entityIndex !== undefined ? turn.entityIndex : idx}"
+             title="Turn ${turn.turnIndex || (idx + 1)}: ${turn.name}${delayLabel}">
           <div class="slot-idx">${turn.turnIndex || (idx + 1)}</div>
           ${iconMarkup}
           <div class="slot-name">${turn.name.slice(0, 5)}</div>
@@ -227,6 +433,7 @@ const EmberlightThreatOracle = (() => {
 		// If master ribbon bar exists in DOM, populate it directly
 		if (ribbonBar) {
 			ribbonBar.innerHTML = ribbonHtml;
+			bindRibbonEvents(ribbonBar, dispatchHandler);
 		}
 
 		// If target container is provided and is not ribbonBar, populate full oracle panel
@@ -246,7 +453,7 @@ const EmberlightThreatOracle = (() => {
           <!-- BOSS / THREAT TELEGRAPH FEED -->
           <div class="telegraph-feed">
             ${bossIntent ? `
-              <div class="telegraph-banner alert">
+              <div class="telegraph-banner alert" data-enemy-id="${bossIntent.enemyId || ''}">
                 <span class="pulse-icon">⚠️</span>
                 <span class="telegraph-text"><b>${bossIntent.name}:</b> ${bossIntent.actionName || 'Preparing Strike'} (Turn ${bossIntent.eta || 1})</span>
               </div>
@@ -261,12 +468,12 @@ const EmberlightThreatOracle = (() => {
           <div class="affinity-inspector">
             <span class="inspector-label">AFFINITY PIP MATRIX:</span>
             <div class="affinity-pips">
-              ${enemies.map((e) => {
+              ${enemies.map((e, eIdx) => {
 				if (e.isDead || (e.hp !== undefined && e.hp <= 0)) return '';
 				const weak = e.weakness ? `<span class="pip weak">⚡ ${e.weakness} (1.5x)</span>` : '';
 				const resist = e.resistance ? `<span class="pip resist">🛡️ ${e.resistance} (0.5x)</span>` : '';
 				return `
-                  <div class="enemy-affinity-row">
+                  <div class="enemy-affinity-row" data-enemy-id="${e.id}" data-enemy-index="${eIdx}">
                     <span class="enemy-label">${e.name}:</span>
                     ${weak} ${resist} ${!weak && !resist ? '<span class="pip neutral">NEUTRAL</span>' : ''}
                   </div>
@@ -276,6 +483,10 @@ const EmberlightThreatOracle = (() => {
           </div>
         </div>
       `;
+			const innerRibbon = targetContainer.querySelector('.turn-ribbon');
+			if (innerRibbon) {
+				bindRibbonEvents(innerRibbon, dispatchHandler);
+			}
 		}
 	}
 	//#endregion
@@ -284,6 +495,7 @@ const EmberlightThreatOracle = (() => {
 	return {
 		init,
 		calculateTimeline,
+		forecastActionTimeline,
 		render,
 		getDiagnostics() {
 			return {

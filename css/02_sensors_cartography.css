@@ -267,7 +267,7 @@
 
 .hero-pill-btn:hover,
 .hero-pill-btn.active {
-  background: rgba(245, 158, 11, 0.2);
+  background: #3d1c08;
   border-color: var(--ember);
   color: #ffffff;
   box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
@@ -379,7 +379,7 @@
 .tactical-btn:hover {
   border-color: var(--ember);
   color: #ffffff;
-  background: rgba(245, 158, 11, 0.25);
+  background: #3d1c08;
   box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
 }
 
@@ -518,7 +518,7 @@
 }
 
 .medical-btn:hover {
-  background: rgba(74, 222, 128, 0.2);
+  background: #0d2e18;
   border-color: var(--ok);
   color: #ffffff;
 }
@@ -548,8 +548,8 @@
 .crucible-cell.filled {
   border-style: solid;
   border-color: #a855f7;
-  background: rgba(168, 85, 247, 0.1);
-  color: #ffffff;
+  background: #230d38;
+  color: #f3e8ff;
 }
 
 .crucible-actions {
@@ -667,12 +667,12 @@
 
 .tile.wall {
   background: #141424;
-  color: #7878a8;
+  color: #9898c8;
 }
 
 .tile.path {
   background: #0a0a14;
-  color: #5a5a82;
+  color: #8888b4;
 }
 
 .tile.grass {
@@ -754,14 +754,14 @@
 
 .catacomb-mode .tile.wall {
   background: #0d0c15;
-  color: #6d658c;
+  color: #958cb8;
   border: 1px solid #1a1628;
   box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.9);
 }
 
 .catacomb-mode .tile.path {
   background: #05050b;
-  color: #505078;
+  color: #8484b0;
 }
 
 .catacomb-mode .tile.water {

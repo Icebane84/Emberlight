@@ -119,14 +119,28 @@
  */
 
 const EmberlightCombatRenderer = (() => {
-	'use strict';
-
 	//#region [SEC-01] Type Definitions, Module State & DOM/Emission Helpers
 	let mounted = false;
 	/** @type {function(CombatActionToken): void|null} */
 	let actionHandler = null;
 	/** @type {CombatContext|null} */
 	let hostContext = null;
+
+	let lastCombatState = null;
+	let lastQ1Spatial = null;
+	let lastQ2Clash = null;
+	let lastQ3Oracle = null;
+	let lastQ4Deck = null;
+
+	let ephemeralHover = null;
+	let ephemeralPreviewSkill = null;
+	let lastHoveredKey = '';
+	let rafRedrawScheduled = false;
+	let renderedEnemyBounds = [];
+	let q1EventsBound = false;
+	let q2EventsBound = false;
+	let focusFireTargetId = null;
+	let suppressContextMenuUntil = 0;
 
 	/**
 	 * Safely retrieves a DOM element by ID if available.
@@ -137,15 +151,408 @@ const EmberlightCombatRenderer = (() => {
 		return typeof document === 'undefined' ? null : document.getElementById(id);
 	}
 
+	let actionSequenceCounter = 0;
+
 	/**
-	 * Emits an authoritative action token to the simulation driver.
+	 * Resolves default target index based on hover, focus-fire, or front-row living unit.
+	 * @param {boolean} [isAlly=false] Target side.
+	 * @returns {number} Resolved slot index.
+	 */
+	function resolveContextualTargetIndex(isAlly = false) {
+		if (isAlly) {
+			if (ephemeralHover && ephemeralHover.type === 'HERO' && typeof ephemeralHover.index === 'number') {
+				return ephemeralHover.index;
+			}
+			const party = lastCombatState?.party || [];
+			const activeCharId = lastCombatState?.turnQueue?.[lastCombatState?.activeTurnIndex]?.entity?.id;
+			const activeIdx = party.findIndex((p) => p.id === activeCharId && p.alive);
+			if (activeIdx !== -1) return activeIdx;
+			const firstLivingAlly = party.findIndex((p) => p.alive);
+			return firstLivingAlly !== -1 ? firstLivingAlly : 0;
+		}
+
+		if (ephemeralHover && ephemeralHover.type === 'ENEMY' && typeof ephemeralHover.index === 'number') {
+			const foe = (lastCombatState?.enemies || [])[ephemeralHover.index];
+			if (foe && foe.alive) return ephemeralHover.index;
+		}
+		if (focusFireTargetId) {
+			const ffIdx = (lastCombatState?.enemies || []).findIndex((e) => e.id === focusFireTargetId && e.alive);
+			if (ffIdx !== -1) return ffIdx;
+		}
+		const enemies = lastCombatState?.enemies || [];
+		const firstLivingEnemy = enemies.findIndex((e) => e.alive);
+		return firstLivingEnemy !== -1 ? firstLivingEnemy : 0;
+	}
+
+	/**
+	 * Emits an authoritative action token to the simulation driver via Dual Dispatch.
 	 * @param {CombatActionToken} action Action token payload.
 	 * @returns {void}
 	 */
 	function emit(action) {
-		if (typeof actionHandler === 'function') {
-			actionHandler(action);
+		if (!action) return;
+		const actObj = typeof action === 'string' ? { type: action } : { ...action };
+		if (!actObj.intentId) {
+			actionSequenceCounter++;
+			actObj.intentId = `intent_${Date.now()}_${actionSequenceCounter}`;
 		}
+		if (typeof actObj.targetIndex !== 'number' && (actObj.type === 'ATTACK' || actObj.type === 'SKILL' || actObj.type === 'ITEM')) {
+			actObj.targetIndex = resolveContextualTargetIndex(Boolean(actObj.isAlly));
+		}
+		if (hostContext?.eventBus?.publish) {
+			hostContext.eventBus.publish('combat:intent_action', actObj);
+		}
+		if (typeof actionHandler === 'function') {
+			actionHandler(actObj);
+		}
+	}
+
+	/**
+	 * Computes pixel-accurate normalized coordinates across CSS bounding box and internal canvas resolution.
+	 * @param {HTMLCanvasElement} canvas Canvas element reference.
+	 * @param {MouseEvent|PointerEvent|TouchEvent} event Mouse or pointer event.
+	 * @returns {{ x: number, y: number, normX: number, normY: number }}
+	 */
+	function getNormalizedCanvasCoords(canvas, event) {
+		if (!canvas || !event) return { x: 0, y: 0, normX: 0, normY: 0 };
+		const rect = canvas.getBoundingClientRect();
+		const scaleX = canvas.width / Math.max(1, rect.width);
+		const scaleY = canvas.height / Math.max(1, rect.height);
+		const touch = 'touches' in event && event.touches ? event.touches[0] : null;
+		let clientX = 0;
+		let clientY = 0;
+		if ('clientX' in event && typeof event.clientX === 'number') {
+			clientX = event.clientX;
+		} else if (touch) {
+			clientX = touch.clientX;
+		}
+		if ('clientY' in event && typeof event.clientY === 'number') {
+			clientY = event.clientY;
+		} else if (touch) {
+			clientY = touch.clientY;
+		}
+		return {
+			x: (clientX - rect.left) * scaleX,
+			y: (clientY - rect.top) * scaleY,
+			normX: Math.max(0, Math.min(1, (clientX - rect.left) / Math.max(1, rect.width))),
+			normY: Math.max(0, Math.min(1, (clientY - rect.top) / Math.max(1, rect.height))),
+		};
+	}
+
+	/**
+	 * Schedules a coalesced canvas redraw via requestAnimationFrame with dirty-state suppression.
+	 * @returns {void}
+	 */
+	function scheduleSynchronizedRedraw() {
+		if (rafRedrawScheduled) return;
+		rafRedrawScheduled = true;
+		if (typeof requestAnimationFrame !== 'undefined') {
+			requestAnimationFrame(() => {
+				rafRedrawScheduled = false;
+				if (lastCombatState) {
+					if (lastQ1Spatial) renderQ1SpatialCanvas(lastQ1Spatial, lastCombatState);
+					if (lastQ2Clash) renderQ2ClashCanvas(lastQ2Clash, lastCombatState);
+					if (lastQ3Oracle) renderQ3ThreatOracleDeck(lastQ3Oracle, lastCombatState);
+					if (lastQ4Deck) renderQ4HeroChassisGrid(lastQ4Deck, lastCombatState);
+					syncDOMHighlighting();
+				}
+			});
+		} else {
+			rafRedrawScheduled = false;
+		}
+	}
+
+	/**
+	 * Sets the ephemeral hover target across all 4 quadrants without mutating simulation state.
+	 * @param {{ id: string, type: string, index: number }|null} hoverTarget Hover payload or null.
+	 * @returns {void}
+	 */
+	function setEphemeralHover(hoverTarget) {
+		const newKey = hoverTarget ? `${hoverTarget.type}_${hoverTarget.id}_${hoverTarget.index}` : '';
+		if (newKey === lastHoveredKey) return;
+		lastHoveredKey = newKey;
+		ephemeralHover = hoverTarget;
+		if (hoverTarget && hostContext?.eventBus?.publish) {
+			hostContext.eventBus.publish('combat:sfx', { sfx: 'MENU_HOVER' });
+		}
+		scheduleSynchronizedRedraw();
+	}
+
+	/**
+	 * Sets the ephemeral preview skill for real-time trajectory and CTB forecasting.
+	 * @param {SkillNode|null} skill Skill node preview object or null.
+	 * @returns {void}
+	 */
+	function setEphemeralPreviewSkill(skill) {
+		ephemeralPreviewSkill = skill;
+		scheduleSynchronizedRedraw();
+	}
+
+	let activeRadialConfig = null;
+	let radialOrigin = { x: 0, y: 0 };
+	let activeFlickDirection = null;
+
+	/**
+	 * Closes the contextual radial menu and unbinds gesture listeners.
+	 * @returns {void}
+	 */
+	function closeContextualRadial() {
+		const radial = getElement('combat-hero-radial');
+		if (radial) {
+			radial.classList.add('hidden');
+			radial.innerHTML = '';
+		}
+		activeRadialConfig = null;
+		activeFlickDirection = null;
+		if (typeof window !== 'undefined') {
+			window.removeEventListener('pointermove', handleRadialPointerMove);
+			window.removeEventListener('pointerup', handleRadialPointerUp);
+			window.removeEventListener('keydown', handleRadialKeyDown);
+		}
+		setEphemeralPreviewSkill(null);
+	}
+
+	/**
+	 * Computes cardinal direction from delta vector.
+	 * @param {number} dx
+	 * @param {number} dy
+	 * @returns {'NORTH'|'EAST'|'SOUTH'|'WEST'}
+	 */
+	function getRadialFlickDirection(dx, dy) {
+		const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+		if (angle >= -135 && angle <= -45) return 'NORTH';
+		if (angle > -45 && angle < 45) return 'EAST';
+		if (angle >= 45 && angle <= 135) return 'SOUTH';
+		return 'WEST';
+	}
+
+	/**
+	 * Resets active flick state and restores default telemetry.
+	 * @param {HTMLElement} radial
+	 */
+	function resetRadialFlickState(radial) {
+		if (activeFlickDirection === null) return;
+		activeFlickDirection = null;
+		radial.querySelectorAll('.radial-leaf-btn').forEach((btn) => {
+			btn.classList.remove('active-flick');
+		});
+		setEphemeralPreviewSkill(null);
+		const activeChar = lastCombatState?.turnQueue?.[lastCombatState?.activeTurnIndex]?.entity || lastCombatState?.party?.[0];
+		const defaultEnemy = (lastCombatState?.enemies || []).find((e) => e.alive) || lastCombatState?.enemies?.[0];
+		if (activeChar && defaultEnemy && lastCombatState) {
+			renderTelemetryStats(activeChar, defaultEnemy, lastCombatState);
+		}
+	}
+
+	/**
+	 * Handles pointer movements during an active radial gesture.
+	 * @param {PointerEvent} ev
+	 */
+	function handleRadialPointerMove(ev) {
+		if (!activeRadialConfig) return;
+		const dx = ev.clientX - radialOrigin.x;
+		const dy = ev.clientY - radialOrigin.y;
+		const dist = Math.hypot(dx, dy);
+
+		const radial = getElement('combat-hero-radial');
+		if (!radial) return;
+
+		if (dist >= 20) {
+			const dir = getRadialFlickDirection(dx, dy);
+			if (activeFlickDirection !== dir) {
+				activeFlickDirection = dir;
+				radial.querySelectorAll('.radial-leaf-btn').forEach((btn) => {
+					btn.classList.toggle('active-flick', btn.classList.contains(dir.toLowerCase()));
+				});
+				const leafConfig = activeRadialConfig[dir.toLowerCase()];
+				if (leafConfig && typeof leafConfig.onHover === 'function') {
+					leafConfig.onHover();
+				}
+			}
+		} else {
+			resetRadialFlickState(radial);
+		}
+	}
+
+	/**
+	 * Handles pointer release to commit flick actions or keep click modal open.
+	 * @param {PointerEvent} ev
+	 */
+	function handleRadialPointerUp(ev) {
+		if (!activeRadialConfig) return;
+		suppressContextMenuUntil = Date.now() + 300;
+		const dx = ev.clientX - radialOrigin.x;
+		const dy = ev.clientY - radialOrigin.y;
+		const dist = Math.hypot(dx, dy);
+
+		if (dist >= 20 && activeFlickDirection) {
+			const leafConfig = activeRadialConfig[activeFlickDirection.toLowerCase()];
+			if (leafConfig && typeof leafConfig.onCommit === 'function') {
+				const meta = {
+					cardinal: activeFlickDirection,
+					vectorAngle: Math.atan2(dy, dx),
+					powerScale: Math.min(1.5, Math.max(1.0, dist / 50)),
+				};
+				leafConfig.onCommit(meta);
+			}
+			closeContextualRadial();
+		}
+	}
+
+	/**
+	 * Handles keyboard hotkeys when radial is active.
+	 * @param {KeyboardEvent} ev
+	 */
+	function handleRadialKeyDown(ev) {
+		if (!activeRadialConfig) return;
+		if (ev.key === 'Escape') {
+			closeContextualRadial();
+			return;
+		}
+		const keyMap = { '1': 'north', '2': 'east', '3': 'south', '4': 'west' };
+		const dirKey = keyMap[ev.key];
+		if (dirKey && activeRadialConfig[dirKey]) {
+			ev.preventDefault();
+			const leafConfig = activeRadialConfig[dirKey];
+			if (leafConfig && typeof leafConfig.onCommit === 'function') {
+				leafConfig.onCommit();
+			}
+			closeContextualRadial();
+		}
+	}
+
+	/**
+	 * Opens a contextual 4-leaf radial at the designated screen coordinates.
+	 * @param {number} clientX Screen X coordinate.
+	 * @param {number} clientY Screen Y coordinate.
+	 * @param {Object} config Quadrant radial descriptor configuration.
+	 */
+	function openContextualRadial(clientX, clientY, config) {
+		const radial = getElement('combat-hero-radial');
+		if (!radial) return;
+
+		activeRadialConfig = config;
+		radialOrigin = { x: clientX, y: clientY };
+		activeFlickDirection = null;
+
+		const radW = 172;
+		const radH = 172;
+		const pad = 10;
+		const winW = typeof window !== 'undefined' ? window.innerWidth : 800;
+		const winH = typeof window !== 'undefined' ? window.innerHeight : 600;
+		const posX = Math.max(pad, Math.min(winW - radW - pad, clientX - radW / 2));
+		const posY = Math.max(pad, Math.min(winH - radH - pad, clientY - radH / 2));
+
+		radial.style.left = `${posX}px`;
+		radial.style.top = `${posY}px`;
+		radial.style.transform = 'none';
+
+		radial.innerHTML = `
+			<div class="radial-center-dial">${config.centerIcon || '⚡'}</div>
+			<button type="button" class="radial-leaf-btn north" id="radial-leaf-n">
+				<span>${config.north.icon} ${config.north.label}</span>
+				<span class="leaf-key">[1]</span>
+			</button>
+			<button type="button" class="radial-leaf-btn east" id="radial-leaf-e">
+				<span>${config.east.icon} ${config.east.label}</span>
+				<span class="leaf-key">[2]</span>
+			</button>
+			<button type="button" class="radial-leaf-btn south" id="radial-leaf-s">
+				<span>${config.south.icon} ${config.south.label}</span>
+				<span class="leaf-key">[3]</span>
+			</button>
+			<button type="button" class="radial-leaf-btn west" id="radial-leaf-w">
+				<span>${config.west.icon} ${config.west.label}</span>
+				<span class="leaf-key">[4]</span>
+			</button>
+		`;
+
+		radial.classList.remove('hidden');
+
+		['north', 'east', 'south', 'west'].forEach((dir) => {
+			const btn = radial.querySelector(`.radial-leaf-btn.${dir}`);
+			const leafConfig = config[dir];
+			if (btn && leafConfig) {
+				btn.addEventListener('click', (e) => {
+					e.stopPropagation();
+					suppressContextMenuUntil = Date.now() + 300;
+					if (typeof leafConfig.onCommit === 'function') {
+						leafConfig.onCommit();
+					}
+					closeContextualRadial();
+				});
+				btn.addEventListener('mouseenter', () => {
+					if (typeof leafConfig.onHover === 'function') {
+						leafConfig.onHover();
+					}
+				});
+			}
+		});
+
+		if (typeof window !== 'undefined') {
+			window.addEventListener('pointermove', handleRadialPointerMove);
+			window.addEventListener('pointerup', handleRadialPointerUp);
+			window.addEventListener('keydown', handleRadialKeyDown);
+		}
+	}
+
+	/**
+	 * Synchronizes CSS highlight classes across DOM turn slots, hero cards, and target buttons.
+	 * @returns {void}
+	 */
+	function syncDOMHighlighting() {
+		if (typeof document === 'undefined') return;
+		const hId = ephemeralHover?.id || null;
+		const isFlare = Boolean(ephemeralHover);
+
+		// Q3 CTB Slots
+		document.querySelectorAll('#combat-ctb-ribbon-bar .turn-slot').forEach((slot) => {
+			const slotId = /** @type {HTMLElement} */ (slot).dataset.entityId;
+			if (hId && slotId === hId) {
+				slot.classList.add('hovered-slot');
+				slot.classList.add('the-flare-q3');
+			} else {
+				slot.classList.remove('hovered-slot');
+				slot.classList.remove('the-flare-q3');
+			}
+		});
+
+		// Q3 Intent Beacons
+		document.querySelectorAll('.intent-beacon-item').forEach((beacon) => {
+			const htmlBeacon = /** @type {HTMLElement} */ (beacon);
+			const foeId = htmlBeacon.dataset.enemyId;
+			const heroId = htmlBeacon.dataset.heroId;
+			if (hId && (foeId === hId || heroId === hId)) {
+				beacon.classList.add('hovered');
+			} else {
+				beacon.classList.remove('hovered');
+			}
+		});
+
+		// Q4 Hero Pedestals & Legacy Chassis Cards
+		document.querySelectorAll('.hero-pedestal-stage, .hero-chassis-card').forEach((el) => {
+			const cardId = el.id ? el.id.replace('hero-chassis-', '') : '';
+			if (hId && cardId === hId) {
+				el.classList.add('hovered');
+			} else {
+				el.classList.remove('hovered');
+			}
+			if (isFlare && el.classList.contains('active-turn')) {
+				el.classList.add('the-flare-active');
+			} else {
+				el.classList.remove('the-flare-active');
+			}
+		});
+
+		// Subdeck Target Selection Buttons
+		document.querySelectorAll('.target-select-btn').forEach((btn) => {
+			const btnFoeId = /** @type {HTMLElement} */ (btn).dataset.enemyId;
+			if (hId && btnFoeId === hId) {
+				btn.classList.add('hovered');
+			} else {
+				btn.classList.remove('hovered');
+			}
+		});
 	}
 	//#endregion
 
@@ -602,68 +1009,88 @@ const EmberlightCombatRenderer = (() => {
 
 	//#region [SEC-06] Subdeck Renderers (Attack, Skills, Pouch, Guard)
 	/**
-	 * Renders the attack target selector subdeck.
+	 * Renders the Live Target Telemetry Ribbon in Q4 command subdeck (abolishing redundant button lists).
 	 * @param {HTMLElement|null} subDeck Subdeck container element.
 	 * @param {CombatState} state Active combat state snapshot.
+	 * @param {Battler|null} [activeChar=null] Active character battler object.
 	 * @returns {void}
 	 */
-	function renderSubdeckAttack(subDeck, state) {
+	function renderSubdeckAttack(subDeck, state, activeChar = null) {
 		if (!subDeck) return;
-		const activeElement = getActiveSkillElement(state.pendingSkill);
 		const enemies = (state.enemies || []).filter((e) => e.alive);
 		if (enemies.length === 0) {
 			subDeck.innerHTML = '<div class="subdeck-empty">All hostile targets eliminated.</div>';
 			return;
 		}
 
-		const cancelBtnHtml = state.pendingSkill
-			? '<button type="button" class="cmd-btn" id="subdeck-cancel-skill-btn" style="font-size:6px; padding:2px 8px; margin-bottom:6px;">[ESC] CANCEL SPELL</button>'
-			: '';
+		const activeSkill = state.pendingSkill || ephemeralPreviewSkill;
+		const activeElement = getActiveSkillElement(activeSkill);
+		const targetIdx = resolveContextualTargetIndex(false);
+		const targetEnemy = (state.enemies || [])[targetIdx];
 
-		subDeck.innerHTML = `
-      <div class="subdeck-target-selector">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-          <span class="subdeck-title">SELECT TARGET ENEMY:</span>
-          ${cancelBtnHtml}
-        </div>
-        <div class="target-selector-grid">
-          ${(state.enemies || []).map((enemy, idx) => {
-			if (!enemy.alive) return '';
-			const affinity = resolveAffinity(activeElement, enemy);
+		if (targetEnemy && targetEnemy.alive) {
+			const affinity = resolveAffinity(activeElement, targetEnemy);
 			const affTag = renderAffinityTag(affinity);
-			const hpPct = enemy.maxHp > 0 ? Math.round((enemy.hp / enemy.maxHp) * 100) : 0;
+			const atkPower = activeSkill?.power || 1.0;
+			const heroAtk = activeChar?.atk || 12;
+			const estDmg = Math.max(1, Math.round((heroAtk * atkPower * affinity) - ((targetEnemy.def || 0) * 0.4)));
+			const hitChance = Math.min(100, Math.max(60, 95 + ((activeChar?.agi || 10) - (targetEnemy.agi || 8)) * 2));
+			const delayCost = activeSkill?.delayCost || (activeSkill ? 1100 : 1000);
+			const estDelay = Math.round(delayCost / Math.max(1, activeChar?.agi || 10));
 
-			return `
-              <button type="button" class="target-select-btn" data-enemy-idx="${idx}">
-                <div class="target-name">[${idx + 1}] ${enemy.name} ${affTag}</div>
-                <div class="target-hp-bar">
-                  <span class="bar-track"><span class="hud-bar-fill hp" style="width:${hpPct}%"></span></span>
-                  <span class="target-hp-num">${enemy.hp}/${enemy.maxHp} HP</span>
-                </div>
-              </button>
-            `;
-		}).join('')}
-        </div>
-      </div>
-    `;
+			const cancelBtnHtml = state.pendingSkill
+				? '<button type="button" class="cmd-btn" id="subdeck-cancel-skill-btn" style="font-size:6px; padding:2px 8px; margin-left:8px; border-color:var(--crimson-core); color:var(--crimson-light);">[ESC] CANCEL</button>'
+				: '';
 
-		const cancelBtn = subDeck.querySelector('#subdeck-cancel-skill-btn');
-		if (cancelBtn) {
-			cancelBtn.addEventListener('click', () => emit({ type: 'CANCEL_SKILL' }));
+			subDeck.innerHTML = `
+				<div class="telemetry-ribbon-card">
+					<div class="telemetry-ribbon-header">
+						<span class="telemetry-target-title">🎯 TARGET: <strong>${targetEnemy.name}</strong> ${affTag}</span>
+						${activeSkill ? `<div class="telemetry-skill-badge">✨ ${activeSkill.name}</div>` : ''}
+						${activeSkill?.cost ? `<div class="telemetry-cost-badge">⚡ ${activeSkill.cost} MP</div>` : ''}
+						${cancelBtnHtml}
+					</div>
+					<div class="telemetry-ribbon-metrics">
+						<div class="telemetry-metric-item">
+							<span class="metric-label">EST. DAMAGE</span>
+							<span class="metric-val highlight">${estDmg}</span>
+						</div>
+						<div class="telemetry-metric-item">
+							<span class="metric-label">ACCURACY</span>
+							<span class="metric-val">${hitChance}%</span>
+						</div>
+						<div class="telemetry-metric-item">
+							<span class="metric-label">DELAY COST</span>
+							<span class="metric-val">+${estDelay}t</span>
+						</div>
+						<div class="telemetry-metric-item">
+							<span class="metric-label">AFFINITY</span>
+							<span class="metric-val ${affinity > 1.0 ? 'weak' : affinity < 1.0 ? 'resist' : ''}">${affinity > 1.0 ? 'WEAK (1.5x)' : affinity < 1.0 ? 'RESIST (0.5x)' : 'NEUTRAL (1.0x)'}</span>
+						</div>
+					</div>
+					<div class="telemetry-prompt-text">
+						<span>⚡ <strong>LMB in Q1/Q2</strong> to Execute • <strong>RMB on Target</strong> for Radial Flick Wheel</span>
+					</div>
+				</div>
+			`;
+
+			const cancelBtn = subDeck.querySelector('#subdeck-cancel-skill-btn');
+			if (cancelBtn) {
+				cancelBtn.addEventListener('click', () => emit({ type: 'CANCEL_SKILL' }));
+			}
+		} else {
+			subDeck.innerHTML = `
+				<div class="telemetry-ribbon-card">
+					<div class="telemetry-ribbon-header">
+						<span class="telemetry-target-title">⚔️ SQUAD TACTICAL STATUS</span>
+						<div class="telemetry-ready-badge">READY FOR ENGAGEMENT</div>
+					</div>
+					<div class="telemetry-prompt-text" style="text-align:left; padding:4px 0;">
+						<span>Select an action tab above, or <strong>hover / click</strong> an enemy in Q1/Q2 to lock on.</span>
+					</div>
+				</div>
+			`;
 		}
-
-		subDeck.querySelectorAll('[data-enemy-idx]').forEach((btn) => {
-			/** @type {HTMLElement} */
-			const htmlBtn = /** @type {HTMLElement} */ (btn);
-			const idx = Number.parseInt(htmlBtn.dataset.enemyIdx || '0', 10);
-			htmlBtn.addEventListener('click', () => {
-				if (state.pendingSkill) {
-					emit({ type: 'SKILL', skill: state.pendingSkill, targetIndex: idx, isAlly: false });
-				} else {
-					emit({ type: 'ATTACK', targetIndex: idx });
-				}
-			});
-		});
 	}
 
 	/**
@@ -791,6 +1218,30 @@ const EmberlightCombatRenderer = (() => {
 			const skillId = htmlCard.dataset.skillId;
 			const skillNode = activeSkills.find((s) => s.id === skillId);
 			if (skillNode) {
+				htmlCard.addEventListener('mouseenter', () => {
+					const delay = (skillNode.delayCost || 1100) / Math.max(1, activeChar?.agi || 10);
+					if (typeof EmberlightThreatOracle !== 'undefined' && typeof EmberlightThreatOracle.forecastActionTimeline === 'function') {
+						const forecast = EmberlightThreatOracle.forecastActionTimeline(state.party || [], state.enemies || [], activeChar?.id, delay, 12);
+						EmberlightThreatOracle.render('combat-ctb-ribbon-bar', {
+							party: state.party || [],
+							enemies: state.enemies || [],
+							forecastQueue: forecast,
+							bossIntent: (state.enemies || []).find((e) => e.isBoss && e.alive) || null,
+						}, emit);
+					}
+					setEphemeralPreviewSkill(skillNode);
+				});
+				htmlCard.addEventListener('mouseleave', () => {
+					if (typeof EmberlightThreatOracle !== 'undefined') {
+						EmberlightThreatOracle.render('combat-ctb-ribbon-bar', {
+							party: state.party || [],
+							enemies: state.enemies || [],
+							forecastQueue: state.forecastQueue || null,
+							bossIntent: (state.enemies || []).find((e) => e.isBoss && e.alive) || null,
+						}, emit);
+					}
+					setEphemeralPreviewSkill(null);
+				});
 				htmlCard.addEventListener('click', () => {
 					emit({ type: 'SELECT_SKILL', skill: skillNode });
 				});
@@ -965,7 +1416,7 @@ const EmberlightCombatRenderer = (() => {
 	 * @param {CombatState} state Active state snapshot.
 	 * @returns {void}
 	 */
-	function renderDefeatView(subDeck, title, tag, ribbon, state) {
+	function renderDefeatView(subDeck, title, tag, ribbon, _state) {
 		if (title) title.textContent = '💀 EXPEDITION DEFEAT';
 		if (tag) tag.textContent = 'Defeat';
 		ribbon.innerHTML = '';
@@ -998,15 +1449,17 @@ const EmberlightCombatRenderer = (() => {
 	 * @returns {void}
 	 */
 	function renderActiveCommandHub(state, activeChar, ribbon, subDeck, fleeBtn, selectedTab) {
-		function previewDelay(_delayCost) {
+		function previewDelay(delayCost) {
 			if (!activeChar || typeof EmberlightThreatOracle === 'undefined') return;
-			const forecast = EmberlightThreatOracle.calculateTimeline(state.party, state.enemies, 12);
+			const forecast = typeof EmberlightThreatOracle.forecastActionTimeline === 'function'
+				? EmberlightThreatOracle.forecastActionTimeline(state.party || [], state.enemies || [], activeChar.id, delayCost, 12)
+				: EmberlightThreatOracle.calculateTimeline(state.party || [], state.enemies || [], 12);
 			EmberlightThreatOracle.render('combat-ctb-ribbon-bar', {
 				party: state.party,
 				enemies: state.enemies,
 				forecastQueue: forecast,
 				bossIntent: state.enemies?.find((e) => e.isBoss && e.alive) || null,
-			});
+			}, emit);
 		}
 
 		function restoreDelay() {
@@ -1016,7 +1469,7 @@ const EmberlightCombatRenderer = (() => {
 				enemies: state.enemies,
 				forecastQueue: state.forecastQueue || null,
 				bossIntent: state.enemies?.find((e) => e.isBoss && e.alive) || null,
-			});
+			}, emit);
 		}
 
 		const tabs = [
@@ -1046,7 +1499,7 @@ const EmberlightCombatRenderer = (() => {
 
 		subDeck.innerHTML = '';
 		if (selectedTab === 'ATTACK' || state.phase === 'TARGETING_ENEMY') {
-			renderSubdeckAttack(subDeck, state);
+			renderSubdeckAttack(subDeck, state, activeChar);
 		} else if (selectedTab === 'SKILLS') {
 			renderSubdeckSkills(subDeck, state, activeChar);
 		} else if (selectedTab === 'POUCH') {
@@ -1095,7 +1548,1065 @@ const EmberlightCombatRenderer = (() => {
 	//#endregion
 
 	//#region [SEC-08] Public VSRP-001 Tier-3 Interface Gateway
+	/**
+	 * Renders Quadrant 1: Spatial 8x6 battle room canvas with unit tokens & displacement vectors.
+	 * @param {Object} q1Spatial Spatial projection slice.
+	 * @param {CombatState} state Active combat state.
+	 * @returns {void}
+	 */
+	function renderQ1SpatialCanvas(q1Spatial, _state) {
+		lastQ1Spatial = q1Spatial;
+		const canvas = /** @type {HTMLCanvasElement|null} */ (getElement('combat-spatial-canvas'));
+		if (!canvas || typeof canvas.getContext !== 'function') return;
+		const ctx = canvas.getContext('2d');
+		if (!ctx) return;
+
+		const rect = canvas.parentElement?.getBoundingClientRect?.() || { width: 480, height: 260 };
+		const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+		const w = Math.max(480, Math.floor(rect.width || 480));
+		const h = Math.max(260, Math.floor(rect.height || 260));
+		const expectedCanvasW = Math.floor(w * dpr);
+		const expectedCanvasH = Math.floor(h * dpr);
+		if (canvas.width !== expectedCanvasW || canvas.height !== expectedCanvasH) {
+			canvas.width = expectedCanvasW;
+			canvas.height = expectedCanvasH;
+			if (typeof ctx.setTransform === 'function') {
+				ctx.setTransform(1, 0, 0, 1, 0, 0);
+				ctx.scale(dpr, dpr);
+			}
+		}
+
+		if (typeof ctx.clearRect === 'function') {
+			ctx.clearRect(0, 0, w, h);
+		}
+
+		// Deep dark space background
+		ctx.fillStyle = '#050714';
+		if (ctx.fillRect) ctx.fillRect(0, 0, w, h);
+
+		const cols = 8;
+		const rows = 6;
+		const cellW = w / cols;
+		const cellH = h / rows;
+
+		// 1. Semi-transparent Tactical Sector Bands
+		if (ctx.fillRect) {
+			// Ally Rear (Col 0 - 1)
+			ctx.fillStyle = 'rgba(56, 189, 248, 0.05)';
+			ctx.fillRect(0, 0, cellW * 1.5, h);
+			// Vanguard Front (Col 1.5 - 3)
+			ctx.fillStyle = 'rgba(245, 158, 11, 0.06)';
+			ctx.fillRect(cellW * 1.5, 0, cellW * 1.5, h);
+			// Clash Zone (Col 3 - 5)
+			ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
+			ctx.fillRect(cellW * 3.0, 0, cellW * 2.0, h);
+			// Hostile Front (Col 5 - 6.5)
+			ctx.fillStyle = 'rgba(239, 68, 68, 0.06)';
+			ctx.fillRect(cellW * 5.0, 0, cellW * 1.5, h);
+			// Hostile Rear (Col 6.5 - 8)
+			ctx.fillStyle = 'rgba(168, 85, 247, 0.05)';
+			ctx.fillRect(cellW * 6.5, 0, cellW * 1.5, h);
+		}
+
+		// 2. High-Contrast Dark-Cyan Grid Lines
+		if (ctx.beginPath && ctx.stroke) {
+			ctx.save();
+			ctx.strokeStyle = 'rgba(56, 189, 248, 0.12)';
+			ctx.lineWidth = 1;
+			for (let c = 0; c <= cols; c++) {
+				ctx.beginPath();
+				ctx.moveTo(c * cellW, 0);
+				ctx.lineTo(c * cellW, h);
+				ctx.stroke();
+			}
+			for (let r = 0; r <= rows; r++) {
+				ctx.beginPath();
+				ctx.moveTo(0, r * cellH);
+				ctx.lineTo(w, r * cellH);
+				ctx.stroke();
+			}
+			ctx.restore();
+		}
+
+		// 3. Tactical Zone Wireframe Headers & Sector Brackets
+		if (ctx.fillText && ctx.strokeRect) {
+			ctx.save();
+			ctx.font = 'bold 9px monospace';
+
+			// Ally Rear
+			ctx.fillStyle = '#38bdf8';
+			ctx.fillText('◖ ALLY REAR ◗', cellW * 0.2, 14);
+
+			// Vanguard Front
+			ctx.fillStyle = '#fbbf24';
+			ctx.fillText('◈ VANGUARD FRONT ◈', cellW * 1.7, 14);
+
+			// Clash Zone
+			ctx.fillStyle = '#94a3b8';
+			ctx.fillText('⚔ CLASH ZONE ⚔', cellW * 3.6, 14);
+
+			// Hostile Front
+			ctx.fillStyle = '#f87171';
+			ctx.fillText('◈ HOSTILE FRONT ◈', cellW * 5.2, 14);
+
+			// Hostile Rear
+			ctx.fillStyle = '#c084fc';
+			ctx.fillText('◖ HOSTILE REAR ◗', cellW * 6.7, 14);
+			ctx.restore();
+		}
+
+		// 4. Hazard Walls with Tactical Cross-Hatching
+		(q1Spatial?.hazardTiles || []).forEach((haz) => {
+			const hx = haz.x * cellW;
+			const hy = haz.y * cellH;
+			if (ctx.fillRect && ctx.strokeRect) {
+				ctx.save();
+				ctx.fillStyle = 'rgba(239, 68, 68, 0.25)';
+				ctx.fillRect(hx, hy, cellW, cellH);
+				ctx.strokeStyle = 'rgba(239, 68, 68, 0.7)';
+				ctx.lineWidth = 1.5;
+				ctx.strokeRect(hx + 1, hy + 1, cellW - 2, cellH - 2);
+
+				// Diagonal hazard hashes
+				if (ctx.beginPath && ctx.stroke) {
+					ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
+					ctx.lineWidth = 1;
+					ctx.beginPath();
+					ctx.moveTo(hx, hy);
+					ctx.lineTo(hx + cellW, hy + cellH);
+					ctx.moveTo(hx + cellW, hy);
+					ctx.lineTo(hx, hy + cellH);
+					ctx.stroke();
+				}
+				ctx.restore();
+			}
+			if (ctx.fillText) {
+				ctx.fillStyle = '#fca5a5';
+				ctx.font = 'bold 9.5px monospace';
+				ctx.fillText('▲ WALL', hx + 4, hy + cellH / 2 + 3.5);
+			}
+		});
+
+		// 5. Hostile Threat Vectors (Laser Lines Linking Enemies to Targeted Heroes)
+		const threatVectors = q1Spatial?.threatVectors || [];
+		threatVectors.forEach((vec) => {
+			const enemyNode = (q1Spatial?.enemies || []).find((e) => e.id === vec.enemyId);
+			const heroNode = (q1Spatial?.allies || []).find((h) => h.id === vec.targetHeroId) || (q1Spatial?.allies || [])[vec.heroIndex];
+			if (enemyNode && heroNode && enemyNode.alive && heroNode.alive) {
+				const fromCx = enemyNode.gridX * cellW + cellW / 2;
+				const fromCy = enemyNode.gridY * cellH + cellH / 2;
+				const toCx = heroNode.gridX * cellW + cellW / 2;
+				const toCy = heroNode.gridY * cellH + cellH / 2;
+				const isHovered = ephemeralHover && (ephemeralHover.id === enemyNode.id || ephemeralHover.id === heroNode.id);
+
+				ctx.save();
+				let strokeColor = 'rgba(239, 68, 68, 0.7)';
+				let strokeW = 1.8;
+				let blurVal = 6;
+				if (isHovered) {
+					strokeColor = '#ff9d4d';
+					strokeW = 3.0;
+					blurVal = 14;
+				} else if (vec.isCharged) {
+					strokeColor = '#ef4444';
+					strokeW = 2.4;
+					blurVal = 10;
+				}
+
+				ctx.shadowColor = strokeColor;
+				ctx.shadowBlur = blurVal;
+				ctx.strokeStyle = strokeColor;
+				ctx.lineWidth = strokeW;
+
+				ctx.beginPath();
+				ctx.moveTo(fromCx, fromCy);
+				ctx.lineTo(toCx, toCy);
+				ctx.stroke();
+
+				// Laser Arrowhead
+				const angle = Math.atan2(toCy - fromCy, toCx - fromCx);
+				const arrowLen = 8;
+				ctx.beginPath();
+				ctx.moveTo(toCx - Math.cos(angle - 0.45) * arrowLen, toCy - Math.sin(angle - 0.45) * arrowLen);
+				ctx.lineTo(toCx, toCy);
+				ctx.lineTo(toCx - Math.cos(angle + 0.45) * arrowLen, toCy - Math.sin(angle + 0.45) * arrowLen);
+				ctx.fillStyle = strokeColor;
+				ctx.fill();
+				ctx.restore();
+			}
+		});
+
+		// 6. Displacement Trajectory Vectors & Physics Wall-Slam Predictor
+		const activeDisplacementVectors = [];
+		if (ephemeralPreviewSkill?.displacement) {
+			const disp = ephemeralPreviewSkill.displacement;
+			(q1Spatial?.enemies || []).forEach((node) => {
+				if (node.alive) {
+					const toX = disp.type === 'KNOCKBACK' ? Math.min(7, node.gridX + (disp.tiles || 1)) : Math.max(5, node.gridX - (disp.tiles || 1));
+					activeDisplacementVectors.push({
+						fromX: node.gridX,
+						fromY: node.gridY,
+						toX,
+						toY: node.gridY,
+						type: disp.type,
+						isWallImpact: toX >= 7,
+					});
+				}
+			});
+		} else {
+			activeDisplacementVectors.push(...(q1Spatial?.activeVectors || []));
+		}
+
+		activeDisplacementVectors.forEach((vec) => {
+			const fromCx = vec.fromX * cellW + cellW / 2;
+			const fromCy = vec.fromY * cellH + cellH / 2;
+			const toCx = vec.toX * cellW + cellW / 2;
+			const toCy = vec.toY * cellH + cellH / 2;
+
+			if (ctx.beginPath && ctx.stroke) {
+				ctx.save();
+				ctx.strokeStyle = '#38bdf8';
+				ctx.lineWidth = 2.4;
+				ctx.shadowColor = '#38bdf8';
+				ctx.shadowBlur = 8;
+				ctx.beginPath();
+				ctx.moveTo(fromCx, fromCy);
+				ctx.lineTo(toCx, toCy);
+				ctx.stroke();
+
+				// Arrowhead
+				const angle = Math.atan2(toCy - fromCy, toCx - fromCx);
+				ctx.beginPath();
+				ctx.moveTo(toCx - Math.cos(angle - 0.5) * 8, toCy - Math.sin(angle - 0.5) * 8);
+				ctx.lineTo(toCx, toCy);
+				ctx.lineTo(toCx - Math.cos(angle + 0.5) * 8, toCy - Math.sin(angle + 0.5) * 8);
+				ctx.fillStyle = '#38bdf8';
+				ctx.fill();
+				ctx.restore();
+			}
+
+			if (vec.isWallImpact && ctx.fillText) {
+				ctx.save();
+				ctx.fillStyle = '#fbbf24';
+				ctx.shadowColor = '#fbbf24';
+				ctx.shadowBlur = 10;
+				ctx.font = 'bold 11px monospace';
+				ctx.fillText('💥 WALL SLAM (+30% DMG)', toCx - 60, toCy - 16);
+				ctx.restore();
+			}
+		});
+
+		// 7. Party Crystal / Class Tokens
+		(q1Spatial?.allies || q1Spatial?.partyFormation || []).forEach((ally) => {
+			const cx = ally.gridX * cellW + cellW / 2;
+			const cy = ally.gridY * cellH + cellH / 2;
+			const size = 16;
+			const isHovered = ephemeralHover && ephemeralHover.id === ally.id;
+
+			// Active turn beacon ring
+			if (ally.alive && ally.isCurrentTurn && ctx.arc && ctx.stroke) {
+				ctx.save();
+				const pulse = 1.0 + Math.sin(Date.now() * 0.007) * 0.18;
+				ctx.beginPath();
+				ctx.arc(cx, cy, (size + 6) * pulse, 0, Math.PI * 2);
+				ctx.strokeStyle = '#fbbf24';
+				ctx.lineWidth = 2.0;
+				ctx.shadowColor = 'rgba(251, 191, 36, 0.9)';
+				ctx.shadowBlur = 12;
+				ctx.stroke();
+				ctx.restore();
+			}
+
+			// Diamond Token Body
+			ctx.save();
+			ctx.beginPath();
+			ctx.moveTo(cx, cy - size);
+			ctx.lineTo(cx + size, cy);
+			ctx.lineTo(cx, cy + size);
+			ctx.lineTo(cx - size, cy);
+			ctx.closePath();
+
+			let allyFill = '#0f172a';
+			let allyStroke = '#38bdf8';
+			if (!ally.alive) {
+				allyFill = '#1e293b';
+				allyStroke = '#64748b';
+			} else if (ally.isCurrentTurn) {
+				allyFill = '#78350f';
+				allyStroke = '#fbbf24';
+			}
+
+			ctx.fillStyle = allyFill;
+			ctx.fill();
+			ctx.strokeStyle = isHovered ? '#ff9d4d' : allyStroke;
+			ctx.lineWidth = isHovered || ally.isCurrentTurn ? 2.5 : 1.6;
+			if (isHovered) {
+				ctx.shadowColor = '#ff9d4d';
+				ctx.shadowBlur = 14;
+			}
+			ctx.stroke();
+			ctx.restore();
+
+			// Glyph / Phenotype Icon
+			if (ctx.fillText) {
+				ctx.save();
+				ctx.fillStyle = ally.alive ? '#ffffff' : '#64748b';
+				ctx.font = 'bold 9.5px monospace';
+				if (ctx.textAlign) ctx.textAlign = 'center';
+				const glyph = ally.phenotype === 'MAGE' ? '✨' : ally.phenotype === 'HEALER' ? '🌿' : ally.phenotype === 'WARRIOR' ? '🛡️' : '⚔️';
+				ctx.fillText(glyph, cx, cy + 3.5);
+				ctx.restore();
+			}
+		});
+
+		// 8. Enemy Crystal / Hostile Hex Tokens
+		(q1Spatial?.enemies || q1Spatial?.enemyFormation || []).forEach((enemy) => {
+			const cx = enemy.gridX * cellW + cellW / 2;
+			const cy = enemy.gridY * cellH + cellH / 2;
+			const size = enemy.isBoss ? 19 : 15;
+			const isHovered = ephemeralHover && ephemeralHover.id === enemy.id;
+
+			// Hexagonal Token Body
+			ctx.save();
+			ctx.beginPath();
+			for (let a = 0; a < 6; a++) {
+				const angle = (Math.PI / 3) * a - Math.PI / 6;
+				const hx = cx + size * Math.cos(angle);
+				const hy = cy + size * Math.sin(angle);
+				if (a === 0) ctx.moveTo(hx, hy);
+				else ctx.lineTo(hx, hy);
+			}
+			ctx.closePath();
+
+			let enemyFill = enemy.isBoss ? '#450a0a' : '#1e1b4b';
+			let enemyStroke = enemy.isBoss ? '#ef4444' : '#a855f7';
+			if (!enemy.alive) {
+				enemyFill = '#0f172a';
+				enemyStroke = '#475569';
+			}
+
+			ctx.fillStyle = enemyFill;
+			ctx.fill();
+			ctx.strokeStyle = isHovered ? '#ff9d4d' : enemyStroke;
+			ctx.lineWidth = isHovered || enemy.isBoss ? 2.5 : 1.6;
+			if (isHovered) {
+				ctx.shadowColor = '#ff9d4d';
+				ctx.shadowBlur = 14;
+			}
+			ctx.stroke();
+			ctx.restore();
+
+			// Glyph / Hostile Text
+			if (ctx.fillText) {
+				ctx.save();
+				ctx.fillStyle = enemy.alive ? (enemy.isBoss ? '#fca5a5' : '#e9d5ff') : '#64748b';
+				ctx.font = 'bold 9px monospace';
+				if (ctx.textAlign) ctx.textAlign = 'center';
+				const glyph = enemy.isBoss ? '👑' : (enemy.key && enemy.key.includes('SPIDER') ? '🕷️' : enemy.key && enemy.key.includes('ARCHER') ? '🏹' : '💀');
+				ctx.fillText(glyph, cx, cy + 3.5);
+				ctx.restore();
+			}
+		});
+
+		// 8. Bind Pointer Events on Q1 Canvas Idempotently
+		if (!q1EventsBound) {
+			q1EventsBound = true;
+			canvas.addEventListener('pointermove', (ev) => {
+				const coords = getNormalizedCanvasCoords(canvas, ev);
+				const gx = Math.floor(coords.normX * cols);
+				const gy = Math.floor(coords.normY * rows);
+				const enemies = (lastQ1Spatial?.enemies || []);
+				const allies = (lastQ1Spatial?.allies || []);
+
+				const hitEnemyIdx = enemies.findIndex((e) => e.gridX === gx && e.gridY === gy && e.alive);
+				if (hitEnemyIdx !== -1) {
+					const foe = enemies[hitEnemyIdx];
+					setEphemeralHover({ id: foe.id, type: 'ENEMY', index: hitEnemyIdx });
+					return;
+				}
+
+				const hitAllyIdx = allies.findIndex((a) => a.gridX === gx && a.gridY === gy && a.alive);
+				if (hitAllyIdx !== -1) {
+					const ally = allies[hitAllyIdx];
+					setEphemeralHover({ id: ally.id, type: 'HERO', index: hitAllyIdx });
+					return;
+				}
+
+				setEphemeralHover(null);
+			});
+
+			canvas.addEventListener('pointerleave', () => {
+				setEphemeralHover(null);
+			});
+
+			canvas.addEventListener('click', (ev) => {
+				const coords = getNormalizedCanvasCoords(canvas, ev);
+				const gx = Math.floor(coords.normX * cols);
+				const gy = Math.floor(coords.normY * rows);
+				const enemies = (lastQ1Spatial?.enemies || []);
+				const allies = (lastQ1Spatial?.allies || []);
+
+				const hitEnemyIdx = enemies.findIndex((e) => e.gridX === gx && e.gridY === gy && e.alive);
+				if (hitEnemyIdx !== -1) {
+					const foe = enemies[hitEnemyIdx];
+					emit({ type: 'SELECT_TARGET', targetIndex: hitEnemyIdx, isAlly: false, targetId: foe.id });
+					return;
+				}
+
+				const hitAllyIdx = allies.findIndex((a) => a.gridX === gx && a.gridY === gy && a.alive);
+				if (hitAllyIdx !== -1) {
+					const ally = allies[hitAllyIdx];
+					emit({ type: 'SELECT_TARGET', targetIndex: hitAllyIdx, isAlly: true, targetId: ally.id });
+				}
+			});
+
+			const openQ1Radial = (clientX, clientY, gx, gy) => {
+				openContextualRadial(clientX, clientY, {
+					centerIcon: '🛰️',
+					north: {
+						icon: '▲',
+						label: 'ADVANCE',
+						onCommit: () => emit({ type: 'SET_ROW', row: 'FRONT' }),
+						onHover: () => {},
+					},
+					east: {
+						icon: '💥',
+						label: 'TRIGGER',
+						onCommit: () => emit({ type: 'FIELD_ACTION', action: 'TRIGGER_HAZARD', tileX: gx, tileY: gy }),
+						onHover: () => {},
+					},
+					south: {
+						icon: '▼',
+						label: 'COVER',
+						onCommit: () => emit({ type: 'SET_ROW', row: 'BACK' }),
+						onHover: () => {},
+					},
+					west: {
+						icon: '🧱',
+						label: 'BARRIER',
+						onCommit: () => emit({ type: 'FIELD_ACTION', action: 'PLACE_BARRICADE', tileX: gx, tileY: gy }),
+						onHover: () => {},
+					},
+				});
+			};
+
+			canvas.addEventListener('contextmenu', (ev) => {
+				ev?.preventDefault?.();
+				const coords = getNormalizedCanvasCoords(canvas, ev);
+				const gx = Math.floor(coords.normX * cols);
+				const gy = Math.floor(coords.normY * rows);
+				openQ1Radial(ev.clientX, ev.clientY, gx, gy);
+			});
+
+			canvas.addEventListener('pointerdown', (ev) => {
+				if (ev.button === 2) {
+					ev.preventDefault();
+					const coords = getNormalizedCanvasCoords(canvas, ev);
+					const gx = Math.floor(coords.normX * cols);
+					const gy = Math.floor(coords.normY * rows);
+					openQ1Radial(ev.clientX, ev.clientY, gx, gy);
+				}
+			});
+		}
+	}
+
+	const battlerImageMap = new Map();
+
+	/**
+	 * Returns or caches an HTMLImageElement for a given asset data URL.
+	 * @param {string} url Data URL string.
+	 * @returns {HTMLImageElement|null}
+	 */
+	function getCachedBattlerImage(url) {
+		if (!url) return null;
+		if (battlerImageMap.has(url)) {
+			return battlerImageMap.get(url);
+		}
+		if (typeof Image !== 'undefined') {
+			const img = new Image();
+			img.src = url;
+			battlerImageMap.set(url, img);
+			return img;
+		}
+		return null;
+	}
+
+	/**
+	 * Renders Quadrant 2: 3D Eye-Level Arena Battlers on Canvas (AOP-COMBAT-STATION-002).
+	 * @param {Object} q2Clash Clash theater projection slice.
+	 * @param {CombatState} state Active combat state.
+	 * @returns {void}
+	 */
+	function renderQ2ClashCanvas(q2Clash, state) {
+		lastQ2Clash = q2Clash;
+		const canvas = /** @type {HTMLCanvasElement|null} */ (getElement('combat-backdrop-canvas'));
+		if (!canvas) return;
+		const ctx = canvas.getContext ? canvas.getContext('2d') : null;
+		if (!ctx) return;
+
+		const enemies = state.enemies || [];
+		if (enemies.length === 0) return;
+
+		const rect = canvas.parentElement?.getBoundingClientRect?.() || { width: 600, height: 300 };
+		const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+		const W = Math.max(600, Math.floor(rect.width || 600));
+		const H = Math.max(300, Math.floor(rect.height || 300));
+		const expectedCanvasW = Math.floor(W * dpr);
+		const expectedCanvasH = Math.floor(H * dpr);
+		if (canvas.width !== expectedCanvasW || canvas.height !== expectedCanvasH) {
+			canvas.width = expectedCanvasW;
+			canvas.height = expectedCanvasH;
+			if (typeof ctx.setTransform === 'function') {
+				ctx.setTransform(1, 0, 0, 1, 0, 0);
+				ctx.scale(dpr, dpr);
+			}
+		}
+
+		renderedEnemyBounds = [];
+
+		const frontEnemies = enemies.map((e, idx) => ({ e, idx })).filter(({ e }) => e.row === 'FRONT' || e.row === 'BOTH' || !e.row);
+		const backEnemies = enemies.map((e, idx) => ({ e, idx })).filter(({ e }) => e.row === 'BACK');
+
+		const drawEnemyBattler = (enemy, idx, zScale, yPosBase, count, slotIdx) => {
+			const spacing = W / (count + 1);
+			const x = spacing * (slotIdx + 1);
+			const y = yPosBase;
+			const isBoss = Boolean(enemy.isBoss || (enemy.key && String(enemy.key).toUpperCase().includes('BOSS')));
+			const effectiveScale = (isBoss ? zScale * 1.35 : zScale);
+			const spriteSize = 96 * effectiveScale;
+			const isHovered = ephemeralHover && ephemeralHover.id === enemy.id;
+
+			// Register pixel-accurate bounding box for normalized hit-testing
+			if (enemy.alive) {
+				renderedEnemyBounds.push({
+					x: x - spriteSize / 2,
+					y: y - spriteSize / 2,
+					w: spriteSize,
+					h: spriteSize,
+					enemy,
+					index: idx,
+				});
+			}
+
+			// 1. Contact Shadow on floor
+			if (ctx.beginPath && ctx.ellipse && ctx.fill) {
+				ctx.save();
+				ctx.beginPath();
+				ctx.ellipse(x, y + spriteSize / 2 - 2, spriteSize * 0.45, spriteSize * 0.14, 0, 0, Math.PI * 2);
+				ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+				ctx.fill();
+				ctx.restore();
+			}
+
+			// 2. Boss Aura / Enrage Glow
+			if (isBoss && enemy.alive && ctx.beginPath && ctx.arc && ctx.fill) {
+				ctx.save();
+				const pulse = 1.0 + Math.sin(Date.now() * 0.006) * 0.15;
+				ctx.beginPath();
+				ctx.arc(x, y, (spriteSize / 2 + 10) * pulse, 0, Math.PI * 2);
+				ctx.fillStyle = enemy.phaseTwoActive ? 'rgba(239, 68, 68, 0.25)' : 'rgba(168, 85, 247, 0.2)';
+				ctx.fill();
+				ctx.restore();
+			}
+
+			// 3. Battler Sprite (Baked Sprite)
+			const { isBossEnraged, heatPulse } = resolveBossDetails(enemy);
+			const url = resolveEnemyBattlerUrl(enemy, isBossEnraged, heatPulse);
+			const img = url ? getCachedBattlerImage(url) : null;
+
+			ctx.save();
+			if (!enemy.alive) {
+				ctx.globalAlpha = 0.35;
+				if (ctx.filter) ctx.filter = 'grayscale(100%)';
+			}
+
+			if (img?.complete && img.naturalWidth > 0 && ctx.drawImage) {
+				ctx.drawImage(img, x - spriteSize / 2, y - spriteSize / 2, spriteSize, spriteSize);
+			} else if (ctx.fillText) {
+				let placeholderFill = '#64748b';
+				if (enemy.alive) {
+					placeholderFill = isBoss ? '#ef4444' : '#a855f7';
+				}
+				ctx.fillStyle = placeholderFill;
+				if (ctx.fillRect) ctx.fillRect(x - spriteSize / 2, y - spriteSize / 2, spriteSize, spriteSize);
+				ctx.fillStyle = '#ffffff';
+				ctx.font = `bold ${Math.round(18 * effectiveScale)}px sans-serif`;
+				if (ctx.textAlign) ctx.textAlign = 'center';
+				ctx.fillText(enemy.sprite || '👾', x, y + 6);
+			}
+			ctx.restore();
+
+			// 4. High-Tech Amber HUD Targeting Bracket [ ] on Hover/Selection or Focus Fire
+			const isFocusTarget = enemy.id === focusFireTargetId;
+			if ((isHovered || isFocusTarget) && enemy.alive && ctx.beginPath && ctx.stroke) {
+				ctx.save();
+				ctx.strokeStyle = isFocusTarget ? '#f59e0b' : '#ff9d4d';
+				ctx.lineWidth = isFocusTarget ? 3.5 : 2.5;
+				ctx.shadowColor = isFocusTarget ? 'rgba(245, 158, 11, 0.95)' : 'rgba(255, 157, 77, 0.85)';
+				ctx.shadowBlur = isFocusTarget ? 14 : 8;
+				const pad = isFocusTarget ? 8 : 6;
+				const bx = x - spriteSize / 2 - pad;
+				const by = y - spriteSize / 2 - pad;
+				const bw = spriteSize + pad * 2;
+				const bh = spriteSize + pad * 2;
+				const corner = 12;
+
+				// Top-Left
+				ctx.beginPath();
+				ctx.moveTo(bx, by + corner);
+				ctx.lineTo(bx, by);
+				ctx.lineTo(bx + corner, by);
+				ctx.stroke();
+
+				// Top-Right
+				ctx.beginPath();
+				ctx.moveTo(bx + bw - corner, by);
+				ctx.lineTo(bx + bw, by);
+				ctx.lineTo(bx + bw, by + corner);
+				ctx.stroke();
+
+				// Bottom-Left
+				ctx.beginPath();
+				ctx.moveTo(bx, by + bh - corner);
+				ctx.lineTo(bx, by + bh);
+				ctx.lineTo(bx + corner, by + bh);
+				ctx.stroke();
+
+				// Bottom-Right
+				ctx.beginPath();
+				ctx.moveTo(bx + bw - corner, by + bh);
+				ctx.lineTo(bx + bw, by + bh);
+				ctx.lineTo(bx + bw, by + bh - corner);
+				ctx.stroke();
+
+				if (isFocusTarget && ctx.fillText) {
+					ctx.fillStyle = '#f59e0b';
+					ctx.font = 'bold 10px monospace';
+					if (ctx.textAlign) ctx.textAlign = 'center';
+					ctx.fillText('🎯 FOCUS PRIORITY', x, by - 8);
+				}
+
+				ctx.restore();
+			}
+
+			// 5. Floating HUD: HP Gauge & Nameplate
+			if (enemy.alive && ctx.fillRect && ctx.fillText) {
+				ctx.save();
+				const barW = Math.max(56, Math.round(spriteSize * 0.9));
+				const barH = 5;
+				const barY = y - spriteSize / 2 - 14;
+				const curHp = enemy.hp !== undefined ? enemy.hp : (enemy.maxHp || 1);
+				const maxHp = enemy.maxHp || 1;
+				const hpPct = Math.max(0, Math.min(100, (curHp / maxHp) * 100));
+
+				// Bar Background
+				ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+				ctx.fillRect(x - barW / 2 - 1, barY - 1, barW + 2, barH + 2);
+
+				// Bar Fill
+				let hpBarFill = '#10b981';
+				if (hpPct <= 30) {
+					hpBarFill = '#ef4444';
+				} else if (isBoss) {
+					hpBarFill = '#f59e0b';
+				}
+				ctx.fillStyle = hpBarFill;
+				ctx.fillRect(x - barW / 2, barY, Math.round(barW * (hpPct / 100)), barH);
+
+				// Name Text with Hover Illumination and Dark Backing Plate
+				let foeNameColor = '#f8fafc';
+				if (isHovered) {
+					foeNameColor = '#ff9d4d';
+				} else if (isBoss) {
+					foeNameColor = '#fca5a5';
+				}
+				ctx.fillStyle = foeNameColor;
+				const fontSize = Math.max(10, Math.round(11 * Math.max(1.0, effectiveScale)));
+				ctx.font = `bold ${fontSize}px monospace`;
+				if (ctx.textAlign) ctx.textAlign = 'center';
+				ctx.fillText(enemy.name || 'Foe', x, barY - 5);
+				ctx.restore();
+			}
+		};
+
+		// Draw Back Row First (Depth Sort)
+		backEnemies.forEach(({ e, idx }, slotIdx) => {
+			drawEnemyBattler(e, idx, 0.75, H * 0.48, backEnemies.length, slotIdx);
+		});
+
+		// Draw Front Row Second
+		frontEnemies.forEach(({ e, idx }, slotIdx) => {
+			drawEnemyBattler(e, idx, 1.05, H * 0.64, frontEnemies.length, slotIdx);
+		});
+
+		// 6. Bind Pointer Events on Q2 Backdrop Canvas Idempotently
+		if (!q2EventsBound) {
+			q2EventsBound = true;
+
+			const findEnemyHitAtCoords = (coords) => {
+				let closest = null;
+				let minD = Infinity;
+				for (const b of renderedEnemyBounds) {
+					if (!b.enemy?.alive) continue;
+					const cx = b.x + b.w / 2;
+					const cy = b.y + b.h / 2;
+					const d = Math.hypot(coords.x - cx, coords.y - cy);
+					const radius = Math.max(40, b.w / 2 + 10);
+					if (d <= radius && d < minD) {
+						minD = d;
+						closest = b;
+					}
+				}
+				return closest;
+			};
+
+			canvas.addEventListener('pointermove', (ev) => {
+				const coords = getNormalizedCanvasCoords(canvas, ev);
+				const hit = findEnemyHitAtCoords(coords);
+				if (hit) {
+					setEphemeralHover({ id: hit.enemy.id, type: 'ENEMY', index: hit.index });
+				} else {
+					setEphemeralHover(null);
+				}
+			});
+
+			canvas.addEventListener('pointerleave', () => {
+				setEphemeralHover(null);
+			});
+
+			canvas.addEventListener('click', (ev) => {
+				const coords = getNormalizedCanvasCoords(canvas, ev);
+				const hit = findEnemyHitAtCoords(coords);
+				if (hit) {
+					emit({ type: 'SELECT_TARGET', targetIndex: hit.index, isAlly: false, targetId: hit.enemy.id });
+				}
+			});
+
+			const openQ2Radial = (clientX, clientY, hit) => {
+				openContextualRadial(clientX, clientY, {
+					centerIcon: '🎯',
+					north: {
+						icon: '⚔️',
+						label: 'EXECUTE',
+						onCommit: () => emit({ type: 'ATTACK', targetIndex: hit.index }),
+						onHover: () => setEphemeralHover({ id: hit.enemy.id, type: 'ENEMY', index: hit.index }),
+					},
+					east: {
+						icon: '🔄',
+						label: 'DISPLACE',
+						onCommit: () => {
+							const activeChar = state.turnQueue?.[state.activeTurnIndex]?.entity || state.party?.[0];
+							const skills = collectHeroSkills(activeChar);
+							const dispSkill = skills.find((s) => s.displacement || s.subType === 'strike') || skills[0];
+							if (dispSkill) {
+								emit({ type: 'SKILL', skill: dispSkill, targetIndex: hit.index, isAlly: false });
+							} else {
+								emit({ type: 'ATTACK', targetIndex: hit.index });
+							}
+						},
+						onHover: () => setEphemeralHover({ id: hit.enemy.id, type: 'ENEMY', index: hit.index }),
+					},
+					south: {
+						icon: '🎯',
+						label: 'FOCUS',
+						onCommit: () => {
+							focusFireTargetId = (focusFireTargetId === hit.enemy.id ? null : hit.enemy.id);
+							scheduleSynchronizedRedraw();
+						},
+						onHover: () => setEphemeralHover({ id: hit.enemy.id, type: 'ENEMY', index: hit.index }),
+					},
+					west: {
+						icon: '🔍',
+						label: 'INSPECT',
+						onCommit: () => setEphemeralHover({ id: hit.enemy.id, type: 'ENEMY', index: hit.index }),
+						onHover: () => setEphemeralHover({ id: hit.enemy.id, type: 'ENEMY', index: hit.index }),
+					},
+				});
+			};
+
+			canvas.addEventListener('contextmenu', (ev) => {
+				ev?.preventDefault?.();
+				ev?.stopPropagation?.();
+				if (Date.now() < suppressContextMenuUntil) return;
+				const coords = getNormalizedCanvasCoords(canvas, ev);
+				const hit = findEnemyHitAtCoords(coords);
+				if (hit) {
+					openQ2Radial(ev.clientX, ev.clientY, hit);
+				}
+			});
+
+			canvas.addEventListener('pointerdown', (ev) => {
+				if (ev.button === 2) {
+					ev.preventDefault();
+					ev.stopPropagation();
+					if (Date.now() < suppressContextMenuUntil) return;
+					const coords = getNormalizedCanvasCoords(canvas, ev);
+					const hit = findEnemyHitAtCoords(coords);
+					if (hit) {
+						openQ2Radial(ev.clientX, ev.clientY, hit);
+					}
+				}
+			});
+		}
+	}
+
+	/**
+	 * Renders Quadrant 3: Threat Oracle 3-tier console (CTB, Intent Vectors, Elemental Affinity).
+	 * @param {Object} q3Oracle Oracle projection slice.
+	 * @param {CombatState} state Active combat state.
+	 * @returns {void}
+	 */
+	function renderQ3ThreatOracleDeck(q3Oracle, _state) {
+		lastQ3Oracle = q3Oracle;
+		const intentFeedEl = getElement('oracle-intent-feed');
+		if (intentFeedEl && q3Oracle?.threatVectors) {
+			if (q3Oracle.threatVectors.length === 0) {
+				intentFeedEl.innerHTML = '<div style="color:var(--text-dim); font-size:6.5px">No hostile threats detected.</div>';
+			} else {
+				intentFeedEl.innerHTML = q3Oracle.threatVectors.map((vec) => `
+					<div class="intent-beacon-item ${vec.isCharged ? 'charged' : ''}" data-enemy-id="${vec.enemyId}" data-hero-id="${vec.targetHeroId || ''}">
+						<span class="intent-target-lead">🎯 <strong>${vec.enemyName}</strong> ➔ <span style="color:#38bdf8">${vec.targetHeroName}</span></span>
+						<span class="intent-badge ${vec.isCharged ? 'charged' : ''}">${vec.isCharged ? '⚡ CHARGED' : '⚔️ STRIKE'}</span>
+					</div>
+				`).join('');
+
+				intentFeedEl.querySelectorAll('.intent-beacon-item').forEach((beacon) => {
+					/** @type {HTMLElement} */
+					const htmlBeacon = /** @type {HTMLElement} */ (beacon);
+					const enemyId = htmlBeacon.dataset.enemyId;
+					htmlBeacon.addEventListener('mouseenter', () => {
+						if (enemyId) setEphemeralHover({ id: enemyId, type: 'ENEMY', index: 0 });
+					});
+					htmlBeacon.addEventListener('mouseleave', () => setEphemeralHover(null));
+				});
+			}
+		}
+
+		const affinityContainer = getElement('oracle-affinity-badges');
+		if (affinityContainer && q3Oracle?.enemies) {
+			const livingFoes = (q3Oracle.enemies || []).filter((e) => e.alive);
+			if (livingFoes.length > 0) {
+				const activeFoe = livingFoes[0];
+				const badges = [];
+				(activeFoe.weaknesses || []).forEach((w) => {
+					badges.push(`<span class="affinity-badge weak">WEAK: ${w} (1.5x)</span>`);
+				});
+				(activeFoe.resistances || []).forEach((r) => {
+					badges.push(`<span class="affinity-badge resist">RESIST: ${r} (0.5x)</span>`);
+				});
+				(activeFoe.immunities || []).forEach((i) => {
+					badges.push(`<span class="affinity-badge immune">IMMUNE: ${i} (0.0x)</span>`);
+				});
+				affinityContainer.innerHTML = badges.join('') || '<span style="font-size:6px; color:var(--text-dim)">ELEMENTAL MATRIX: NEUTRAL</span>';
+			}
+		}
+	}
+
+	/**
+	 * Renders Quadrant 4: Physical Hero Battler Pedestal Stage & Arched Vitals (AOP-COMBAT-STATION-002).
+	 * @param {Object} q4Deck Deck projection slice.
+	 * @param {CombatState} state Active combat state.
+	 * @returns {void}
+	 */
+	function renderQ4HeroChassisGrid(q4Deck, state) {
+		lastQ4Deck = q4Deck;
+		const chassisGrid = getElement('combat-hero-chassis-grid');
+		if (!chassisGrid || !q4Deck?.partyVitals) return;
+
+		chassisGrid.innerHTML = '';
+		const isFlareActive = Boolean(ephemeralHover);
+
+		q4Deck.partyVitals.forEach((hero, idx) => {
+			const stage = document.createElement('div');
+			const isHovered = ephemeralHover && ephemeralHover.id === hero.id;
+			const isFlareHero = isFlareActive && hero.isCurrentTurn;
+			stage.className = `hero-pedestal-stage ${hero.isCurrentTurn ? 'active-turn' : ''} ${isHovered ? 'hovered' : ''} ${isFlareHero ? 'the-flare-active' : ''} ${!hero.alive ? 'fainted' : ''}`;
+			stage.id = `hero-chassis-${hero.id || idx}`;
+
+			const curHp = hero.hp !== undefined ? hero.hp : (hero.maxHp || 1);
+			const maxHp = hero.maxHp || 1;
+			const curMp = hero.mp !== undefined ? hero.mp : (hero.maxMp || 1);
+			const maxMp = hero.maxMp || 1;
+			const hpPct = Math.max(0, Math.min(100, (curHp / maxHp) * 100));
+			const mpPct = Math.max(0, Math.min(100, (curMp / maxMp) * 100));
+			const isCritical = hero.alive && hpPct <= 30;
+
+			// Dual Arc Stroke Calculations (GPU Composited)
+			// HP Arc: Radius 42, length ~125
+			const hpOffset = Math.max(0, Math.min(125, 125 * (1 - hpPct / 100)));
+			// MP Arc: Radius 34, length ~100
+			const mpOffset = Math.max(0, Math.min(100, 100 * (1 - mpPct / 100)));
+
+			// Hero Battler Sprite Resolution
+			const avatarUrl = resolvePartyBattlerUrl(hero) ||
+				(typeof EmberlightPartyIcons !== 'undefined' && typeof EmberlightPartyIcons.get === 'function' ? EmberlightPartyIcons.get(hero.phenotype) : null) ||
+				(typeof EmberlightIcons !== 'undefined' && typeof EmberlightIcons.get === 'function' ? EmberlightIcons.get(hero.phenotype) : null);
+
+			stage.innerHTML = `
+				<div class="hero-arched-vitals-container">
+					<svg class="hero-arched-vitals-svg" viewBox="0 0 100 60" aria-hidden="true">
+						<!-- Background Tracks -->
+						<path class="vital-arc-track" d="M 12 55 A 42 42 0 0 1 88 55" />
+						<path class="vital-arc-track mp" d="M 20 55 A 34 34 0 0 1 80 55" />
+						<!-- Active HP Arc -->
+						<path class="vital-arc-hp ${isCritical ? 'critical' : ''}" d="M 12 55 A 42 42 0 0 1 88 55" style="stroke-dashoffset: ${hpOffset}px;" />
+						<!-- Active MP Arc -->
+						<path class="vital-arc-mp" d="M 20 55 A 34 34 0 0 1 80 55" style="stroke-dashoffset: ${mpOffset}px;" />
+					</svg>
+					<div class="hero-battler-avatar-wrap">
+						${avatarUrl ? `<img src="${avatarUrl}" alt="${hero.name}" class="hero-battler-avatar" />` : `<div style="font-size: 28px;">🧙‍♂️</div>`}
+					</div>
+					<div class="hero-pedestal-base"></div>
+				</div>
+				<div class="hero-pedestal-meta">
+					<div class="hero-pedestal-header">
+						<span>${hero.name}</span>
+						<span class="hero-pedestal-row-tag ${hero.row || 'FRONT'}">${hero.row || 'FRONT'}</span>
+					</div>
+					<div class="hero-pedestal-vals">
+						<span class="val-hp ${isCritical ? 'low' : ''}">HP ${curHp}/${maxHp}</span>
+						<span class="val-mp">MP ${curMp}/${maxMp}</span>
+					</div>
+				</div>
+			`;
+
+			stage.addEventListener('mouseenter', () => {
+				setEphemeralHover({ id: hero.id, type: 'HERO', index: idx });
+			});
+			stage.addEventListener('mouseleave', () => {
+				setEphemeralHover(null);
+			});
+
+			stage.addEventListener('click', () => {
+				emit({ type: 'SELECT_TARGET', targetIndex: idx, isAlly: true, targetId: hero.id });
+			});
+
+			if (hero.isCurrentTurn) {
+				const openQ4Radial = (clientX, clientY) => {
+					const activeChar = state.turnQueue?.[state.activeTurnIndex]?.entity || state.party?.[idx];
+					const defaultEnemy = (state.enemies || []).find((e) => e.alive) || state.enemies?.[0];
+					const skills = collectHeroSkills(activeChar);
+
+					openContextualRadial(clientX, clientY, {
+						centerIcon: '⚔️',
+						north: {
+							icon: '⚔️',
+							label: 'STRIKE',
+							onCommit: (meta) => {
+								emit({ type: 'ATTACK', ...(meta || {}) });
+							},
+							onHover: () => {
+								if (activeChar && defaultEnemy) {
+									renderBasicTelemetry(activeChar, defaultEnemy, getElement('telemetry-dmg-range'), getElement('telemetry-hit-rate'), getElement('telemetry-affinity-tag'));
+								}
+							},
+						},
+						east: {
+							icon: '✨',
+							label: 'SKILLS',
+							onCommit: (meta) => {
+								if (skills.length > 0) {
+									emit({ type: 'SKILL', skill: skills[0], ...(meta || {}) });
+								} else {
+									emit({ type: 'SELECT_TAB', tab: 'SKILLS', ...(meta || {}) });
+								}
+							},
+							onHover: () => {
+								if (skills.length > 0 && activeChar && defaultEnemy) {
+									setEphemeralPreviewSkill(skills[0]);
+									renderSkillTelemetry(activeChar, defaultEnemy, skills[0], getElement('telemetry-dmg-range'), getElement('telemetry-hit-rate'), getElement('telemetry-affinity-tag'));
+								}
+							},
+						},
+						south: {
+							icon: '🛡️',
+							label: 'GUARD',
+							onCommit: (meta) => {
+								emit({ type: 'GUARD', ...(meta || {}) });
+							},
+							onHover: () => {
+								const tDmg = getElement('telemetry-dmg-range');
+								const tHit = getElement('telemetry-hit-rate');
+								const tAff = getElement('telemetry-affinity-tag');
+								if (tDmg) tDmg.textContent = 'STANCE: DEFENSIVE (-50% DMG)';
+								if (tHit) tHit.textContent = 'RECOVERY: +2 MP';
+								if (tAff) tAff.textContent = 'GUARD BUFF';
+							},
+						},
+						west: {
+							icon: '🎒',
+							label: 'POUCH',
+							onCommit: (meta) => {
+								emit({ type: 'SELECT_TAB', tab: 'POUCH', ...(meta || {}) });
+							},
+							onHover: () => {},
+						},
+					});
+				};
+
+				stage.addEventListener('contextmenu', (ev) => {
+					ev?.preventDefault?.();
+					ev?.stopPropagation?.();
+					if (Date.now() < suppressContextMenuUntil) return;
+					const rect = stage.getBoundingClientRect();
+					openQ4Radial(ev.clientX || (rect.left + rect.width / 2), ev.clientY || (rect.top + rect.height / 2));
+				});
+
+				stage.addEventListener('pointerdown', (ev) => {
+					if (ev.button === 2) {
+						ev.preventDefault();
+						ev.stopPropagation();
+						if (Date.now() < suppressContextMenuUntil) return;
+						openQ4Radial(ev.clientX, ev.clientY);
+					}
+				});
+			}
+
+			if (chassisGrid.appendChild) chassisGrid.appendChild(stage);
+		});
+	}
+
 	return {
+		/**
+		 * Configures the combat presentation driver.
+		 * @param {Object} [config={}] Configuration parameters dictionary.
+		 * @returns {Readonly<Object>} Acceptance descriptor.
+		 */
+		configure(config = {}) {
+			return Object.freeze({
+				accepted: true,
+				driverId: 'combat_renderer',
+				requestedConfig: { ...config },
+			});
+		},
+
+		/**
+		 * Sets the ephemeral hover target across all 4 quadrants without mutating simulation state.
+		 * @param {{ id: string, type: string, index: number }|null} hoverTarget Hover payload or null.
+		 * @returns {void}
+		 */
+		setEphemeralHover(hoverTarget) {
+			setEphemeralHover(hoverTarget);
+		},
+
+		/**
+		 * Sets the ephemeral preview skill for real-time trajectory and CTB forecasting.
+		 * @param {SkillNode|null} skill Skill node preview object or null.
+		 * @returns {void}
+		 */
+		setEphemeralPreviewSkill(skill) {
+			setEphemeralPreviewSkill(skill);
+		},
+
+		/**
+		 * Dispatches an action token to the simulation engine.
+		 * @param {CombatActionToken} action Action token payload.
+		 * @returns {void}
+		 */
+		dispatchAction(action) {
+			emit(action);
+		},
+
 		/**
 		 * Initializes the combat presentation driver.
 		 * @param {CombatContext} context Host context container.
@@ -1115,6 +2626,8 @@ const EmberlightCombatRenderer = (() => {
 		render(state, dispatch) {
 			if (!state) return;
 			mounted = true;
+			lastCombatState = state;
+			lastQ2Clash = state.q2Clash || lastQ2Clash;
 			if (typeof dispatch === 'function') {
 				actionHandler = dispatch;
 			}
@@ -1124,7 +2637,15 @@ const EmberlightCombatRenderer = (() => {
 
 			const backdropCanvas = getElement('combat-backdrop-canvas');
 			if (backdropCanvas && typeof EmberlightCombatBackdrop !== 'undefined' && typeof EmberlightCombatBackdrop.render === 'function') {
+				if (typeof EmberlightCombatBackdrop.setOverlayRenderer === 'function') {
+					EmberlightCombatBackdrop.setOverlayRenderer(() => {
+						if (lastCombatState) {
+							renderQ2ClashCanvas(lastQ2Clash, lastCombatState);
+						}
+					});
+				}
 				EmberlightCombatBackdrop.render('combat-backdrop-canvas');
+				renderQ2ClashCanvas(lastQ2Clash, state);
 			}
 
 			if (typeof EmberlightThreatOracle !== 'undefined' && typeof EmberlightThreatOracle.render === 'function') {
@@ -1134,13 +2655,54 @@ const EmberlightCombatRenderer = (() => {
 					forecastQueue: state.forecastQueue || null,
 					bossIntent: (state.enemies || []).find((e) => e.isBoss && e.alive) || null,
 					selectedAction: state.pendingSkill || { type: state.selectedTab || 'ATTACK' },
-				});
+				}, emit);
 			}
 
 			renderEnemyWing(getElement('enemy-row'), state, activeChar);
 			renderPartyWing(getElement('party-grid'), state);
 			renderActionTheater(activeChar, defaultEnemy, state);
 			renderCommandHub(state, activeChar);
+			syncDOMHighlighting();
+		},
+
+		/**
+		 * Renders the 4-Quadrant War Table projection DTO (AOP-COMBAT-STATION-002).
+		 * @param {Object} projection Frozen 4-quadrant projection object.
+		 * @param {function(CombatActionToken): void} [dispatch] Action dispatch handler.
+		 * @returns {void}
+		 */
+		renderWarTable(projection, dispatch) {
+			if (!projection) return;
+			const state = projection.snapshot || projection;
+			lastCombatState = state;
+			if (projection.q1Spatial) lastQ1Spatial = projection.q1Spatial;
+			if (projection.q2Clash) lastQ2Clash = projection.q2Clash;
+			if (projection.q3Oracle) lastQ3Oracle = projection.q3Oracle;
+			if (projection.q4Deck) lastQ4Deck = projection.q4Deck;
+
+			this.render(state, dispatch);
+
+			// Render Quadrant 1: Spatial Canvas (8x6 Grid, Token Nodes, Trajectory Vectors)
+			if (projection.q1Spatial) {
+				renderQ1SpatialCanvas(projection.q1Spatial, state);
+			}
+
+			// Render Quadrant 2: 3D Eye-Level Arena Battlers on Canvas
+			if (projection.q2Clash) {
+				renderQ2ClashCanvas(projection.q2Clash, state);
+			}
+
+			// Render Quadrant 3: Threat Oracle 3-Tier Console (CTB, Intent Feed, Affinity)
+			if (projection.q3Oracle) {
+				renderQ3ThreatOracleDeck(projection.q3Oracle, state);
+			}
+
+			// Render Quadrant 4: Hero Chassis Cards Grid & Radial Socket
+			if (projection.q4Deck) {
+				renderQ4HeroChassisGrid(projection.q4Deck, state);
+			}
+
+			syncDOMHighlighting();
 		},
 
 		/**
@@ -1154,6 +2716,25 @@ const EmberlightCombatRenderer = (() => {
 			if (typeof onComplete === 'function') {
 				onComplete(100);
 			}
+		},
+
+		/**
+		 * Opens a contextual radial chassis menu at the given client coordinates.
+		 * @param {number} clientX Screen X coordinate.
+		 * @param {number} clientY Screen Y coordinate.
+		 * @param {Object} config Contextual radial configuration dictionary.
+		 * @returns {void}
+		 */
+		openRadial(clientX, clientY, config) {
+			openContextualRadial(clientX, clientY, config);
+		},
+
+		/**
+		 * Closes any active contextual radial menu.
+		 * @returns {void}
+		 */
+		closeRadial() {
+			closeContextualRadial();
 		},
 
 		/**
@@ -1173,8 +2754,14 @@ const EmberlightCombatRenderer = (() => {
 		 * @returns {void}
 		 */
 		destroy() {
+			closeContextualRadial();
 			actionHandler = null;
 			mounted = false;
+			ephemeralHover = null;
+			ephemeralPreviewSkill = null;
+			focusFireTargetId = null;
+			q1EventsBound = false;
+			q2EventsBound = false;
 		},
 	};
 	//#endregion

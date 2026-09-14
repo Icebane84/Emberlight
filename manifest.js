@@ -11,13 +11,15 @@
 const EmberlightManifest = (() => {
     'use strict';
 
-    const { DefaultSettings, SessionConfig, ExplorationConfig } = window._ManifestInternal.Config;
-    const { Curves, PartyRoster, Phenotypes, Enemies, Encounters } = window._ManifestInternal.Actors;
-    const { Items } = window._ManifestInternal.Items;
-    const { AetherEssences, AetherNodes, SkillTrees } = window._ManifestInternal.Progression;
-    const { TileLegend, OverworldMap, TownMaps } = window._ManifestInternal.World;
-    const { Ailments, Quests, WorldMutations, Shops, Dialogues } = window._ManifestInternal.Narrative;
-    const { calculateGearStats, computeCharacterStats, getResolvedMap } = window._ManifestInternal.Calculators;
+    const root = typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global : globalThis);
+    const internal = root._ManifestInternal || {};
+    const { DefaultSettings, SessionConfig, ExplorationConfig } = internal.Config || {};
+    const { Curves, PartyRoster, Phenotypes, Enemies, Encounters } = internal.Actors || {};
+    const { Items } = internal.Items || {};
+    const { AetherEssences, AetherNodes, SkillTrees } = internal.Progression || {};
+    const { TileLegend, OverworldMap, TownMaps } = internal.World || {};
+    const { Ailments, Quests, WorldMutations, Shops, Dialogues } = internal.Narrative || {};
+    const { calculateGearStats, computeCharacterStats, getResolvedMap } = internal.Calculators || {};
 
     const manifest = {
         schemaVersion: '1.2.0',
@@ -69,10 +71,11 @@ const EmberlightManifest = (() => {
     return deepFreeze(manifest);
 })();
 
-delete window._ManifestInternal;
-
 if (typeof window !== 'undefined') {
+    delete window._ManifestInternal;
     window['EmberlightManifest'] = EmberlightManifest;
+} else if (typeof global !== 'undefined') {
+    delete global._ManifestInternal;
 }
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = EmberlightManifest;

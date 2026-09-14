@@ -72,6 +72,9 @@ const EmberlightEventBus = (() => {
 	/** @type {Map<string, CapabilityProvider>} */
 	const capabilities = new Map();
 	let capabilitiesSealed = false;
+	/** @type {Array<{ event: string, payload: any }>} */
+	const dispatchQueue = [];
+	let isDispatching = false;
 
 	const EventBus = {
 		subscribers,
@@ -124,19 +127,56 @@ const EmberlightEventBus = (() => {
 
 		/**
 		 * Publishes an event payload to all registered subscribers.
+		 * Supports re-entrant dispatch queuing and error boundary protection.
 		 * [State Mutating / Execution Dispatch]
 		 * @param {string} event - Target event name token.
 		 * @param {any} [payload] - Event payload.
 		 * @returns {void}
 		 */
 		publish(event, payload) {
-			if (!subscribers[event]) return;
-			subscribers[event].forEach((cb) => {
-				try {
-					cb(payload);
-				} catch (err) {
-					console.error(`[EventBus] Error executing subscriber for "${event}":`, err);
+			if (!event || typeof event !== 'string') return;
+			dispatchQueue.push({ event, payload });
+			if (isDispatching) return;
+
+			isDispatching = true;
+			try {
+				while (dispatchQueue.length > 0) {
+					const next = dispatchQueue.shift();
+					if (!next) continue;
+					const ev = next.event;
+					const data = next.payload;
+					if (!subscribers[ev]) continue;
+
+					const callbacks = subscribers[ev].slice();
+					for (let i = 0; i < callbacks.length; i++) {
+						try {
+							callbacks[i](data);
+						} catch (err) {
+							console.error(`[EventBus] Error executing subscriber for "${ev}":`, err);
+						}
+					}
 				}
+			} finally {
+				isDispatching = false;
+			}
+		},
+
+		/**
+		 * Formats a typed PMIP-001 event envelope.
+		 * [Pure Query / Factory]
+		 * @param {string} topic - Topic namespace token.
+		 * @param {string} source - Originating driver/tenant id.
+		 * @param {any} payload - Encapsulated payload DTO.
+		 * @param {number} [tick=0] - Current simulation step tick.
+		 * @returns {Object} Canonical PMIP-001 event envelope.
+		 */
+		createEnvelope(topic, source, payload, tick = 0) {
+			return Object.freeze({
+				topic: String(topic),
+				source: String(source),
+				tick: Number(tick) || 0,
+				timestamp: Date.now(),
+				payload: payload !== undefined ? payload : null,
 			});
 		},
 		//#endregion

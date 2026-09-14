@@ -11,7 +11,7 @@ misplaced tag produces a silent runtime failure.
 The canonical load order is **no longer hand-maintained in multiple places**.
 It lives in a single authoritative file:
 
-```
+```text
 testing/load_order.js
 ```
 

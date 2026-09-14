@@ -65,6 +65,12 @@ const EmberlightCombat = (() => {
 		/** @type {Array<function():void>} */
 		let headlessEventQueue = [];
 
+		/** @type {function():void|null} */
+		let intentUnsub = null;
+
+		let lastProcessedIntentId = '';
+		let lastActionTimestamp = 0;
+
 		/**
 		 * Validates tenant lifecycle state prior to method execution.
 		 * [State Assertion]
@@ -304,8 +310,28 @@ const EmberlightCombat = (() => {
 			activeUnit.entity.accumulatedDelay =
 				1000 / Math.max(1, activeUnit.entity.agi);
 
-			sim.turnQueue = [activeUnit];
+			// Build 12-turn CTB forecast queue
+			const forecastQueue = [];
+			const simulatedDelays = allLiving.map((u) => ({
+				type: u.type,
+				entity: u.entity,
+				delay: u.entity.accumulatedDelay || 0,
+				agi: Math.max(1, u.entity.agi || 10),
+			}));
+			for (let i = 0; i < 12; i++) {
+				simulatedDelays.sort((a, b) => a.delay - b.delay);
+				const nextTurn = simulatedDelays[0];
+				forecastQueue.push({
+					type: nextTurn.type,
+					entity: nextTurn.entity,
+					id: nextTurn.entity.id,
+					name: nextTurn.entity.name,
+				});
+				nextTurn.delay += 1000 / nextTurn.agi;
+			}
+			sim.turnQueue = forecastQueue;
 			sim.activeTurnIndex = 0;
+			sim.forecastQueue = forecastQueue;
 
 			const stunned = Queue.tickAilments(activeUnit.entity, getActiveManifest(), appendLog);
 			if (checkBattleEnd()) return;
@@ -789,32 +815,61 @@ const EmberlightCombat = (() => {
 			if (!action || !sim) return;
 
 			const actObj = typeof action === 'string' ? { type: action } : action;
-			const type = actObj.type;
+			const type = actObj.type || actObj.actionType;
+			if (!type) return;
+
+			// Transient Idempotency Guard for Dual Dispatch:
+			if (actObj.intentId) {
+				if (actObj.intentId === lastProcessedIntentId) {
+					return;
+				}
+				lastProcessedIntentId = actObj.intentId;
+			}
+
+			// Resolve target index fallback if omitted
+			let targetIdx =
+				typeof actObj.targetIndex === 'number'
+					? actObj.targetIndex
+					: typeof actObj.targetSlot === 'number'
+						? actObj.targetSlot
+						: null;
+
+			if (targetIdx === null) {
+				if (actObj.isAlly) {
+					targetIdx = (sim.party || []).findIndex((c) => c.alive);
+				} else {
+					targetIdx = (sim.enemies || []).findIndex((e) => e.alive);
+				}
+				if (targetIdx === -1) targetIdx = 0;
+			}
 
 			const actionHandlers = {
 				ATTACK: () => {
-					if (typeof actObj.targetIndex === 'number') {
-						playerExecuteAttack(actObj.targetIndex);
+					if (typeof targetIdx === 'number') {
+						playerExecuteAttack(targetIdx);
 					}
 				},
 				SKILL: () => {
-					if (typeof actObj.targetIndex === 'number') {
-						const targetSkill = actObj.skill || sim?.pendingSkill;
-						if (targetSkill) {
-							playerExecuteSkill(
-								targetSkill,
-								actObj.targetIndex,
-								Boolean(actObj.isAlly),
-							);
-						}
-						if (sim) sim.pendingSkill = null;
+					let targetSkill = actObj.skill || sim?.pendingSkill;
+					if (!targetSkill && actObj.skillId) {
+						const manifest = getActiveManifest();
+						const catalog = manifest?.skills || manifest?.progression?.skills || [];
+						targetSkill = catalog.find((s) => s.id === actObj.skillId) || null;
 					}
+					if (targetSkill && typeof targetIdx === 'number') {
+						playerExecuteSkill(
+							targetSkill,
+							targetIdx,
+							Boolean(actObj.isAlly || targetSkill.targetType === 'ally'),
+						);
+					}
+					if (sim) sim.pendingSkill = null;
 				},
 				ITEM: () => {
-					if (typeof actObj.targetIndex === 'number') {
+					if (typeof targetIdx === 'number') {
 						const itemToUse = actObj.itemId || sim?.pendingItem;
 						if (itemToUse) {
-							playerExecuteItem(itemToUse, actObj.targetIndex);
+							playerExecuteItem(itemToUse, targetIdx);
 						}
 						if (sim) sim.pendingItem = null;
 					}
@@ -874,6 +929,27 @@ const EmberlightCombat = (() => {
 						sim.pendingItem = null;
 						sim.phase = 'PLAYER_INPUT';
 						renderPresentation();
+					}
+				},
+				SELECT_TARGET: () => {
+					if (typeof actObj.targetIndex === 'number' && sim) {
+						const isAlly = Boolean(actObj.isAlly);
+						if (isAlly) {
+							if (sim.pendingItem) {
+								playerExecuteItem(sim.pendingItem, actObj.targetIndex);
+								sim.pendingItem = null;
+							} else if (sim.pendingSkill) {
+								playerExecuteSkill(sim.pendingSkill, actObj.targetIndex, true);
+								sim.pendingSkill = null;
+							}
+						} else {
+							if (sim.pendingSkill) {
+								playerExecuteSkill(sim.pendingSkill, actObj.targetIndex, false);
+								sim.pendingSkill = null;
+							} else {
+								playerExecuteAttack(actObj.targetIndex);
+							}
+						}
 					}
 				},
 				TARGET_ALLY: () => {
@@ -1056,6 +1132,15 @@ const EmberlightCombat = (() => {
 			init(context) {
 				assertLifecycle(State.CONFIGURED);
 				hostContext = context;
+				if (intentUnsub) {
+					intentUnsub();
+					intentUnsub = null;
+				}
+				if (hostContext?.eventBus?.subscribe) {
+					intentUnsub = hostContext.eventBus.subscribe('combat:intent_action', (payload) => {
+						handleViewAction(payload);
+					});
+				}
 				lifecycleState = State.INITIALIZED;
 			},
 
@@ -1101,7 +1186,8 @@ const EmberlightCombat = (() => {
 				Queue.buildTurnQueue(sim, appendLog, dispatchSFX);
 				lifecycleState = State.READY;
 
-				if (autoRun) {
+				const shouldAutoRun = autoRun && (instanceOptions.autoRun === true || sim.encounterKey !== 'BOSS_MALAKOR');
+				if (shouldAutoRun) {
 					runHeadlessLoop();
 				} else {
 					stepTurn();
@@ -1190,8 +1276,194 @@ const EmberlightCombat = (() => {
 			render(renderer, context) {
 				assertLifecycle(State.READY, State.RUNNING);
 				const activeRenderer = renderer || hostContext?.combatRenderer || null;
-				if (activeRenderer?.render) {
-					const snapshot = context || structuredClone(sim);
+				if (!activeRenderer) return;
+
+				const snapshot = context || structuredClone(sim);
+
+				// Assemble Frozen 4-Quadrant Projection DTO (AOP-COMBAT-STATION-002)
+				const activeCharId =
+					snapshot.turnQueue?.[snapshot.activeTurnIndex]?.entity?.id ||
+					snapshot.party?.[0]?.id ||
+					null;
+				const activeHeroIdx = (snapshot.party || []).findIndex(
+					(c) => c.id === activeCharId,
+				);
+
+				// Compute dynamic Q1 grid coordinates & trajectory vectors
+				const q1PartyNodes = (snapshot.party || []).map((p, idx) => {
+					const isFront = (p.row || 'FRONT') === 'FRONT';
+					return {
+						id: p.id,
+						name: p.name,
+						phenotype: p.phenotype || 'HERO',
+						row: p.row || 'FRONT',
+						hp: p.hp,
+						maxHp: p.maxHp,
+						alive: Boolean(p.alive),
+						gridX: isFront ? 2 : 1,
+						gridY: idx + 1,
+						isCurrentTurn: p.id === activeCharId,
+					};
+				});
+
+				const q1EnemyNodes = (snapshot.enemies || []).map((e, idx) => {
+					const isFront = (e.row || 'FRONT') === 'FRONT';
+					return {
+						id: e.id,
+						name: e.name,
+						key: e.key,
+						row: e.row || 'FRONT',
+						hp: e.hp,
+						maxHp: e.maxHp,
+						alive: Boolean(e.alive),
+						isBoss: Boolean(e.isBoss),
+						gridX: isFront ? 5 : 6,
+						gridY: idx + 1,
+						isCurrentTurn: e.id === activeCharId,
+					};
+				});
+
+				// Calculate displacement trajectory vectors if pending skill has knockback/pull
+				const activeDisplacementVectors = [];
+				if (snapshot.pendingSkill?.displacement) {
+					const disp = snapshot.pendingSkill.displacement;
+					q1EnemyNodes.forEach((node) => {
+						if (node.alive) {
+							const toX =
+								disp.type === 'KNOCKBACK'
+									? Math.min(7, node.gridX + (disp.tiles || 1))
+									: Math.max(5, node.gridX - (disp.tiles || 1));
+							activeDisplacementVectors.push({
+								fromX: node.gridX,
+								fromY: node.gridY,
+								toX,
+								toY: node.gridY,
+								type: disp.type,
+								isWallImpact: toX >= 7,
+							});
+						}
+					});
+				}
+
+				// Generate intent vectors linking enemies to party targets
+				const threatVectors = (snapshot.enemies || [])
+					.filter((e) => e.alive)
+					.map((e, eIdx) => {
+						const livingHeroes = (snapshot.party || []).filter((p) => p.alive);
+						const targetIdx =
+							(eIdx + (snapshot.roundCount || 0)) %
+							Math.max(1, livingHeroes.length);
+						const targetHero =
+							livingHeroes[targetIdx] ||
+							snapshot.party?.[0] ||
+							null;
+						return {
+							enemyId: e.id,
+							enemyName: e.name,
+							targetHeroId: targetHero?.id || null,
+							targetHeroName: targetHero?.name || 'Hero',
+							heroIndex: targetIdx,
+							isCharged: Boolean(e.isBoss && e.phaseTwoActive),
+						};
+					});
+
+				const q1Spatial = Object.freeze({
+					gridDimensions: Object.freeze({ cols: 8, rows: 6 }),
+					partyFormation: Object.freeze(q1PartyNodes),
+					enemyFormation: Object.freeze(q1EnemyNodes),
+					hazardTiles: Object.freeze([
+						{ x: 7, y: 1, type: 'WALL' },
+						{ x: 7, y: 2, type: 'WALL' },
+						{ x: 7, y: 3, type: 'WALL' },
+						{ x: 7, y: 4, type: 'WALL' },
+						{ x: 7, y: 5, type: 'WALL' },
+						{ x: 7, y: 6, type: 'WALL' },
+						{ x: 0, y: 1, type: 'WALL' },
+						{ x: 0, y: 2, type: 'WALL' },
+						{ x: 0, y: 3, type: 'WALL' },
+						{ x: 0, y: 4, type: 'WALL' },
+					]),
+					activeVectors: Object.freeze(activeDisplacementVectors),
+					threatVectors: Object.freeze(threatVectors),
+					allies: Object.freeze(q1PartyNodes),
+					enemies: Object.freeze(q1EnemyNodes),
+				});
+
+				const q2Clash = Object.freeze({
+					biome: snapshot.biome || snapshot.terrain || 'MEADOW',
+					activeTurnIndex: snapshot.activeTurnIndex || 0,
+					phase: snapshot.phase || 'PLAYER_INPUT',
+					enrageFactor: snapshot.enemies?.some(
+						(e) => e.isBoss && e.phaseTwoActive,
+					)
+						? 1.5
+						: 1.0,
+					allies: Object.freeze(q1PartyNodes),
+					enemies: Object.freeze(q1EnemyNodes),
+					activeClashAnimation: snapshot.pendingSkill ? 'CHANNELING' : null,
+				});
+
+				const q3Oracle = Object.freeze({
+					turnQueue: snapshot.turnQueue ? [...snapshot.turnQueue] : [],
+					forecastQueue: snapshot.forecastQueue
+						? [...snapshot.forecastQueue]
+						: [],
+					log: snapshot.log ? [...snapshot.log] : [],
+					threatVectors: Object.freeze(threatVectors),
+					enemies: Object.freeze(
+						(snapshot.enemies || []).map((e) => ({
+							id: e.id,
+							name: e.name,
+							weaknesses: e.weaknesses ? [...e.weaknesses] : [],
+							resistances: e.resistances ? [...e.resistances] : [],
+							immunities: e.immunities ? [...e.immunities] : [],
+							alive: Boolean(e.alive),
+							hp: e.hp,
+							maxHp: e.maxHp,
+						})),
+					),
+				});
+
+				const q4Deck = Object.freeze({
+					activeCharId,
+					activeHeroIndex: activeHeroIdx >= 0 ? activeHeroIdx : 0,
+					selectedTab: snapshot.selectedTab || 'ATTACK',
+					pendingSkill: snapshot.pendingSkill
+						? Object.freeze({ ...snapshot.pendingSkill })
+						: null,
+					pendingItem: snapshot.pendingItem || null,
+					partyVitals: Object.freeze(
+						(snapshot.party || []).map((c, idx) => ({
+							id: c.id,
+							name: c.name,
+							phenotype: c.phenotype || 'HERO',
+							hp: c.hp,
+							maxHp: c.maxHp,
+							mp: c.mp,
+							maxMp: c.maxMp,
+							row: c.row || 'FRONT',
+							alive: Boolean(c.alive),
+							ailments: c.ailments ? [...c.ailments] : [],
+							isCurrentTurn: idx === activeHeroIdx,
+						})),
+					),
+					inventory: snapshot.inventory
+						? Object.freeze({ ...snapshot.inventory })
+						: Object.freeze({}),
+					phase: snapshot.phase || 'PLAYER_INPUT',
+				});
+
+				const projection = Object.freeze({
+					q1Spatial,
+					q2Clash,
+					q3Oracle,
+					q4Deck,
+					snapshot,
+				});
+
+				if (typeof activeRenderer.renderWarTable === 'function') {
+					activeRenderer.renderWarTable(projection, handleViewAction);
+				} else if (typeof activeRenderer.render === 'function') {
 					activeRenderer.render(snapshot, handleViewAction);
 				}
 			},
@@ -1230,6 +1502,10 @@ const EmberlightCombat = (() => {
 			},
 
 			destroy() {
+				if (intentUnsub) {
+					intentUnsub();
+					intentUnsub = null;
+				}
 				scheduledTasks = [];
 				headlessEventQueue = [];
 				sim = null;
