@@ -192,10 +192,10 @@ const EmberlightThreatOracle = (() => {
 					phenotype: hero.phenotype,
 					agi,
 					delay,
-					currentDelay: isActor ? delay + actionDelayCost : (hero.accumulatedDelay !== undefined ? hero.accumulatedDelay : delay),
+					currentDelay: isActor ? 0 : (hero.accumulatedDelay !== undefined ? hero.accumulatedDelay : delay),
 					entityIndex: pIdx,
-					isProjected: isActor,
-					delayCost: isActor ? actionDelayCost : 0,
+					isProjected: false,
+					delayCost: 0,
 				});
 			}
 		});
@@ -204,6 +204,7 @@ const EmberlightThreatOracle = (() => {
 			if (!enemy.isDead && (enemy.hp === undefined || enemy.hp > 0) && enemy.alive !== false) {
 				const agi = Math.max(1, enemy.agi || 8);
 				const delay = 1000 / agi;
+				const isActor = Boolean(activeHeroId && enemy.id === activeHeroId);
 				combatants.push({
 					id: enemy.id,
 					name: enemy.name || 'Enemy',
@@ -211,7 +212,7 @@ const EmberlightThreatOracle = (() => {
 					key: enemy.key,
 					agi,
 					delay,
-					currentDelay: enemy.accumulatedDelay !== undefined ? enemy.accumulatedDelay : delay,
+					currentDelay: isActor ? 0 : (enemy.accumulatedDelay !== undefined ? enemy.accumulatedDelay : delay),
 					entityIndex: eIdx,
 					isProjected: false,
 					delayCost: 0,
@@ -221,10 +222,27 @@ const EmberlightThreatOracle = (() => {
 
 		if (combatants.length === 0) return [];
 
-		const timeline = [];
-		const simulatedClocks = combatants.map((c) => ({ ...c }));
+		const actingHero = combatants.find((c) => c.id === activeHeroId) || combatants[0];
+		const timeline = [
+			{
+				turnIndex: 1,
+				id: actingHero.id,
+				name: actingHero.name,
+				type: actingHero.type,
+				phenotype: actingHero.phenotype,
+				key: actingHero.key,
+				entityIndex: actingHero.entityIndex,
+				isProjected: false,
+				delayCost: 0,
+			},
+		];
 
-		for (let t = 0; t < maxTurns; t++) {
+		const simulatedClocks = combatants.map((c) => ({
+			...c,
+			currentDelay: c.id === actingHero.id ? (c.delay + actionDelayCost) : c.currentDelay,
+		}));
+
+		for (let t = 1; t < maxTurns; t++) {
 			simulatedClocks.sort((a, b) => (a.currentDelay || 0) - (b.currentDelay || 0));
 			const nextUnit = simulatedClocks[0];
 
@@ -236,8 +254,8 @@ const EmberlightThreatOracle = (() => {
 				phenotype: nextUnit.phenotype,
 				key: nextUnit.key,
 				entityIndex: nextUnit.entityIndex,
-				isProjected: Boolean(nextUnit.isProjected && t > 0),
-				delayCost: nextUnit.delayCost || 0,
+				isProjected: Boolean(nextUnit.id === actingHero.id),
+				delayCost: nextUnit.id === actingHero.id ? actionDelayCost : 0,
 			});
 
 			const stepTime = nextUnit.currentDelay || 0;
@@ -261,11 +279,18 @@ const EmberlightThreatOracle = (() => {
 	 */
 	function resolveSlotCrest(turn, isHero) {
 		const win = /** @type {any} */ (typeof window !== 'undefined' ? window : {});
-		if (isHero && win.EmberlightPartyIcons && typeof win.EmberlightPartyIcons.get === 'function') {
-			return win.EmberlightPartyIcons.get(turn.phenotype);
+		const phenotype = turn.phenotype || turn.entity?.phenotype;
+		const key = turn.key || turn.entity?.key;
+		if (isHero) {
+			if (win.EmberlightPartyIcons && typeof win.EmberlightPartyIcons.get === 'function') {
+				return win.EmberlightPartyIcons.get(phenotype);
+			}
+			if (win.EmberlightIcons && typeof win.EmberlightIcons.get === 'function') {
+				return win.EmberlightIcons.get(phenotype);
+			}
 		}
-		if (!isHero && win.EmberlightIcons && turn.key && typeof win.EmberlightIcons.get === 'function') {
-			return win.EmberlightIcons.get(turn.key);
+		if (!isHero && win.EmberlightIcons && key && typeof win.EmberlightIcons.get === 'function') {
+			return win.EmberlightIcons.get(key);
 		}
 		return null;
 	}
@@ -400,6 +425,7 @@ const EmberlightThreatOracle = (() => {
 			bossIntent = null,
 			forecastQueue = null,
 			activeHeroId = null,
+			targetEnemyId = null,
 			actionPreviewCost = 0,
 		} = combatState;
 
@@ -409,18 +435,23 @@ const EmberlightThreatOracle = (() => {
 				: calculateTimeline(party, enemies, 12)
 		);
 
+		const currentActiveId =
+			activeHeroId || (timeline[0]?.type === 'HERO' || timeline[0]?.type === 'party' ? timeline[0]?.id : null);
+
 		const ribbonHtml = timeline.map((turn, idx) => {
-			const isHero = turn.type === 'HERO';
+			const isHero = turn.type === 'HERO' || turn.type === 'party';
 			const isTurnNow = idx === 0;
+			const isCurrentHeroTurn = isHero && Boolean(currentActiveId && turn.id === currentActiveId);
+			const isTargetedEnemyTurn = !isHero && Boolean(targetEnemyId && turn.id === targetEnemyId);
 			const isProjected = Boolean(turn.isProjected);
 			const crest = resolveSlotCrest(turn, isHero);
 			const delayLabel = turn.delayCost ? ` (+${turn.delayCost} Delay)` : '';
 			const iconMarkup = resolveSlotIconMarkup(turn, isHero, crest);
 
 			return `
-        <div class="turn-slot ${isTurnNow ? 'active-slot' : ''} ${isProjected ? 'projected-slot ghost-turn-slot' : ''} ${isHero ? 'hero-slot' : 'enemy-slot'}"
+        <div class="turn-slot ${isTurnNow ? 'active-slot' : ''} ${isCurrentHeroTurn ? 'active-hero-turn' : ''} ${isTargetedEnemyTurn ? 'targeted-enemy-turn' : ''} ${isProjected ? 'projected-slot ghost-turn-slot' : ''} ${isHero ? 'hero-slot' : 'enemy-slot'}"
              data-entity-id="${turn.id}"
-             data-entity-type="${turn.type}"
+             data-entity-type="${isHero ? 'HERO' : 'ENEMY'}"
              data-entity-index="${turn.entityIndex !== undefined ? turn.entityIndex : idx}"
              title="Turn ${turn.turnIndex || (idx + 1)}: ${turn.name}${delayLabel}">
           <div class="slot-idx">${turn.turnIndex || (idx + 1)}</div>

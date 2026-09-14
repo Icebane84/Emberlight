@@ -173,6 +173,13 @@ const EmberlightDistrictRouter = (() => {
 			rig.classList.add("combat-active-matrix");
 		}
 		hideElement("district-nav");
+		hideElement("party-hud-panel");
+		hideElement("district-mount-container");
+		hideElement("exploration-pouch-drawer");
+		showElement("combat-command-view");
+		showElement("combat-spatial-view");
+		showElement("combat-arena-view");
+		showElement("combat-oracle-view");
 
 		const q1Tag = document.getElementById("q1-pane-tag");
 		if (q1Tag) q1Tag.textContent = "⚔️ Formations";
@@ -201,6 +208,9 @@ const EmberlightDistrictRouter = (() => {
 		}
 		showElement("party-hud-panel");
 		hideElement("district-mount-container");
+		hideElement("combat-command-view");
+		const subDeck = document.getElementById("command-sub-deck");
+		if (subDeck) subDeck.innerHTML = "";
 		const q1Tag = document.getElementById("q1-pane-tag");
 		if (q1Tag) q1Tag.textContent = "[WASD] Step";
 		const q2Tag = document.getElementById("q2-pane-tag");

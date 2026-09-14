@@ -18,8 +18,6 @@
  */
 
 const EmberlightEventBus = (() => {
-	'use strict';
-
 	//#region [SEC-01] Domain Type Contracts & JSDoc Schemas
 	/**
 	 * @callback EventCallback
@@ -134,7 +132,7 @@ const EmberlightEventBus = (() => {
 		 * @returns {void}
 		 */
 		publish(event, payload) {
-			if (!event || typeof event !== 'string') return;
+			if (!event || typeof event !== "string") return;
 			dispatchQueue.push({ event, payload });
 			if (isDispatching) return;
 
@@ -148,11 +146,14 @@ const EmberlightEventBus = (() => {
 					if (!subscribers[ev]) continue;
 
 					const callbacks = subscribers[ev].slice();
-					for (let i = 0; i < callbacks.length; i++) {
+					for (const element of callbacks) {
 						try {
-							callbacks[i](data);
+							element(data);
 						} catch (err) {
-							console.error(`[EventBus] Error executing subscriber for "${ev}":`, err);
+							console.error(
+								`[EventBus] Error executing subscriber for "${ev}":`,
+								err,
+							);
 						}
 					}
 				}
@@ -191,13 +192,19 @@ const EmberlightEventBus = (() => {
 		 */
 		registerCapability(token, providerDef) {
 			if (capabilitiesSealed) {
-				throw new Error(`[SDCP-001] Registration Error: Capability bus is sealed. Cannot register "${token}".`);
+				throw new Error(
+					`[SDCP-001] Registration Error: Capability bus is sealed. Cannot register "${token}".`,
+				);
 			}
 			if (capabilities.has(token)) {
-				throw new Error(`[SDCP-001] Token Collision: "${token}" is already registered.`);
+				throw new Error(
+					`[SDCP-001] Token Collision: "${token}" is already registered.`,
+				);
 			}
-			if (!providerDef || typeof providerDef.evaluate !== 'function') {
-				throw new TypeError(`[SDCP-001] Provider for "${token}" must export an evaluate() function.`);
+			if (!providerDef || typeof providerDef.evaluate !== "function") {
+				throw new TypeError(
+					`[SDCP-001] Provider for "${token}" must export an evaluate() function.`,
+				);
 			}
 			capabilities.set(token, providerDef);
 		},
@@ -267,9 +274,11 @@ const EmberlightEventBus = (() => {
 			}
 
 			// 1. EVALUATION (Faraday-Protected Snapshot - Read Only)
-			const snapshot = contextSnapshot || (typeof EmberlightSessionStore !== 'undefined'
-				? EmberlightSessionStore.getSnapshot()
-				: {});
+			const snapshot =
+				contextSnapshot ||
+				(typeof EmberlightSessionStore !== "undefined"
+					? EmberlightSessionStore.getSnapshot()
+					: {});
 
 			const readOnlySnapshot = {
 				party: (snapshot.party || []).map((c) => ({
@@ -278,7 +287,9 @@ const EmberlightEventBus = (() => {
 					alive: c.alive,
 					mp: c.mp,
 					unlocked: Array.isArray(c.unlocked) ? [...c.unlocked] : [],
-					unlockedNodes: Array.isArray(c.unlockedNodes) ? [...c.unlockedNodes] : [],
+					unlockedNodes: Array.isArray(c.unlockedNodes)
+						? [...c.unlockedNodes]
+						: [],
 				})),
 				inventory: { ...snapshot.inventory },
 				flags: { ...snapshot.flags },
@@ -286,12 +297,12 @@ const EmberlightEventBus = (() => {
 
 			const attestation = provider.evaluate(payload, readOnlySnapshot);
 			if (!attestation?.authorized) {
-				const failureReason = attestation?.reason || 'NOT_AUTHORIZED';
+				const failureReason = attestation?.reason || "NOT_AUTHORIZED";
 				return { success: false, reason: failureReason };
 			}
 
 			// 2. SETTLEMENT (Delegated to Host Settlement Callback / Session Store)
-			if (typeof settleCallback === 'function') {
+			if (typeof settleCallback === "function") {
 				return settleCallback(token, payload, attestation);
 			}
 
@@ -304,10 +315,10 @@ const EmberlightEventBus = (() => {
 })();
 
 //#region [SEC-05] Global Environment & CommonJS Export
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
 	window.EmberlightEventBus = EmberlightEventBus;
 }
-if (typeof module !== 'undefined' && module.exports) {
+if (typeof module !== "undefined" && module.exports) {
 	module.exports = EmberlightEventBus;
 }
 //#endregion

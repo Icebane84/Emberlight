@@ -630,6 +630,149 @@ const EmberlightCockpitRenderer = (() => {
 	}
 	//#endregion
 
+	//#region [SEC-07B] Tactical Focal Ring & Target Chassis Helpers
+	/**
+	 * Resolves target bounding box and center coordinates.
+	 * @param {Object} meta - Target metadata descriptor.
+	 * @returns {{ bbox: { left: number, top: number, width: number, height: number }, centerX: number, centerY: number, orbitRadius: number }}
+	 */
+	function resolveTargetGeometry(meta) {
+		let bbox = meta.bbox;
+		if (!bbox && meta.targetDom && typeof meta.targetDom.getBoundingClientRect === 'function') {
+			bbox = meta.targetDom.getBoundingClientRect();
+		}
+		if (!bbox) {
+			const left = typeof window !== 'undefined' ? window.innerWidth / 2 - 24 : 0;
+			const top = typeof window !== 'undefined' ? window.innerHeight / 2 - 24 : 0;
+			bbox = { left, top, width: 48, height: 48 };
+		}
+		const centerX = bbox.left + bbox.width / 2;
+		const centerY = bbox.top + bbox.height / 2;
+		const orbitRadius = Math.max(64, Math.hypot(bbox.width, bbox.height) / 2 + 28);
+		return { bbox, centerX, centerY, orbitRadius };
+	}
+
+	/**
+	 * Resolves health gauge color from percentage.
+	 * @param {number} hpPct - Health percentage value.
+	 * @returns {string} CSS color variable name.
+	 */
+	function getCrownGaugeColor(hpPct) {
+		if (hpPct > 50) return 'var(--ok)';
+		if (hpPct > 20) return 'var(--ember)';
+		return 'var(--danger)';
+	}
+
+	/**
+	 * Positions and updates the elevated crown banner.
+	 * @param {Object} meta - Target metadata descriptor.
+	 * @param {number} centerX - Target center X.
+	 * @param {number} centerY - Target center Y.
+	 * @param {number} orbitRadius - Radial orbit offset.
+	 */
+	function updateCrownBanner(meta, centerX, centerY, orbitRadius) {
+		const crown = document.getElementById('crown-banner');
+		const crownTitle = document.getElementById('crown-title');
+		const crownGauge = document.getElementById('crown-gauge');
+		const badge1 = document.getElementById('badge-1');
+		const badge2 = document.getElementById('badge-2');
+
+		if (crown) {
+			crown.style.left = `${centerX}px`;
+			crown.style.top = `${Math.max(64, centerY - orbitRadius - 34)}px`;
+		}
+		if (crownTitle) crownTitle.textContent = meta.title || 'TARGET';
+		if (crownGauge) {
+			const hpPct = typeof meta.hpPct === 'number' ? Math.max(0, Math.min(100, meta.hpPct)) : 100;
+			crownGauge.style.width = `${hpPct}%`;
+			crownGauge.style.background = getCrownGaugeColor(hpPct);
+		}
+		if (badge1) badge1.textContent = meta.badge1 || 'TARGET';
+		if (badge2) badge2.textContent = meta.badge2 || 'TACTICAL';
+	}
+
+	/**
+	 * Positions satellite leaves along cardinal axes.
+	 * @param {Object} leaves - Map of cardinal leaf elements.
+	 * @param {number} centerX - Target center X.
+	 * @param {number} centerY - Target center Y.
+	 * @param {number} orbitRadius - Radial orbit offset.
+	 */
+	function positionCardinalLeaves(leaves, centerX, centerY, orbitRadius) {
+		const winW = typeof window !== 'undefined' ? window.innerWidth : 800;
+		const winH = typeof window !== 'undefined' ? window.innerHeight : 600;
+
+		if (leaves.north) {
+			leaves.north.style.left = `${centerX}px`;
+			leaves.north.style.top = `${Math.max(30, centerY - orbitRadius)}px`;
+		}
+		if (leaves.south) {
+			leaves.south.style.left = `${centerX}px`;
+			leaves.south.style.top = `${Math.min(winH - 30, centerY + orbitRadius)}px`;
+		}
+		if (leaves.east) {
+			leaves.east.style.left = `${Math.min(winW - 30, centerX + orbitRadius)}px`;
+			leaves.east.style.top = `${centerY}px`;
+		}
+		if (leaves.west) {
+			leaves.west.style.left = `${Math.max(30, centerX - orbitRadius)}px`;
+			leaves.west.style.top = `${centerY}px`;
+		}
+	}
+
+	/**
+	 * Updates a single leaf's icon, label, and dataset tooltips.
+	 * @param {HTMLElement|null} leaf - Target leaf DOM element.
+	 * @param {string} iconId - ID of the icon span.
+	 * @param {string} labelId - ID of the label span.
+	 * @param {{ icon?: string, label?: string, title?: string, desc?: string } | undefined} action - Configured action struct.
+	 * @param {{ defaultIcon: string, defaultLabel: string, defaultTitle: string, defaultDesc: string }} defaults - Fallback values.
+	 */
+	function configureLeafAction(leaf, iconId, labelId, action, defaults) {
+		if (!leaf) return;
+		const iconEl = document.getElementById(iconId);
+		const labelEl = document.getElementById(labelId);
+
+		const icon = action?.icon || defaults.defaultIcon;
+		const label = action?.label || defaults.defaultLabel;
+		const title = action?.title || defaults.defaultTitle;
+		const desc = action?.desc || defaults.defaultDesc;
+
+		if (iconEl) iconEl.textContent = icon;
+		if (labelEl) labelEl.textContent = label;
+		leaf.dataset.tooltipTitle = title;
+		leaf.dataset.tooltipDesc = desc;
+	}
+
+	/**
+	 * Binds interaction events and parchment tooltip triggers to cardinal leaves.
+	 * @param {Array<HTMLElement|null>} leafList - Array of leaf elements.
+	 * @param {Object} meta - Target metadata descriptor.
+	 * @param {function(string, Object): void} [onSelect] - Action execution callback.
+	 * @param {function(string, string, number, number): void} showTooltip - Tooltip show callback.
+	 * @param {function(): void} hideTooltip - Tooltip hide callback.
+	 */
+	function bindLeafEventHandlers(leafList, meta, onSelect, showTooltip, hideTooltip) {
+		leafList.forEach((leaf) => {
+			if (!leaf) return;
+			leaf.onclick = (e) => {
+				if (e) e.stopPropagation();
+				const dir = leaf.dataset.direction;
+				if (typeof onSelect === 'function' && dir) onSelect(dir, meta);
+			};
+			leaf.onmouseenter = () => {
+				const title = leaf.dataset.tooltipTitle || '';
+				const desc = leaf.dataset.tooltipDesc || '';
+				const leafBounds = leaf.getBoundingClientRect();
+				showTooltip(title, desc, leafBounds.left + leafBounds.width / 2, leafBounds.top + leafBounds.height + 6);
+			};
+			leaf.onmouseleave = () => {
+				hideTooltip();
+			};
+		});
+	}
+	//#endregion
+
 	//#region [SEC-08] Canonical Peripheral Driver Interface & Module Exports
 	return {
 		/**
@@ -747,153 +890,63 @@ const EmberlightCockpitRenderer = (() => {
 			const focalRing = document.getElementById('focal-ring');
 			const vignette = document.getElementById('tactical-vignette');
 			const bracket = document.getElementById('target-bounding-bracket');
-			const crown = document.getElementById('crown-banner');
-			const crownTitle = document.getElementById('crown-title');
-			const crownGauge = document.getElementById('crown-gauge');
-			const badge1 = document.getElementById('badge-1');
-			const badge2 = document.getElementById('badge-2');
-			const leafNorth = document.getElementById('leaf-north');
-			const leafEast = document.getElementById('leaf-east');
-			const leafSouth = document.getElementById('leaf-south');
-			const leafWest = document.getElementById('leaf-west');
-			const eastIcon = document.getElementById('leaf-east-icon');
-			const eastLabel = document.getElementById('leaf-east-label');
-
 			if (!focalRing || !bracket) return;
 
-			// 1. Resolve target geometry
-			let bbox = meta.bbox;
-			if (!bbox && meta.targetDom && typeof meta.targetDom.getBoundingClientRect === 'function') {
-				bbox = meta.targetDom.getBoundingClientRect();
-			}
-			if (!bbox) {
-				bbox = { left: window.innerWidth / 2 - 24, top: window.innerHeight / 2 - 24, width: 48, height: 48 };
-			}
-
-			const centerX = bbox.left + bbox.width / 2;
-			const centerY = bbox.top + bbox.height / 2;
-
-			// 2. Position Halo Bracket (Pixel-perfect snap to target bounds)
+			// 1. Resolve geometry & position halo bracket
+			const { bbox, centerX, centerY, orbitRadius } = resolveTargetGeometry(meta);
 			bracket.style.left = `${Math.max(0, bbox.left)}px`;
 			bracket.style.top = `${Math.max(0, bbox.top)}px`;
 			bracket.style.width = `${bbox.width}px`;
 			bracket.style.height = `${bbox.height}px`;
 
-			// 3. Dynamic Bounding-Aware Orbit Radius
-			const orbitRadius = Math.max(64, Math.hypot(bbox.width, bbox.height) / 2 + 28);
+			// 2. Position & populate elevated crown
+			updateCrownBanner(meta, centerX, centerY, orbitRadius);
 
-			// 4. Position & Populate Elevated Crown Plaque (Cleanly 8px above top of North Leaf)
-			if (crown) {
-				crown.style.left = `${centerX}px`;
-				crown.style.top = `${Math.max(64, centerY - orbitRadius - 34)}px`;
-			}
-			if (crownTitle) crownTitle.textContent = meta.title || 'TARGET';
-			if (crownGauge) {
-				const hpPct = typeof meta.hpPct === 'number' ? Math.max(0, Math.min(100, meta.hpPct)) : 100;
-				crownGauge.style.width = `${hpPct}%`;
-				crownGauge.style.background = hpPct > 50 ? 'var(--ok)' : hpPct > 20 ? 'var(--ember)' : 'var(--danger)';
-			}
-			if (badge1) badge1.textContent = meta.badge1 || 'TARGET';
-			if (badge2) badge2.textContent = meta.badge2 || 'TACTICAL';
+			// 3. Position and configure cardinal satellite leaves
+			const leaves = {
+				north: document.getElementById('leaf-north'),
+				east: document.getElementById('leaf-east'),
+				south: document.getElementById('leaf-south'),
+				west: document.getElementById('leaf-west'),
+			};
+			positionCardinalLeaves(leaves, centerX, centerY, orbitRadius);
 
-			// 5. Position 52px Cardinal Satellite Leaves with Orbit Radius
-			if (leafNorth) {
-				leafNorth.style.left = `${centerX}px`;
-				leafNorth.style.top = `${Math.max(30, centerY - orbitRadius)}px`;
-			}
-			if (leafSouth) {
-				leafSouth.style.left = `${centerX}px`;
-				leafSouth.style.top = `${Math.min(window.innerHeight - 30, centerY + orbitRadius)}px`;
-			}
-			if (leafEast) {
-				leafEast.style.left = `${Math.min(window.innerWidth - 30, centerX + orbitRadius)}px`;
-				leafEast.style.top = `${centerY}px`;
-			}
-			if (leafWest) {
-				leafWest.style.left = `${Math.max(30, centerX - orbitRadius)}px`;
-				leafWest.style.top = `${centerY}px`;
-			}
+			configureLeafAction(leaves.north, 'leaf-north-icon', 'leaf-north-label', meta.northAction, {
+				defaultIcon: '🎒',
+				defaultLabel: 'Pouch',
+				defaultTitle: 'Expedition Pouch',
+				defaultDesc: 'Access squad inventory and consumable elixirs.',
+			});
+			configureLeafAction(leaves.east, 'leaf-east-icon', 'leaf-east-label', meta.eastAction, {
+				defaultIcon: '⚡',
+				defaultLabel: 'Action',
+				defaultTitle: 'Context Action',
+				defaultDesc: 'Execute tactical interaction.',
+			});
+			configureLeafAction(leaves.south, 'leaf-south-icon', 'leaf-south-label', meta.southAction, {
+				defaultIcon: '🛡️',
+				defaultLabel: 'Guard',
+				defaultTitle: 'Tactical Stance',
+				defaultDesc: 'Assume defensive posture or rest at camp.',
+			});
+			configureLeafAction(leaves.west, 'leaf-west-icon', 'leaf-west-label', meta.westAction, {
+				defaultIcon: '👁️',
+				defaultLabel: 'Scan',
+				defaultTitle: 'Area Survey',
+				defaultDesc: 'Scan surrounding sector for hidden hazards.',
+			});
 
-			// 5. Dynamic Cardinal Leaves Context Binding
-			const northLabel = document.getElementById('leaf-north-label');
-			const northIcon = document.getElementById('leaf-north-icon');
-			if (leafNorth) {
-				if (meta.northAction) {
-					if (northIcon) northIcon.textContent = meta.northAction.icon || '🎒';
-					if (northLabel) northLabel.textContent = meta.northAction.label || 'Pouch';
-					leafNorth.setAttribute('data-tooltip-title', meta.northAction.title || 'Field Pouch');
-					leafNorth.setAttribute('data-tooltip-desc', meta.northAction.desc || 'Open field supply pouch.');
-				} else {
-					if (northIcon) northIcon.textContent = '🎒';
-					if (northLabel) northLabel.textContent = 'Pouch';
-					leafNorth.setAttribute('data-tooltip-title', 'Expedition Pouch');
-					leafNorth.setAttribute('data-tooltip-desc', 'Access squad inventory and consumable elixirs.');
-				}
-			}
-
-			if (meta.eastAction) {
-				if (eastIcon) eastIcon.textContent = meta.eastAction.icon || '⚡';
-				if (eastLabel) eastLabel.textContent = meta.eastAction.label || 'Action';
-				if (leafEast) {
-					leafEast.setAttribute('data-tooltip-title', meta.eastAction.title || 'Context Action');
-					leafEast.setAttribute('data-tooltip-desc', meta.eastAction.desc || 'Execute tactical interaction.');
-				}
-			}
-
-			const southLabel = document.getElementById('leaf-south-label');
-			const southIcon = document.getElementById('leaf-south-icon');
-			if (leafSouth) {
-				if (meta.southAction) {
-					if (southIcon) southIcon.textContent = meta.southAction.icon || '🛡️';
-					if (southLabel) southLabel.textContent = meta.southAction.label || 'Stance';
-					leafSouth.setAttribute('data-tooltip-title', meta.southAction.title || 'Tactical Stance');
-					leafSouth.setAttribute('data-tooltip-desc', meta.southAction.desc || 'Assume tactical posture.');
-				} else {
-					if (southIcon) southIcon.textContent = '🛡️';
-					if (southLabel) southLabel.textContent = 'Guard';
-					leafSouth.setAttribute('data-tooltip-title', 'Tactical Stance');
-					leafSouth.setAttribute('data-tooltip-desc', 'Assume defensive posture or rest at camp.');
-				}
-			}
-
-			const westLabel = document.getElementById('leaf-west-label');
-			const westIcon = document.getElementById('leaf-west-icon');
-			if (leafWest) {
-				if (meta.westAction) {
-					if (westIcon) westIcon.textContent = meta.westAction.icon || '📖';
-					if (westLabel) westLabel.textContent = meta.westAction.label || 'Journal';
-					leafWest.setAttribute('data-tooltip-title', meta.westAction.title || 'Expedition Chronicle');
-					leafWest.setAttribute('data-tooltip-desc', meta.westAction.desc || 'Access active quests and regional chronicle records.');
-				} else {
-					if (westIcon) westIcon.textContent = '👁️';
-					if (westLabel) westLabel.textContent = 'Scan';
-					leafWest.setAttribute('data-tooltip-title', 'Area Survey');
-					leafWest.setAttribute('data-tooltip-desc', 'Scan surrounding sector for hidden hazards.');
-				}
-			}
-
-			// 7. Chromatic Attunement
+			// 4. Chromatic Attunement
 			this.setReticleTheme(meta.accent || '#ff9d4d', meta.glow || 'rgba(255, 157, 77, 0.45)');
 
-			// 8. Bind Click Handlers for Point-and-Click Mode
-			[leafNorth, leafEast, leafSouth, leafWest].forEach((leaf) => {
-				if (leaf) {
-					leaf.onclick = (e) => {
-						if (e) e.stopPropagation();
-						const dir = leaf.getAttribute('data-direction');
-						if (typeof onSelect === 'function') onSelect(dir, meta);
-					};
-					leaf.onmouseenter = () => {
-						const title = leaf.getAttribute('data-tooltip-title') || '';
-						const desc = leaf.getAttribute('data-tooltip-desc') || '';
-						const lbox = leaf.getBoundingClientRect();
-						this.showParchmentTooltip(title, desc, lbox.left + lbox.width / 2, lbox.top + lbox.height + 6);
-					};
-					leaf.onmouseleave = () => {
-						this.hideParchmentTooltip();
-					};
-				}
-			});
+			// 5. Bind Click & Hover Handlers
+			bindLeafEventHandlers(
+				[leaves.north, leaves.east, leaves.south, leaves.west],
+				meta,
+				onSelect,
+				(title, desc, x, y) => this.showParchmentTooltip(title, desc, x, y),
+				() => this.hideParchmentTooltip(),
+			);
 
 			if (vignette) vignette.classList.add('active');
 			focalRing.classList.add('active');
@@ -922,13 +975,13 @@ const EmberlightCockpitRenderer = (() => {
 			if (typeof document === 'undefined') return;
 			const leaves = document.querySelectorAll('.ring-leaf');
 			leaves.forEach((leaf) => {
-				const isTarget = leaf.getAttribute('data-direction') === dir;
+				const isTarget = leaf.dataset.direction === dir;
 				leaf.classList.toggle('gesture-targeted', isTarget);
 				if (isTarget) {
-					const title = leaf.getAttribute('data-tooltip-title') || '';
-					const desc = leaf.getAttribute('data-tooltip-desc') || '';
-					const lbox = leaf.getBoundingClientRect();
-					this.showParchmentTooltip(title, desc, lbox.left + lbox.width / 2, lbox.top + lbox.height + 6);
+					const title = leaf.dataset.tooltipTitle || '';
+					const desc = leaf.dataset.tooltipDesc || '';
+					const leafBounds = leaf.getBoundingClientRect();
+					this.showParchmentTooltip(title, desc, leafBounds.left + leafBounds.width / 2, leafBounds.top + leafBounds.height + 6);
 				}
 			});
 			if (!dir) this.hideParchmentTooltip();

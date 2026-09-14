@@ -33,23 +33,37 @@ if (typeof globalThis !== "undefined")
 	 * @param {number} [opts.intensity=1.0] - Brightness multiplier.
 	 * @returns {void}
 	 */
-	function spawnTransientLight(transientLights, maxTransients, arg3, arg4, arg5, arg6, arg7, arg8) {
+	function spawnTransientLight(
+		transientLights,
+		maxTransients,
+		arg3,
+		arg4,
+		arg5,
+		arg6,
+		arg7,
+		arg8,
+	) {
 		if (!Array.isArray(transientLights)) return;
-		let x, y, radius, color, duration = 0.5, intensity = 1.0;
-		if (typeof arg3 === 'object' && arg3 !== null) {
+		let x,
+			y,
+			radius,
+			color,
+			duration = 0.5,
+			intensity = 1.0;
+		if (typeof arg3 === "object" && arg3 !== null) {
 			x = arg3.x;
 			y = arg3.y;
 			radius = arg3.radius;
 			color = arg3.color;
-			if (typeof arg3.duration === 'number') duration = arg3.duration;
-			if (typeof arg3.intensity === 'number') intensity = arg3.intensity;
+			if (typeof arg3.duration === "number") duration = arg3.duration;
+			if (typeof arg3.intensity === "number") intensity = arg3.intensity;
 		} else {
 			x = arg3;
 			y = arg4;
 			radius = arg5;
 			color = arg6;
-			if (typeof arg7 === 'number') duration = arg7;
-			if (typeof arg8 === 'number') intensity = arg8;
+			if (typeof arg7 === "number") duration = arg7;
+			if (typeof arg8 === "number") intensity = arg8;
 		}
 
 		if (transientLights.length >= maxTransients) {
@@ -182,11 +196,19 @@ if (typeof globalThis !== "undefined")
 		arg10,
 		arg11,
 	) {
-		let pScreenX = 0, pScreenY = 0, flicker = 0;
-		let offsetX = 0, offsetY = 0, isSubterranean = false, tileW = 38, tileH = 30;
-		let cachedMap = null, flickerTime = 0, transientLights = [];
+		let pScreenX = 0,
+			pScreenY = 0,
+			flicker = 0;
+		let offsetX = 0,
+			offsetY = 0,
+			isSubterranean = false,
+			tileW = 38,
+			tileH = 30;
+		let cachedMap = null,
+			flickerTime = 0,
+			transientLights = [];
 
-		if (typeof arg1 === 'object' && arg1 !== null) {
+		if (typeof arg1 === "object" && arg1 !== null) {
 			// Grouped object signature: (playerState, viewportState, mapState, transientLights)
 			pScreenX = arg1.pScreenX || 0;
 			pScreenY = arg1.pScreenY || 0;
@@ -206,16 +228,16 @@ if (typeof globalThis !== "undefined")
 			transientLights = Array.isArray(arg4) ? arg4 : [];
 		} else {
 			// Positional arguments signature: (pScreenX, pScreenY, flicker, offsetX, offsetY, isSubterranean, cachedMap, tileW, tileH, flickerTime, transientLights)
-			pScreenX = typeof arg1 === 'number' ? arg1 : 0;
-			pScreenY = typeof arg2 === 'number' ? arg2 : 0;
-			flicker = typeof arg3 === 'number' ? arg3 : 0;
-			offsetX = typeof arg4 === 'number' ? arg4 : 0;
-			offsetY = typeof arg5 === 'number' ? arg5 : 0;
+			pScreenX = typeof arg1 === "number" ? arg1 : 0;
+			pScreenY = typeof arg2 === "number" ? arg2 : 0;
+			flicker = typeof arg3 === "number" ? arg3 : 0;
+			offsetX = typeof arg4 === "number" ? arg4 : 0;
+			offsetY = typeof arg5 === "number" ? arg5 : 0;
 			isSubterranean = Boolean(arg6);
 			cachedMap = Array.isArray(arg7) ? arg7 : null;
-			tileW = typeof arg8 === 'number' ? arg8 : 38;
-			tileH = typeof arg9 === 'number' ? arg9 : 30;
-			flickerTime = typeof arg10 === 'number' ? arg10 : 0;
+			tileW = typeof arg8 === "number" ? arg8 : 38;
+			tileH = typeof arg9 === "number" ? arg9 : 30;
+			flickerTime = typeof arg10 === "number" ? arg10 : 0;
 			transientLights = Array.isArray(arg11) ? arg11 : [];
 		}
 

@@ -30,7 +30,9 @@
 	padding: 8px 10px;
 	background: var(--panel-bg);
 	border: 2px solid var(--border-dim);
-	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03), 0 4px 14px rgba(0, 0, 0, 0.65);
+	box-shadow:
+		inset 0 0 0 1px rgba(255, 255, 255, 0.03),
+		0 4px 14px rgba(0, 0, 0, 0.65);
 	overflow: hidden;
 }
 
@@ -55,14 +57,16 @@
 #combat-ctb-ribbon-bar.ctb-master-ribbon,
 .ctb-master-ribbon {
 	display: flex;
-	gap: 6px;
+	gap: 8px;
 	width: 100%;
-	background: rgba(0, 0, 0, 0.65);
+	background: rgba(4, 4, 14, 0.85);
 	border: 1px solid var(--border-dim);
-	padding: 4px 6px;
+	border-radius: 4px;
+	padding: 6px 8px;
 	overflow-x: auto;
 	align-items: center;
-	min-height: 52px;
+	min-height: 64px;
+	box-sizing: border-box;
 }
 
 .ctb-master-ribbon::-webkit-scrollbar {
@@ -91,7 +95,9 @@
 	flex: 1;
 	min-height: 190px;
 	position: relative;
-	background: radial-gradient(ellipse at 50% 50%, rgba(255, 157, 77, 0.04) 0%, rgba(4, 4, 12, 0.8) 75%);
+	background: radial-gradient(ellipse at 50% 50%,
+			rgba(255, 157, 77, 0.04) 0%,
+			rgba(4, 4, 12, 0.8) 75%);
 	border: 1px solid rgba(255, 255, 255, 0.04);
 	padding: 6px 10px;
 }
@@ -194,12 +200,17 @@
 	text-align: center;
 	padding: 4px 6px;
 	border: 1px solid rgba(255, 255, 255, 0.08);
-	background: radial-gradient(ellipse at 50% 90%, rgba(255, 157, 77, 0.06) 0%, rgba(0, 0, 0, 0.25) 85%);
+	background: radial-gradient(ellipse at 50% 90%,
+			rgba(255, 157, 77, 0.06) 0%,
+			rgba(0, 0, 0, 0.25) 85%);
 	border-radius: 4px;
 	min-width: 86px;
 	min-height: 120px;
 	position: relative;
-	transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.15s ease, box-shadow 0.15s ease;
+	transition:
+		transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+		border-color 0.15s ease,
+		box-shadow 0.15s ease;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
@@ -324,12 +335,17 @@
 	text-align: center;
 	padding: 4px 6px;
 	border: 1px solid rgba(255, 255, 255, 0.08);
-	background: radial-gradient(ellipse at 50% 90%, rgba(56, 189, 248, 0.06) 0%, rgba(0, 0, 0, 0.25) 85%);
+	background: radial-gradient(ellipse at 50% 90%,
+			rgba(56, 189, 248, 0.06) 0%,
+			rgba(0, 0, 0, 0.25) 85%);
 	border-radius: 4px;
 	min-width: 86px;
 	min-height: 120px;
 	position: relative;
-	transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.15s ease, box-shadow 0.15s ease;
+	transition:
+		transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+		border-color 0.15s ease,
+		box-shadow 0.15s ease;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
@@ -369,13 +385,15 @@
 .formation-slot.target-focused,
 .enemy.target-focused {
 	border-color: var(--ember);
-	box-shadow: 0 0 14px var(--shadow-ember), inset 0 0 8px rgba(255, 157, 77, 0.35);
+	box-shadow:
+		0 0 14px var(--shadow-ember),
+		inset 0 0 8px rgba(255, 157, 77, 0.35);
 	animation: pulse-target-focus 0.8s infinite alternate ease-in-out;
 }
 
 @keyframes pulse-target-focus {
 	0% {
-		transform: scale(1.0);
+		transform: scale(1);
 	}
 
 	100% {
@@ -758,7 +776,9 @@
 	display: block;
 	margin: 0 auto 4px;
 	filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.85));
-	transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), filter 0.25s ease;
+	transition:
+		transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+		filter 0.25s ease;
 	transform-origin: bottom center;
 }
 
@@ -773,7 +793,10 @@ img.battler-sprite.boss-battler {
 .enemy.boss-battler::before {
 	width: 80px;
 	height: 16px;
-	background: radial-gradient(ellipse at center, rgba(220, 38, 38, 0.5) 0%, rgba(0, 0, 0, 0.85) 45%, rgba(0, 0, 0, 0) 75%);
+	background: radial-gradient(ellipse at center,
+			rgba(220, 38, 38, 0.5) 0%,
+			rgba(0, 0, 0, 0.85) 45%,
+			rgba(0, 0, 0, 0) 75%);
 }
 
 .enemy .battler-sprite {
@@ -849,11 +872,16 @@ img.battler-sprite.boss-battler {
 	transform: translateX(-50%);
 	width: 48px;
 	height: 10px;
-	background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0) 70%);
+	background: radial-gradient(ellipse at center,
+			rgba(0, 0, 0, 0.75) 0%,
+			rgba(0, 0, 0, 0) 70%);
 	border-radius: 50%;
 	pointer-events: none;
 	z-index: 0;
-	transition: transform 0.25s ease, opacity 0.25s ease, width 0.25s ease;
+	transition:
+		transform 0.25s ease,
+		opacity 0.25s ease,
+		width 0.25s ease;
 }
 
 .dead::before,
@@ -922,7 +950,7 @@ img.battler-sprite.boss-battler {
 	}
 
 	100% {
-		opacity: 1.0;
+		opacity: 1;
 		box-shadow: 0 0 8px rgba(239, 68, 68, 0.8);
 	}
 }
@@ -958,7 +986,7 @@ img.battler-sprite.boss-battler {
 .oracle-content {
 	display: flex;
 	flex-direction: column;
-	gap: 3px;
+	gap: 6px;
 	height: 100%;
 	overflow: hidden;
 	box-sizing: border-box;
@@ -966,23 +994,23 @@ img.battler-sprite.boss-battler {
 
 .oracle-tier {
 	background: rgba(8, 8, 16, 0.85);
-	border: 1px solid rgba(255, 255, 255, 0.1);
+	border: 1px solid rgba(255, 255, 255, 0.12);
 	border-radius: 4px;
-	padding: 5px 8px;
+	padding: 6px 10px;
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	gap: 5px;
 }
 
 .oracle-tier-header {
-	font-size: 10px;
-	font-weight: 700;
+	font-size: 11.5px;
+	font-weight: 800;
 	color: var(--ember);
 	letter-spacing: 1.2px;
 	text-transform: uppercase;
-	border-bottom: 1px solid rgba(255, 157, 77, 0.25);
-	padding-bottom: 3px;
-	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+	border-bottom: 1px solid rgba(255, 157, 77, 0.3);
+	padding-bottom: 4px;
+	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
 }
 
 .oracle-ctb-tier {
@@ -996,55 +1024,30 @@ img.battler-sprite.boss-battler {
 .oracle-intent-feed {
 	display: flex;
 	flex-direction: column;
-	gap: 3px;
-	font-size: 11px;
+	gap: 4px;
+	font-size: 12.5px;
+	line-height: 1.4;
 	color: #e2e8f0;
 }
 
-.intent-beacon-item {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: 4px 6px;
-	background: rgba(239, 68, 68, 0.15);
-	border-left: 3px solid #ef4444;
-	border-radius: 3px;
-	font-weight: 600;
-}
-
-.intent-beacon-item.charged {
-	background: rgba(245, 158, 11, 0.25);
-	border-left-color: #f59e0b;
-	animation: pulse-intent 1s infinite alternate;
-}
-
-@keyframes pulse-intent {
-	0% {
-		opacity: 0.8;
-	}
-
-	100% {
-		opacity: 1.0;
-	}
-}
-
 .oracle-affinity-tier {
-	flex: 1;
+	flex: 0 0 auto;
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	gap: 5px;
 }
 
 .oracle-affinity-badges {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 5px;
+	gap: 6px;
+	margin-top: 3px;
 }
 
 .oracle-affinity-badges .affinity-badge {
-	font-size: 9.5px;
+	font-size: 11px;
 	font-weight: 700;
-	padding: 2px 6px;
+	padding: 3px 8px;
 	border-radius: 3px;
 	text-transform: uppercase;
 	letter-spacing: 0.5px;
@@ -1068,218 +1071,90 @@ img.battler-sprite.boss-battler {
 	border: 1px solid rgba(148, 163, 184, 0.9);
 }
 
-/* --- QUADRANT 4: PHYSICAL HERO PEDESTAL STAGE & ARCHED VITALS --- */
-.combat-hero-chassis-grid {
-	display: grid;
-	grid-template-columns: repeat(4, 1fr);
-	gap: 8px;
-	width: 100%;
-	margin-bottom: 8px;
-}
-
-.hero-pedestal-stage {
-	position: relative;
-	background: radial-gradient(ellipse at 50% 85%, rgba(30, 41, 59, 0.95) 0%, rgba(10, 15, 29, 0.98) 75%);
-	border: 1.5px solid rgba(255, 255, 255, 0.08);
-	border-radius: 6px;
-	padding: 4px 4px 6px 4px;
+/* Tier 3: Live Combat Chronicle Stream */
+.oracle-chronicle-tier {
+	flex: 1;
+	min-height: 110px;
 	display: flex;
 	flex-direction: column;
-	align-items: center;
-	justify-content: flex-end;
-	min-height: 105px;
-	cursor: pointer;
-	transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-	overflow: visible;
+	overflow: hidden;
 }
 
-.hero-pedestal-stage:hover {
-	border-color: var(--ember);
-	background: radial-gradient(ellipse at 50% 85%, rgba(56, 189, 248, 0.15) 0%, rgba(15, 23, 42, 0.98) 75%);
-	transform: translateY(-2px);
-	box-shadow: 0 4px 14px rgba(0, 0, 0, 0.8), 0 0 10px rgba(56, 189, 248, 0.35);
-}
-
-.hero-pedestal-stage.active-turn {
-	border-color: #fbbf24;
-	background: radial-gradient(ellipse at 50% 85%, rgba(251, 191, 36, 0.22) 0%, rgba(15, 23, 42, 0.98) 75%);
-	box-shadow: 0 0 16px rgba(251, 191, 36, 0.6), inset 0 0 10px rgba(251, 191, 36, 0.25);
-	transform: translateY(-4px) scale(1.02);
-	z-index: 5;
-}
-
-.hero-pedestal-stage.fainted {
-	filter: grayscale(1);
-	opacity: 0.45;
-	border-color: rgba(239, 68, 68, 0.4);
-}
-
-.hero-pedestal-stage.hovered {
-	border-color: #ff9d4d !important;
-	box-shadow: 0 0 14px rgba(255, 157, 77, 0.65), inset 0 0 8px rgba(255, 157, 77, 0.3) !important;
-}
-
-/* Floor Beacon Flare Ring under active hero */
-.pedestal-flare-ring {
-	position: absolute;
-	bottom: 22px;
-	left: 50%;
-	transform: translateX(-50%);
-	width: 52px;
-	height: 14px;
-	border-radius: 50%;
-	background: rgba(56, 189, 248, 0.1);
-	border: 1px solid rgba(56, 189, 248, 0.3);
-	pointer-events: none;
-	transition: all 0.2s ease;
-}
-
-.pedestal-flare-ring.active-turn {
-	background: rgba(251, 191, 36, 0.25);
-	border: 1.5px solid #fbbf24;
-	box-shadow: 0 0 12px rgba(251, 191, 36, 0.85);
-	animation: pedestalPulse 1.4s infinite alternate;
-}
-
-@keyframes pedestalPulse {
-	0% {
-		transform: translateX(-50%) scale(0.95);
-		opacity: 0.75;
-	}
-	100% {
-		transform: translateX(-50%) scale(1.1);
-		opacity: 1.0;
-	}
-}
-
-/* Arched Dual-Meter SVG */
-.hero-arched-vitals-svg {
-	position: absolute;
-	top: -12px;
-	left: 50%;
-	transform: translateX(-50%);
-	width: 88px;
-	height: 55px;
-	pointer-events: none;
-	z-index: 2;
-	overflow: visible;
-}
-
-.vital-arc-track {
-	stroke: rgba(0, 0, 0, 0.7);
-}
-
-.vital-arc-hp {
-	transition: stroke-dashoffset 0.35s cubic-bezier(0.16, 1, 0.3, 1), stroke 0.2s ease;
-	filter: drop-shadow(0 0 3px rgba(16, 185, 129, 0.6));
-}
-
-.vital-arc-hp.critical {
-	stroke: #ef4444 !important;
-	filter: drop-shadow(0 0 6px #ef4444);
-	animation: hpCriticalPulse 0.9s infinite alternate;
-}
-
-@keyframes hpCriticalPulse {
-	0% {
-		opacity: 0.7;
-	}
-	100% {
-		opacity: 1.0;
-	}
-}
-
-.vital-arc-mp {
-	transition: stroke-dashoffset 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-	filter: drop-shadow(0 0 3px rgba(56, 189, 248, 0.6));
-}
-
-/* Character Battler Sprite Container */
-.hero-battler-container {
-	position: relative;
-	z-index: 1;
-	margin-top: 6px;
-	margin-bottom: 2px;
-}
-
-.hero-battler-avatar {
-	width: 48px;
-	height: 48px;
-	image-rendering: pixelated;
-	display: block;
-	filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.85));
-	transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.hero-pedestal-stage:hover .hero-battler-avatar {
-	transform: scale(1.08) translateY(-2px);
-}
-
-.hero-pedestal-stage.active-turn .hero-battler-avatar {
-	filter: drop-shadow(0 4px 10px rgba(251, 191, 36, 0.75));
-	transform: translateY(-2px);
-}
-
-/* Pedestal Footer: Name, Row & Numeric Vitals */
-.hero-pedestal-footer {
+.combat-chronicle-stream {
+	flex: 1;
 	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	width: 100%;
-	padding: 0 4px;
+	flex-direction: column;
 	gap: 4px;
-	z-index: 2;
+	overflow-y: auto;
+	padding: 4px 2px;
+	max-height: 150px;
+	scrollbar-width: thin;
 }
 
-.hero-pedestal-name {
-	font-size: 11px;
-	font-weight: 700;
-	color: #ffffff;
-	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+.combat-chronicle-stream::-webkit-scrollbar {
+	width: 4px;
 }
 
-.hero-pedestal-row {
-	font-size: 8px;
-	font-weight: 700;
-	padding: 1px 3px;
+.combat-chronicle-stream::-webkit-scrollbar-thumb {
+	background: var(--border-dim);
 	border-radius: 2px;
 }
 
-.hero-pedestal-row.FRONT {
-	color: #fbbf24;
-	background: rgba(251, 191, 36, 0.15);
-	border: 1px solid rgba(251, 191, 36, 0.5);
-}
-
-.hero-pedestal-row.BACK {
-	color: #38bdf8;
-	background: rgba(56, 189, 248, 0.15);
-	border: 1px solid rgba(56, 189, 248, 0.5);
-}
-
-.hero-pedestal-stats {
-	display: flex;
-	justify-content: space-between;
-	width: 100%;
-	padding: 0 4px;
-	font-size: 9px;
-	font-weight: 600;
+.chronicle-empty-hint {
+	font-size: 11.5px;
+	font-style: italic;
 	color: #94a3b8;
-	z-index: 2;
-	margin-top: 1px;
+	text-align: center;
+	padding: 12px 4px;
 }
 
-.hero-pedestal-stats .hp-stat {
-	color: #34d399;
+.chronicle-entry {
+	display: flex;
+	align-items: baseline;
+	gap: 6px;
+	font-size: 11.5px;
+	font-family: var(--font-mono, monospace);
+	color: #cbd5e1;
+	line-height: 1.45;
+	padding: 4px 8px;
+	border-radius: 3px;
+	background: rgba(15, 23, 42, 0.65);
+	border-left: 3px solid transparent;
 }
 
-.hero-pedestal-stats .mp-stat {
-	color: #38bdf8;
+.chronicle-entry.dmg {
+	border-left-color: #ef4444;
+	color: #fecaca;
 }
 
-.hero-pedestal-stats .label {
-	font-size: 7.5px;
-	opacity: 0.75;
+.chronicle-entry.crit {
+	border-left-color: #fbbf24;
+	background: rgba(251, 191, 36, 0.12);
+	color: #fef08a;
+	font-weight: 700;
+}
+
+.chronicle-entry.heal {
+	border-left-color: #10b981;
+	color: #a7f3d0;
+}
+
+.chronicle-entry.ember {
+	border-left-color: #ff9d4d;
+	color: #fed7aa;
+}
+
+.chronicle-entry.status {
+	border-left-color: #c084fc;
+	color: #f3e8ff;
+}
+
+.chronicle-badge {
+	font-size: 8px;
+	font-weight: 800;
+	padding: 1px 4px;
+	border-radius: 2px;
+	text-transform: uppercase;
 }
 
 /* 4-Leaf Quick Action Radial Wheel Socket */
@@ -1288,9 +1163,13 @@ img.battler-sprite.boss-battler {
 	width: 172px;
 	height: 172px;
 	border-radius: 50%;
-	background: radial-gradient(circle, rgba(15, 23, 42, 0.98) 0%, rgba(5, 5, 15, 0.96) 80%);
+	background: radial-gradient(circle,
+			rgba(15, 23, 42, 0.98) 0%,
+			rgba(5, 5, 15, 0.96) 80%);
 	border: 2px solid var(--ember);
-	box-shadow: 0 0 25px rgba(0, 0, 0, 0.95), 0 0 16px var(--shadow-ember);
+	box-shadow:
+		0 0 25px rgba(0, 0, 0, 0.95),
+		0 0 16px var(--shadow-ember);
 	z-index: 1000;
 	display: flex;
 	align-items: center;
@@ -1298,11 +1177,13 @@ img.battler-sprite.boss-battler {
 	user-select: none;
 	touch-action: none;
 	pointer-events: auto;
-	transition: opacity 0.12s ease-out, transform 0.12s ease-out;
+	transition:
+		opacity 0.12s ease-out,
+		transform 0.12s ease-out;
 }
 
 .combat-hero-radial.hidden {
-	display: none !important;
+	display: none;
 }
 
 .radial-center-dial {
@@ -1408,8 +1289,8 @@ img.battler-sprite.boss-battler {
 }
 
 .radial-skill-fan-leaf:hover {
-	background: #0284c7;
-	color: #fff;
+	background: #0369a1;
+	color: #ffffff;
 	transform: translateY(-2px) scale(1.05);
 	box-shadow: 0 0 10px rgba(56, 189, 248, 0.8);
 }
@@ -1420,10 +1301,13 @@ img.battler-sprite.boss-battler {
 }
 
 @keyframes focusPulse {
-	0%, 100% {
+
+	0%,
+	100% {
 		transform: scale(1);
 		opacity: 0.9;
 	}
+
 	50% {
 		transform: scale(1.1);
 		opacity: 1;
@@ -1436,62 +1320,301 @@ img.battler-sprite.boss-battler {
    ========================================================================= */
 
 /* Q3 CTB Ribbon Synchronized Hover & Projected Slot */
+.turn-slot {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 4px 6px;
+	border: 1.5px solid var(--border-dim);
+	border-radius: 4px;
+	background: rgba(15, 23, 42, 0.85);
+	min-width: 52px;
+	min-height: 52px;
+	position: relative;
+	cursor: pointer;
+	user-select: none;
+	transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+	box-sizing: border-box;
+}
+
+.turn-slot.hero-slot {
+	border-top: 3px solid #38bdf8;
+}
+
+.turn-slot.enemy-slot {
+	border-top: 3px solid #ef4444;
+}
+
+.slot-idx {
+	font-size: 9px;
+	font-weight: 800;
+	color: var(--text-dim);
+	margin-bottom: 2px;
+	line-height: 1;
+}
+
+.slot-crest {
+	width: 26px;
+	height: 26px;
+	image-rendering: pixelated;
+	object-fit: contain;
+	filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7));
+	transition: transform 0.15s ease;
+}
+
+.slot-char {
+	font-size: 16px;
+	line-height: 26px;
+	font-weight: bold;
+}
+
+.slot-name {
+	font-size: 10px;
+	font-weight: 700;
+	margin-top: 3px;
+	color: #e2e8f0;
+	letter-spacing: 0.3px;
+	text-transform: uppercase;
+	line-height: 1;
+}
+
 .turn-slot.hovered-slot {
-	border-color: #ff9d4d !important;
-	box-shadow: 0 0 10px rgba(255, 157, 77, 0.75), inset 0 0 4px rgba(255, 157, 77, 0.4) !important;
-	transform: translateY(-3px) scale(1.08);
+	border-color: #ff9d4d;
+	box-shadow:
+		0 0 12px rgba(255, 157, 77, 0.8),
+		inset 0 0 4px rgba(255, 157, 77, 0.4);
+	transform: translateY(-3px) scale(1.1);
 	z-index: 10;
 	transition: all 0.12s ease-out;
 }
 
-.turn-slot.projected-slot {
-	border: 1px dashed #fbbf24 !important;
-	background: rgba(251, 191, 36, 0.18) !important;
-	animation: ctbProjectedPulse 1.2s infinite ease-in-out;
+.turn-slot.active-slot {
+	position: relative;
+	border-color: #fbbf24;
+	box-shadow:
+		0 0 14px rgba(251, 191, 36, 0.85),
+		inset 0 0 6px rgba(251, 191, 36, 0.35);
+	background: rgba(251, 191, 36, 0.2);
+	z-index: 5;
+	animation: timeline-active-pulse 1.5s infinite ease-in-out;
 }
 
-@keyframes ctbProjectedPulse {
-	0%, 100% {
-		box-shadow: 0 0 4px rgba(251, 191, 36, 0.4);
-		opacity: 0.85;
+.turn-slot.active-slot .slot-crest {
+	animation: timeline-crest-pulse 1.5s infinite ease-in-out;
+}
+
+.turn-slot.active-slot::before {
+	content: "NOW";
+	position: absolute;
+	top: -8px;
+	left: 50%;
+	transform: translateX(-50%);
+	background: #fbbf24;
+	color: #050505;
+	font-size: 8px;
+	font-weight: 900;
+	letter-spacing: 0.6px;
+	padding: 1px 5px;
+	border-radius: 3px;
+	box-shadow: 0 0 8px rgba(251, 191, 36, 0.9);
+	z-index: 6;
+}
+
+/* Active Party Member's Turn Slots Pulsate on Timeline */
+.turn-slot.active-hero-turn {
+	border-color: #38bdf8;
+	background: rgba(56, 189, 248, 0.18);
+	box-shadow:
+		0 0 10px rgba(56, 189, 248, 0.65),
+		inset 0 0 6px rgba(56, 189, 248, 0.25);
+	animation: timeline-hero-turn-pulse 1.5s infinite ease-in-out;
+}
+
+.turn-slot.active-hero-turn.active-slot {
+	border-color: #fbbf24;
+	box-shadow:
+		0 0 16px rgba(251, 191, 36, 0.95),
+		inset 0 0 8px rgba(251, 191, 36, 0.4);
+	animation: timeline-active-hero-now-pulse 1.5s infinite ease-in-out;
+}
+
+/* Targeted / Highlighted Enemy Turn Slots Pulsate on Timeline */
+.turn-slot.enemy-slot.targeted-enemy-turn,
+.turn-slot.enemy-slot.hovered-slot {
+	border-color: #ef4444;
+	background: rgba(239, 68, 68, 0.22);
+	box-shadow:
+		0 0 14px rgba(239, 68, 68, 0.85),
+		inset 0 0 8px rgba(239, 68, 68, 0.35);
+	animation: timeline-enemy-target-pulse 1.4s infinite ease-in-out;
+	z-index: 8;
+}
+
+.turn-slot.enemy-slot.targeted-enemy-turn .slot-crest,
+.turn-slot.enemy-slot.hovered-slot .slot-crest {
+	animation: timeline-enemy-crest-pulse 1.4s infinite ease-in-out;
+}
+
+@keyframes timeline-enemy-target-pulse {
+
+	0%,
+	100% {
+		transform: translateY(0) scale(1.08);
+		box-shadow: 0 0 10px rgba(239, 68, 68, 0.7);
 	}
+
 	50% {
-		box-shadow: 0 0 12px rgba(251, 191, 36, 0.9);
-		opacity: 1.0;
+		transform: translateY(-4px) scale(1.18);
+		box-shadow:
+			0 0 20px rgba(239, 68, 68, 1),
+			0 0 28px rgba(251, 146, 60, 0.6);
+	}
+}
+
+@keyframes timeline-enemy-crest-pulse {
+
+	0%,
+	100% {
+		transform: scale(1.06);
+	}
+
+	50% {
+		transform: scale(1.26);
+		filter: drop-shadow(0 0 10px rgba(239, 68, 68, 1));
+	}
+}
+
+@keyframes timeline-hero-turn-pulse {
+
+	0%,
+	100% {
+		transform: translateY(0) scale(1.04);
+		box-shadow: 0 0 8px rgba(56, 189, 248, 0.5);
+	}
+
+	50% {
+		transform: translateY(-3px) scale(1.1);
+		box-shadow:
+			0 0 14px rgba(56, 189, 248, 0.85),
+			inset 0 0 8px rgba(56, 189, 248, 0.4);
+	}
+}
+
+@keyframes timeline-active-hero-now-pulse {
+
+	0%,
+	100% {
+		transform: translateY(-2px) scale(1.08);
+		box-shadow: 0 0 12px rgba(251, 191, 36, 0.8);
+	}
+
+	50% {
+		transform: translateY(-5px) scale(1.16);
+		box-shadow:
+			0 0 20px rgba(251, 191, 36, 1),
+			0 0 30px rgba(245, 158, 11, 0.7);
+	}
+}
+
+@keyframes timeline-active-pulse {
+
+	0%,
+	100% {
+		transform: translateY(0) scale(1.06);
+	}
+
+	50% {
+		transform: translateY(-4px) scale(1.14);
+	}
+}
+
+@keyframes timeline-crest-pulse {
+
+	0%,
+	100% {
+		transform: scale(1.05);
+	}
+
+	50% {
+		transform: scale(1.22);
+		filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.9));
+	}
+}
+
+.turn-slot.projected-slot,
+.turn-slot.ghost-turn-slot {
+	border: 1.5px dashed #fbbf24;
+	background: rgba(251, 191, 36, 0.22);
+	opacity: 0.85;
+	transform: translateY(-2px) scale(1.06);
+	animation: ghostPortraitPulse 1.2s infinite ease-in-out;
+}
+
+@keyframes ghostPortraitPulse {
+
+	0%,
+	100% {
+		box-shadow: 0 0 6px rgba(251, 191, 36, 0.5);
+		opacity: 0.8;
+	}
+
+	50% {
+		box-shadow:
+			0 0 16px rgba(251, 191, 36, 0.95),
+			inset 0 0 6px rgba(251, 191, 36, 0.4);
+		opacity: 1;
 	}
 }
 
 /* Q3 Intent Beacon Item Hover */
 .intent-beacon-item.hovered {
-	border-color: #ff9d4d !important;
-	background: rgba(255, 157, 77, 0.18) !important;
-	box-shadow: 0 0 8px rgba(255, 157, 77, 0.35) !important;
+	border-color: #ff9d4d;
+	background: rgba(255, 157, 77, 0.18);
+	box-shadow: 0 0 8px rgba(255, 157, 77, 0.35);
 }
 
 /* Q4 Hero Chassis Card Hover */
 .hero-chassis-card.hovered {
-	border-color: #ff9d4d !important;
-	box-shadow: 0 0 14px rgba(255, 157, 77, 0.6), inset 0 0 6px rgba(255, 157, 77, 0.25) !important;
+	border-color: #ff9d4d;
+	box-shadow:
+		0 0 14px rgba(255, 157, 77, 0.6),
+		inset 0 0 6px rgba(255, 157, 77, 0.25);
 	transform: translateY(-2px);
 }
 
 /* Subdeck Target Option Buttons Hover */
 .target-select-btn.hovered {
-	border-color: #ff9d4d !important;
-	background: rgba(255, 157, 77, 0.2) !important;
-	box-shadow: 0 0 8px rgba(255, 157, 77, 0.4) !important;
+	border-color: #ff9d4d;
+	background: rgba(255, 157, 77, 0.2);
+	box-shadow: 0 0 8px rgba(255, 157, 77, 0.4);
 }
 
 /* =========================================================================
    Q4 PROCEDURAL BATTLER PEDESTAL STAGE & GPU ARCHED VITALS
    ========================================================================= */
 
+#combat-command-view {
+	display: none;
+	flex-direction: column;
+	height: 100%;
+	gap: 6px;
+	justify-content: space-between;
+}
+
+.combat-active-matrix #combat-command-view,
+#war-table-matrix.combat-active-matrix #combat-command-view,
+#expedition-rig.combat-active-matrix #combat-command-view {
+	display: flex;
+}
+
 #combat-hero-chassis-grid {
 	display: grid;
 	grid-template-columns: repeat(4, 1fr);
 	gap: 8px;
-	padding: 6px 4px;
+	padding: 4px 2px;
 	height: 100%;
+	min-height: 135px;
 	align-items: center;
 }
 
@@ -1514,7 +1637,8 @@ img.battler-sprite.boss-battler {
 }
 
 .hero-pedestal-stage.active-turn {
-	transform: translateY(-6px) scale(1.05);
+	transform: translateY(-8px) scale(1.06);
+	z-index: 10;
 }
 
 .hero-pedestal-stage.fainted {
@@ -1525,8 +1649,8 @@ img.battler-sprite.boss-battler {
 /* Arched SVG Gauge Positioning */
 .hero-arched-vitals-container {
 	position: relative;
-	width: 100px;
-	height: 80px;
+	width: 104px;
+	height: 88px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -1534,10 +1658,10 @@ img.battler-sprite.boss-battler {
 
 .hero-arched-vitals-svg {
 	position: absolute;
-	top: -4px;
-	left: 0;
+	top: -2px;
+	left: 2px;
 	width: 100px;
-	height: 60px;
+	height: 75px;
 	pointer-events: none;
 	z-index: 3;
 	overflow: visible;
@@ -1547,12 +1671,12 @@ img.battler-sprite.boss-battler {
 .vital-arc-track {
 	fill: none;
 	stroke: rgba(15, 23, 42, 0.75);
-	stroke-width: 5;
+	stroke-width: 5.5;
 	stroke-linecap: round;
 }
 
 .vital-arc-track.mp {
-	stroke-width: 3.5;
+	stroke-width: 4;
 }
 
 .vital-arc-hp {
@@ -1560,8 +1684,10 @@ img.battler-sprite.boss-battler {
 	stroke: #10b981;
 	stroke-width: 5;
 	stroke-linecap: round;
-	stroke-dasharray: 125;
-	transition: stroke-dashoffset 0.35s ease, stroke 0.3s ease;
+	stroke-dasharray: 150;
+	transition:
+		stroke-dashoffset 0.35s ease,
+		stroke 0.3s ease;
 	filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.6));
 }
 
@@ -1572,10 +1698,13 @@ img.battler-sprite.boss-battler {
 }
 
 @keyframes criticalArcPulse {
-	0%, 100% {
+
+	0%,
+	100% {
 		stroke: #ef4444;
 		filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.6));
 	}
+
 	50% {
 		stroke: #ff7878;
 		filter: drop-shadow(0 0 10px rgba(239, 68, 68, 1));
@@ -1587,19 +1716,21 @@ img.battler-sprite.boss-battler {
 	stroke: #38bdf8;
 	stroke-width: 3.5;
 	stroke-linecap: round;
-	stroke-dasharray: 100;
-	transition: stroke-dashoffset 0.35s ease, stroke 0.3s ease;
+	stroke-dasharray: 125;
+	transition:
+		stroke-dashoffset 0.35s ease,
+		stroke 0.3s ease;
 	filter: drop-shadow(0 0 3px rgba(56, 189, 248, 0.6));
 }
 
 /* Procedural Battler Avatar */
 .hero-battler-avatar-wrap {
 	position: absolute;
-	bottom: 12px;
+	bottom: 8px;
 	left: 50%;
 	transform: translateX(-50%);
-	width: 56px;
-	height: 56px;
+	width: 52px;
+	height: 52px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -1607,28 +1738,61 @@ img.battler-sprite.boss-battler {
 }
 
 .hero-battler-avatar {
-	width: 52px;
-	height: 52px;
+	width: 50px;
+	height: 50px;
 	image-rendering: pixelated;
 	object-fit: contain;
 	filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.8));
-	transition: transform 0.15s ease;
+	transition:
+		transform 0.15s ease,
+		filter 0.2s ease;
 }
 
 .hero-pedestal-stage:hover .hero-battler-avatar {
 	transform: scale(1.08);
 }
 
+/* Active Turn Enriched Hero Sprite Scaling & Pulsating Aura */
+.hero-pedestal-stage.active-turn .hero-battler-avatar {
+	animation: hero-turn-sprite-pulse 1.5s infinite ease-in-out;
+}
+
+.hero-pedestal-stage.active-turn .hero-battler-avatar-wrap>div {
+	animation: hero-turn-sprite-pulse 1.5s infinite ease-in-out;
+}
+
+.hero-pedestal-stage.active-turn .hero-pedestal-header span:first-child {
+	color: #fbbf24;
+	text-shadow: 0 0 8px rgba(251, 191, 36, 0.75);
+}
+
+@keyframes hero-turn-sprite-pulse {
+
+	0%,
+	100% {
+		transform: translateY(-2px) scale(1.24);
+		filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.85)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.95));
+	}
+
+	50% {
+		transform: translateY(-6px) scale(1.36);
+		filter: drop-shadow(0 0 16px rgba(251, 191, 36, 1)) drop-shadow(0 0 24px rgba(245, 158, 11, 0.65)) drop-shadow(0 6px 12px rgba(0, 0, 0, 0.95));
+	}
+}
+
 /* Glowing Tactical Pedestal Ring */
 .hero-pedestal-base {
 	position: absolute;
-	bottom: 4px;
+	bottom: 2px;
 	left: 50%;
 	transform: translateX(-50%);
 	width: 68px;
 	height: 18px;
 	border-radius: 50%;
-	background: radial-gradient(ellipse at center, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.4) 70%, transparent 100%);
+	background: radial-gradient(ellipse at center,
+			rgba(30, 41, 59, 0.9) 0%,
+			rgba(15, 23, 42, 0.4) 70%,
+			transparent 100%);
 	border: 1.5px solid rgba(56, 189, 248, 0.3);
 	box-shadow: 0 0 8px rgba(56, 189, 248, 0.2);
 	z-index: 1;
@@ -1637,15 +1801,20 @@ img.battler-sprite.boss-battler {
 
 .hero-pedestal-stage.active-turn .hero-pedestal-base {
 	border-color: #fbbf24;
-	box-shadow: 0 0 14px rgba(251, 191, 36, 0.85), inset 0 0 8px rgba(251, 191, 36, 0.4);
+	box-shadow:
+		0 0 14px rgba(251, 191, 36, 0.85),
+		inset 0 0 8px rgba(251, 191, 36, 0.4);
 	animation: activePedestalGlow 1.8s infinite ease-in-out;
 }
 
 @keyframes activePedestalGlow {
-	0%, 100% {
+
+	0%,
+	100% {
 		border-color: #fbbf24;
 		box-shadow: 0 0 10px rgba(251, 191, 36, 0.7);
 	}
+
 	50% {
 		border-color: #f59e0b;
 		box-shadow: 0 0 18px rgba(245, 158, 11, 1);
@@ -1727,8 +1896,10 @@ img.battler-sprite.boss-battler {
 
 /* Q1 Grid Tile Flare */
 .q1-tile-flare {
-	box-shadow: inset 0 0 12px rgba(255, 157, 77, 0.85), 0 0 8px rgba(255, 157, 77, 0.6) !important;
-	border: 1.5px solid #ff9d4d !important;
+	box-shadow:
+		inset 0 0 12px rgba(255, 157, 77, 0.85),
+		0 0 8px rgba(255, 157, 77, 0.6);
+	border: 1.5px solid #ff9d4d;
 }
 
 /* Q2 Rim-Light Glow Shader Simulation */
@@ -1738,18 +1909,78 @@ img.battler-sprite.boss-battler {
 
 /* Q3 CTB Ribbon Flare */
 .the-flare-q3 {
-	border-color: #ff9d4d !important;
-	box-shadow: 0 0 14px rgba(255, 157, 77, 0.9), inset 0 0 6px rgba(255, 157, 77, 0.5) !important;
+	border-color: #ff9d4d;
+	box-shadow:
+		0 0 14px rgba(255, 157, 77, 0.9),
+		inset 0 0 6px rgba(255, 157, 77, 0.5);
 }
 
 /* Q4 Command Deck Flare */
 .the-flare-q4 {
-	box-shadow: 0 0 16px rgba(255, 157, 77, 0.85), inset 0 0 8px rgba(255, 157, 77, 0.3) !important;
+	box-shadow:
+		0 0 16px rgba(255, 157, 77, 0.85),
+		inset 0 0 8px rgba(255, 157, 77, 0.3);
 }
 
 /* =========================================================================
-   ZERO-MODAL LIVE TARGET TELEMETRY RIBBON (Q4)
+   ZERO-MODAL LIVE TARGET TELEMETRY RIBBON & CHIP DECK (Q4)
    ========================================================================= */
+
+.telemetry-chip-deck {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 6px;
+	margin-top: 2px;
+	width: 100%;
+}
+
+.telemetry-chip {
+	background: rgba(15, 23, 42, 0.85);
+	border: 1px solid rgba(56, 189, 248, 0.25);
+	border-radius: 4px;
+	padding: 5px 6px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+	transition: all 0.15s ease;
+}
+
+.telemetry-chip:hover {
+	border-color: var(--ember);
+	box-shadow: 0 0 8px var(--shadow-ember);
+}
+
+.telemetry-chip .chip-label {
+	font-size: 8px;
+	font-weight: 700;
+	color: #94a3b8;
+	letter-spacing: 0.6px;
+	text-transform: uppercase;
+}
+
+.telemetry-chip .chip-val {
+	font-size: 11px;
+	font-family: var(--font-mono, monospace);
+	font-weight: 800;
+	color: #f8fafc;
+	margin-top: 2px;
+}
+
+.telemetry-chip .chip-val.highlight {
+	color: #fbbf24;
+	text-shadow: 0 0 6px rgba(251, 191, 36, 0.5);
+}
+
+.telemetry-chip .chip-val.weak {
+	color: #f87171;
+}
+
+.telemetry-chip .chip-val.resist {
+	color: #38bdf8;
+}
 
 .telemetry-ribbon-card {
 	display: flex;
@@ -1800,9 +2031,9 @@ img.battler-sprite.boss-battler {
 .telemetry-cost-badge {
 	font-size: 9px;
 	font-weight: 700;
-	color: #a5f3fc;
-	background: rgba(6, 182, 212, 0.2);
-	border: 1px solid rgba(6, 182, 212, 0.4);
+	color: #083344;
+	background: #67e8f9;
+	border: 1px solid #22d3ee;
 	padding: 1px 5px;
 	border-radius: 2px;
 }
@@ -1827,30 +2058,9 @@ img.battler-sprite.boss-battler {
 }
 
 /* =========================================================================
-   GHOST PORTRAIT PRE-SIMULATION & TELEGRAPH SLOTS (Q3)
+   COMPACT THREAT INTENT FEED ITEMS (Q3)
    ========================================================================= */
 
-.turn-slot.projected-slot,
-.turn-slot.ghost-turn-slot {
-	border: 1.5px dashed #fbbf24 !important;
-	background: rgba(251, 191, 36, 0.22) !important;
-	opacity: 0.85;
-	transform: translateY(-2px) scale(1.06);
-	animation: ghostPortraitPulse 1.2s infinite ease-in-out;
-}
-
-@keyframes ghostPortraitPulse {
-	0%, 100% {
-		box-shadow: 0 0 6px rgba(251, 191, 36, 0.5);
-		opacity: 0.8;
-	}
-	50% {
-		box-shadow: 0 0 16px rgba(251, 191, 36, 0.95), inset 0 0 6px rgba(251, 191, 36, 0.4);
-		opacity: 1.0;
-	}
-}
-
-/* Compact Threat Intent Feed Items */
 .intent-beacon-item {
 	display: flex;
 	justify-content: space-between;
@@ -1881,14 +2091,14 @@ img.battler-sprite.boss-battler {
 }
 
 .intent-badge.basic {
-	background: rgba(56, 189, 248, 0.15);
-	color: #38bdf8;
-	border: 1px solid rgba(56, 189, 248, 0.3);
+	background: rgba(14, 116, 144, 0.3);
+	color: #7dd3fc;
+	border: 1px solid #0284c7;
 }
 
 .intent-badge.charged {
-	background: rgba(239, 68, 68, 0.2);
-	color: #f87171;
-	border: 1px solid rgba(239, 68, 68, 0.4);
+	background: rgba(185, 28, 28, 0.3);
+	color: #fca5a5;
+	border: 1px solid #dc2626;
 	animation: criticalArcPulse 1s infinite ease-in-out;
 }

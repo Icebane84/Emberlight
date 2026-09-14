@@ -5,7 +5,7 @@
  * Governing Protocol:  VSRP-001 / ARCH-SPEC-WAR-TABLE-001
  * Authority:           Peripheral Presentation
  * ============================================================================
- * 
+ *
  * TABLE OF CONTENTS & NAVIGATION ANCHORS:
  *   [SEC-01] Type Definitions, Constants, Scales & Mood Configurations
  *   [SEC-02] Web Audio Context Initialization, Buffers & User Gesture Unlocking
@@ -40,8 +40,6 @@
  */
 
 const EmberlightSoundtrack = (() => {
-	'use strict';
-
 	//#region [SEC-01] Type Definitions, Constants, Scales & Mood Configurations
 	/** @type {AudioContext|null} */
 	let ctx = null;
@@ -55,8 +53,8 @@ const EmberlightSoundtrack = (() => {
 	let unsubs = [];
 
 	// Active Sequencer State
-	let currentMood = 'SURFACE'; // 'SURFACE' | 'TOWN' | 'CATACOMBS' | 'COMBAT' | 'BOSS'
-	let targetMood = 'SURFACE';
+	let currentMood = "SURFACE"; // 'SURFACE' | 'TOWN' | 'CATACOMBS' | 'COMBAT' | 'BOSS'
+	let targetMood = "SURFACE";
 	let currentBPM = 98;
 	let targetBPM = 98;
 	let currentStep = 0;
@@ -78,11 +76,26 @@ const EmberlightSoundtrack = (() => {
 
 	/** @type {Record<string, MoodConfig>} */
 	const MOOD_CONFIG = {
-		SURFACE: { bpm: 98, rootFreq: 110.0, filterCutoff: 650, bassType: 'triangle' },
-		TOWN: { bpm: 86, rootFreq: 130.8, filterCutoff: 900, bassType: 'triangle' },
-		CATACOMBS: { bpm: 108, rootFreq: 73.4, filterCutoff: 420, bassType: 'sawtooth' },
-		COMBAT: { bpm: 138, rootFreq: 82.4, filterCutoff: 1200, bassType: 'sawtooth' },
-		BOSS: { bpm: 152, rootFreq: 73.4, filterCutoff: 1600, bassType: 'square' },
+		SURFACE: {
+			bpm: 98,
+			rootFreq: 110.0,
+			filterCutoff: 650,
+			bassType: "triangle",
+		},
+		TOWN: { bpm: 86, rootFreq: 130.8, filterCutoff: 900, bassType: "triangle" },
+		CATACOMBS: {
+			bpm: 108,
+			rootFreq: 73.4,
+			filterCutoff: 420,
+			bassType: "sawtooth",
+		},
+		COMBAT: {
+			bpm: 138,
+			rootFreq: 82.4,
+			filterCutoff: 1200,
+			bassType: "sawtooth",
+		},
+		BOSS: { bpm: 152, rootFreq: 73.4, filterCutoff: 1600, bassType: "square" },
 	};
 	//#endregion
 
@@ -94,7 +107,7 @@ const EmberlightSoundtrack = (() => {
 	 * @returns {number} Frequency in Hz.
 	 */
 	function midiToFreq(midi) {
-		return 440 * (2 ** ((midi - 69) / 12));
+		return 440 * 2 ** ((midi - 69) / 12);
 	}
 
 	/**
@@ -103,9 +116,10 @@ const EmberlightSoundtrack = (() => {
 	 * @returns {void}
 	 */
 	function ensureContext() {
-		if (!userUnlocked || typeof window === 'undefined') return;
+		if (!userUnlocked || typeof window === "undefined") return;
 		if (!ctx) {
-			const AudioContextClass = window.AudioContext || /** @type {any} */ (window).webkitAudioContext;
+			const AudioContextClass =
+				window.AudioContext || /** @type {any} */ (window).webkitAudioContext;
 			if (!AudioContextClass) return;
 			try {
 				ctx = new AudioContextClass();
@@ -118,7 +132,7 @@ const EmberlightSoundtrack = (() => {
 				ctx = null;
 			}
 		}
-		if (ctx?.state === 'suspended') {
+		if (ctx?.state === "suspended") {
 			ctx.resume().catch(() => { });
 		}
 	}
@@ -129,14 +143,17 @@ const EmberlightSoundtrack = (() => {
 	 * @returns {void}
 	 */
 	function bakeNoiseBuffer() {
-		if (!ctx || typeof ctx.createBuffer !== 'function') return;
+		if (!ctx || typeof ctx.createBuffer !== "function") return;
 		try {
 			const bufferSize = Math.floor(ctx.sampleRate * 0.1);
 			noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
 			const output = noiseBuffer.getChannelData(0);
-			const prng = (typeof EmberlightPRNG !== 'undefined') ? EmberlightPRNG.create(1337) : null;
+			const prng =
+				typeof EmberlightPRNG !== "undefined"
+					? EmberlightPRNG.create(1337)
+					: null;
 			for (let i = 0; i < bufferSize; i++) {
-				const val = prng ? prng.nextFloat() : (i % 1000 / 500 - 1);
+				const val = prng ? prng.nextFloat() : (i % 1000) / 500 - 1;
 				output[i] = val * 2 - 1;
 			}
 		} catch {
@@ -150,20 +167,24 @@ const EmberlightSoundtrack = (() => {
 	 * @returns {void}
 	 */
 	function armGestureUnlock() {
-		if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
+		if (
+			typeof window === "undefined" ||
+			typeof window.addEventListener !== "function"
+		)
+			return;
 		const unlock = () => {
 			userUnlocked = true;
 			ensureContext();
 			if (ctx && nextStepTime === 0) {
 				nextStepTime = ctx.currentTime + 0.1;
 			}
-			window.removeEventListener('click', unlock);
-			window.removeEventListener('keydown', unlock);
-			window.removeEventListener('touchstart', unlock);
+			window.removeEventListener("click", unlock);
+			window.removeEventListener("keydown", unlock);
+			window.removeEventListener("touchstart", unlock);
 		};
-		window.addEventListener('click', unlock, { once: true });
-		window.addEventListener('keydown', unlock, { once: true });
-		window.addEventListener('touchstart', unlock, { once: true });
+		window.addEventListener("click", unlock, { once: true });
+		window.addEventListener("keydown", unlock, { once: true });
+		window.addEventListener("touchstart", unlock, { once: true });
 	}
 	//#endregion
 
@@ -189,9 +210,12 @@ const EmberlightSoundtrack = (() => {
 			osc.type = type;
 			osc.frequency.setValueAtTime(freq, time);
 
-			filter.type = 'lowpass';
+			filter.type = "lowpass";
 			filter.frequency.setValueAtTime(cutoff, time);
-			filter.frequency.exponentialRampToValueAtTime(Math.max(40, cutoff * 0.4), time + duration);
+			filter.frequency.exponentialRampToValueAtTime(
+				Math.max(40, cutoff * 0.4),
+				time + duration,
+			);
 
 			gain.gain.setValueAtTime(0.28, time);
 			gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
@@ -222,7 +246,10 @@ const EmberlightSoundtrack = (() => {
 			const osc = ctx.createOscillator();
 			const gain = ctx.createGain();
 
-			osc.type = (currentMood === 'COMBAT' || currentMood === 'BOSS') ? 'square' : 'triangle';
+			osc.type =
+				currentMood === "COMBAT" || currentMood === "BOSS"
+					? "square"
+					: "triangle";
 			osc.frequency.setValueAtTime(freq, time);
 
 			gain.gain.setValueAtTime(0.12, time);
@@ -253,9 +280,12 @@ const EmberlightSoundtrack = (() => {
 			const osc = ctx.createOscillator();
 			const gain = ctx.createGain();
 
-			osc.type = 'sine';
+			osc.type = "sine";
 			osc.frequency.setValueAtTime(freq, time);
-			osc.frequency.exponentialRampToValueAtTime(freq * 1.01, time + duration * 0.5);
+			osc.frequency.exponentialRampToValueAtTime(
+				freq * 1.01,
+				time + duration * 0.5,
+			);
 
 			gain.gain.setValueAtTime(0.001, time);
 			gain.gain.linearRampToValueAtTime(0.18, time + 0.02);
@@ -282,10 +312,10 @@ const EmberlightSoundtrack = (() => {
 	function playPercussion(type, time) {
 		if (!ctx || !noiseBuffer || isMuted || !masterGain) return;
 		try {
-			if (type === 'KICK') {
+			if (type === "KICK") {
 				const osc = ctx.createOscillator();
 				const gain = ctx.createGain();
-				osc.type = 'triangle';
+				osc.type = "triangle";
 				osc.frequency.setValueAtTime(120, time);
 				osc.frequency.exponentialRampToValueAtTime(32, time + 0.08);
 
@@ -296,17 +326,17 @@ const EmberlightSoundtrack = (() => {
 				gain.connect(masterGain);
 				osc.start(time);
 				osc.stop(time + 0.09);
-			} else if (type === 'SNARE' || type === 'HAT') {
+			} else if (type === "SNARE" || type === "HAT") {
 				const node = ctx.createBufferSource();
 				const filter = ctx.createBiquadFilter();
 				const gain = ctx.createGain();
 
 				node.buffer = noiseBuffer;
-				filter.type = type === 'HAT' ? 'highpass' : 'bandpass';
-				filter.frequency.setValueAtTime(type === 'HAT' ? 6000 : 1800, time);
+				filter.type = type === "HAT" ? "highpass" : "bandpass";
+				filter.frequency.setValueAtTime(type === "HAT" ? 6000 : 1800, time);
 
-				const dur = type === 'HAT' ? 0.03 : 0.08;
-				const vol = type === 'HAT' ? 0.08 : 0.22;
+				const dur = type === "HAT" ? 0.03 : 0.08;
+				const vol = type === "HAT" ? 0.08 : 0.22;
 
 				gain.gain.setValueAtTime(vol, time);
 				gain.gain.exponentialRampToValueAtTime(0.001, time + dur);
@@ -337,8 +367,14 @@ const EmberlightSoundtrack = (() => {
 	function scheduleBass(stepIdx, stepTime, stepDuration, cfg) {
 		if ([0, 3, 6, 10, 12].includes(stepIdx)) {
 			const root = cfg.rootFreq;
-			const octaveMod = (stepIdx === 6 || stepIdx === 12) ? 1.5 : 1.0;
-			playBassNote(root * octaveMod, stepTime, stepDuration * 2.2, cfg.bassType, cfg.filterCutoff);
+			const octaveMod = stepIdx === 6 || stepIdx === 12 ? 1.5 : 1.0;
+			playBassNote(
+				root * octaveMod,
+				stepTime,
+				stepDuration * 2.2,
+				cfg.bassType,
+				cfg.filterCutoff,
+			);
 		}
 	}
 
@@ -381,19 +417,23 @@ const EmberlightSoundtrack = (() => {
 	 * @returns {void}
 	 */
 	function schedulePercussion(stepIdx, stepTime) {
-		if (currentMood === 'COMBAT' || currentMood === 'BOSS') {
-			if (stepIdx === 0 || stepIdx === 8 || (currentMood === 'BOSS' && stepIdx === 14)) {
-				playPercussion('KICK', stepTime);
+		if (currentMood === "COMBAT" || currentMood === "BOSS") {
+			if (
+				stepIdx === 0 ||
+				stepIdx === 8 ||
+				(currentMood === "BOSS" && stepIdx === 14)
+			) {
+				playPercussion("KICK", stepTime);
 			}
 			if (stepIdx === 4 || stepIdx === 12) {
-				playPercussion('SNARE', stepTime);
+				playPercussion("SNARE", stepTime);
 			}
 			if (stepIdx % 2 === 1) {
-				playPercussion('HAT', stepTime);
+				playPercussion("HAT", stepTime);
 			}
-		} else if (currentMood === 'CATACOMBS') {
-			if (stepIdx === 0) playPercussion('KICK', stepTime);
-			if (stepIdx === 8) playPercussion('HAT', stepTime);
+		} else if (currentMood === "CATACOMBS") {
+			if (stepIdx === 0) playPercussion("KICK", stepTime);
+			if (stepIdx === 8) playPercussion("HAT", stepTime);
 		}
 	}
 
@@ -427,69 +467,79 @@ const EmberlightSoundtrack = (() => {
 		init(bus) {
 			this.destroy();
 			let resolvedBus = null;
-			if (bus && typeof bus.subscribe === 'function') {
+			if (bus && typeof bus.subscribe === "function") {
 				resolvedBus = bus;
-			} else if (bus?.eventBus && typeof bus.eventBus.subscribe === 'function') {
+			} else if (
+				bus?.eventBus &&
+				typeof bus.eventBus.subscribe === "function"
+			) {
 				resolvedBus = bus.eventBus;
 			}
 			eventBus = resolvedBus;
 			armGestureUnlock();
 
 			if (eventBus) {
-				let lastAmbientMood = 'SURFACE';
+				let lastAmbientMood = "SURFACE";
 
 				unsubs.push(
-					eventBus.subscribe('world:zone_change', (evt = {}) => {
-						const zone = evt?.zone || (evt?.townId ? 'TOWN' : 'SURFACE');
-						lastAmbientMood = zone === 'TOWN' ? 'TOWN' : (zone === 'CATACOMBS' ? 'CATACOMBS' : 'SURFACE');
-						if (currentMood !== 'COMBAT' && currentMood !== 'BOSS') {
+					eventBus.subscribe("world:zone_change", (evt = {}) => {
+						const zone = evt?.zone || (evt?.townId ? "TOWN" : "SURFACE");
+						lastAmbientMood =
+							zone === "TOWN"
+								? "TOWN"
+								: zone === "CATACOMBS"
+									? "CATACOMBS"
+									: "SURFACE";
+						if (currentMood !== "COMBAT" && currentMood !== "BOSS") {
 							this.setMood(lastAmbientMood);
 						}
 					}),
-					eventBus.subscribe('overworld:step', (evt = {}) => {
+					eventBus.subscribe("overworld:step", (evt = {}) => {
 						const pos = evt?.pos;
 						if (pos) {
-							let amb = 'SURFACE';
+							let amb = "SURFACE";
 							if (evt.townId || pos.townId || pos.inTown) {
-								amb = 'TOWN';
+								amb = "TOWN";
 							} else if (pos.depth && pos.depth > 0) {
-								amb = 'CATACOMBS';
-							} else if (pos.tile === 'T' || pos.tile === 'D') {
-								amb = 'TOWN';
+								amb = "CATACOMBS";
+							} else if (pos.tile === "T" || pos.tile === "D") {
+								amb = "TOWN";
 							} else {
-								amb = 'SURFACE';
+								amb = "SURFACE";
 							}
 							lastAmbientMood = amb;
-							if (currentMood !== 'COMBAT' && currentMood !== 'BOSS') {
+							if (currentMood !== "COMBAT" && currentMood !== "BOSS") {
 								this.setMood(amb);
 							}
 						}
 					}),
-					eventBus.subscribe('stage:biome', (evt = {}) => {
-						const b = String(evt?.biome || '').toUpperCase();
-						if (b.includes('CRYPT') || b.includes('CATACOMB')) lastAmbientMood = 'CATACOMBS';
-						else if (b.includes('TOWN')) lastAmbientMood = 'TOWN';
-						else if (b.includes('MEADOW') || b.includes('SURFACE')) lastAmbientMood = 'SURFACE';
-						if (currentMood !== 'COMBAT' && currentMood !== 'BOSS') {
+					eventBus.subscribe("stage:biome", (evt = {}) => {
+						const b = String(evt?.biome || "").toUpperCase();
+						if (b.includes("CRYPT") || b.includes("CATACOMB"))
+							lastAmbientMood = "CATACOMBS";
+						else if (b.includes("TOWN")) lastAmbientMood = "TOWN";
+						else if (b.includes("MEADOW") || b.includes("SURFACE"))
+							lastAmbientMood = "SURFACE";
+						if (currentMood !== "COMBAT" && currentMood !== "BOSS") {
 							this.setMood(lastAmbientMood);
 						}
 					}),
-					eventBus.subscribe('overworld:encounter', (evt = {}) => {
+					eventBus.subscribe("overworld:encounter", (evt = {}) => {
 						const encounterKey = evt?.encounterKey;
-						if (encounterKey === 'BOSS_MALAKOR') {
-							this.setMood('BOSS');
+						if (encounterKey === "BOSS_MALAKOR") {
+							this.setMood("BOSS");
 						} else {
-							this.setMood('COMBAT');
+							this.setMood("COMBAT");
 						}
 					}),
-					eventBus.subscribe('combat:resolved', () => {
-						this.setMood(lastAmbientMood || 'SURFACE');
+					eventBus.subscribe("combat:resolved", () => {
+						this.setMood(lastAmbientMood || "SURFACE");
 					}),
-					eventBus.subscribe('system:command', (evt = {}) => {
-						if (evt?.command === 'TOGGLE_MUTE') {
+					eventBus.subscribe("system:command", (evt = {}) => {
+						if (evt?.command === "TOGGLE_MUTE") {
 							this.toggleMute();
 						}
-					})
+					}),
 				);
 			}
 		},
@@ -559,12 +609,12 @@ const EmberlightSoundtrack = (() => {
 		 */
 		getDiagnostics() {
 			return {
-				driverId: 'synth_soundtrack_driver',
+				driverId: "synth_soundtrack_driver",
 				activeMood: currentMood,
 				currentBPM,
 				currentStep,
 				isMuted,
-				contextState: ctx ? ctx.state : 'uninitialized',
+				contextState: ctx ? ctx.state : "uninitialized",
 			};
 		},
 
@@ -576,7 +626,7 @@ const EmberlightSoundtrack = (() => {
 		destroy() {
 			unsubs.forEach((u) => {
 				try {
-					if (typeof u === 'function') u();
+					if (typeof u === "function") u();
 				} catch {
 					// Ignore unbind errors
 				}
@@ -597,10 +647,10 @@ const EmberlightSoundtrack = (() => {
 	//#endregion
 })();
 
-if (typeof window !== 'undefined') {
-	// @ts-ignore
+if (typeof window !== "undefined") {
+	// @ts-expect-error
 	window.EmberlightSoundtrack = EmberlightSoundtrack;
 }
-if (typeof module !== 'undefined' && module.exports) {
+if (typeof module !== "undefined" && module.exports) {
 	module.exports = EmberlightSoundtrack;
 }

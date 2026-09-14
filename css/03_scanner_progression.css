@@ -232,50 +232,58 @@
 
 .turn-ribbon {
   display: flex;
-  gap: 6px;
-  background: rgba(0, 0, 0, 0.5);
+  gap: 8px;
+  background: rgba(4, 4, 14, 0.75);
   border: 1px solid var(--border-dim);
-  padding: 6px;
+  border-radius: 4px;
+  padding: 6px 8px;
   overflow-x: auto;
+  align-items: center;
+  min-height: 60px;
 }
 
 .turn-slot {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   padding: 4px 6px;
-  border: 1px solid var(--border-dim);
-  background: rgba(12, 12, 28, 0.8);
-  min-width: 48px;
+  border: 1.5px solid var(--border-dim);
+  border-radius: 4px;
+  background: rgba(15, 23, 42, 0.85);
+  min-width: 52px;
+  min-height: 52px;
   transition: all 0.15s ease;
+  box-sizing: border-box;
 }
 
 .turn-slot.active-slot {
   border-color: var(--ember);
-  box-shadow: 0 0 8px var(--shadow-ember);
-  background: rgba(255, 157, 77, 0.18);
-  transform: scale(1.05);
+  box-shadow: 0 0 12px var(--shadow-ember);
+  background: rgba(255, 157, 77, 0.2);
+  transform: scale(1.08);
 }
 
-.turn-slot.hero-slot { border-top: 2px solid #38bdf8; }
-.turn-slot.enemy-slot { border-top: 2px solid var(--danger); }
+.turn-slot.hero-slot { border-top: 3px solid #38bdf8; }
+.turn-slot.enemy-slot { border-top: 3px solid var(--danger); }
 
-.slot-idx { font-size: 6px; color: var(--text-dim); margin-bottom: 2px; }
-.slot-crest { width: 20px; height: 20px; image-rendering: pixelated; }
-.slot-char { font-size: 14px; line-height: 20px; }
-.slot-name { font-size: 6.5px; margin-top: 2px; }
+.slot-idx { font-size: 9px; font-weight: 800; color: var(--text-dim); margin-bottom: 2px; }
+.slot-crest { width: 26px; height: 26px; image-rendering: pixelated; }
+.slot-char { font-size: 16px; line-height: 24px; font-weight: bold; }
+.slot-name { font-size: 10px; font-weight: 700; margin-top: 3px; color: #e2e8f0; text-transform: uppercase; }
 
 .telegraph-feed {
-  padding: 2px 0;
+  padding: 4px 0;
 }
 
 .telegraph-banner {
-  font-size: 7px;
-  padding: 6px 8px;
-  border-radius: 2px;
+  font-size: 12px;
+  padding: 8px 12px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  font-weight: 600;
 }
 
 .telegraph-banner.alert {
@@ -287,26 +295,27 @@
 
 @keyframes pulse-danger {
   0% { box-shadow: 0 0 4px rgba(239, 68, 68, 0.4); }
-  100% { box-shadow: 0 0 10px rgba(239, 68, 68, 0.8); }
+  100% { box-shadow: 0 0 12px rgba(239, 68, 68, 0.9); }
 }
 
 .telegraph-banner.calm {
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.4);
   border: 1px solid var(--border-dim);
-  color: var(--text-dim);
+  color: #cbd5e1;
 }
 
 .affinity-inspector {
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.45);
   border: 1px solid var(--border-dim);
-  padding: 6px 8px;
-  font-size: 7px;
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-size: 12px;
 }
 
-.inspector-label { color: var(--text-dim); margin-bottom: 4px; display: block; }
-.enemy-affinity-row { margin-bottom: 3px; display: flex; align-items: center; gap: 6px; }
-.pip { padding: 2px 5px; border-radius: 2px; font-size: 6px; font-weight: bold; }
-.pip.weak { background: rgba(255, 157, 77, 0.2); border: 1px solid var(--ember); color: var(--ember); }
+.inspector-label { color: var(--text-dim); margin-bottom: 5px; display: block; font-weight: 700; font-size: 11px; }
+.enemy-affinity-row { margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+.pip { padding: 3px 7px; border-radius: 3px; font-size: 10.5px; font-weight: bold; }
+.pip.weak { background: rgba(255, 157, 77, 0.25); border: 1px solid var(--ember); color: var(--ember); }
 .pip.resist { background: #1e293b; border: 1px solid #64748b; color: #e2e8f0; }
 .pip.neutral { color: var(--text-dim); }
 

@@ -22,10 +22,8 @@
  * ============================================================================
  */
 
-// @ts-ignore
+// @ts-expect-error
 const EmberlightSpriteBaker = (() => {
-	'use strict';
-
 	//#region [SEC-01] Type Definitions & Contract Schemas
 	/**
 	 * @typedef {Object} Point2D
@@ -116,26 +114,34 @@ const EmberlightSpriteBaker = (() => {
 	 */
 	function ensureCanvases() {
 		if (workCanvas && workCtx && targetCanvas && targetCtx) return;
-		if (typeof document === 'undefined' || typeof document.createElement !== 'function') return;
+		if (
+			typeof document === "undefined" ||
+			typeof document.createElement !== "function"
+		)
+			return;
 
-		workCanvas = /** @type {HTMLCanvasElement} */ (document.createElement('canvas'));
+		workCanvas = /** @type {HTMLCanvasElement} */ (
+			document.createElement("canvas")
+		);
 		workCanvas.width = WORK_SIZE;
 		workCanvas.height = WORK_SIZE;
-		workCtx = workCanvas.getContext('2d');
+		workCtx = workCanvas.getContext("2d");
 		if (workCtx) {
 			workCtx.imageSmoothingEnabled = true;
-			workCtx.imageSmoothingQuality = 'high';
-			workCtx.lineJoin = 'round';
-			workCtx.lineCap = 'round';
+			workCtx.imageSmoothingQuality = "high";
+			workCtx.lineJoin = "round";
+			workCtx.lineCap = "round";
 		}
 
-		targetCanvas = /** @type {HTMLCanvasElement} */ (document.createElement('canvas'));
+		targetCanvas = /** @type {HTMLCanvasElement} */ (
+			document.createElement("canvas")
+		);
 		targetCanvas.width = TARGET_SIZE;
 		targetCanvas.height = TARGET_SIZE;
-		targetCtx = targetCanvas.getContext('2d');
+		targetCtx = targetCanvas.getContext("2d");
 		if (targetCtx) {
 			targetCtx.imageSmoothingEnabled = true;
-			targetCtx.imageSmoothingQuality = 'high';
+			targetCtx.imageSmoothingQuality = "high";
 		}
 	}
 
@@ -156,66 +162,66 @@ const EmberlightSpriteBaker = (() => {
 	// =========================================================================
 	const P = Object.freeze({
 		// Neutral & Dark Foundations
-		void: '#06070a',
-		shadowAO: 'rgba(0, 0, 0, 0.52)',
-		ironDark: '#111827',
-		ironMid: '#1f2937',
-		ironLight: '#374151',
+		void: "#06070a",
+		shadowAO: "rgba(0, 0, 0, 0.52)",
+		ironDark: "#111827",
+		ironMid: "#1f2937",
+		ironLight: "#374151",
 
 		// Metallic Steel (4 Tiers)
-		steelDark: '#334155',
-		steelMid: '#64748b',
-		steelLight: '#cbd5e1',
-		steelSpec: '#ffffff',
+		steelDark: "#334155",
+		steelMid: "#64748b",
+		steelLight: "#cbd5e1",
+		steelSpec: "#ffffff",
 
 		// Organic Skin Tones (4 Tiers)
-		skinDeep: '#92400e',
-		skinShadow: '#d97706',
-		skinMid: '#fbd38d',
-		skinLight: '#fef3c7',
+		skinDeep: "#92400e",
+		skinShadow: "#d97706",
+		skinMid: "#fbd38d",
+		skinLight: "#fef3c7",
 
 		// Royal Gold & Brass (4 Tiers)
-		goldDark: '#78350f',
-		goldMid: '#ca8a04',
-		goldLight: '#facc15',
-		goldSpec: '#fef08a',
+		goldDark: "#78350f",
+		goldMid: "#ca8a04",
+		goldLight: "#facc15",
+		goldSpec: "#fef08a",
 
 		// Organic Leather & Wood
-		leatherDark: '#291003',
-		leatherMid: '#78350f',
-		leatherLight: '#b45309',
-		woodDark: '#271005',
-		woodMid: '#451a03',
-		woodLight: '#78350f',
+		leatherDark: "#291003",
+		leatherMid: "#78350f",
+		leatherLight: "#b45309",
+		woodDark: "#271005",
+		woodMid: "#451a03",
+		woodLight: "#78350f",
 
 		// Vestment & Fabric Tones
-		clothRedDark: '#450a0a',
-		clothRed: '#b91c1c',
-		clothRedLight: '#f87171',
+		clothRedDark: "#450a0a",
+		clothRed: "#b91c1c",
+		clothRedLight: "#f87171",
 
-		clothBlueDark: '#172554',
-		clothBlue: '#1d4ed8',
-		clothBlueLight: '#60a5fa',
+		clothBlueDark: "#172554",
+		clothBlue: "#1d4ed8",
+		clothBlueLight: "#60a5fa",
 
-		clothVioletDark: '#2e1065',
-		clothViolet: '#6d28d9',
-		clothVioletLight: '#c084fc',
+		clothVioletDark: "#2e1065",
+		clothViolet: "#6d28d9",
+		clothVioletLight: "#c084fc",
 
-		clothGreenDark: '#064e3b',
-		clothGreen: '#059669',
-		clothGreenLight: '#34d399',
+		clothGreenDark: "#064e3b",
+		clothGreen: "#059669",
+		clothGreenLight: "#34d399",
 
-		clothWhiteDark: '#94a3b8',
-		clothWhite: '#e2e8f0',
-		clothWhiteLight: '#ffffff',
+		clothWhiteDark: "#94a3b8",
+		clothWhite: "#e2e8f0",
+		clothWhiteLight: "#ffffff",
 
 		// Emissive & Arcane Cores
-		emberCore: '#ff5500',
-		emberGlow: '#facc15',
-		arcaneCyan: '#38bdf8',
-		arcaneViolet: '#e879f9',
-		venomGreen: '#22c55e',
-		soulRed: '#ef4444',
+		emberCore: "#ff5500",
+		emberGlow: "#facc15",
+		arcaneCyan: "#38bdf8",
+		arcaneViolet: "#e879f9",
+		venomGreen: "#22c55e",
+		soulRed: "#ef4444",
 	});
 	//#endregion
 
@@ -239,12 +245,19 @@ const EmberlightSpriteBaker = (() => {
 	 * @param {number} [strokeW=1] - Outline stroke width in 32-space.
 	 * @returns {void}
 	 */
-	function drawRoundedRect(ctx, bounds, r, fill = null, stroke = null, strokeW = 1) {
+	function drawRoundedRect(
+		ctx,
+		bounds,
+		r,
+		fill = null,
+		stroke = null,
+		strokeW = 1,
+	) {
 		if (!ctx) return;
 		const [x, y, w, h] = bounds;
 		ctx.save();
 		ctx.beginPath();
-		if (typeof ctx.roundRect === 'function') {
+		if (typeof ctx.roundRect === "function") {
 			ctx.roundRect(S(x), S(y), S(w), S(h), S(r));
 		} else {
 			ctx.rect(S(x), S(y), S(w), S(h));
@@ -271,7 +284,13 @@ const EmberlightSpriteBaker = (() => {
 	 * @param {number} [strokeW=1] - Outline stroke width in 32-space.
 	 * @returns {void}
 	 */
-	function drawShadedPoly(ctx, points, fill = null, stroke = null, strokeW = 1) {
+	function drawShadedPoly(
+		ctx,
+		points,
+		fill = null,
+		stroke = null,
+		strokeW = 1,
+	) {
 		if (!ctx || points.length < 3) return;
 		ctx.save();
 		ctx.beginPath();
@@ -330,30 +349,86 @@ const EmberlightSpriteBaker = (() => {
 		const bootColor = P.steelDark;
 		const bootRim = P.steelMid;
 
-		if (facing === 'UP' || facing === 'DOWN') {
+		if (facing === "UP" || facing === "DOWN") {
 			const leftY = isStep ? 22 : 19.5;
 			const rightY = isStep ? 19.5 : 22;
 
-			drawRoundedRect(workCtx, [9.5, leftY, 4.5, 7.5], 1.2, legColor, bootColor, 0.4);
-			drawRoundedRect(workCtx, [9.0, leftY + 5.5, 5.5, 2.8], 1.0, bootColor, bootRim, 0.4);
+			drawRoundedRect(
+				workCtx,
+				[9.5, leftY, 4.5, 7.5],
+				1.2,
+				legColor,
+				bootColor,
+				0.4,
+			);
+			drawRoundedRect(
+				workCtx,
+				[9.0, leftY + 5.5, 5.5, 2.8],
+				1.0,
+				bootColor,
+				bootRim,
+				0.4,
+			);
 
-			drawRoundedRect(workCtx, [18.0, rightY, 4.5, 7.5], 1.2, legColor, bootColor, 0.4);
-			drawRoundedRect(workCtx, [17.5, rightY + 5.5, 5.5, 2.8], 1.0, bootColor, bootRim, 0.4);
+			drawRoundedRect(
+				workCtx,
+				[18.0, rightY, 4.5, 7.5],
+				1.2,
+				legColor,
+				bootColor,
+				0.4,
+			);
+			drawRoundedRect(
+				workCtx,
+				[17.5, rightY + 5.5, 5.5, 2.8],
+				1.0,
+				bootColor,
+				bootRim,
+				0.4,
+			);
 			return;
 		}
-		if (facing === 'LEFT') {
+		if (facing === "LEFT") {
 			const legOffset = isStep ? 2 : 0;
-			drawRoundedRect(workCtx, [11.5 + legOffset, 20.5, 5.5, 8.0], 1.2, legColor, bootColor, 0.4);
-			drawRoundedRect(workCtx, [10.0 + legOffset, 25.5, 7.0, 3.2], 1.0, bootColor, bootRim, 0.4);
+			drawRoundedRect(
+				workCtx,
+				[11.5 + legOffset, 20.5, 5.5, 8.0],
+				1.2,
+				legColor,
+				bootColor,
+				0.4,
+			);
+			drawRoundedRect(
+				workCtx,
+				[10.0 + legOffset, 25.5, 7.0, 3.2],
+				1.0,
+				bootColor,
+				bootRim,
+				0.4,
+			);
 			if (isStep) {
 				drawRoundedRect(workCtx, [16.5, 19.5, 4.5, 7.5], 1.0, P.ironDark);
 			}
 			return;
 		}
-		if (facing === 'RIGHT') {
+		if (facing === "RIGHT") {
 			const legOffset = isStep ? -2 : 0;
-			drawRoundedRect(workCtx, [15.0 + legOffset, 20.5, 5.5, 8.0], 1.2, legColor, bootColor, 0.4);
-			drawRoundedRect(workCtx, [15.0 + legOffset, 25.5, 7.0, 3.2], 1.0, bootColor, bootRim, 0.4);
+			drawRoundedRect(
+				workCtx,
+				[15.0 + legOffset, 20.5, 5.5, 8.0],
+				1.2,
+				legColor,
+				bootColor,
+				0.4,
+			);
+			drawRoundedRect(
+				workCtx,
+				[15.0 + legOffset, 25.5, 7.0, 3.2],
+				1.0,
+				bootColor,
+				bootRim,
+				0.4,
+			);
 			if (isStep) {
 				drawRoundedRect(workCtx, [11.0, 19.5, 4.5, 7.5], 1.0, P.ironDark);
 			}
@@ -367,13 +442,13 @@ const EmberlightSpriteBaker = (() => {
 	 * @returns {{ torsoPrimary: string, torsoShadow: string }} Torso color pair.
 	 */
 	function resolveTorsoPalette(phenotype) {
-		if (phenotype === 'WARRIOR') {
+		if (phenotype === "WARRIOR") {
 			return { torsoPrimary: P.steelMid, torsoShadow: P.steelDark };
 		}
-		if (phenotype === 'MAGE') {
+		if (phenotype === "MAGE") {
 			return { torsoPrimary: P.clothViolet, torsoShadow: P.clothVioletDark };
 		}
-		if (phenotype === 'HEALER') {
+		if (phenotype === "HEALER") {
 			return { torsoPrimary: P.clothWhite, torsoShadow: P.clothWhiteDark };
 		}
 		return { torsoPrimary: P.clothBlue, torsoShadow: P.clothBlueDark };
@@ -387,28 +462,50 @@ const EmberlightSpriteBaker = (() => {
 	 * @returns {void}
 	 */
 	function drawVisageAndHair(facing, bobY) {
-		if (facing === 'DOWN') {
+		if (facing === "DOWN") {
 			drawRoundedRect(workCtx, [13.0, 7.5 + bobY, 2.2, 1.8], 0.5, P.void);
 			drawRoundedRect(workCtx, [16.8, 7.5 + bobY, 2.2, 1.8], 0.5, P.void);
 			drawRoundedRect(workCtx, [13.2, 7.7 + bobY, 1.4, 1.2], 0.3, P.arcaneCyan);
 			drawRoundedRect(workCtx, [17.0, 7.7 + bobY, 1.4, 1.2], 0.3, P.arcaneCyan);
-			drawRoundedRect(workCtx, [11.5, 4.5 + bobY, 9.0, 2.5], 1.0, P.leatherDark);
+			drawRoundedRect(
+				workCtx,
+				[11.5, 4.5 + bobY, 9.0, 2.5],
+				1.0,
+				P.leatherDark,
+			);
 			return;
 		}
-		if (facing === 'LEFT') {
+		if (facing === "LEFT") {
 			drawRoundedRect(workCtx, [12.0, 7.5 + bobY, 2.2, 1.8], 0.5, P.void);
 			drawRoundedRect(workCtx, [12.2, 7.7 + bobY, 1.4, 1.2], 0.3, P.arcaneCyan);
-			drawRoundedRect(workCtx, [11.0, 4.5 + bobY, 8.0, 3.0], 1.0, P.leatherDark);
+			drawRoundedRect(
+				workCtx,
+				[11.0, 4.5 + bobY, 8.0, 3.0],
+				1.0,
+				P.leatherDark,
+			);
 			return;
 		}
-		if (facing === 'RIGHT') {
+		if (facing === "RIGHT") {
 			drawRoundedRect(workCtx, [17.8, 7.5 + bobY, 2.2, 1.8], 0.5, P.void);
 			drawRoundedRect(workCtx, [18.0, 7.7 + bobY, 1.4, 1.2], 0.3, P.arcaneCyan);
-			drawRoundedRect(workCtx, [13.0, 4.5 + bobY, 8.0, 3.0], 1.0, P.leatherDark);
+			drawRoundedRect(
+				workCtx,
+				[13.0, 4.5 + bobY, 8.0, 3.0],
+				1.0,
+				P.leatherDark,
+			);
 			return;
 		}
-		if (facing === 'UP') {
-			drawRoundedRect(workCtx, [11.0, 4.2 + bobY, 10.0, 6.5], 2.5, P.leatherDark, P.void, 0.4);
+		if (facing === "UP") {
+			drawRoundedRect(
+				workCtx,
+				[11.0, 4.2 + bobY, 10.0, 6.5],
+				2.5,
+				P.leatherDark,
+				P.void,
+				0.4,
+			);
 		}
 	}
 
@@ -422,9 +519,9 @@ const EmberlightSpriteBaker = (() => {
 	 */
 	function drawBaseAnatomy(phenotype, facing, frame) {
 		if (!workCtx) return;
-		const isStep = (frame % 2 === 1);
+		const isStep = frame % 2 === 1;
 		const bobY = isStep ? -0.75 : 0;
-		const p = (phenotype || 'HERO').toUpperCase();
+		const p = (phenotype || "HERO").toUpperCase();
 
 		// 1. Ambient Ground Contact Shadow
 		drawEllipse(workCtx, 16, 28.5, 9.5, 3.8, P.shadowAO);
@@ -434,12 +531,33 @@ const EmberlightSpriteBaker = (() => {
 
 		// 3. Torso Core Tunics & Belt
 		const { torsoPrimary, torsoShadow } = resolveTorsoPalette(p);
-		drawRoundedRect(workCtx, [10.5, 12.5 + bobY, 11.0, 8.5], 2.0, torsoPrimary, torsoShadow, 0.5);
-		drawRoundedRect(workCtx, [10.0, 18.5 + bobY, 12.0, 2.2], 0.8, P.leatherMid, P.goldMid, 0.3);
+		drawRoundedRect(
+			workCtx,
+			[10.5, 12.5 + bobY, 11.0, 8.5],
+			2.0,
+			torsoPrimary,
+			torsoShadow,
+			0.5,
+		);
+		drawRoundedRect(
+			workCtx,
+			[10.0, 18.5 + bobY, 12.0, 2.2],
+			0.8,
+			P.leatherMid,
+			P.goldMid,
+			0.3,
+		);
 
 		// 4. Articulated Head, Neck & Cranium
 		drawRoundedRect(workCtx, [13.5, 11.0 + bobY, 5.0, 3.5], 1.0, P.skinShadow);
-		drawRoundedRect(workCtx, [11.5, 5.0 + bobY, 9.0, 7.5], 3.0, P.skinMid, P.skinShadow, 0.4);
+		drawRoundedRect(
+			workCtx,
+			[11.5, 5.0 + bobY, 9.0, 7.5],
+			3.0,
+			P.skinMid,
+			P.skinShadow,
+			0.4,
+		);
 
 		// 5. Directional Visage / Eyes / Hair
 		drawVisageAndHair(facing, bobY);
@@ -460,24 +578,81 @@ const EmberlightSpriteBaker = (() => {
 	 */
 	function drawArmorOverlay(armorId, facing, frame) {
 		if (!workCtx || !armorId) return;
-		const isStep = (frame % 2 === 1);
+		const isStep = frame % 2 === 1;
 		const bobY = isStep ? -0.75 : 0;
 		const arm = String(armorId).toUpperCase();
 
-		if (arm.includes('LEATHER') || arm.includes('VEST')) {
-			drawRoundedRect(workCtx, [10.0, 12.0 + bobY, 12.0, 8.0], 1.8, P.leatherMid, P.leatherDark, 0.5);
+		if (arm.includes("LEATHER") || arm.includes("VEST")) {
+			drawRoundedRect(
+				workCtx,
+				[10.0, 12.0 + bobY, 12.0, 8.0],
+				1.8,
+				P.leatherMid,
+				P.leatherDark,
+				0.5,
+			);
 			drawRoundedRect(workCtx, [11.5, 13.5 + bobY, 2.0, 2.0], 0.5, P.goldLight);
 			drawRoundedRect(workCtx, [18.5, 13.5 + bobY, 2.0, 2.0], 0.5, P.goldLight);
-		} else if (arm.includes('CHAIN') || arm.includes('PLATE') || arm.includes('IRON')) {
-			drawRoundedRect(workCtx, [9.5, 11.5 + bobY, 13.0, 8.5], 2.0, P.steelMid, P.steelDark, 0.6);
-			drawRoundedRect(workCtx, [11.0, 12.2 + bobY, 10.0, 5.0], 1.2, P.steelLight, P.steelSpec, 0.4);
-			drawRoundedRect(workCtx, [8.0, 11.0 + bobY, 3.5, 4.5], 1.0, P.steelLight, P.goldMid, 0.4);
-			drawRoundedRect(workCtx, [20.5, 11.0 + bobY, 3.5, 4.5], 1.0, P.steelLight, P.goldMid, 0.4);
-		} else if (arm.includes('ROBE') || arm.includes('SILK') || arm.includes('VESTMENT')) {
-			const robeColor = arm.includes('CLERIC') ? P.clothWhite : P.clothViolet;
-			const stoleColor = arm.includes('CLERIC') ? P.clothGreen : P.goldMid;
-			drawRoundedRect(workCtx, [9.0, 12.0 + bobY, 14.0, 11.0], 2.5, robeColor, P.void, 0.5);
-			drawRoundedRect(workCtx, [13.5, 12.5 + bobY, 5.0, 10.0], 1.0, stoleColor, P.goldSpec, 0.3);
+		} else if (
+			arm.includes("CHAIN") ||
+			arm.includes("PLATE") ||
+			arm.includes("IRON")
+		) {
+			drawRoundedRect(
+				workCtx,
+				[9.5, 11.5 + bobY, 13.0, 8.5],
+				2.0,
+				P.steelMid,
+				P.steelDark,
+				0.6,
+			);
+			drawRoundedRect(
+				workCtx,
+				[11.0, 12.2 + bobY, 10.0, 5.0],
+				1.2,
+				P.steelLight,
+				P.steelSpec,
+				0.4,
+			);
+			drawRoundedRect(
+				workCtx,
+				[8.0, 11.0 + bobY, 3.5, 4.5],
+				1.0,
+				P.steelLight,
+				P.goldMid,
+				0.4,
+			);
+			drawRoundedRect(
+				workCtx,
+				[20.5, 11.0 + bobY, 3.5, 4.5],
+				1.0,
+				P.steelLight,
+				P.goldMid,
+				0.4,
+			);
+		} else if (
+			arm.includes("ROBE") ||
+			arm.includes("SILK") ||
+			arm.includes("VESTMENT")
+		) {
+			const robeColor = arm.includes("CLERIC") ? P.clothWhite : P.clothViolet;
+			const stoleColor = arm.includes("CLERIC") ? P.clothGreen : P.goldMid;
+			drawRoundedRect(
+				workCtx,
+				[9.0, 12.0 + bobY, 14.0, 11.0],
+				2.5,
+				robeColor,
+				P.void,
+				0.5,
+			);
+			drawRoundedRect(
+				workCtx,
+				[13.5, 12.5 + bobY, 5.0, 10.0],
+				1.0,
+				stoleColor,
+				P.goldSpec,
+				0.3,
+			);
 		}
 	}
 	//#endregion
@@ -496,31 +671,78 @@ const EmberlightSpriteBaker = (() => {
 	 */
 	function drawHeadgearOverlay(phenotype, facing, frame) {
 		if (!workCtx) return;
-		const isStep = (frame % 2 === 1);
+		const isStep = frame % 2 === 1;
 		const bobY = isStep ? -0.75 : 0;
-		const p = (phenotype || 'HERO').toUpperCase();
+		const p = (phenotype || "HERO").toUpperCase();
 
-		if (p === 'HERO') {
-			drawRoundedRect(workCtx, [11.0, 3.8 + bobY, 10.0, 4.0], 1.5, P.steelLight, P.goldMid, 0.4);
-			if (facing === 'DOWN') {
+		if (p === "HERO") {
+			drawRoundedRect(
+				workCtx,
+				[11.0, 3.8 + bobY, 10.0, 4.0],
+				1.5,
+				P.steelLight,
+				P.goldMid,
+				0.4,
+			);
+			if (facing === "DOWN") {
 				drawRoundedRect(workCtx, [15.0, 5.5 + bobY, 2.0, 4.0], 0.5, P.steelMid);
 			}
-		} else if (p === 'WARRIOR') {
-			drawRoundedRect(workCtx, [10.5, 3.5 + bobY, 11.0, 5.5], 2.0, P.ironDark, P.steelMid, 0.6);
-			drawShadedPoly(workCtx, [
-				{ x: 10.5, y: 5.0 + bobY }, { x: 7.5, y: 1.5 + bobY }, { x: 11.0, y: 3.5 + bobY }
-			], P.goldMid, P.goldDark, 0.3);
-			drawShadedPoly(workCtx, [
-				{ x: 21.5, y: 5.0 + bobY }, { x: 24.5, y: 1.5 + bobY }, { x: 21.0, y: 3.5 + bobY }
-			], P.goldMid, P.goldDark, 0.3);
-		} else if (p === 'MAGE') {
-			drawRoundedRect(workCtx, [10.0, 3.2 + bobY, 12.0, 8.5], 3.5, P.clothViolet, P.clothVioletDark, 0.6);
-			if (facing === 'DOWN') {
+		} else if (p === "WARRIOR") {
+			drawRoundedRect(
+				workCtx,
+				[10.5, 3.5 + bobY, 11.0, 5.5],
+				2.0,
+				P.ironDark,
+				P.steelMid,
+				0.6,
+			);
+			drawShadedPoly(
+				workCtx,
+				[
+					{ x: 10.5, y: 5.0 + bobY },
+					{ x: 7.5, y: 1.5 + bobY },
+					{ x: 11.0, y: 3.5 + bobY },
+				],
+				P.goldMid,
+				P.goldDark,
+				0.3,
+			);
+			drawShadedPoly(
+				workCtx,
+				[
+					{ x: 21.5, y: 5.0 + bobY },
+					{ x: 24.5, y: 1.5 + bobY },
+					{ x: 21.0, y: 3.5 + bobY },
+				],
+				P.goldMid,
+				P.goldDark,
+				0.3,
+			);
+		} else if (p === "MAGE") {
+			drawRoundedRect(
+				workCtx,
+				[10.0, 3.2 + bobY, 12.0, 8.5],
+				3.5,
+				P.clothViolet,
+				P.clothVioletDark,
+				0.6,
+			);
+			if (facing === "DOWN") {
 				drawRoundedRect(workCtx, [12.0, 6.0 + bobY, 8.0, 4.5], 2.0, P.void);
-				drawRoundedRect(workCtx, [13.5, 7.5 + bobY, 1.8, 1.2], 0.4, P.arcaneViolet);
-				drawRoundedRect(workCtx, [16.7, 7.5 + bobY, 1.8, 1.2], 0.4, P.arcaneViolet);
+				drawRoundedRect(
+					workCtx,
+					[13.5, 7.5 + bobY, 1.8, 1.2],
+					0.4,
+					P.arcaneViolet,
+				);
+				drawRoundedRect(
+					workCtx,
+					[16.7, 7.5 + bobY, 1.8, 1.2],
+					0.4,
+					P.arcaneViolet,
+				);
 			}
-		} else if (p === 'HEALER') {
+		} else if (p === "HEALER") {
 			drawEllipse(workCtx, 16.0, 3.5 + bobY, 7.0, 2.2, P.goldMid);
 			drawEllipse(workCtx, 16.0, 3.5 + bobY, 5.0, 1.4, P.goldSpec);
 		}
@@ -541,32 +763,76 @@ const EmberlightSpriteBaker = (() => {
 	 */
 	function drawWeaponOverlay(weaponId, facing, frame) {
 		if (!workCtx || !weaponId) return;
-		const isStep = (frame % 2 === 1);
+		const isStep = frame % 2 === 1;
 		const bobY = isStep ? -0.75 : 0;
 		const w = String(weaponId).toUpperCase();
 
-		if (w.includes('SWORD') || w.includes('BLADE')) {
-			if (facing === 'RIGHT') {
-				drawRoundedRect(workCtx, [20.0, 14.0 + bobY, 10.0, 2.2], 0.6, P.steelLight, P.steelSpec, 0.3);
+		if (w.includes("SWORD") || w.includes("BLADE")) {
+			if (facing === "RIGHT") {
+				drawRoundedRect(
+					workCtx,
+					[20.0, 14.0 + bobY, 10.0, 2.2],
+					0.6,
+					P.steelLight,
+					P.steelSpec,
+					0.3,
+				);
 				drawRoundedRect(workCtx, [19.0, 12.5 + bobY, 2.0, 5.0], 0.5, P.goldMid);
-			} else if (facing === 'LEFT') {
-				drawRoundedRect(workCtx, [2.0, 14.0 + bobY, 10.0, 2.2], 0.6, P.steelLight, P.steelSpec, 0.3);
+			} else if (facing === "LEFT") {
+				drawRoundedRect(
+					workCtx,
+					[2.0, 14.0 + bobY, 10.0, 2.2],
+					0.6,
+					P.steelLight,
+					P.steelSpec,
+					0.3,
+				);
 				drawRoundedRect(workCtx, [11.0, 12.5 + bobY, 2.0, 5.0], 0.5, P.goldMid);
 			} else {
-				drawRoundedRect(workCtx, [21.0, 11.0 + bobY, 2.2, 12.0], 0.6, P.steelLight, P.steelSpec, 0.3);
+				drawRoundedRect(
+					workCtx,
+					[21.0, 11.0 + bobY, 2.2, 12.0],
+					0.6,
+					P.steelLight,
+					P.steelSpec,
+					0.3,
+				);
 				drawRoundedRect(workCtx, [19.5, 12.0 + bobY, 5.0, 2.0], 0.5, P.goldMid);
 			}
-		} else if (w.includes('AXE')) {
+		} else if (w.includes("AXE")) {
 			drawRoundedRect(workCtx, [20.5, 9.0 + bobY, 2.4, 15.0], 0.5, P.woodMid);
-			drawShadedPoly(workCtx, [
-				{ x: 21.5, y: 9.0 + bobY }, { x: 26.5, y: 7.0 + bobY }, { x: 27.5, y: 12.5 + bobY }, { x: 21.5, y: 11.5 + bobY }
-			], P.steelLight, P.steelSpec, 0.4);
-		} else if (w.includes('STAFF')) {
-			drawRoundedRect(workCtx, [21.0, 8.0 + bobY, 2.2, 16.0], 0.5, P.woodDark, P.goldMid, 0.3);
+			drawShadedPoly(
+				workCtx,
+				[
+					{ x: 21.5, y: 9.0 + bobY },
+					{ x: 26.5, y: 7.0 + bobY },
+					{ x: 27.5, y: 12.5 + bobY },
+					{ x: 21.5, y: 11.5 + bobY },
+				],
+				P.steelLight,
+				P.steelSpec,
+				0.4,
+			);
+		} else if (w.includes("STAFF")) {
+			drawRoundedRect(
+				workCtx,
+				[21.0, 8.0 + bobY, 2.2, 16.0],
+				0.5,
+				P.woodDark,
+				P.goldMid,
+				0.3,
+			);
 			drawEllipse(workCtx, 22.0, 7.0 + bobY, 3.2, 3.2, P.arcaneViolet);
 			drawEllipse(workCtx, 22.0, 7.0 + bobY, 1.5, 1.5, P.steelSpec);
-		} else if (w.includes('MACE')) {
-			drawRoundedRect(workCtx, [21.0, 11.0 + bobY, 2.2, 13.0], 0.5, P.woodMid, P.goldMid, 0.3);
+		} else if (w.includes("MACE")) {
+			drawRoundedRect(
+				workCtx,
+				[21.0, 11.0 + bobY, 2.2, 13.0],
+				0.5,
+				P.woodMid,
+				P.goldMid,
+				0.3,
+			);
 			drawEllipse(workCtx, 22.0, 10.0 + bobY, 3.5, 3.5, P.goldMid);
 			drawEllipse(workCtx, 22.0, 10.0 + bobY, 2.0, 2.0, P.goldSpec);
 		}
@@ -586,46 +852,121 @@ const EmberlightSpriteBaker = (() => {
 	 */
 	function drawAnimatedEnemy(enemyKey, frame) {
 		if (!workCtx) return;
-		const isStep = (frame % 2 === 1);
+		const isStep = frame % 2 === 1;
 		const bobY = isStep ? -0.75 : 0;
-		const k = String(enemyKey || 'SHADE_WOLF').toUpperCase();
+		const k = String(enemyKey || "SHADE_WOLF").toUpperCase();
 
 		// Ground Shadow
 		drawEllipse(workCtx, 16, 28, 10, 4, P.shadowAO);
 
-		if (k.includes('WOLF') || k.includes('SHADE')) {
-			drawRoundedRect(workCtx, [8.0, 14.0 + bobY, 16.0, 10.0], 3.5, P.clothVioletDark, P.void, 0.6);
-			drawRoundedRect(workCtx, [18.0, 10.0 + bobY, 10.0, 8.0], 2.5, P.clothVioletDark, P.arcaneViolet, 0.4);
+		if (k.includes("WOLF") || k.includes("SHADE")) {
+			drawRoundedRect(
+				workCtx,
+				[8.0, 14.0 + bobY, 16.0, 10.0],
+				3.5,
+				P.clothVioletDark,
+				P.void,
+				0.6,
+			);
+			drawRoundedRect(
+				workCtx,
+				[18.0, 10.0 + bobY, 10.0, 8.0],
+				2.5,
+				P.clothVioletDark,
+				P.arcaneViolet,
+				0.4,
+			);
 			drawRoundedRect(workCtx, [23.0, 14.0 + bobY, 6.0, 4.0], 1.5, P.ironDark);
-			drawRoundedRect(workCtx, [21.0, 11.5 + bobY, 2.5, 1.8], 0.5, P.arcaneViolet);
+			drawRoundedRect(
+				workCtx,
+				[21.0, 11.5 + bobY, 2.5, 1.8],
+				0.5,
+				P.arcaneViolet,
+			);
 			drawRoundedRect(workCtx, [21.5, 11.8 + bobY, 1.2, 1.0], 0.3, P.steelSpec);
-		} else if (k.includes('SPIDER')) {
+		} else if (k.includes("SPIDER")) {
 			drawEllipse(workCtx, 16.0, 16.0 + bobY, 7.5, 6.0, P.ironDark);
 			drawEllipse(workCtx, 16.0, 21.0 + bobY, 6.0, 4.5, P.steelDark);
 			drawRoundedRect(workCtx, [14.0, 19.5 + bobY, 1.5, 1.5], 0.3, P.soulRed);
 			drawRoundedRect(workCtx, [16.5, 19.5 + bobY, 1.5, 1.5], 0.3, P.soulRed);
-			drawRoundedRect(workCtx, [14.5, 14.0 + bobY, 3.0, 2.0], 0.5, P.venomGreen);
-		} else if (k.includes('SKELETON') || k.includes('BONE')) {
-			drawRoundedRect(workCtx, [11.5, 12.0 + bobY, 9.0, 8.0], 1.5, P.steelLight, P.steelMid, 0.4);
-			drawRoundedRect(workCtx, [11.0, 5.0 + bobY, 10.0, 7.0], 2.5, P.steelLight, P.steelMid, 0.4);
+			drawRoundedRect(
+				workCtx,
+				[14.5, 14.0 + bobY, 3.0, 2.0],
+				0.5,
+				P.venomGreen,
+			);
+		} else if (k.includes("SKELETON") || k.includes("BONE")) {
+			drawRoundedRect(
+				workCtx,
+				[11.5, 12.0 + bobY, 9.0, 8.0],
+				1.5,
+				P.steelLight,
+				P.steelMid,
+				0.4,
+			);
+			drawRoundedRect(
+				workCtx,
+				[11.0, 5.0 + bobY, 10.0, 7.0],
+				2.5,
+				P.steelLight,
+				P.steelMid,
+				0.4,
+			);
 			drawRoundedRect(workCtx, [13.0, 7.5 + bobY, 2.2, 2.0], 0.4, P.soulRed);
 			drawRoundedRect(workCtx, [17.0, 7.5 + bobY, 2.2, 2.0], 0.4, P.soulRed);
-		} else if (k.includes('ACOLYTE')) {
-			drawRoundedRect(workCtx, [9.0, 10.0 + bobY, 14.0, 14.0], 3.0, P.ironDark, P.venomGreen, 0.5);
+		} else if (k.includes("ACOLYTE")) {
+			drawRoundedRect(
+				workCtx,
+				[9.0, 10.0 + bobY, 14.0, 14.0],
+				3.0,
+				P.ironDark,
+				P.venomGreen,
+				0.5,
+			);
 			drawRoundedRect(workCtx, [11.5, 5.0 + bobY, 9.0, 7.0], 2.0, P.steelLight);
 			drawRoundedRect(workCtx, [13.5, 7.0 + bobY, 1.8, 1.8], 0.4, P.venomGreen);
 			drawRoundedRect(workCtx, [16.8, 7.0 + bobY, 1.8, 1.8], 0.4, P.venomGreen);
-		} else if (k.includes('MALAKOR') || k.includes('BOSS')) {
-			drawShadedPoly(workCtx, [
-				{ x: 16.0, y: 12.0 + bobY }, { x: 2.0, y: 4.0 + bobY }, { x: 6.0, y: 18.0 + bobY }
-			], P.clothRedDark, P.void, 0.5);
-			drawShadedPoly(workCtx, [
-				{ x: 16.0, y: 12.0 + bobY }, { x: 30.0, y: 4.0 + bobY }, { x: 26.0, y: 18.0 + bobY }
-			], P.clothRedDark, P.void, 0.5);
-			drawRoundedRect(workCtx, [10.0, 9.0 + bobY, 12.0, 12.0], 2.5, P.ironDark, P.clothRed, 0.6);
+		} else if (k.includes("MALAKOR") || k.includes("BOSS")) {
+			drawShadedPoly(
+				workCtx,
+				[
+					{ x: 16.0, y: 12.0 + bobY },
+					{ x: 2.0, y: 4.0 + bobY },
+					{ x: 6.0, y: 18.0 + bobY },
+				],
+				P.clothRedDark,
+				P.void,
+				0.5,
+			);
+			drawShadedPoly(
+				workCtx,
+				[
+					{ x: 16.0, y: 12.0 + bobY },
+					{ x: 30.0, y: 4.0 + bobY },
+					{ x: 26.0, y: 18.0 + bobY },
+				],
+				P.clothRedDark,
+				P.void,
+				0.5,
+			);
+			drawRoundedRect(
+				workCtx,
+				[10.0, 9.0 + bobY, 12.0, 12.0],
+				2.5,
+				P.ironDark,
+				P.clothRed,
+				0.6,
+			);
 			drawEllipse(workCtx, 16.0, 14.0 + bobY, 3.5, 3.5, P.emberCore);
 		} else {
-			drawRoundedRect(workCtx, [10.0, 11.0 + bobY, 12.0, 11.0], 2.5, P.clothRedDark, P.soulRed, 0.5);
+			drawRoundedRect(
+				workCtx,
+				[10.0, 11.0 + bobY, 12.0, 11.0],
+				2.5,
+				P.clothRedDark,
+				P.soulRed,
+				0.5,
+			);
 		}
 	}
 	//#endregion
@@ -643,30 +984,84 @@ const EmberlightSpriteBaker = (() => {
 	 */
 	function drawAnimatedNPC(npcKey, frame) {
 		if (!workCtx) return;
-		const isStep = (frame % 2 === 1);
+		const isStep = frame % 2 === 1;
 		const bobY = isStep ? -0.75 : 0;
-		const k = String(npcKey || 'ELDER').toUpperCase();
+		const k = String(npcKey || "ELDER").toUpperCase();
 
 		// Ground Shadow
 		drawEllipse(workCtx, 16, 28, 9, 3.5, P.shadowAO);
 
-		if (k.includes('ELDER') || k === 'E') {
-			drawRoundedRect(workCtx, [9.5, 11.0 + bobY, 13.0, 13.0], 2.5, P.ironDark, P.goldMid, 0.4);
+		if (k.includes("ELDER") || k === "E") {
+			drawRoundedRect(
+				workCtx,
+				[9.5, 11.0 + bobY, 13.0, 13.0],
+				2.5,
+				P.ironDark,
+				P.goldMid,
+				0.4,
+			);
 			drawRoundedRect(workCtx, [12.0, 5.0 + bobY, 8.0, 6.5], 2.5, P.skinMid);
-			drawRoundedRect(workCtx, [11.0, 9.5 + bobY, 10.0, 7.0], 2.0, P.clothWhite);
-			drawRoundedRect(workCtx, [22.0, 7.0 + bobY, 2.0, 18.0], 0.5, P.woodMid, P.goldMid, 0.3);
-		} else if (k.includes('GUARD') || k === 'G') {
-			drawRoundedRect(workCtx, [9.5, 11.0 + bobY, 13.0, 11.0], 2.0, P.steelLight, P.steelMid, 0.5);
-			drawRoundedRect(workCtx, [11.0, 4.5 + bobY, 10.0, 7.0], 2.0, P.steelLight, P.steelDark, 0.5);
+			drawRoundedRect(
+				workCtx,
+				[11.0, 9.5 + bobY, 10.0, 7.0],
+				2.0,
+				P.clothWhite,
+			);
+			drawRoundedRect(
+				workCtx,
+				[22.0, 7.0 + bobY, 2.0, 18.0],
+				0.5,
+				P.woodMid,
+				P.goldMid,
+				0.3,
+			);
+		} else if (k.includes("GUARD") || k === "G") {
+			drawRoundedRect(
+				workCtx,
+				[9.5, 11.0 + bobY, 13.0, 11.0],
+				2.0,
+				P.steelLight,
+				P.steelMid,
+				0.5,
+			);
+			drawRoundedRect(
+				workCtx,
+				[11.0, 4.5 + bobY, 10.0, 7.0],
+				2.0,
+				P.steelLight,
+				P.steelDark,
+				0.5,
+			);
 			drawRoundedRect(workCtx, [12.5, 2.5 + bobY, 7.0, 3.0], 1.0, P.clothRed);
-			drawRoundedRect(workCtx, [6.0, 13.0 + bobY, 4.5, 9.0], 1.5, P.steelLight, P.goldMid, 0.4);
-		} else if (k.includes('MERCHANT') || k === 'M') {
-			drawRoundedRect(workCtx, [9.0, 11.0 + bobY, 14.0, 12.0], 2.5, P.clothViolet, P.goldMid, 0.5);
+			drawRoundedRect(
+				workCtx,
+				[6.0, 13.0 + bobY, 4.5, 9.0],
+				1.5,
+				P.steelLight,
+				P.goldMid,
+				0.4,
+			);
+		} else if (k.includes("MERCHANT") || k === "M") {
+			drawRoundedRect(
+				workCtx,
+				[9.0, 11.0 + bobY, 14.0, 12.0],
+				2.5,
+				P.clothViolet,
+				P.goldMid,
+				0.5,
+			);
 			drawRoundedRect(workCtx, [11.5, 5.0 + bobY, 9.0, 6.5], 2.0, P.skinMid);
 			drawRoundedRect(workCtx, [10.0, 3.5 + bobY, 12.0, 2.5], 1.0, P.goldMid);
 			drawEllipse(workCtx, 21.0, 17.0 + bobY, 3.0, 3.0, P.goldLight);
 		} else {
-			drawRoundedRect(workCtx, [10.0, 11.0 + bobY, 12.0, 12.0], 2.0, P.steelDark, P.leatherMid, 0.4);
+			drawRoundedRect(
+				workCtx,
+				[10.0, 11.0 + bobY, 12.0, 12.0],
+				2.0,
+				P.steelDark,
+				P.leatherMid,
+				0.4,
+			);
 			drawRoundedRect(workCtx, [11.5, 5.0 + bobY, 9.0, 6.5], 2.0, P.skinMid);
 			drawRoundedRect(workCtx, [12.5, 9.5 + bobY, 7.0, 3.0], 1.0, P.clothGreen);
 		}
@@ -688,7 +1083,7 @@ const EmberlightSpriteBaker = (() => {
 		configure(options = {}) {
 			config = Object.freeze({ ...config, ...options });
 			configured = true;
-			return Object.freeze({ accepted: true, driverId: 'sprite_baker' });
+			return Object.freeze({ accepted: true, driverId: "sprite_baker" });
 		},
 
 		/**
@@ -706,7 +1101,7 @@ const EmberlightSpriteBaker = (() => {
 			if (context) {
 				if (context.eventBus) {
 					eventBusRef = context.eventBus;
-				} else if (typeof context.publish === 'function') {
+				} else if (typeof context.publish === "function") {
 					eventBusRef = context;
 				}
 			}
@@ -768,9 +1163,9 @@ const EmberlightSpriteBaker = (() => {
 		 */
 		getDiagnostics() {
 			return {
-				driverId: 'sprite_baker_driver',
-				version: '4.0.0-ARTISTIC-UPGRADE',
-				protocolVersion: 'VSRP-001',
+				driverId: "sprite_baker_driver",
+				version: "4.0.0-ARTISTIC-UPGRADE",
+				protocolVersion: "VSRP-001",
 				configured,
 				initialized,
 				cachedSpriteCount: cache.size,
@@ -787,10 +1182,15 @@ const EmberlightSpriteBaker = (() => {
 		 */
 		getModuleInfo() {
 			return {
-				moduleId: 'EmberlightSpriteBaker',
-				version: '4.0.0',
-				protocolVersion: 'VSRP-001',
-				capabilities: ['procedural_baking', 'paper_doll_compositor', '4x_supersampling', '4_tier_pbr'],
+				moduleId: "EmberlightSpriteBaker",
+				version: "4.0.0",
+				protocolVersion: "VSRP-001",
+				capabilities: [
+					"procedural_baking",
+					"paper_doll_compositor",
+					"4x_supersampling",
+					"4_tier_pbr",
+				],
 			};
 		},
 
@@ -817,46 +1217,56 @@ const EmberlightSpriteBaker = (() => {
 		 * @param {SpriteBakeOptions} [options={}] - Composite layering and direction parameters.
 		 * @returns {string | null} Base64 PNG data URL or null on failure.
 		 */
-		get(entityType = 'HERO', options = {}) {
+		get(entityType = "HERO", options = {}) {
 			ensureCanvases();
 			if (!workCanvas || !workCtx || !targetCanvas || !targetCtx) return null;
 
-			const type = String(entityType || 'HERO').toUpperCase();
-			const facing = String(options.facing || 'DOWN').toUpperCase();
+			const type = String(entityType || "HERO").toUpperCase();
+			const facing = String(options.facing || "DOWN").toUpperCase();
 			const frame = (options.frame || 0) % 2;
 			const weapon = options.weapon || null;
 			const armor = options.armor || null;
 			const key = options.key || type;
 
-			const cacheKey = `${type}_${key}_${facing}_F${frame}_W:${weapon || 'NONE'}_A:${armor || 'NONE'}`;
+			const cacheKey = `${type}_${key}_${facing}_F${frame}_W:${weapon || "NONE"}_A:${armor || "NONE"}`;
 			if (cache.has(cacheKey)) {
 				return /** @type {string} */ (cache.get(cacheKey));
 			}
 
 			clearWorkCanvas();
 
-			if (['HERO', 'WARRIOR', 'MAGE', 'HEALER'].includes(type)) {
+			if (["HERO", "WARRIOR", "MAGE", "HEALER"].includes(type)) {
 				drawBaseAnatomy(type, facing, frame);
 				if (armor) drawArmorOverlay(armor, facing, frame);
 				drawHeadgearOverlay(type, facing, frame);
 				if (weapon) drawWeaponOverlay(weapon, facing, frame);
-			} else if (type === 'ENEMY') {
+			} else if (type === "ENEMY") {
 				drawAnimatedEnemy(key, frame);
-			} else if (type === 'NPC') {
+			} else if (type === "NPC") {
 				drawAnimatedNPC(key, frame);
 			} else {
-				drawBaseAnatomy('HERO', facing, frame);
+				drawBaseAnatomy("HERO", facing, frame);
 			}
 
 			// High-Quality Bicubic Downsampling from 128x128 to 32x32
-			targetCtx.drawImage(workCanvas, 0, 0, WORK_SIZE, WORK_SIZE, 0, 0, TARGET_SIZE, TARGET_SIZE);
+			targetCtx.drawImage(
+				workCanvas,
+				0,
+				0,
+				WORK_SIZE,
+				WORK_SIZE,
+				0,
+				0,
+				TARGET_SIZE,
+				TARGET_SIZE,
+			);
 
 			try {
-				const dataUrl = targetCanvas.toDataURL('image/png');
+				const dataUrl = targetCanvas.toDataURL("image/png");
 				cache.set(cacheKey, dataUrl);
 				return dataUrl;
 			} catch (err) {
-				console.error('[EmberlightSpriteBaker] Bake failed:', err);
+				console.error("[EmberlightSpriteBaker] Bake failed:", err);
 				return null;
 			}
 		},
@@ -874,10 +1284,10 @@ const EmberlightSpriteBaker = (() => {
 })();
 
 //#region [SEC-12] Module Export & Global Scope Bindings
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
 	window.EmberlightSpriteBaker = EmberlightSpriteBaker;
 }
-if (typeof module !== 'undefined' && module.exports) {
+if (typeof module !== "undefined" && module.exports) {
 	module.exports = EmberlightSpriteBaker;
 }
 //#endregion

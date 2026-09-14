@@ -772,28 +772,76 @@ const EmberlightWorldEcology = (() => {
 	 * Executes atomic SDCP-001 capability settlement and tile topology mutation.
 	 * State-mutating capability execution procedure.
 	 * @param {string} token - Capability settlement action token.
-	 * @param {CapabilityPayload} payload - Capability target payload parameters.
-	 * @param {SettlementAttestation} attestation - Capability attestation and cost descriptor.
-	 * @param {SettlementContext} context - Host capability settlement context.
+	 * @param {CapabilityPayload|SettlementContext} payload - Capability target payload parameters or settlement context.
+	 * @param {SettlementAttestation} [attestation] - Capability attestation and cost descriptor.
+	 * @param {SettlementContext} [context] - Host capability settlement context.
 	 * @returns {CapabilitySettlementResult} Capability outcome descriptor.
 	 */
 	function settleCapability(token, payload, attestation, context) {
-		const costSpec = attestation?.costSpec;
-		const activeMap = context.getActiveWorldMap();
+		let resolvedContext = context;
+		let resolvedPayload = payload;
+		let resolvedAttestation = attestation;
+
+		// Dual signature normalization: settleCapability(token, context) vs settleCapability(token, payload, attestation, context)
+		if (!resolvedContext && resolvedPayload && typeof resolvedPayload.getActiveWorldMap === 'function') {
+			resolvedContext = resolvedPayload;
+			resolvedPayload = {};
+			resolvedAttestation = {};
+		}
+
+		if (!resolvedContext || typeof resolvedContext.getActiveWorldMap !== 'function') {
+			return { success: false, reason: 'MISSING_CONTEXT' };
+		}
+
+		const activeMap = resolvedContext.getActiveWorldMap();
+		if (!activeMap) {
+			resolvedContext.notifyStatus?.('No active world map available for capability execution.');
+			return { success: false, reason: 'NO_ACTIVE_MAP' };
+		}
+
+		const party = typeof resolvedContext.getParty === 'function' ? resolvedContext.getParty() : [];
+		const mage = party.find((c) => c.alive && c.phenotype === 'MAGE') || party.find((c) => c.alive) || party[0];
+		const healer = party.find((c) => c.alive && c.phenotype === 'HEALER') || party.find((c) => c.alive) || party[0];
+
+		let costSpec = resolvedAttestation?.costSpec;
+		if (!costSpec) {
+			if (token === 'cap:sanctuary.consecrate') {
+				costSpec = { type: 'MP', amount: 6, entityId: healer?.id };
+			} else if (token === 'cap:elemental.freeze') {
+				costSpec = { type: 'MP', amount: 4, entityId: mage?.id };
+			} else if (token === 'cap:elemental.gale_dispel') {
+				costSpec = { type: 'MP', amount: 3, entityId: healer?.id || mage?.id };
+			} else {
+				costSpec = { type: 'MP', amount: 3, entityId: mage?.id || healer?.id };
+			}
+		}
+
+		const worldPos = typeof resolvedContext.getWorldPos === 'function' ? resolvedContext.getWorldPos() : { x: 0, y: 0 };
+		const finalPayload = {
+			targetCoord: resolvedPayload?.targetCoord || worldPos,
+			targetCoords: resolvedPayload?.targetCoords || [
+				worldPos,
+				{ x: worldPos.x, y: worldPos.y - 1 },
+				{ x: worldPos.x, y: worldPos.y + 1 },
+				{ x: worldPos.x - 1, y: worldPos.y },
+				{ x: worldPos.x + 1, y: worldPos.y },
+			],
+			...resolvedPayload,
+		};
 
 		switch (token) {
 			case 'cap:elemental.scorch':
-				return settleScorch(payload, costSpec, context, activeMap);
+				return settleScorch(finalPayload, costSpec, resolvedContext, activeMap);
 			case 'cap:sanctuary.consecrate':
-				return settleConsecrate(payload, costSpec, context, activeMap);
+				return settleConsecrate(finalPayload, costSpec, resolvedContext, activeMap);
 			case 'cap:elemental.freeze':
-				return settleFreeze(payload, costSpec, context, activeMap);
+				return settleFreeze(finalPayload, costSpec, resolvedContext, activeMap);
 			case 'cap:dungeon.plate_trigger':
-				return settlePlateTrigger(context, activeMap);
+				return settlePlateTrigger(resolvedContext, activeMap);
 			case 'cap:elemental.gale_dispel':
-				return settleGaleDispel(payload, costSpec, context, activeMap);
+				return settleGaleDispel(finalPayload, costSpec, resolvedContext, activeMap);
 			case 'cap:economy.inspect_caravan':
-				return settleInspectCaravan(context);
+				return settleInspectCaravan(resolvedContext);
 			default:
 				return { success: false, reason: `UNKNOWN_SETTLEMENT_TOKEN: ${token}` };
 		}

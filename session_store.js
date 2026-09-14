@@ -27,8 +27,6 @@
 	 ========================================================================= */
 
 const EmberlightSessionStore = (() => {
-	'use strict';
-
 	//#region [SEC-01] Domain Type Contracts & JSDoc Schemas
 	/**
 	 * @typedef {Object} PartyMemberRecord
@@ -113,7 +111,7 @@ const EmberlightSessionStore = (() => {
 	/** @type {{ x: number, y: number }|null} */
 	let lastInteractedChestPos = null;
 	/** @type {string} */
-	let activeSlotId = 'SLOT_1';
+	let activeSlotId = "SLOT_1";
 
 	// --- Sparse World Mutation Helpers ---
 	/**
@@ -152,7 +150,8 @@ const EmberlightSessionStore = (() => {
 	function recordTownMutation(key, newTile) {
 		if (!canonicalTownMutations) canonicalTownMutations = {};
 		if (!canonicalTownId) return;
-		if (!canonicalTownMutations[canonicalTownId]) canonicalTownMutations[canonicalTownId] = {};
+		if (!canonicalTownMutations[canonicalTownId])
+			canonicalTownMutations[canonicalTownId] = {};
 		canonicalTownMutations[canonicalTownId][key] = newTile;
 	}
 
@@ -203,8 +202,8 @@ const EmberlightSessionStore = (() => {
 	 */
 	function normalizeCharacterRecord(c) {
 		if (!c) return;
-		if (c.name === 'AuditHero' || c.name === 'test_hero') c.name = 'Aldric';
-		if (c.id === 'test_hero') c.id = 'hero';
+		if (c.name === "AuditHero" || c.name === "test_hero") c.name = "Aldric";
+		if (c.id === "test_hero") c.id = "hero";
 	}
 
 	/**
@@ -221,7 +220,7 @@ const EmberlightSessionStore = (() => {
 					normalizeCharacterRecord(c);
 					if (c.id) existingMap.set(c.id, c);
 					if (c.name) existingMap.set(c.name, c);
-					if (c.phenotype && c.phenotype !== 'undefined') {
+					if (c.phenotype && c.phenotype !== "undefined") {
 						existingMap.set(c.phenotype.toUpperCase(), c);
 					}
 				}
@@ -250,11 +249,19 @@ const EmberlightSessionStore = (() => {
 			skillPoints: existing.skillPoints ?? existing.unspentSP ?? 1,
 			unspentSP: existing.unspentSP ?? existing.skillPoints ?? 1,
 			unlocked: Array.isArray(existing.unlocked) ? existing.unlocked : [],
-			unlockedNodes: Array.isArray(existing.unlockedNodes) ? existing.unlockedNodes : [],
+			unlockedNodes: Array.isArray(existing.unlockedNodes)
+				? existing.unlockedNodes
+				: [],
 			spent: existing.spent || {},
-			equipment: existing.equipment || { weapon: tmpl.weapon, armor: tmpl.armor, accessory: null },
+			equipment: existing.equipment || {
+				weapon: tmpl.weapon,
+				armor: tmpl.armor,
+				accessory: null,
+			},
 			ailments: Array.isArray(existing.ailments) ? existing.ailments : [],
-			alive: existing.alive !== false && (existing.hp === undefined || existing.hp > 0),
+			alive:
+				existing.alive !== false &&
+				(existing.hp === undefined || existing.hp > 0),
 			hp: existing.hp !== undefined && existing.hp > 0 ? existing.hp : base.hp,
 			maxHp: existing.maxHp || base.hp,
 			mp: existing.mp !== undefined && existing.mp >= 0 ? existing.mp : base.mp,
@@ -307,9 +314,12 @@ const EmberlightSessionStore = (() => {
 	 * @returns {PartyMemberRecord} Resolved party member record.
 	 */
 	function resolveCharacterRecord(tmpl, existingMap, phenotypes) {
-		const existing = existingMap.get(tmpl.id) || existingMap.get(tmpl.name) || existingMap.get(tmpl.phenotype);
+		const existing =
+			existingMap.get(tmpl.id) ||
+			existingMap.get(tmpl.name) ||
+			existingMap.get(tmpl.phenotype);
 		const pKey = (
-			existing?.phenotype && existing.phenotype !== 'undefined'
+			existing?.phenotype && existing.phenotype !== "undefined"
 				? existing.phenotype
 				: tmpl.phenotype
 		).toUpperCase();
@@ -329,20 +339,48 @@ const EmberlightSessionStore = (() => {
 	 * @returns {void}
 	 */
 	function sanitizeCanonicalParty() {
-		const manifest = typeof EmberlightManifest !== 'undefined' ? EmberlightManifest : {};
+		const manifest =
+			typeof EmberlightManifest !== "undefined" ? EmberlightManifest : {};
 		const phenotypes = manifest.Phenotypes || {};
 		const templates = [
-			{ id: 'hero', name: 'Aldric', phenotype: 'HERO', weapon: 'IRON_SWORD', armor: 'CLOTH_TUNIC' },
-			{ id: 'warrior', name: 'Brogan', phenotype: 'WARRIOR', weapon: 'IRON_SWORD', armor: 'CHAINMAIL' },
-			{ id: 'mage', name: 'Selene', phenotype: 'MAGE', weapon: 'OAK_STAFF', armor: 'MAGE_ROBE' },
-			{ id: 'healer', name: 'Wren', phenotype: 'HEALER', weapon: 'OAK_STAFF', armor: 'MAGE_ROBE' },
+			{
+				id: "hero",
+				name: "Aldric",
+				phenotype: "HERO",
+				weapon: "IRON_SWORD",
+				armor: "CLOTH_TUNIC",
+			},
+			{
+				id: "warrior",
+				name: "Brogan",
+				phenotype: "WARRIOR",
+				weapon: "IRON_SWORD",
+				armor: "CHAINMAIL",
+			},
+			{
+				id: "mage",
+				name: "Selene",
+				phenotype: "MAGE",
+				weapon: "OAK_STAFF",
+				armor: "MAGE_ROBE",
+			},
+			{
+				id: "healer",
+				name: "Wren",
+				phenotype: "HEALER",
+				weapon: "OAK_STAFF",
+				armor: "MAGE_ROBE",
+			},
 		];
 
 		if (Array.isArray(canonicalParty)) {
 			canonicalParty.forEach(normalizeCharacterRecord);
 		}
 
-		if (typeof EmberlightProgression !== 'undefined' && typeof EmberlightProgression.getState === 'function') {
+		if (
+			typeof EmberlightProgression !== "undefined" &&
+			typeof EmberlightProgression.getState === "function"
+		) {
 			try {
 				const progState = EmberlightProgression.getState();
 				if (Array.isArray(progState?.party)) {
@@ -357,12 +395,18 @@ const EmberlightSessionStore = (() => {
 			!Array.isArray(canonicalParty) ||
 			canonicalParty.length < 4 ||
 			canonicalParty.some(
-				(c) => !c?.name || c.level === undefined || !c.phenotype || c.phenotype === 'undefined'
+				(c) =>
+					!c?.name ||
+					c.level === undefined ||
+					!c.phenotype ||
+					c.phenotype === "undefined",
 			);
 
 		if (isCorrupt) {
 			const existingMap = buildExistingPartyMap(canonicalParty);
-			canonicalParty = templates.map((tmpl) => resolveCharacterRecord(tmpl, existingMap, phenotypes));
+			canonicalParty = templates.map((tmpl) =>
+				resolveCharacterRecord(tmpl, existingMap, phenotypes),
+			);
 		}
 	}
 
@@ -372,17 +416,44 @@ const EmberlightSessionStore = (() => {
 	 * @returns {void}
 	 */
 	function startNewGame() {
-		const manifest = typeof EmberlightManifest !== 'undefined' ? EmberlightManifest : {};
+		const manifest =
+			typeof EmberlightManifest !== "undefined" ? EmberlightManifest : {};
 		const phenotypes = manifest.Phenotypes || {};
 
 		const rosterTemplates = [
-			{ id: 'hero', name: 'Aldric', phenotype: 'HERO', weapon: 'IRON_SWORD', armor: 'CLOTH_TUNIC' },
-			{ id: 'warrior', name: 'Brogan', phenotype: 'WARRIOR', weapon: 'IRON_SWORD', armor: 'CHAINMAIL' },
-			{ id: 'mage', name: 'Selene', phenotype: 'MAGE', weapon: 'OAK_STAFF', armor: 'MAGE_ROBE' },
-			{ id: 'healer', name: 'Wren', phenotype: 'HEALER', weapon: 'OAK_STAFF', armor: 'MAGE_ROBE' },
+			{
+				id: "hero",
+				name: "Aldric",
+				phenotype: "HERO",
+				weapon: "IRON_SWORD",
+				armor: "CLOTH_TUNIC",
+			},
+			{
+				id: "warrior",
+				name: "Brogan",
+				phenotype: "WARRIOR",
+				weapon: "IRON_SWORD",
+				armor: "CHAINMAIL",
+			},
+			{
+				id: "mage",
+				name: "Selene",
+				phenotype: "MAGE",
+				weapon: "OAK_STAFF",
+				armor: "MAGE_ROBE",
+			},
+			{
+				id: "healer",
+				name: "Wren",
+				phenotype: "HEALER",
+				weapon: "OAK_STAFF",
+				armor: "MAGE_ROBE",
+			},
 		];
 
-		canonicalParty = rosterTemplates.map((tmpl) => resolveCharacterRecord(tmpl, new Map(), phenotypes));
+		canonicalParty = rosterTemplates.map((tmpl) =>
+			resolveCharacterRecord(tmpl, new Map(), phenotypes),
+		);
 
 		canonicalGold = 100;
 		canonicalInventory = { POTION: 3, ETHER: 1 };
@@ -406,7 +477,7 @@ const EmberlightSessionStore = (() => {
 		canonicalStepCounter = 0;
 		lastInteractedChestPos = null;
 
-		if (typeof EmberlightSaveManager !== 'undefined') {
+		if (typeof EmberlightSaveManager !== "undefined") {
 			StorageManager.save();
 		}
 	}
@@ -416,11 +487,15 @@ const EmberlightSessionStore = (() => {
 	// --- Persistence Gateway ---
 	const StorageManager = {
 		get CURRENT_VERSION() {
-			return typeof EmberlightSaveManager !== 'undefined' ? EmberlightSaveManager.CURRENT_VERSION : '1.4.0';
+			return typeof EmberlightSaveManager !== "undefined"
+				? EmberlightSaveManager.CURRENT_VERSION
+				: "1.4.0";
 		},
 
 		get MIGRATIONS() {
-			return typeof EmberlightSaveManager !== 'undefined' ? EmberlightSaveManager.MIGRATIONS : {};
+			return typeof EmberlightSaveManager !== "undefined"
+				? EmberlightSaveManager.MIGRATIONS
+				: {};
 		},
 
 		/**
@@ -430,7 +505,7 @@ const EmberlightSessionStore = (() => {
 		 * @returns {Object} Migrated payload.
 		 */
 		migrate(payload) {
-			if (typeof EmberlightSaveManager !== 'undefined') {
+			if (typeof EmberlightSaveManager !== "undefined") {
 				return EmberlightSaveManager.migrate(payload);
 			}
 			return payload;
@@ -446,7 +521,10 @@ const EmberlightSessionStore = (() => {
 		 * @returns {boolean} Existence flag.
 		 */
 		hasSave(slotId) {
-			return typeof EmberlightSaveManager !== 'undefined' && EmberlightSaveManager.hasSave(slotId);
+			return (
+				typeof EmberlightSaveManager !== "undefined" &&
+				EmberlightSaveManager.hasSave(slotId)
+			);
 		},
 
 		/**
@@ -454,7 +532,7 @@ const EmberlightSessionStore = (() => {
 		 * @returns {string}
 		 */
 		getActiveSlotId() {
-			return activeSlotId || 'SLOT_1';
+			return activeSlotId || "SLOT_1";
 		},
 
 		/**
@@ -471,7 +549,9 @@ const EmberlightSessionStore = (() => {
 		 * @returns {Array<Object>}
 		 */
 		listSlots() {
-			return typeof EmberlightSaveManager !== 'undefined' ? EmberlightSaveManager.listSlots() : [];
+			return typeof EmberlightSaveManager !== "undefined"
+				? EmberlightSaveManager.listSlots()
+				: [];
 		},
 
 		/**
@@ -481,7 +561,9 @@ const EmberlightSessionStore = (() => {
 		 * @returns {SaveMetadata|null} Save metadata or null.
 		 */
 		getSaveMetadata(slotId) {
-			return typeof EmberlightSaveManager !== 'undefined' ? EmberlightSaveManager.getSaveMetadata(slotId) : null;
+			return typeof EmberlightSaveManager !== "undefined"
+				? EmberlightSaveManager.getSaveMetadata(slotId)
+				: null;
 		},
 
 		/**
@@ -493,24 +575,24 @@ const EmberlightSessionStore = (() => {
 		 * @returns {boolean} Success assertion flag.
 		 */
 		save(arg1, arg2, arg3) {
-			if (typeof EmberlightSaveManager === 'undefined') {
+			if (typeof EmberlightSaveManager === "undefined") {
 				return false;
 			}
 			let snapshot;
-			let targetSlot = activeSlotId || 'SLOT_1';
+			let targetSlot = activeSlotId || "SLOT_1";
 			/** @type {function(string): void|null} */
 			let notifyFn = null;
 
-			if (arg1 && typeof arg1 === 'object' && !Array.isArray(arg1)) {
+			if (arg1 && typeof arg1 === "object" && !Array.isArray(arg1)) {
 				snapshot = arg1;
-				if (typeof arg2 === 'string') targetSlot = arg2;
-				else if (typeof arg2 === 'function') notifyFn = arg2;
-				if (typeof arg3 === 'function') notifyFn = arg3;
+				if (typeof arg2 === "string") targetSlot = arg2;
+				else if (typeof arg2 === "function") notifyFn = arg2;
+				if (typeof arg3 === "function") notifyFn = arg3;
 			} else {
-				if (typeof arg1 === 'string') {
+				if (typeof arg1 === "string") {
 					targetSlot = arg1;
-					if (typeof arg2 === 'function') notifyFn = arg2;
-				} else if (typeof arg1 === 'function') {
+					if (typeof arg2 === "function") notifyFn = arg2;
+				} else if (typeof arg1 === "function") {
 					notifyFn = arg1;
 				}
 
@@ -533,7 +615,7 @@ const EmberlightSessionStore = (() => {
 
 			activeSlotId = targetSlot;
 			const ok = EmberlightSaveManager.save(snapshot, targetSlot);
-			if (ok && typeof notifyFn === 'function') {
+			if (ok && typeof notifyFn === "function") {
 				notifyFn(`Game state saved to ${targetSlot}.`);
 			}
 			return ok;
@@ -547,8 +629,10 @@ const EmberlightSessionStore = (() => {
 		 * @returns {boolean} Success assertion flag.
 		 */
 		load(arg1, arg2) {
-			if (typeof EmberlightSaveManager === 'undefined') {
-				console.warn('[StorageManager] Load failed: EmberlightSaveManager is undefined.');
+			if (typeof EmberlightSaveManager === "undefined") {
+				console.warn(
+					"[StorageManager] Load failed: EmberlightSaveManager is undefined.",
+				);
 				return false;
 			}
 
@@ -556,25 +640,33 @@ const EmberlightSessionStore = (() => {
 			/** @type {function(string): void|null} */
 			let notifyFn = null;
 
-			if (typeof arg1 === 'string') {
+			if (typeof arg1 === "string") {
 				targetSlot = arg1;
-				if (typeof arg2 === 'function') notifyFn = arg2;
-			} else if (typeof arg1 === 'function') {
+				if (typeof arg2 === "function") notifyFn = arg2;
+			} else if (typeof arg1 === "function") {
 				notifyFn = arg1;
 			}
 
 			const payload = EmberlightSaveManager.load(targetSlot);
 			if (!payload) return false;
 
-			activeSlotId = payload.slotId || targetSlot || 'SLOT_1';
+			activeSlotId = payload.slotId || targetSlot || "SLOT_1";
 			canonicalParty = payload.canonicalParty;
 			sanitizeCanonicalParty();
-			canonicalGold = typeof payload.canonicalGold === 'number' ? payload.canonicalGold : 100;
-			canonicalInventory = payload.canonicalInventory || { POTION: 4, ETHER: 2, PHOENIX_EMBER: 1 };
+			canonicalGold =
+				typeof payload.canonicalGold === "number" ? payload.canonicalGold : 100;
+			canonicalInventory = payload.canonicalInventory || {
+				POTION: 4,
+				ETHER: 2,
+				PHOENIX_EMBER: 1,
+			};
 			canonicalWorldPos = payload.canonicalWorldPos || { x: 1, y: 1 };
 			canonicalFlags = payload.canonicalFlags || {};
 			canonicalQuests = payload.canonicalQuests || {};
-			canonicalDungeonDepth = typeof payload.canonicalDungeonDepth === 'number' ? payload.canonicalDungeonDepth : 0;
+			canonicalDungeonDepth =
+				typeof payload.canonicalDungeonDepth === "number"
+					? payload.canonicalDungeonDepth
+					: 0;
 			canonicalDungeonSpec = payload.canonicalDungeonSpec || null;
 			canonicalSurfaceMutations = payload.canonicalSurfaceMutations || {};
 			canonicalTownMutations = payload.canonicalTownMutations || {};
@@ -582,10 +674,15 @@ const EmberlightSessionStore = (() => {
 			canonicalDungeonFloor = null; // Reconstituted on demand
 			canonicalTownId = payload.canonicalTownId || null;
 			canonicalMacroPos = payload.canonicalMacroPos || { x: 1, y: 1 };
-			canonicalStepCounter = typeof payload.canonicalStepCounter === 'number' ? payload.canonicalStepCounter : 0;
+			canonicalStepCounter =
+				typeof payload.canonicalStepCounter === "number"
+					? payload.canonicalStepCounter
+					: 0;
 
-			if (typeof notifyFn === 'function') {
-				notifyFn(`Expedition restored from ${activeSlotId} (v${payload.version}).`);
+			if (typeof notifyFn === "function") {
+				notifyFn(
+					`Expedition restored from ${activeSlotId} (v${payload.version}).`,
+				);
 			}
 			return true;
 		},
@@ -596,7 +693,7 @@ const EmberlightSessionStore = (() => {
 		 * @returns {boolean}
 		 */
 		deleteSlot(slotId) {
-			if (typeof EmberlightSaveManager !== 'undefined') {
+			if (typeof EmberlightSaveManager !== "undefined") {
 				return EmberlightSaveManager.deleteSlot(slotId);
 			}
 			return false;
@@ -612,18 +709,20 @@ const EmberlightSessionStore = (() => {
 		clear(arg1, arg2) {
 			let targetSlot = null;
 			let notifyFn = null;
-			if (typeof arg1 === 'string') {
+			if (typeof arg1 === "string") {
 				targetSlot = arg1;
-				if (typeof arg2 === 'function') notifyFn = arg2;
-			} else if (typeof arg1 === 'function') {
+				if (typeof arg2 === "function") notifyFn = arg2;
+			} else if (typeof arg1 === "function") {
 				notifyFn = arg1;
 			}
 
-			if (typeof EmberlightSaveManager !== 'undefined') {
+			if (typeof EmberlightSaveManager !== "undefined") {
 				EmberlightSaveManager.clear(targetSlot);
 			}
-			if (typeof notifyFn === 'function') {
-				notifyFn(targetSlot ? `Slot ${targetSlot} wiped.` : 'All archives cleared.');
+			if (typeof notifyFn === "function") {
+				notifyFn(
+					targetSlot ? `Slot ${targetSlot} wiped.` : "All archives cleared.",
+				);
 			}
 		},
 	};
@@ -668,9 +767,9 @@ const EmberlightSessionStore = (() => {
 		getWorldPos: () => canonicalWorldPos,
 		/** @returns {Record<string, any>} */
 		getFlags: () => canonicalFlags,
-		/** 
-		 * @param {string} key 
-		 * @returns {any} 
+		/**
+		 * @param {string} key
+		 * @returns {any}
 		 */
 		getFlag: (key) => (canonicalFlags ? canonicalFlags[key] : undefined),
 		/** @returns {Record<string, any>} */
@@ -698,7 +797,7 @@ const EmberlightSessionStore = (() => {
 
 		// Setters & Transactional Mutators
 		/**
-		 * @param {PartyMemberRecord[]} party 
+		 * @param {PartyMemberRecord[]} party
 		 * @returns {void}
 		 */
 		setParty(party) {
@@ -708,14 +807,14 @@ const EmberlightSessionStore = (() => {
 			}
 		},
 		/**
-		 * @param {number} gold 
+		 * @param {number} gold
 		 * @returns {void}
 		 */
 		setGold(gold) {
-			if (typeof gold === 'number') canonicalGold = Math.max(0, gold);
+			if (typeof gold === "number") canonicalGold = Math.max(0, gold);
 		},
 		/**
-		 * @param {number} delta 
+		 * @param {number} delta
 		 * @returns {number}
 		 */
 		modifyGold(delta) {
@@ -723,104 +822,109 @@ const EmberlightSessionStore = (() => {
 			return canonicalGold;
 		},
 		/**
-		 * @param {Record<string, number>} inv 
+		 * @param {Record<string, number>} inv
 		 * @returns {void}
 		 */
 		setInventory(inv) {
-			if (inv && typeof inv === 'object') canonicalInventory = inv;
+			if (inv && typeof inv === "object") canonicalInventory = inv;
 		},
 		/**
-		 * @param {string} itemId 
-		 * @param {number} delta 
+		 * @param {string} itemId
+		 * @param {number} delta
 		 * @returns {number}
 		 */
 		modifyItem(itemId, delta) {
-			canonicalInventory[itemId] = Math.max(0, (canonicalInventory[itemId] || 0) + delta);
+			canonicalInventory[itemId] = Math.max(
+				0,
+				(canonicalInventory[itemId] || 0) + delta,
+			);
 			return canonicalInventory[itemId];
 		},
 		/**
-		 * @param {{ x: number, y: number }} pos 
+		 * @param {{ x: number, y: number }} pos
 		 * @returns {void}
 		 */
 		setWorldPos(pos) {
-			if (pos && typeof pos.x === 'number' && typeof pos.y === 'number') {
+			if (pos && typeof pos.x === "number" && typeof pos.y === "number") {
 				canonicalWorldPos = { x: pos.x, y: pos.y };
 			}
 		},
 		/**
-		 * @param {Record<string, any>} flags 
+		 * @param {Record<string, any>} flags
 		 * @returns {void}
 		 */
 		setFlags(flags) {
-			if (flags && typeof flags === 'object') canonicalFlags = { ...canonicalFlags, ...flags };
+			if (flags && typeof flags === "object")
+				canonicalFlags = { ...canonicalFlags, ...flags };
 		},
 		/**
-		 * @param {string} key 
-		 * @param {any} val 
+		 * @param {string} key
+		 * @param {any} val
 		 * @returns {void}
 		 */
 		setFlag(key, val) {
 			canonicalFlags[key] = val;
 		},
 		/**
-		 * @param {Record<string, any>} quests 
+		 * @param {Record<string, any>} quests
 		 * @returns {void}
 		 */
 		setQuests(quests) {
-			if (quests && typeof quests === 'object') canonicalQuests = { ...canonicalQuests, ...quests };
+			if (quests && typeof quests === "object")
+				canonicalQuests = { ...canonicalQuests, ...quests };
 		},
 		/**
-		 * @param {string} key 
-		 * @param {any} val 
+		 * @param {string} key
+		 * @param {any} val
 		 * @returns {void}
 		 */
 		setQuest(key, val) {
 			canonicalQuests[key] = val;
 		},
 		/**
-		 * @param {number} depth 
+		 * @param {number} depth
 		 * @returns {void}
 		 */
 		setDungeonDepth(depth) {
 			canonicalDungeonDepth = depth;
 		},
 		/**
-		 * @param {string[][]|null} floor 
+		 * @param {string[][]|null} floor
 		 * @returns {void}
 		 */
 		setDungeonFloor(floor) {
 			canonicalDungeonFloor = floor;
 		},
 		/**
-		 * @param {Object|null} spec 
+		 * @param {Object|null} spec
 		 * @returns {void}
 		 */
 		setDungeonSpec(spec) {
 			canonicalDungeonSpec = spec;
 		},
 		/**
-		 * @param {string[][]|null} map 
+		 * @param {string[][]|null} map
 		 * @returns {void}
 		 */
 		setSurfaceMap(map) {
 			canonicalSurfaceMap = map;
 		},
 		/**
-		 * @param {string|null} townId 
+		 * @param {string|null} townId
 		 * @returns {void}
 		 */
 		setTownId(townId) {
 			canonicalTownId = townId;
 		},
 		/**
-		 * @param {{ x: number, y: number }} pos 
+		 * @param {{ x: number, y: number }} pos
 		 * @returns {void}
 		 */
 		setMacroPos(pos) {
 			if (pos) canonicalMacroPos = { ...pos };
 		},
 		/**
-		 * @param {number} cnt 
+		 * @param {number} cnt
 		 * @returns {void}
 		 */
 		setStepCounter(cnt) {
@@ -832,7 +936,7 @@ const EmberlightSessionStore = (() => {
 			return canonicalStepCounter;
 		},
 		/**
-		 * @param {{ x: number, y: number }|null} pos 
+		 * @param {{ x: number, y: number }|null} pos
 		 * @returns {void}
 		 */
 		setLastInteractedChestPos(pos) {
@@ -841,6 +945,14 @@ const EmberlightSessionStore = (() => {
 
 		// Mutations
 		recordTileMutation,
+		recordMutation(district, key, mutation) {
+			if (typeof key === "string" && key.includes(",")) {
+				const [x, y] = key.split(",").map(Number);
+				if (!isNaN(x) && !isNaN(y)) {
+					recordTileMutation(x, y, mutation);
+				}
+			}
+		},
 		recordDungeonMutation,
 		recordTownMutation,
 		recordSurfaceMutation,
@@ -871,11 +983,11 @@ const EmberlightSessionStore = (() => {
 })();
 
 //#region [SEC-06] Global Environment & CommonJS Export
-if (typeof window !== 'undefined') {
-	// @ts-ignore
+if (typeof window !== "undefined") {
+	// @ts-expect-error
 	window.EmberlightSessionStore = EmberlightSessionStore;
 }
-if (typeof module !== 'undefined' && module.exports) {
+if (typeof module !== "undefined" && module.exports) {
 	module.exports = EmberlightSessionStore;
 }
 //#endregion

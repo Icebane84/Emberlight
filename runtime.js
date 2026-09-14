@@ -294,13 +294,36 @@ const GameRuntime = (() => {
 	};
 
 	/**
-	 * @param {string} district
-	 * @param {string} key
-	 * @param {any} mutation
+	 * Records a tile mutation to the session store.
+	 * Supports both (x, y, newTile) and (district, key, mutation) calling conventions.
+	 * @param {any} a
+	 * @param {any} b
+	 * @param {any} c
 	 * @returns {void}
 	 */
-	const recordTileMutation = (district, key, mutation) => {
-		store?.recordMutation(district, key, mutation);
+	const recordTileMutation = (a, b, c) => {
+		if (typeof a === "number" && typeof b === "number") {
+			if (typeof store?.recordTileMutation === "function") {
+				store.recordTileMutation(a, b, c);
+			}
+		} else if (typeof a === "string" && typeof b === "string") {
+			const parts = b.split(",");
+			if (
+				parts.length === 2 &&
+				!Number.isNaN(Number(parts[0])) &&
+				!Number.isNaN(Number(parts[1]))
+			) {
+				if (typeof store?.recordTileMutation === "function") {
+					store.recordTileMutation(Number(parts[0]), Number(parts[1]), c);
+				}
+			} else if (typeof store?.recordMutation === "function") {
+				store.recordMutation(a, b, c);
+			}
+		} else if (typeof store?.recordTileMutation === "function") {
+			store.recordTileMutation(a, b, c);
+		} else if (typeof store?.recordMutation === "function") {
+			store.recordMutation(a, b, c);
+		}
 	};
 	/** @param {string} [reason] */
 	const commitWorldUpdate = (reason) => {
@@ -310,6 +333,22 @@ const GameRuntime = (() => {
 	// --- Title Save Metadata Visualizer & Multi-Slot Archive Modal ---
 	/** @type {'SAVE' | 'LOAD'} */
 	let saveLoadModalMode = "LOAD";
+
+	/**
+	 * Formats title save summary HTML.
+	 * @param {any} meta
+	 * @param {string} mostRecentId
+	 * @returns {string}
+	 */
+	const buildTitleSaveSummaryHtml = (meta, mostRecentId) => {
+		const slotId = meta?.slotId || mostRecentId;
+		const loc = meta?.locationName || "Wilderness";
+		const pSize = meta?.partySize || 4;
+		const avgLv = meta?.avgLevel || 1;
+		const gold = meta?.gold || 0;
+		const ts = meta?.timestamp || "";
+		return `📜 Latest Chronicle [${slotId}] • ${loc}<br>Heroes: ${pSize} (Avg Lv ${avgLv}) | Gold: ${gold}G<br><span style="color:var(--text-dim); font-size:6.5px;">${ts}</span>`;
+	};
 
 	/**
 	 * Updates the dynamic save summary card on the Title Screen.
@@ -335,7 +374,7 @@ const GameRuntime = (() => {
 			const meta = saveMgr?.getSaveMetadata
 				? saveMgr.getSaveMetadata(mostRecentId)
 				: null;
-			el.innerHTML = `📜 Latest Chronicle [${meta?.slotId || mostRecentId}] • ${meta?.locationName || "Wilderness"}<br>Heroes: ${meta?.partySize || 4} (Avg Lv ${meta?.avgLevel || 1}) | Gold: ${meta?.gold || 0}G<br><span style="color:var(--text-dim); font-size:6.5px;">${meta?.timestamp || ""}</span>`;
+			el.innerHTML = buildTitleSaveSummaryHtml(meta, mostRecentId);
 			if (contBtn) contBtn.style.opacity = "1.0";
 			if (loadBtn) loadBtn.style.opacity = "1.0";
 		} else {
@@ -385,6 +424,68 @@ const GameRuntime = (() => {
 		updateTitleSaveSummary();
 	};
 
+	const buildSaveSlotInfoHtml = (slot, isCurr) => {
+		const autoClass = slot.isAuto ? "auto" : "";
+		if (slot.exists) {
+			const dateStr = slot.timestamp
+				? new Date(slot.timestamp).toLocaleString()
+				: "Recent";
+			const partyDesc =
+				slot.party && slot.party.length > 0
+					? `${slot.party.length} Heroes (Avg Lv ${slot.avgLevel || 1})`
+					: "Active Vanguard";
+			const activeBadge = isCurr
+				? '<span style="font-size:7px; color:var(--ok); font-weight:bold;">[ACTIVE]</span>'
+				: "";
+			return `
+				<div class="save-slot-info">
+					<div class="save-slot-header">
+						<span class="save-slot-badge ${autoClass}">${slot.label}</span>
+						<span class="save-slot-title">${slot.locationName || "Wilderness Exploration"}</span>
+						${activeBadge}
+					</div>
+					<div class="save-slot-meta">
+						<span>👥 ${partyDesc}</span>
+						<span>🪙 ${slot.gold || 0}G</span>
+						<span>🕒 ${dateStr}</span>
+						<span style="color:var(--ember);">v${slot.version || "1.4.0"}</span>
+					</div>
+				</div>
+			`;
+		}
+		return `
+			<div class="save-slot-info">
+				<div class="save-slot-header">
+					<span class="save-slot-badge ${autoClass}">${slot.label}</span>
+					<span class="save-slot-title" style="color:var(--text-dim); font-style:italic;">— EMPTY CHRONICLE ARCHIVE —</span>
+				</div>
+				<div class="save-slot-meta">
+					<span>No tactical records stored in this sector.</span>
+				</div>
+			</div>
+		`;
+	};
+
+	const buildSaveSlotActionsHtml = (slot, mode) => {
+		if (mode === "SAVE") {
+			if (slot.isAuto) {
+				return `<div class="save-slot-actions"><span style="font-size:7.5px; color:var(--text-dim); font-style:italic;">System Managed</span></div>`;
+			}
+			const saveLabel = slot.exists ? "💾 OVERWRITE" : "💾 SAVE";
+			const deleteBtn = slot.exists
+				? `<button type="button" class="cmd-btn danger slot-delete-btn" data-slot="${slot.id}" data-action="delete" title="Delete slot">🗑️</button>`
+				: "";
+			return `<div class="save-slot-actions"><button type="button" class="cmd-btn action slot-action-btn" data-slot="${slot.id}" data-action="save">${saveLabel}</button>${deleteBtn}</div>`;
+		}
+		if (slot.exists) {
+			const deleteBtn = !slot.isAuto
+				? `<button type="button" class="cmd-btn danger slot-delete-btn" data-slot="${slot.id}" data-action="delete" title="Delete slot">🗑️</button>`
+				: "";
+			return `<div class="save-slot-actions"><button type="button" class="cmd-btn action slot-action-btn" data-slot="${slot.id}" data-action="load">▶ LOAD</button>${deleteBtn}</div>`;
+		}
+		return `<div class="save-slot-actions"><button type="button" class="cmd-btn slot-action-btn" disabled style="opacity:0.4;">EMPTY</button></div>`;
+	};
+
 	const renderSaveSlotCards = () => {
 		if (typeof document === "undefined") return;
 		const container = document.getElementById("save-slots-container");
@@ -405,68 +506,9 @@ const GameRuntime = (() => {
 			const isCurr = slot.id === activeSlot;
 			card.className = `save-slot-card ${slot.isAuto ? "auto-save" : ""} ${isCurr && slot.exists ? "active-slot" : ""} ${!slot.exists ? "empty-slot" : ""}`;
 
-			let infoHtml = "";
-			if (slot.exists) {
-				const dateStr = slot.timestamp
-					? new Date(slot.timestamp).toLocaleString()
-					: "Recent";
-				const partyDesc =
-					slot.party && slot.party.length > 0
-						? `${slot.party.length} Heroes (Avg Lv ${slot.avgLevel || 1})`
-						: "Active Vanguard";
-				infoHtml = `
-					<div class="save-slot-info">
-						<div class="save-slot-header">
-							<span class="save-slot-badge ${slot.isAuto ? "auto" : ""}">${slot.label}</span>
-							<span class="save-slot-title">${slot.locationName || "Wilderness Exploration"}</span>
-							${isCurr ? '<span style="font-size:7px; color:var(--ok); font-weight:bold;">[ACTIVE]</span>' : ""}
-						</div>
-						<div class="save-slot-meta">
-							<span>👥 ${partyDesc}</span>
-							<span>🪙 ${slot.gold || 0}G</span>
-							<span>🕒 ${dateStr}</span>
-							<span style="color:var(--ember);">v${slot.version || "1.4.0"}</span>
-						</div>
-					</div>
-				`;
-			} else {
-				infoHtml = `
-					<div class="save-slot-info">
-						<div class="save-slot-header">
-							<span class="save-slot-badge ${slot.isAuto ? "auto" : ""}">${slot.label}</span>
-							<span class="save-slot-title" style="color:var(--text-dim); font-style:italic;">— EMPTY CHRONICLE ARCHIVE —</span>
-						</div>
-						<div class="save-slot-meta">
-							<span>No tactical records stored in this sector.</span>
-						</div>
-					</div>
-				`;
-			}
-
-			let actionsHtml = '<div class="save-slot-actions">';
-			if (saveLoadModalMode === "SAVE") {
-				if (slot.isAuto) {
-					actionsHtml += `<span style="font-size:7.5px; color:var(--text-dim); font-style:italic;">System Managed</span>`;
-				} else {
-					actionsHtml += `<button type="button" class="cmd-btn action slot-action-btn" data-slot="${slot.id}" data-action="save">${slot.exists ? "💾 OVERWRITE" : "💾 SAVE"}</button>`;
-					if (slot.exists) {
-						actionsHtml += `<button type="button" class="cmd-btn danger slot-delete-btn" data-slot="${slot.id}" data-action="delete" title="Delete slot">🗑️</button>`;
-					}
-				}
-			} else {
-				// LOAD MODE
-				if (slot.exists) {
-					actionsHtml += `<button type="button" class="cmd-btn action slot-action-btn" data-slot="${slot.id}" data-action="load">▶ LOAD</button>`;
-					if (!slot.isAuto) {
-						actionsHtml += `<button type="button" class="cmd-btn danger slot-delete-btn" data-slot="${slot.id}" data-action="delete" title="Delete slot">🗑️</button>`;
-					}
-				} else {
-					actionsHtml += `<button type="button" class="cmd-btn slot-action-btn" disabled style="opacity:0.4;">EMPTY</button>`;
-				}
-			}
-			actionsHtml += "</div>";
-
-			card.innerHTML = infoHtml + actionsHtml;
+			card.innerHTML =
+				buildSaveSlotInfoHtml(slot, isCurr) +
+				buildSaveSlotActionsHtml(slot, saveLoadModalMode);
 
 			// Bind buttons
 			const actBtn = card.querySelector(".slot-action-btn");
@@ -967,9 +1009,12 @@ const GameRuntime = (() => {
 			enterMarketDistrict,
 			publishSfx,
 			triggerVfx,
+			getWorldPos,
 			...targetContext,
 		};
-		return Ecology.settleCapability(capabilityToken, context);
+		const result = Ecology.settleCapability(capabilityToken, context);
+		renderHUD();
+		return result;
 	};
 
 	const triggerZoneTransition = (title, subtitle) => {
@@ -1299,7 +1344,37 @@ const GameRuntime = (() => {
 		) {
 			EmberlightInput.clear();
 		}
+		if (
+			activeDistrict !== "OVERWORLD" &&
+			!isNonExpandableDistrict(activeDistrict)
+		) {
+			switchDistrict(activeDistrict);
+		}
 		renderHUD();
+	};
+
+	const cancelCombatState = () => {
+		if (activeDistrict !== "COMBAT") return false;
+		if (
+			typeof EmberlightCombat === "undefined" ||
+			typeof EmberlightCombat.getState !== "function"
+		) {
+			return false;
+		}
+		const cState = EmberlightCombat.getState();
+		const canCancel =
+			cState?.phase === "TARGETING_ENEMY" ||
+			cState?.phase === "TARGETING_ALLY" ||
+			cState?.phase === "PENDING_SKILL" ||
+			(cState?.selectedTab && cState.selectedTab !== "ATTACK");
+		if (canCancel) {
+			if (typeof EmberlightCombat.handleHostAction === "function") {
+				EmberlightCombat.handleHostAction("CANCEL");
+			}
+			renderHUD();
+			return true;
+		}
+		return false;
 	};
 
 	/** @returns {boolean} */
@@ -1308,26 +1383,7 @@ const GameRuntime = (() => {
 			dismissTacticalChassis();
 			return true;
 		}
-		if (activeDistrict === "COMBAT") {
-			if (
-				typeof EmberlightCombat !== "undefined" &&
-				typeof EmberlightCombat.getState === "function"
-			) {
-				const cState = EmberlightCombat.getState();
-				if (
-					cState?.phase === "TARGETING_ENEMY" ||
-					cState?.phase === "TARGETING_ALLY" ||
-					cState?.phase === "PENDING_SKILL" ||
-					(cState?.selectedTab && cState.selectedTab !== "ATTACK")
-				) {
-					if (typeof EmberlightCombat.handleHostAction === "function") {
-						EmberlightCombat.handleHostAction("CANCEL");
-					}
-					renderHUD();
-					return true;
-				}
-			}
-		}
+		if (cancelCombatState()) return true;
 		if (isSaveLoadModalOpen) {
 			closeSaveLoadModal();
 			return true;
@@ -1353,11 +1409,11 @@ const GameRuntime = (() => {
 			switchDistrict("OVERWORLD");
 			return true;
 		}
-		if (activeDistrict === "TITLE") {
+		if (activeDistrict === "OVERWORLD" || activeDistrict === "world") {
+			switchDistrict("SETTINGS");
 			return true;
 		}
-		switchDistrict("SETTINGS");
-		return true;
+		return false;
 	};
 
 	// --- Tactical Focal Ring & RMB Interaction Engine (ARCH-SPEC-RMB-INTEGRATION-001) ---
@@ -1408,100 +1464,33 @@ const GameRuntime = (() => {
 		}
 	};
 
-	/**
-	 * Resolves entity or terrain tile metadata for the tactical chassis.
-	 * @param {EventTarget|null} target - Clicked target element.
-	 * @param {number} [clientX=0] - Screen X coordinate.
-	 * @param {number} [clientY=0] - Screen Y coordinate.
-	 * @returns {Object|null}
-	 */
-	const resolveTargetMetadata = (target, clientX = 0, clientY = 0) => {
-		// 1. Combat Entity Inspection
-		if (activeDistrict === "COMBAT") {
-			const el = /** @type {HTMLElement|null} */ (target);
-			const enemyCard = el?.closest
-				? el.closest(".enemy-battler-card, .battler-card.enemy, .enemy-card")
-				: null;
-			const allyCard = el?.closest
-				? el.closest(".hero-battler-card, .battler-card.hero, .hero-card")
-				: null;
+	const resolveCombatTargetMetadata = (target, clientX, clientY) => {
+		const el = /** @type {HTMLElement|null} */ (target);
+		const enemyCard = el?.closest?.(
+			".enemy-battler-card, .battler-card.enemy, .enemy-card",
+		);
+		const allyCard = el?.closest?.(
+			".hero-battler-card, .battler-card.hero, .hero-card",
+		);
 
-			if (enemyCard) {
-				const nameEl = enemyCard.querySelector(
-					".enemy-name, .battler-name, .name",
-				);
-				const title = nameEl?.textContent || "Hostile Combatant";
-				return {
-					category: "ENEMY",
-					title,
-					hpPct: 100,
-					accent: "#ef4444",
-					glow: "rgba(239, 68, 68, 0.45)",
-					badge1: "HOSTILE",
-					badge2: "VULNERABLE",
-					eastAction: {
-						id: "THREAT_ORACLE",
-						label: "Oracle",
-						icon: "👁️",
-						title: "Threat Oracle",
-						desc: "Forecast enemy strike vectors and vulnerabilities.",
-					},
-					southAction: {
-						id: "COMBAT_GUARD",
-						label: "Guard",
-						icon: "🛡️",
-						title: "Defensive Stance",
-						desc: "Brace for incoming hostile impact.",
-					},
-					targetDom: enemyCard,
-				};
-			}
-
-			if (allyCard) {
-				const nameEl = allyCard.querySelector(
-					".hero-name, .battler-name, .name",
-				);
-				const title = nameEl?.textContent || "Vanguard Hero";
-				return {
-					category: "ALLY",
-					title,
-					hpPct: 100,
-					accent: "#34d399",
-					glow: "rgba(52, 211, 153, 0.45)",
-					badge1: "VANGUARD",
-					badge2: "ALLIED HERO",
-					eastAction: {
-						id: "FIELD_TRIAGE",
-						label: "Triage",
-						icon: "✨",
-						title: "Field Triage",
-						desc: "Direct restorative attention to this vanguard unit.",
-					},
-					southAction: {
-						id: "COMBAT_GUARD",
-						label: "Guard",
-						icon: "🛡️",
-						title: "Defensive Stance",
-						desc: "Brace for incoming hostile impact.",
-					},
-					targetDom: allyCard,
-				};
-			}
-
+		if (enemyCard) {
+			const nameEl = enemyCard.querySelector(
+				".enemy-name, .battler-name, .name",
+			);
 			return {
-				category: "COMBAT_GENERAL",
-				title: "Tactical Arena",
+				category: "ENEMY",
+				title: nameEl?.textContent || "Hostile Combatant",
 				hpPct: 100,
-				accent: "#ff9d4d",
-				glow: "rgba(255, 157, 77, 0.45)",
-				badge1: "ARENA",
-				badge2: "ENGAGED",
+				accent: "#ef4444",
+				glow: "rgba(239, 68, 68, 0.45)",
+				badge1: "HOSTILE",
+				badge2: "VULNERABLE",
 				eastAction: {
 					id: "THREAT_ORACLE",
 					label: "Oracle",
 					icon: "👁️",
 					title: "Threat Oracle",
-					desc: "Forecast battlefield threat vectors.",
+					desc: "Forecast enemy strike vectors and vulnerabilities.",
 				},
 				southAction: {
 					id: "COMBAT_GUARD",
@@ -1510,31 +1499,578 @@ const GameRuntime = (() => {
 					title: "Defensive Stance",
 					desc: "Brace for incoming hostile impact.",
 				},
-				bbox: {
-					left: clientX - 24,
-					top: clientY - 24,
-					width: 48,
-					height: 48,
-				},
+				targetDom: enemyCard,
 			};
 		}
 
-		// 2. Q2 3D Environment Sensor Viewport Inspection
+		if (allyCard) {
+			const nameEl = allyCard.querySelector(".hero-name, .battler-name, .name");
+			return {
+				category: "ALLY",
+				title: nameEl?.textContent || "Vanguard Hero",
+				hpPct: 100,
+				accent: "#34d399",
+				glow: "rgba(52, 211, 153, 0.45)",
+				badge1: "VANGUARD",
+				badge2: "ALLIED HERO",
+				eastAction: {
+					id: "FIELD_TRIAGE",
+					label: "Triage",
+					icon: "✨",
+					title: "Field Triage",
+					desc: "Direct restorative attention to this vanguard unit.",
+				},
+				southAction: {
+					id: "COMBAT_GUARD",
+					label: "Guard",
+					icon: "🛡️",
+					title: "Defensive Stance",
+					desc: "Brace for incoming hostile impact.",
+				},
+				targetDom: allyCard,
+			};
+		}
+
+		return {
+			category: "COMBAT_GENERAL",
+			title: "Tactical Arena",
+			hpPct: 100,
+			accent: "#ff9d4d",
+			glow: "rgba(255, 157, 77, 0.45)",
+			badge1: "ARENA",
+			badge2: "ENGAGED",
+			eastAction: {
+				id: "THREAT_ORACLE",
+				label: "Oracle",
+				icon: "👁️",
+				title: "Threat Oracle",
+				desc: "Forecast battlefield threat vectors.",
+			},
+			southAction: {
+				id: "COMBAT_GUARD",
+				label: "Guard",
+				icon: "🛡️",
+				title: "Defensive Stance",
+				desc: "Brace for incoming hostile impact.",
+			},
+			bbox: {
+				left: clientX - 24,
+				top: clientY - 24,
+				width: 48,
+				height: 48,
+			},
+		};
+	};
+
+	const getWallTitle = (inTown, depth) => {
+		if (inTown) return "🪵 Timber Wall";
+		if (depth > 0) return "🏔️ Bedrock Wall";
+		return "🏔️ Stone Wall";
+	};
+
+	const resolveSensorTargetMetadata = (
+		target,
+		clientX,
+		clientY,
+		expanded3D,
+	) => {
 		const el = /** @type {HTMLElement|null} */ (target);
 		const isSensorPane =
-			is3DViewExpanded ||
+			expanded3D ||
 			Boolean(
-				el?.closest &&
-					el.closest(
-						"#pane-sensor, #corridor-canvas, .sensor-viewport, .corridor-viewport",
-					),
+				el?.closest?.(
+					"#pane-sensor, #corridor-canvas, .sensor-viewport, .corridor-viewport",
+				),
 			);
-		if (isSensorPane) {
+		if (!isSensorPane) return null;
+
+		const facing = store?.getFlag("facingDirection") || "DOWN";
+		const pos = getWorldPos() || { x: 1, y: 1 };
+		const map = getActiveWorldMap() || [];
+		const inTown = Boolean(getTownId());
+		const depth = getDungeonDepth();
+		/** @type {Record<string, { x: number, y: number }>} */
+		const facingDeltas = {
+			UP: { x: 0, y: -1 },
+			RIGHT: { x: 1, y: 0 },
+			DOWN: { x: 0, y: 1 },
+			LEFT: { x: -1, y: 0 },
+		};
+		const d = facingDeltas[facing] || { x: 0, y: 1 };
+		const aheadPos = { x: pos.x + d.x, y: pos.y + d.y };
+		const aheadTile = map[aheadPos.y]?.[aheadPos.x] || "#";
+
+		/** @type {Record<string, { title: string, icon: string, desc: string, isAdvance: boolean }>} */
+		const tileDescriptions = {
+			"#": {
+				title: getWallTitle(inTown, depth),
+				icon: "🧱",
+				desc: "Solid perimeter barrier. Acoustic damping detected.",
+				isAdvance: false,
+			},
+			".": {
+				title: inTown ? "🛤️ Cobblestone Pathway" : "🌲 Wild Trail",
+				icon: "🚶",
+				desc: "Clear corridor pathway. Free traversal ahead.",
+				isAdvance: true,
+			},
+			$: {
+				title: "📦 Ancient Relic Chest",
+				icon: "📦",
+				desc: "Auric energy signature detected. Ready to loot.",
+				isAdvance: false,
+			},
+			"*": {
+				title: "✨ Resource Cache",
+				icon: "✨",
+				desc: "Sparkling natural bounty. Scavenge for supplies.",
+				isAdvance: false,
+			},
+			C: {
+				title: "🔥 Sanctuary Campsite",
+				icon: "🔥",
+				desc: "Active campfire hearth. Rest to replenish party vitality.",
+				isAdvance: false,
+			},
+			H: {
+				title: "🏨 The Hearth Inn",
+				icon: "🏨",
+				desc: "Rest haven. Cleanses afflictions and fully heals party.",
+				isAdvance: false,
+			},
+			N: {
+				title: "📋 Town Notice Board",
+				icon: "📋",
+				desc: "Settlement board. 3 active bulletins posted.",
+				isAdvance: false,
+			},
+			A: {
+				title: "⛩ Ancient Aether Shrine",
+				icon: "⛩",
+				desc: "Celestial stone monolith. Restores party MP.",
+				isAdvance: false,
+			},
+			E: {
+				title: "🧓 Elder Rowan",
+				icon: "🧓",
+				desc: "Hamlet elder. Imparts vital tactical directives.",
+				isAdvance: false,
+			},
+			G: {
+				title: "🛡️ Gate Captain Kael",
+				icon: "🛡️",
+				desc: "Armored town guard patrolling boundary.",
+				isAdvance: false,
+			},
+			V: {
+				title: "🔮 Afflicted Villager",
+				icon: "🔮",
+				desc: "Shrouded traveler bearing dark tidings.",
+				isAdvance: false,
+			},
+			"@": {
+				title: "🐪 Merchant Caravan",
+				icon: "🐪",
+				desc: "Traveling market vendor. Trade weapons and elixirs.",
+				isAdvance: false,
+			},
+			B: {
+				title: "⚔️ Blacksmith Armory",
+				icon: "⚔️",
+				desc: "Town forge. Ready to equip vanguard champions.",
+				isAdvance: false,
+			},
+			F: {
+				title: "🔮 Relic Crucible",
+				icon: "🔮",
+				desc: "Arcane forge for transmuting artifact essences.",
+				isAdvance: false,
+			},
+			P: {
+				title: "⛓️ Iron Portcullis",
+				icon: "⛓️",
+				desc: "Reinforced gate blocking further descent.",
+				isAdvance: false,
+			},
+			_: {
+				title: "⚙️ Pressure Plate",
+				icon: "⚙️",
+				desc: "Mechanical trigger linked to security mechanisms.",
+				isAdvance: false,
+			},
+			"~": {
+				title: "💧 Abyssal Water Chasm",
+				icon: "💧",
+				desc: "Subterranean chasm. Target with Glacial Freeze [G].",
+				isAdvance: false,
+			},
+			'"': {
+				title: "🌿 Dry Bramble Brush",
+				icon: "🌿",
+				desc: "Combustible obstacle. Target with Pyretic Scorch [F].",
+				isAdvance: false,
+			},
+			"%": {
+				title: "☠️ Toxic Miasma Cloud",
+				icon: "☠️",
+				desc: "Poisonous vapor. Dispel with Aetheric Gale [V].",
+				isAdvance: false,
+			},
+			">": {
+				title: "⛩️ Descent Gate Portal",
+				icon: "⛩️",
+				desc: "Runic portal leading deeper underground.",
+				isAdvance: false,
+			},
+			"<": {
+				title: "🪜 Ascent Ladder Beacon",
+				icon: "🪜",
+				desc: "Ladder pathway ascending to surface world.",
+				isAdvance: false,
+			},
+			O: {
+				title: "🏰 Town Gateway",
+				icon: "🏰",
+				desc: "Fortified archway leading into the settlement.",
+				isAdvance: false,
+			},
+			D: {
+				title: "🏰 Town Archway",
+				icon: "🏰",
+				desc: "Fortified archway leading into the settlement.",
+				isAdvance: false,
+			},
+		};
+
+		const info = tileDescriptions[aheadTile] || {
+			title: `Sector Object [${aheadTile}]`,
+			icon: "🔭",
+			desc: "Unknown spatial entity ahead.",
+			isAdvance: false,
+		};
+
+		return {
+			category: "3D_SENSOR",
+			title: `🔭 ${info.title}`,
+			hpPct: 100,
+			accent: "#38bdf8",
+			glow: "rgba(56, 189, 248, 0.45)",
+			badge1: `BEARING: ${facing}`,
+			badge2: `AHEAD: [${aheadTile}]`,
+			northAction: {
+				id: "3D_ADVANCE",
+				label: info.isAdvance ? "Advance" : "Interact",
+				icon: info.isAdvance ? "🚶" : "⚡",
+				title: info.isAdvance ? "Step Forward" : "Engage Object",
+				desc: info.isAdvance
+					? "Advance forward into the open pathway."
+					: "Physically engage or interact with the object ahead.",
+			},
+			eastAction: {
+				id: "3D_DEEP_SCAN",
+				label: "Deep Scan",
+				icon: "📡",
+				title: "Optical & Acoustic Telemetry",
+				desc: "Run comprehensive structural and aetheric analysis on facing sector.",
+			},
+			southAction: {
+				id: "3D_ABOUT_FACE",
+				label: "About-Face",
+				icon: "🔄",
+				title: "180° Tactical Turn",
+				desc: "Execute an immediate 180° turnaround.",
+			},
+			westAction: {
+				id: "3D_TOGGLE_EXPAND",
+				label: expanded3D ? "Collapse [Z]" : "Expand [Z]",
+				icon: "⛶",
+				title: expanded3D ? "Collapse 3D Viewport" : "Expand 3D Viewport",
+				desc: expanded3D
+					? "Collapse back to standard 4-quadrant War Table Matrix."
+					: "Expand 3D environment sensor to 960x360 High-Res Viewport.",
+			},
+			bbox: {
+				left: clientX - 24,
+				top: clientY - 24,
+				width: 48,
+				height: 48,
+			},
+		};
+	};
+
+	const getSectorTitle = (inTown, depth) => {
+		if (inTown) return "🏰 Oakhaven Hamlet";
+		if (depth > 0) return `💀 Catacombs (F${depth})`;
+		return "🌲 The Ashen Wilds";
+	};
+
+	const getCartographyTileMeta = (tile, inTown, depth, tileInfo) => {
+		const campAction = {
+			id: "REST",
+			label: "Camp",
+			icon: "🔥",
+			title: "Camp Rest",
+			desc: "Rest at camp to restore party vitality.",
+		};
+		const inspectAction = {
+			id: "INTERACT",
+			label: "Inspect",
+			icon: "🔍",
+			title: "Sector Survey",
+			desc: "Scan local aetheric currents and terrain features.",
+		};
+
+		switch (tile) {
+			case "~":
+				return {
+					category: "HAZARD",
+					title: "💧 Abyssal Frozen Route",
+					hpPct: 100,
+					accent: "#38bdf8",
+					glow: "rgba(56, 189, 248, 0.45)",
+					badge1: "WATER",
+					badge2: "FREEZE VIABLE",
+					eastAction: {
+						id: "FIELD_FREEZE",
+						label: "Freeze",
+						icon: "❄️",
+						title: "Glacial Transmutation",
+						desc: "Freeze water into solid walkable frozen path.",
+					},
+					southAction: campAction,
+					bbox: tileInfo.bbox,
+				};
+			case '"':
+				return {
+					category: "HAZARD",
+					title: "🌿 Dry Bramble",
+					hpPct: 100,
+					accent: "#f97316",
+					glow: "rgba(249, 115, 22, 0.45)",
+					badge1: "OBSTACLE",
+					badge2: "SCORCH VIABLE",
+					eastAction: {
+						id: "FIELD_SCORCH",
+						label: "Scorch",
+						icon: "🔥",
+						title: "Pyretic Scorch",
+						desc: "Incinerate dry brush into ash.",
+					},
+					southAction: campAction,
+					bbox: tileInfo.bbox,
+				};
+			case "%":
+				return {
+					category: "HAZARD",
+					title: "☠️ Miasma Rift",
+					hpPct: 100,
+					accent: "#c084fc",
+					glow: "rgba(192, 132, 252, 0.45)",
+					badge1: "HAZARD",
+					badge2: "DISPEL VIABLE",
+					eastAction: {
+						id: "FIELD_DISPEL",
+						label: "Dispel",
+						icon: "💨",
+						title: "Aetheric Gale",
+						desc: "Dispel corrupting miasma vapors.",
+					},
+					southAction: campAction,
+					bbox: tileInfo.bbox,
+				};
+			case "$":
+			case "*":
+				return {
+					category: "TILE",
+					title: tile === "$" ? "📦 Subterranean Chest" : "📦 Resource Cache",
+					hpPct: 100,
+					accent: "#fbbf24",
+					glow: "rgba(251, 191, 36, 0.45)",
+					badge1: "TREASURE",
+					badge2: "LOOT VIABLE",
+					eastAction: {
+						id: "INTERACT",
+						label: "Loot",
+						icon: "📦",
+						title: "Claim Cache",
+						desc: "Harvest valuable gold and resources.",
+					},
+					southAction: campAction,
+					bbox: tileInfo.bbox,
+				};
+			case "@":
+				return {
+					category: "TILE",
+					title: "🐪 Merchant Caravan",
+					hpPct: 100,
+					accent: "#34d399",
+					glow: "rgba(52, 211, 153, 0.45)",
+					badge1: "COMMERCE",
+					badge2: "SHOP VIABLE",
+					eastAction: {
+						id: "MENU_SHOP",
+						label: "Trade",
+						icon: "🐪",
+						title: "Merchant Caravan",
+						desc: "Trade weapons, provisions, and relics.",
+					},
+					southAction: campAction,
+					bbox: tileInfo.bbox,
+				};
+			case "E":
+				return {
+					category: "TILE",
+					title: "🧓 Elder Rowan",
+					hpPct: 100,
+					accent: "#38bdf8",
+					glow: "rgba(56, 189, 248, 0.45)",
+					badge1: "HAMLET ELDER",
+					badge2: "LORE",
+					eastAction: {
+						id: "INTERACT",
+						label: "Commune",
+						icon: "🧓",
+						title: "Elder Rowan",
+						desc: "Converse with the village elder.",
+					},
+					southAction: {
+						id: "REST",
+						label: "Inn",
+						icon: "🏨",
+						title: "Rest at Inn",
+						desc: "Rest at The Hearth Inn.",
+					},
+					bbox: tileInfo.bbox,
+				};
+			case "B":
+				return {
+					category: "ENEMY",
+					title: "👑 Malakor Boss Chamber",
+					hpPct: 100,
+					accent: "#ef4444",
+					glow: "rgba(239, 68, 68, 0.45)",
+					badge1: "BOSS",
+					badge2: "LETHAL",
+					eastAction: {
+						id: "INTERACT",
+						label: "Engage",
+						icon: "💀",
+						title: "Challenge Malakor",
+						desc: "Enter sovereign chamber to fight Malakor.",
+					},
+					southAction: campAction,
+					bbox: tileInfo.bbox,
+				};
+			case "#":
+				return {
+					category: "TILE",
+					title: getWallTitle(inTown, depth),
+					hpPct: 100,
+					accent: "#ff9d4d",
+					glow: "rgba(255, 157, 77, 0.45)",
+					badge1: `SECTOR [${tileInfo.tileX},${tileInfo.tileY}]`,
+					badge2: "IMPASSABLE",
+					eastAction: {
+						id: "INTERACT",
+						label: "Inspect",
+						icon: "🔍",
+						title: "Wall Survey",
+						desc: "Solid fortification shielding this district.",
+					},
+					southAction: campAction,
+					bbox: tileInfo.bbox,
+				};
+			case ".":
+				return {
+					category: "TILE",
+					title: inTown ? "🛤️ Cobblestone Path" : "🌲 Wild Trail",
+					hpPct: 100,
+					accent: "#ff9d4d",
+					glow: "rgba(255, 157, 77, 0.45)",
+					badge1: `SECTOR [${tileInfo.tileX},${tileInfo.tileY}]`,
+					badge2: inTown ? "NOMINAL" : "UNEXPLORED",
+					eastAction: {
+						id: "INTERACT",
+						label: "Inspect",
+						icon: "🔍",
+						title: "Path Inspection",
+						desc: "Clear open pathway for tactical movement.",
+					},
+					southAction: campAction,
+					bbox: tileInfo.bbox,
+				};
+			default:
+				return {
+					category: "TILE",
+					title: getSectorTitle(inTown, depth),
+					hpPct: 100,
+					accent: "#ff9d4d",
+					glow: "rgba(255, 157, 77, 0.45)",
+					badge1: `SECTOR [${tileInfo.tileX},${tileInfo.tileY}]`,
+					badge2: inTown ? "SAFE ZONE" : "WILDERNESS",
+					eastAction: inspectAction,
+					southAction: campAction,
+					bbox: tileInfo.bbox,
+				};
+		}
+	};
+
+	const resolveCartographyTargetMetadata = (clientX, clientY) => {
+		if (
+			typeof EmberlightMapRenderer === "undefined" ||
+			typeof EmberlightMapRenderer.resolveTileFromScreen !== "function"
+		) {
+			return null;
+		}
+		const tileInfo = EmberlightMapRenderer.resolveTileFromScreen(
+			clientX,
+			clientY,
+		);
+		if (!tileInfo) return null;
+
+		const currentTownId = getTownId();
+		const inTown = Boolean(currentTownId);
+		const depth = getDungeonDepth();
+		const tileMeta = getCartographyTileMeta(
+			tileInfo.tile,
+			inTown,
+			depth,
+			tileInfo,
+		);
+		if (tileMeta) {
+			tileMeta.tileX = tileInfo.tileX;
+			tileMeta.tileY = tileInfo.tileY;
+			return tileMeta;
+		}
+		return null;
+	};
+
+	/**
+	 * Resolves entity or terrain tile metadata for the tactical chassis.
+	 * @param {EventTarget|null} target - Clicked target element.
+	 * @param {number} [clientX=0] - Screen X coordinate.
+	 * @param {number} [clientY=0] - Screen Y coordinate.
+	 * @returns {Object|null}
+	 */
+	const resolveTargetMetadata = (target, clientX = 0, clientY = 0) => {
+		if (activeDistrict === "COMBAT") {
+			return resolveCombatTargetMetadata(target, clientX, clientY);
+		}
+		const sensorMeta = resolveSensorTargetMetadata(
+			target,
+			clientX,
+			clientY,
+			is3DViewExpanded,
+		);
+		if (sensorMeta) return sensorMeta;
+		return resolveCartographyTargetMetadata(clientX, clientY);
+	};
+
+	const handleNorthLeafAction = (meta) => {
+		if (meta?.northAction?.id === "3D_ADVANCE") {
+			const map = getActiveWorldMap();
+			const pos = getWorldPos();
 			const facing = store?.getFlag("facingDirection") || "DOWN";
-			const pos = getWorldPos() || { x: 1, y: 1 };
-			const map = getActiveWorldMap() || [];
-			const inTown = Boolean(getTownId());
-			const depth = getDungeonDepth();
 			/** @type {Record<string, { x: number, y: number }>} */
 			const facingDeltas = {
 				UP: { x: 0, y: -1 },
@@ -1543,510 +2079,106 @@ const GameRuntime = (() => {
 				LEFT: { x: -1, y: 0 },
 			};
 			const d = facingDeltas[facing] || { x: 0, y: 1 };
-			const aheadPos = { x: pos.x + d.x, y: pos.y + d.y };
-			const aheadTile = map[aheadPos.y]?.[aheadPos.x] || "#";
-
-			/** @type {Record<string, { title: string, icon: string, desc: string, isAdvance: boolean }>} */
-			const tileDescriptions = {
-				"#": {
-					title: inTown
-						? "🪵 Timber Wall"
-						: depth > 0
-							? "🏔️ Bedrock Wall"
-							: "🏔️ Stone Wall",
-					icon: "🧱",
-					desc: "Solid perimeter barrier. Acoustic damping detected.",
-					isAdvance: false,
-				},
-				".": {
-					title: inTown ? "🛤️ Cobblestone Pathway" : "🌲 Wild Trail",
-					icon: "🚶",
-					desc: "Clear corridor pathway. Free traversal ahead.",
-					isAdvance: true,
-				},
-				$: {
-					title: "📦 Ancient Relic Chest",
-					icon: "📦",
-					desc: "Auric energy signature detected. Ready to loot.",
-					isAdvance: false,
-				},
-				"*": {
-					title: "✨ Resource Cache",
-					icon: "✨",
-					desc: "Sparkling natural bounty. Scavenge for supplies.",
-					isAdvance: false,
-				},
-				C: {
-					title: "🔥 Sanctuary Campsite",
-					icon: "🔥",
-					desc: "Active campfire hearth. Rest to replenish party vitality.",
-					isAdvance: false,
-				},
-				H: {
-					title: "🏨 The Hearth Inn",
-					icon: "🏨",
-					desc: "Rest haven. Cleanses afflictions and fully heals party.",
-					isAdvance: false,
-				},
-				N: {
-					title: "📋 Town Notice Board",
-					icon: "📋",
-					desc: "Settlement board. 3 active bulletins posted.",
-					isAdvance: false,
-				},
-				A: {
-					title: "⛩ Ancient Aether Shrine",
-					icon: "⛩",
-					desc: "Celestial stone monolith. Restores party MP.",
-					isAdvance: false,
-				},
-				E: {
-					title: "🧓 Elder Rowan",
-					icon: "🧓",
-					desc: "Hamlet elder. Imparts vital tactical directives.",
-					isAdvance: false,
-				},
-				G: {
-					title: "🛡️ Gate Captain Kael",
-					icon: "🛡️",
-					desc: "Armored town guard patrolling boundary.",
-					isAdvance: false,
-				},
-				V: {
-					title: "🔮 Afflicted Villager",
-					icon: "🔮",
-					desc: "Shrouded traveler bearing dark tidings.",
-					isAdvance: false,
-				},
-				"@": {
-					title: "🐪 Merchant Caravan",
-					icon: "🐪",
-					desc: "Traveling market vendor. Trade weapons and elixirs.",
-					isAdvance: false,
-				},
-				B: {
-					title: "⚔️ Blacksmith Armory",
-					icon: "⚔️",
-					desc: "Town forge. Ready to equip vanguard champions.",
-					isAdvance: false,
-				},
-				F: {
-					title: "🔮 Relic Crucible",
-					icon: "🔮",
-					desc: "Arcane forge for transmuting artifact essences.",
-					isAdvance: false,
-				},
-				P: {
-					title: "⛓️ Iron Portcullis",
-					icon: "⛓️",
-					desc: "Reinforced gate blocking further descent.",
-					isAdvance: false,
-				},
-				_: {
-					title: "⚙️ Pressure Plate",
-					icon: "⚙️",
-					desc: "Mechanical trigger linked to security mechanisms.",
-					isAdvance: false,
-				},
-				"~": {
-					title: "💧 Abyssal Water Chasm",
-					icon: "💧",
-					desc: "Subterranean chasm. Target with Glacial Freeze [G].",
-					isAdvance: false,
-				},
-				'"': {
-					title: "🌿 Dry Bramble Brush",
-					icon: "🌿",
-					desc: "Combustible obstacle. Target with Pyretic Scorch [F].",
-					isAdvance: false,
-				},
-				"%": {
-					title: "☠️ Toxic Miasma Cloud",
-					icon: "☠️",
-					desc: "Poisonous vapor. Dispel with Aetheric Gale [V].",
-					isAdvance: false,
-				},
-				">": {
-					title: "⛩️ Descent Gate Portal",
-					icon: "⛩️",
-					desc: "Runic portal leading deeper underground.",
-					isAdvance: false,
-				},
-				"<": {
-					title: "🪜 Ascent Ladder Beacon",
-					icon: "🪜",
-					desc: "Ladder pathway ascending to surface world.",
-					isAdvance: false,
-				},
-				O: {
-					title: "🏰 Town Gateway",
-					icon: "🏰",
-					desc: "Fortified archway leading into the settlement.",
-					isAdvance: false,
-				},
-				D: {
-					title: "🏰 Town Archway",
-					icon: "🏰",
-					desc: "Fortified archway leading into the settlement.",
-					isAdvance: false,
-				},
-			};
-
-			const info = tileDescriptions[aheadTile] || {
-				title: `Sector Object [${aheadTile}]`,
-				icon: "🔭",
-				desc: "Unknown spatial entity ahead.",
-				isAdvance: false,
-			};
-
-			return {
-				category: "3D_SENSOR",
-				title: `🔭 ${info.title}`,
-				hpPct: 100,
-				accent: "#38bdf8",
-				glow: "rgba(56, 189, 248, 0.45)",
-				badge1: `BEARING: ${facing}`,
-				badge2: `AHEAD: [${aheadTile}]`,
-				northAction: {
-					id: "3D_ADVANCE",
-					label: info.isAdvance ? "Advance" : "Interact",
-					icon: info.isAdvance ? "🚶" : "⚡",
-					title: info.isAdvance ? "Step Forward" : "Engage Object",
-					desc: info.isAdvance
-						? "Advance forward into the open pathway."
-						: "Physically engage or interact with the object ahead.",
-				},
-				eastAction: {
-					id: "3D_DEEP_SCAN",
-					label: "Deep Scan",
-					icon: "📡",
-					title: "Optical & Acoustic Telemetry",
-					desc: "Run comprehensive structural and aetheric analysis on facing sector.",
-				},
-				southAction: {
-					id: "3D_ABOUT_FACE",
-					label: "About-Face",
-					icon: "🔄",
-					title: "180° Tactical Turn",
-					desc: "Execute an immediate 180° turnaround.",
-				},
-				westAction: {
-					id: "3D_TOGGLE_EXPAND",
-					label: is3DViewExpanded ? "Collapse [Z]" : "Expand [Z]",
-					icon: "⛶",
-					title: is3DViewExpanded
-						? "Collapse 3D Viewport"
-						: "Expand 3D Viewport",
-					desc: is3DViewExpanded
-						? "Collapse back to standard 4-quadrant War Table Matrix."
-						: "Expand 3D environment sensor to 960x360 High-Res Viewport.",
-				},
-				bbox: {
-					left: clientX - 24,
-					top: clientY - 24,
-					width: 48,
-					height: 48,
-				},
-			};
-		}
-
-		// 3. Overworld & Dungeon Map Inspection (Q1 Cartography)
-		if (
-			typeof EmberlightMapRenderer !== "undefined" &&
-			typeof EmberlightMapRenderer.resolveTileFromScreen === "function"
-		) {
-			const tileInfo = EmberlightMapRenderer.resolveTileFromScreen(
-				clientX,
-				clientY,
-			);
-			if (tileInfo) {
-				const tile = tileInfo.tile;
-				const currentTownId = getTownId();
-				const inTown = Boolean(currentTownId);
-				let tileMeta = null;
-
-				switch (tile) {
-					case "~":
-						tileMeta = {
-							category: "HAZARD",
-							title: "💧 Abyssal Frostway",
-							hpPct: 100,
-							accent: "#38bdf8",
-							glow: "rgba(56, 189, 248, 0.45)",
-							badge1: "WATER",
-							badge2: "FREEZE VIABLE",
-							eastAction: {
-								id: "FIELD_FREEZE",
-								label: "Freeze",
-								icon: "❄️",
-								title: "Glacial Transmutation",
-								desc: "Freeze water into solid walkable frostway.",
-							},
-							southAction: {
-								id: "REST",
-								label: "Camp",
-								icon: "🔥",
-								title: "Camp Rest",
-								desc: "Rest at camp to restore party vitality.",
-							},
-							bbox: tileInfo.bbox,
-						};
-						break;
-					case '"':
-						tileMeta = {
-							category: "HAZARD",
-							title: "🌿 Dry Bramble",
-							hpPct: 100,
-							accent: "#f97316",
-							glow: "rgba(249, 115, 22, 0.45)",
-							badge1: "OBSTACLE",
-							badge2: "SCORCH VIABLE",
-							eastAction: {
-								id: "FIELD_SCORCH",
-								label: "Scorch",
-								icon: "🔥",
-								title: "Pyretic Scorch",
-								desc: "Incinerate dry brush into ash.",
-							},
-							southAction: {
-								id: "REST",
-								label: "Camp",
-								icon: "🔥",
-								title: "Camp Rest",
-								desc: "Rest at camp to restore party vitality.",
-							},
-							bbox: tileInfo.bbox,
-						};
-						break;
-					case "%":
-						tileMeta = {
-							category: "HAZARD",
-							title: "☠️ Miasma Rift",
-							hpPct: 100,
-							accent: "#c084fc",
-							glow: "rgba(192, 132, 252, 0.45)",
-							badge1: "HAZARD",
-							badge2: "DISPEL VIABLE",
-							eastAction: {
-								id: "FIELD_DISPEL",
-								label: "Dispel",
-								icon: "💨",
-								title: "Aetheric Gale",
-								desc: "Dispel corrupting miasma vapors.",
-							},
-							southAction: {
-								id: "REST",
-								label: "Camp",
-								icon: "🔥",
-								title: "Camp Rest",
-								desc: "Rest at camp to restore party vitality.",
-							},
-							bbox: tileInfo.bbox,
-						};
-						break;
-					case "$":
-					case "*":
-						tileMeta = {
-							category: "TILE",
-							title:
-								tile === "$"
-									? "📦 Subterranean Chest"
-									: "📦 Resource Cache",
-							hpPct: 100,
-							accent: "#fbbf24",
-							glow: "rgba(251, 191, 36, 0.45)",
-							badge1: "TREASURE",
-							badge2: "LOOT VIABLE",
-							eastAction: {
-								id: "INTERACT",
-								label: "Loot",
-								icon: "📦",
-								title: "Claim Cache",
-								desc: "Harvest valuable gold and resources.",
-							},
-							southAction: {
-								id: "REST",
-								label: "Camp",
-								icon: "🔥",
-								title: "Camp Rest",
-								desc: "Rest at camp to restore party vitality.",
-							},
-							bbox: tileInfo.bbox,
-						};
-						break;
-					case "@":
-						tileMeta = {
-							category: "TILE",
-							title: "🐪 Merchant Caravan",
-							hpPct: 100,
-							accent: "#34d399",
-							glow: "rgba(52, 211, 153, 0.45)",
-							badge1: "COMMERCE",
-							badge2: "SHOP VIABLE",
-							eastAction: {
-								id: "MENU_SHOP",
-								label: "Trade",
-								icon: "🐪",
-								title: "Merchant Caravan",
-								desc: "Trade weapons, provisions, and relics.",
-							},
-							southAction: {
-								id: "REST",
-								label: "Camp",
-								icon: "🔥",
-								title: "Camp Rest",
-								desc: "Rest at camp to restore party vitality.",
-							},
-							bbox: tileInfo.bbox,
-						};
-						break;
-					case "E":
-						tileMeta = {
-							category: "TILE",
-							title: "🧓 Elder Rowan",
-							hpPct: 100,
-							accent: "#38bdf8",
-							glow: "rgba(56, 189, 248, 0.45)",
-							badge1: "HAMLET ELDER",
-							badge2: "LORE",
-							eastAction: {
-								id: "INTERACT",
-								label: "Commune",
-								icon: "🧓",
-								title: "Elder Rowan",
-								desc: "Converse with the village elder.",
-							},
-							southAction: {
-								id: "REST",
-								label: "Inn",
-								icon: "🏨",
-								title: "Rest at Inn",
-								desc: "Rest at The Hearth Inn.",
-							},
-							bbox: tileInfo.bbox,
-						};
-						break;
-					case "B":
-						tileMeta = {
-							category: "ENEMY",
-							title: "👑 Malakor Boss Chamber",
-							hpPct: 100,
-							accent: "#ef4444",
-							glow: "rgba(239, 68, 68, 0.45)",
-							badge1: "BOSS",
-							badge2: "LETHAL",
-							eastAction: {
-								id: "INTERACT",
-								label: "Engage",
-								icon: "💀",
-								title: "Challenge Malakor",
-								desc: "Enter sovereign chamber to fight Malakor.",
-							},
-							southAction: {
-								id: "REST",
-								label: "Camp",
-								icon: "🔥",
-								title: "Camp Rest",
-								desc: "Rest at camp before battle.",
-							},
-							bbox: tileInfo.bbox,
-						};
-						break;
-					case "#":
-						tileMeta = {
-							category: "TILE",
-							title: inTown ? "🪵 Timber Wall" : "🏔️ Stone Wall",
-							hpPct: 100,
-							accent: "#ff9d4d",
-							glow: "rgba(255, 157, 77, 0.45)",
-							badge1: `SECTOR [${tileInfo.tileX},${tileInfo.tileY}]`,
-							badge2: "IMPASSABLE",
-							eastAction: {
-								id: "INTERACT",
-								label: "Inspect",
-								icon: "🔍",
-								title: "Wall Survey",
-								desc: "Solid fortification shielding this district.",
-							},
-							southAction: {
-								id: "REST",
-								label: "Camp",
-								icon: "🔥",
-								title: "Camp Rest",
-								desc: "Rest at camp to restore party vitality.",
-							},
-							bbox: tileInfo.bbox,
-						};
-						break;
-					case ".":
-						tileMeta = {
-							category: "TILE",
-							title: inTown ? "🛤️ Cobblestone Path" : "🌲 Wild Trail",
-							hpPct: 100,
-							accent: "#ff9d4d",
-							glow: "rgba(255, 157, 77, 0.45)",
-							badge1: `SECTOR [${tileInfo.tileX},${tileInfo.tileY}]`,
-							badge2: inTown ? "NOMINAL" : "UNEXPLORED",
-							eastAction: {
-								id: "INTERACT",
-								label: "Inspect",
-								icon: "🔍",
-								title: "Path Inspection",
-								desc: "Clear open pathway for tactical movement.",
-							},
-							southAction: {
-								id: "REST",
-								label: "Camp",
-								icon: "🔥",
-								title: "Camp Rest",
-								desc: "Rest at camp to restore party vitality.",
-							},
-							bbox: tileInfo.bbox,
-						};
-						break;
-					default: {
-						const locTitle = inTown
-							? "🏰 Oakhaven Hamlet"
-							: getDungeonDepth() > 0
-								? `💀 Catacombs (F${getDungeonDepth()})`
-								: "🌲 The Ashen Wilds";
-						tileMeta = {
-							category: "TILE",
-							title: locTitle,
-							hpPct: 100,
-							accent: "#ff9d4d",
-							glow: "rgba(255, 157, 77, 0.45)",
-							badge1: `SECTOR [${tileInfo.tileX},${tileInfo.tileY}]`,
-							badge2: inTown ? "SAFE ZONE" : "WILDERNESS",
-							eastAction: {
-								id: "INTERACT",
-								label: "Inspect",
-								icon: "🔍",
-								title: "Sector Survey",
-								desc: "Scan local aetheric currents and terrain features.",
-							},
-							southAction: {
-								id: "REST",
-								label: "Camp",
-								icon: "🔥",
-								title: "Camp Rest",
-								desc: "Rest at camp to restore party vitality.",
-							},
-							bbox: tileInfo.bbox,
-						};
-						break;
-					}
-				}
-
-				if (tileMeta) {
-					tileMeta.tileX = tileInfo.tileX;
-					tileMeta.tileY = tileInfo.tileY;
-					return tileMeta;
-				}
+			const targetPos = { x: pos.x + d.x, y: pos.y + d.y };
+			if (isTilePassable(map, targetPos)) {
+				moveParty(d.x, d.y);
+			} else {
+				interactFacing();
 			}
+		} else if (activeDistrict === "COMBAT") {
+			if (
+				typeof EmberlightCombat !== "undefined" &&
+				typeof EmberlightCombat.handleHostAction === "function"
+			) {
+				EmberlightCombat.handleHostAction("CHOICE_4");
+			}
+		} else {
+			OVERWORLD_ACTION_HANDLERS.MENU_POUCH();
+		}
+	};
+
+	const handleEastLeafAction = (meta) => {
+		if (meta?.eastAction?.id === "3D_DEEP_SCAN") {
+			const aheadDesc = meta.title || "Forward Sector";
+			notifyStatus(
+				`Deep Scan: Analyzing ${aheadDesc}. Sensor signature nominal.`,
+				"info",
+			);
+			if (typeof updateTelegraphPane === "function") {
+				updateTelegraphPane({
+					title: `3D SENSOR SCAN: ${aheadDesc.toUpperCase()}`,
+					subtitle: "ACOUSTIC & OPTICAL SIGNATURES",
+					lines: [
+						`Target Profile: ${meta.badge1 || "NOMINAL"} // ${meta.badge2 || "CLEAR"}`,
+						"Sensor Telemetry: Line-of-sight confirmed.",
+						`Tactical Advisory: ${meta.eastAction.desc || "No immediate hostile anomalies detected."}`,
+					],
+				});
+			}
+			publishSfx("sfx_confirm");
+			return;
 		}
 
-		return null;
+		const actId = meta?.eastAction?.id;
+		if (!actId) {
+			interactFacing();
+			return;
+		}
+
+		if (actId === "THREAT_ORACLE") {
+			notifyStatus(
+				"Threat Oracle: Malakor preparing Heavy Cleave (32 Physical Damage).",
+				"warning",
+			);
+			publishSfx("sfx_confirm");
+		} else if (actId === "FIELD_FREEZE") {
+			executeCapability("cap:elemental.freeze");
+		} else if (actId === "FIELD_SCORCH") {
+			executeCapability("cap:elemental.scorch");
+		} else if (actId === "FIELD_DISPEL") {
+			executeCapability("cap:elemental.gale_dispel");
+		} else if (actId === "MENU_SHOP") {
+			enterMarketDistrict("VILLAGE_SHOP");
+		} else if (actId === "FIELD_TRIAGE") {
+			notifyStatus("Field triage applied to vanguard unit.", "success");
+			publishSfx("sfx_heal");
+		} else {
+			interactFacing();
+		}
+	};
+
+	const handleSouthLeafAction = (meta) => {
+		if (meta?.southAction?.id === "3D_ABOUT_FACE") {
+			const facingOrder = ["UP", "RIGHT", "DOWN", "LEFT"];
+			const currentFacing = store?.getFlag("facingDirection") || "DOWN";
+			const foundFacingIdx = facingOrder.indexOf(currentFacing);
+			const currentIdx = foundFacingIdx !== -1 ? foundFacingIdx : 2;
+			const newFacing = facingOrder[(currentIdx + 2) % 4];
+			pivotFacing(newFacing);
+			notifyStatus(
+				`Tactical Turn: Performed 180° about-face to ${newFacing}.`,
+				"info",
+			);
+		} else if (activeDistrict === "COMBAT") {
+			if (
+				typeof EmberlightCombat !== "undefined" &&
+				typeof EmberlightCombat.handleHostAction === "function"
+			) {
+				EmberlightCombat.handleHostAction("CHOICE_2");
+			}
+		} else {
+			OVERWORLD_ACTION_HANDLERS.REST();
+		}
+	};
+
+	const handleWestLeafAction = (meta) => {
+		if (meta?.westAction?.id === "3D_TOGGLE_EXPAND") {
+			toggle3DViewportExpansion();
+		} else if (activeDistrict === "COMBAT") {
+			switchDistrict("STATUS");
+		} else {
+			switchDistrict("CHRONICLE");
+		}
 	};
 
 	/**
@@ -2056,117 +2188,54 @@ const GameRuntime = (() => {
 	 */
 	const executeLeafAction = (dir, meta) => {
 		dismissTacticalChassis();
-		if (!dir) return;
+		if (dir === "NORTH") handleNorthLeafAction(meta);
+		else if (dir === "EAST") handleEastLeafAction(meta);
+		else if (dir === "SOUTH") handleSouthLeafAction(meta);
+		else if (dir === "WEST") handleWestLeafAction(meta);
+	};
 
-		switch (dir) {
-			case "NORTH":
-				if (meta?.northAction?.id === "3D_ADVANCE") {
-					const map = getActiveWorldMap();
-					const pos = getWorldPos();
-					const facing = store?.getFlag("facingDirection") || "DOWN";
-					/** @type {Record<string, { x: number, y: number }>} */
-					const facingDeltas = {
-						UP: { x: 0, y: -1 },
-						RIGHT: { x: 1, y: 0 },
-						DOWN: { x: 0, y: 1 },
-						LEFT: { x: -1, y: 0 },
-					};
-					const d = facingDeltas[facing] || { x: 0, y: 1 };
-					const targetPos = { x: pos.x + d.x, y: pos.y + d.y };
-					if (isTilePassable(map, targetPos)) {
-						moveParty(d.x, d.y);
-					} else {
-						interactFacing();
-					}
-				} else if (activeDistrict === "COMBAT") {
-					if (
-						typeof EmberlightCombat !== "undefined" &&
-						typeof EmberlightCombat.handleHostAction === "function"
-					) {
-						EmberlightCombat.handleHostAction("CHOICE_4");
-					}
-				} else {
-					OVERWORLD_ACTION_HANDLERS.MENU_POUCH();
-				}
-				break;
-			case "EAST":
-				if (meta?.eastAction?.id === "3D_DEEP_SCAN") {
-					const aheadDesc = meta.title || "Forward Sector";
-					notifyStatus(
-						`Deep Scan: Analyzing ${aheadDesc}. Sensor signature nominal.`,
-						"info",
-					);
-					if (typeof updateTelegraphPane === "function") {
-						updateTelegraphPane({
-							title: `3D SENSOR SCAN: ${aheadDesc.toUpperCase()}`,
-							subtitle: "ACOUSTIC & OPTICAL SIGNATURES",
-							lines: [
-								`Target Profile: ${meta.badge1 || "NOMINAL"} // ${meta.badge2 || "CLEAR"}`,
-								"Sensor Telemetry: Line-of-sight confirmed.",
-								`Tactical Advisory: ${meta.eastAction.desc || "No immediate hostile anomalies detected."}`,
-							],
-						});
-					}
-					publishSfx("sfx_confirm");
-				} else if (meta?.eastAction?.id) {
-					const actId = meta.eastAction.id;
-					if (actId === "THREAT_ORACLE") {
-						notifyStatus(
-							"Threat Oracle: Malakor preparing Heavy Cleave (32 Physical Damage).",
-							"warning",
-						);
-						publishSfx("sfx_confirm");
-					} else if (actId === "FIELD_FREEZE") {
-						executeCapability("cap:elemental.freeze");
-					} else if (actId === "FIELD_SCORCH") {
-						executeCapability("cap:elemental.scorch");
-					} else if (actId === "FIELD_DISPEL") {
-						executeCapability("cap:elemental.gale_dispel");
-					} else if (actId === "MENU_SHOP") {
-						enterMarketDistrict("VILLAGE_SHOP");
-					} else if (actId === "INTERACT") {
-						interactFacing();
-					} else if (actId === "FIELD_TRIAGE") {
-						notifyStatus("Field triage applied to vanguard unit.", "success");
-						publishSfx("sfx_heal");
-					}
-				} else {
-					interactFacing();
-				}
-				break;
-			case "SOUTH":
-				if (meta?.southAction?.id === "3D_ABOUT_FACE") {
-					const facingOrder = ["UP", "RIGHT", "DOWN", "LEFT"];
-					const currentFacing = store?.getFlag("facingDirection") || "DOWN";
-					const foundFacingIdx = facingOrder.indexOf(currentFacing);
-					const currentIdx = foundFacingIdx !== -1 ? foundFacingIdx : 2;
-					const newFacing = facingOrder[(currentIdx + 2) % 4];
-					pivotFacing(newFacing);
-					notifyStatus(
-						`Tactical Turn: Performed 180° about-face to ${newFacing}.`,
-						"info",
-					);
-				} else if (activeDistrict === "COMBAT") {
-					if (
-						typeof EmberlightCombat !== "undefined" &&
-						typeof EmberlightCombat.handleHostAction === "function"
-					) {
-						EmberlightCombat.handleHostAction("CHOICE_2");
-					}
-				} else {
-					OVERWORLD_ACTION_HANDLERS.REST();
-				}
-				break;
-			case "WEST":
-				if (meta?.westAction?.id === "3D_TOGGLE_EXPAND") {
-					toggle3DViewportExpansion();
-				} else if (activeDistrict === "COMBAT") {
-					switchDistrict("STATUS");
-				} else {
-					switchDistrict("CHRONICLE");
-				}
-				break;
+	const handleHeroCardPointerContext = (targetEl) => {
+		const heroCard = targetEl?.closest?.(".hud-char-card, [data-hero-idx]");
+		if (!heroCard) return false;
+		const heroIdxAttr =
+			heroCard.dataset?.heroIdx ??
+			heroCard.dataset?.idx ??
+			heroCard.getAttribute?.("data-hero-idx") ??
+			heroCard.getAttribute?.("data-idx");
+		if (heroIdxAttr !== undefined && heroIdxAttr !== null) {
+			store?.setFlag("selectedHeroIdx", Number.parseInt(heroIdxAttr, 10));
 		}
+		switchDistrict("ARMORY");
+		return true;
+	};
+
+	const handleCombatPointerContext = (targetEl) => {
+		if (activeDistrict !== "COMBAT") return false;
+		const isCombatCanvasOrQuadrant = Boolean(
+			targetEl?.closest?.(
+				"#combat-backdrop-canvas, #combat-arena, #pane-sensor, .combat-quadrant, #combat-tactical-grid-canvas, #combat-hero-radial, .combat-hero-radial",
+			),
+		);
+		if (isCombatCanvasOrQuadrant) {
+			return true;
+		}
+		if (
+			typeof EmberlightCombat !== "undefined" &&
+			typeof EmberlightCombat.getState === "function"
+		) {
+			const cState = EmberlightCombat.getState();
+			if (
+				cState?.phase === "TARGETING_ENEMY" ||
+				cState?.phase === "TARGETING_ALLY" ||
+				cState?.phase === "PENDING_SKILL" ||
+				(cState?.selectedTab && cState.selectedTab !== "ATTACK")
+			) {
+				EmberlightCombat.handleHostAction("CANCEL");
+				renderHUD();
+				return true;
+			}
+		}
+		return true;
 	};
 
 	/**
@@ -2179,33 +2248,18 @@ const GameRuntime = (() => {
 			return;
 		}
 
-		if (isSaveLoadModalOpen) {
+		if (
+			isSaveLoadModalOpen ||
+			store?.getFlag("pouchOpen") ||
+			isQ4DeckExpanded
+		) {
 			handleCancelAction();
 			return;
 		}
 
-		if (store?.getFlag("pouchOpen") || isQ4DeckExpanded) {
-			handleCancelAction();
-			return;
-		}
-
-		// Q4 Hero Card Right Click: Directly opens that Hero's Armory/Status sheet
 		const targetEl = /** @type {HTMLElement|null} */ (e?.target);
-		const heroCard = targetEl?.closest
-			? targetEl.closest(".hud-char-card, [data-hero-idx]")
-			: null;
-		if (heroCard) {
-			const heroIdxAttr =
-				heroCard.getAttribute("data-hero-idx") ||
-				heroCard.getAttribute("data-idx");
-			if (heroIdxAttr !== null && heroIdxAttr !== undefined) {
-				store?.setFlag("selectedHeroIdx", parseInt(heroIdxAttr, 10));
-			}
-			switchDistrict("ARMORY");
-			return;
-		}
+		if (handleHeroCardPointerContext(targetEl)) return;
 
-		// Universal Right Click Cancel / Back for dedicated menus (Status, Armory, Skills, Chronicle, Market, Relic Forge, Lockpick, Settings)
 		if (
 			activeDistrict !== "OVERWORLD" &&
 			activeDistrict !== "world" &&
@@ -2216,28 +2270,8 @@ const GameRuntime = (() => {
 			return;
 		}
 
-		if (activeDistrict === "COMBAT") {
-			if (
-				typeof EmberlightCombat !== "undefined" &&
-				typeof EmberlightCombat.getState === "function"
-			) {
-				const cState = EmberlightCombat.getState();
-				if (
-					cState?.phase === "TARGETING_ENEMY" ||
-					cState?.phase === "TARGETING_ALLY" ||
-					cState?.phase === "PENDING_SKILL" ||
-					(cState?.selectedTab && cState.selectedTab !== "ATTACK")
-				) {
-					EmberlightCombat.handleHostAction("CANCEL");
-					renderHUD();
-					return;
-				}
-			}
-		}
-
-		if (activeDistrict === "TITLE") {
-			return;
-		}
+		if (handleCombatPointerContext(targetEl)) return;
+		if (activeDistrict === "TITLE") return;
 
 		const meta = resolveTargetMetadata(e.target, e.clientX, e.clientY);
 		if (meta) {
@@ -2300,9 +2334,8 @@ const GameRuntime = (() => {
 
 	/**
 	 * Handles RMB mouseup: Commits flick gesture or leaves chassis pinned.
-	 * @param {MouseEvent} e
 	 */
-	const handlePointerContextUp = (e) => {
+	const handlePointerContextUp = () => {
 		if (!rmbEngine.isDown) return;
 		rmbEngine.isDown = false;
 
@@ -2839,7 +2872,7 @@ const GameRuntime = (() => {
 				party: getParty(),
 				gold: getGold(),
 				inventory: /** @type {Record<string, number>} */ (
-					/** @type {unknown} */ (getInventory())
+          /** @type {unknown} */ (getInventory())
 				),
 				worldPos: getWorldPos(),
 				playerPos: { ...getWorldPos(), inTown, townId: currentTownId },
@@ -2937,7 +2970,7 @@ const GameRuntime = (() => {
 				party: getParty(),
 				gold: getGold(),
 				inventory: /** @type {Record<string, number>} */ (
-					/** @type {unknown} */ (getInventory())
+          /** @type {unknown} */ (getInventory())
 				),
 				encounterKey,
 				encounter,
@@ -2960,6 +2993,65 @@ const GameRuntime = (() => {
 		renderHUD();
 	};
 	//#endregion
+
+	/**
+	 * Dispatches system commands received via EventBus.
+	 * @param {{ command?: string, layoutPreset?: string, fontScale?: string, enabled?: boolean, isMuted?: boolean }} evt
+	 */
+	const handleSystemCommand = (evt) => {
+		if (!evt?.command) return;
+		switch (evt.command) {
+			case "SAVE_GAME":
+			case "OPEN_SAVE_MODAL":
+				openSaveLoadModal("SAVE");
+				break;
+			case "OPEN_LOAD_MODAL":
+				openSaveLoadModal("LOAD");
+				break;
+			case "RETURN_TO_TITLE":
+				switchDistrict("TITLE");
+				break;
+			case "WIPE_STORAGE":
+				if (typeof store?.StorageManager?.clear === "function") {
+					store.StorageManager.clear();
+				}
+				notifyStatus("Local storage cleared. Returning to title.", "danger");
+				switchDistrict("TITLE");
+				break;
+			case "SET_LAYOUT_RATIO":
+				notifyStatus(`Viewport layout updated: ${evt.layoutPreset}`, "info");
+				break;
+			case "SET_FONT_SCALE":
+				notifyStatus(`UI font scale updated: ${evt.fontScale}`, "info");
+				break;
+			case "TOGGLE_FULLSCREEN":
+				if (typeof document !== "undefined") {
+					if (!document.fullscreenElement) {
+						document.documentElement.requestFullscreen?.().catch(() => { });
+						notifyStatus("Display mode: FULLSCREEN", "info");
+					} else {
+						document.exitFullscreen?.().catch(() => { });
+						notifyStatus("Display mode: WINDOWED", "info");
+					}
+				}
+				break;
+			case "TOGGLE_SCANLINES":
+				if (typeof document !== "undefined" && document.body) {
+					document.body.classList.toggle("crt-enabled", Boolean(evt.enabled));
+					notifyStatus(
+						`CRT Scanlines: ${evt.enabled ? "ENABLED" : "DISABLED"}`,
+						"info",
+					);
+				}
+				break;
+			case "TOGGLE_MUTE":
+				notifyStatus(
+					`Master Audio: ${evt.isMuted ? "MUTED" : "ACTIVE"}`,
+					"info",
+				);
+				break;
+		}
+	};
 
 	//#region [SEC-08] Global Subsystem Bootstrap, EventBus Subscriptions & Public Interface Export
 	// --- EventBus Subscriptions ---
@@ -2989,49 +3081,7 @@ const GameRuntime = (() => {
 		EventBus.subscribe("auditor:resolved", () => {
 			switchDistrict("OVERWORLD");
 		});
-		EventBus.subscribe("system:command", (evt) => {
-			if (!evt?.command) return;
-			if (evt.command === "SAVE_GAME" || evt.command === "OPEN_SAVE_MODAL") {
-				openSaveLoadModal("SAVE");
-			} else if (evt.command === "OPEN_LOAD_MODAL") {
-				openSaveLoadModal("LOAD");
-			} else if (evt.command === "RETURN_TO_TITLE") {
-				switchDistrict("TITLE");
-			} else if (evt.command === "WIPE_STORAGE") {
-				if (typeof store?.StorageManager?.clear === "function") {
-					store.StorageManager.clear();
-				}
-				notifyStatus("Local storage cleared. Returning to title.", "danger");
-				switchDistrict("TITLE");
-			} else if (evt.command === "SET_LAYOUT_RATIO") {
-				notifyStatus(`Viewport layout updated: ${evt.layoutPreset}`, "info");
-			} else if (evt.command === "SET_FONT_SCALE") {
-				notifyStatus(`UI font scale updated: ${evt.fontScale}`, "info");
-			} else if (evt.command === "TOGGLE_FULLSCREEN") {
-				if (typeof document !== "undefined") {
-					if (!document.fullscreenElement) {
-						document.documentElement.requestFullscreen?.().catch(() => { });
-						notifyStatus("Display mode: FULLSCREEN", "info");
-					} else {
-						document.exitFullscreen?.().catch(() => { });
-						notifyStatus("Display mode: WINDOWED", "info");
-					}
-				}
-			} else if (evt.command === "TOGGLE_SCANLINES") {
-				if (typeof document !== "undefined" && document.body) {
-					document.body.classList.toggle("crt-enabled", Boolean(evt.enabled));
-					notifyStatus(
-						`CRT Scanlines: ${evt.enabled ? "ENABLED" : "DISABLED"}`,
-						"info",
-					);
-				}
-			} else if (evt.command === "TOGGLE_MUTE") {
-				notifyStatus(
-					`Master Audio: ${evt.isMuted ? "MUTED" : "ACTIVE"}`,
-					"info",
-				);
-			}
-		});
+		EventBus.subscribe("system:command", (evt) => handleSystemCommand(evt));
 		EventBus.subscribe("combat:resolved", (evt) => {
 			if (!evt) return;
 			if (evt.party) setParty(evt.party);
@@ -3133,18 +3183,27 @@ const GameRuntime = (() => {
 		const tenantKey = name.replace(/^Emberlight/, "").toLowerCase();
 		const attenuatedBus = {
 			publish: (channel, payload) => {
-				if (rawContext.eventBus && typeof rawContext.eventBus.publish === "function") {
+				if (
+					rawContext.eventBus &&
+					typeof rawContext.eventBus.publish === "function"
+				) {
 					rawContext.eventBus.publish(channel, payload);
 				}
 			},
 			subscribe: (channel, callback) => {
-				if (rawContext.eventBus && typeof rawContext.eventBus.subscribe === "function") {
+				if (
+					rawContext.eventBus &&
+					typeof rawContext.eventBus.subscribe === "function"
+				) {
 					return rawContext.eventBus.subscribe(channel, callback);
 				}
-				return () => {};
+				return () => { };
 			},
 			unsubscribe: (channel, callback) => {
-				if (rawContext.eventBus && typeof rawContext.eventBus.unsubscribe === "function") {
+				if (
+					rawContext.eventBus &&
+					typeof rawContext.eventBus.unsubscribe === "function"
+				) {
 					rawContext.eventBus.unsubscribe(channel, callback);
 				}
 			},
@@ -3267,8 +3326,8 @@ const GameRuntime = (() => {
 				renderHUD,
 				getParty,
 				getInventory: () =>
-					/** @type {Record<string, number>} */(
-						/** @type {unknown} */ (getInventory())
+          /** @type {Record<string, number>} */(
+            /** @type {unknown} */ (getInventory())
 				),
 				getGold,
 				handleCancelAction,
@@ -3289,8 +3348,8 @@ const GameRuntime = (() => {
 		getParty,
 		setParty,
 		getInventory: () =>
-			/** @type {Record<string, number>} */(
-				/** @type {unknown} */ (getInventory())
+      /** @type {Record<string, number>} */(
+        /** @type {unknown} */ (getInventory())
 		),
 		setInventory,
 		modifyItem,

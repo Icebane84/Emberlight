@@ -164,12 +164,12 @@ const EmberlightCombatBackdrop = (() => {
 	 * @type {Record<string, BackdropLifecycleState>}
 	 */
 	const State = Object.freeze({
-		UNCONFIGURED: 'UNCONFIGURED',
-		CONFIGURED: 'CONFIGURED',
-		INITIALIZED: 'INITIALIZED',
-		READY: 'READY',
-		RUNNING: 'RUNNING',
-		DESTROYED: 'DESTROYED',
+		UNCONFIGURED: "UNCONFIGURED",
+		CONFIGURED: "CONFIGURED",
+		INITIALIZED: "INITIALIZED",
+		READY: "READY",
+		RUNNING: "RUNNING",
+		DESTROYED: "DESTROYED",
 	});
 
 	/**
@@ -181,9 +181,13 @@ const EmberlightCombatBackdrop = (() => {
 	 * @returns {Readonly<T>} Deeply frozen object reference.
 	 */
 	function deepFreeze(obj) {
-		if (!obj || typeof obj !== 'object') return obj;
+		if (!obj || typeof obj !== "object") return obj;
 		Object.keys(obj).forEach((prop) => {
-			if (typeof obj[prop] === 'object' && obj[prop] !== null && !Object.isFrozen(obj[prop])) {
+			if (
+				typeof obj[prop] === "object" &&
+				obj[prop] !== null &&
+				!Object.isFrozen(obj[prop])
+			) {
 				deepFreeze(obj[prop]);
 			}
 		});
@@ -198,10 +202,10 @@ const EmberlightCombatBackdrop = (() => {
 	 * @returns {any} Resolved synchronous EventBus interface or null.
 	 */
 	function resolveEventBus(ctxRef) {
-		if (ctxRef && typeof ctxRef.subscribe === 'function') {
+		if (ctxRef && typeof ctxRef.subscribe === "function") {
 			return ctxRef;
 		}
-		if (ctxRef?.eventBus && typeof ctxRef.eventBus.subscribe === 'function') {
+		if (ctxRef?.eventBus && typeof ctxRef.eventBus.subscribe === "function") {
 			return ctxRef.eventBus;
 		}
 		return null;
@@ -217,7 +221,7 @@ const EmberlightCombatBackdrop = (() => {
 	 * @returns {number} Normalized floating-point pseudorandom number in [0, 1).
 	 */
 	function getNextFloat(prngStateObj) {
-		if (typeof EmberlightPRNG !== 'undefined' && EmberlightPRNG.create) {
+		if (typeof EmberlightPRNG !== "undefined" && EmberlightPRNG.create) {
 			const p = EmberlightPRNG.create(prngStateObj.seed || 1337);
 			const val = p.nextFloat();
 			prngStateObj.seed = p.getState();
@@ -238,9 +242,9 @@ const EmberlightCombatBackdrop = (() => {
 	 * @returns {string} Hex color token for architectural silhouettes.
 	 */
 	function getMidgroundFill(biome) {
-		if (biome === 'BOSS') return '#110202';
-		if (biome === 'TOWN') return '#180d05';
-		return '#090916';
+		if (biome === "BOSS") return "#110202";
+		if (biome === "TOWN") return "#180d05";
+		return "#090916";
 	}
 
 	/**
@@ -255,11 +259,17 @@ const EmberlightCombatBackdrop = (() => {
 	 */
 	function synthesizeCinematicStage(seed, biome, width = 800, height = 400) {
 		const prngState = { seed: Number(seed) || 1337 };
-		const bKey = String(biome || 'CRYPT').toUpperCase();
-		let normalizedBiome = 'CRYPT';
-		if (bKey.includes('BOSS') || bKey.includes('MALAKOR')) normalizedBiome = 'BOSS';
-		else if (bKey.includes('MEADOW') || bKey.includes('SURFACE') || bKey === '.') normalizedBiome = 'MEADOW';
-		else if (bKey.includes('TOWN') || bKey === 'T') normalizedBiome = 'TOWN';
+		const bKey = String(biome || "CRYPT").toUpperCase();
+		let normalizedBiome = "CRYPT";
+		if (bKey.includes("BOSS") || bKey.includes("MALAKOR"))
+			normalizedBiome = "BOSS";
+		else if (
+			bKey.includes("MEADOW") ||
+			bKey.includes("SURFACE") ||
+			bKey === "."
+		)
+			normalizedBiome = "MEADOW";
+		else if (bKey.includes("TOWN") || bKey === "T") normalizedBiome = "TOWN";
 
 		const parallaxLayers = [];
 		const midElements = [];
@@ -268,7 +278,7 @@ const EmberlightCombatBackdrop = (() => {
 
 		// 1. Deep Parallax Nebula / Starfield / Ash Cloud Layer
 		const deepElements = [];
-		const count = normalizedBiome === 'BOSS' ? 50 : 35;
+		const count = normalizedBiome === "BOSS" ? 50 : 35;
 		for (let i = 0; i < count; i++) {
 			deepElements.push({
 				x: getNextFloat(prngState) * width,
@@ -291,20 +301,38 @@ const EmberlightCombatBackdrop = (() => {
 				variant: Math.floor(getNextFloat(prngState) * 3),
 			});
 		}
-		parallaxLayers.push({ depth: 0.50, elements: midElements });
+		parallaxLayers.push({ depth: 0.5, elements: midElements });
 
 		// 3. Biome-Specific Lighting & Particle Descriptors
-		if (normalizedBiome === 'CRYPT') {
+		if (normalizedBiome === "CRYPT") {
 			lightEmitters.push(
-				{ x: width * 0.2, y: height * 0.4, color: '#60a5fa', radius: 80, intensity: 0.9 },
-				{ x: width * 0.5, y: height * 0.35, color: '#a855f7', radius: 95, intensity: 1.1 },
-				{ x: width * 0.8, y: height * 0.4, color: '#60a5fa', radius: 80, intensity: 0.9 }
+				{
+					x: width * 0.2,
+					y: height * 0.4,
+					color: "#60a5fa",
+					radius: 80,
+					intensity: 0.9,
+				},
+				{
+					x: width * 0.5,
+					y: height * 0.35,
+					color: "#a855f7",
+					radius: 95,
+					intensity: 1.1,
+				},
+				{
+					x: width * 0.8,
+					y: height * 0.4,
+					color: "#60a5fa",
+					radius: 80,
+					intensity: 0.9,
+				},
 			);
-		} else if (normalizedBiome === 'BOSS') {
+		} else if (normalizedBiome === "BOSS") {
 			lightEmitters.push({
 				x: width * 0.5,
 				y: height * 0.75,
-				color: '#ef4444',
+				color: "#ef4444",
 				radius: 180,
 				intensity: 1.5,
 				pulse: true,
@@ -316,19 +344,31 @@ const EmberlightCombatBackdrop = (() => {
 					vx: (getNextFloat(prngState) - 0.5) * 0.8,
 					vy: -1.5 - getNextFloat(prngState) * 2.5,
 					size: 1.5 + getNextFloat(prngState) * 2.0,
-					color: '#f97316',
+					color: "#f97316",
 				});
 			}
-		} else if (normalizedBiome === 'TOWN') {
+		} else if (normalizedBiome === "TOWN") {
 			lightEmitters.push(
-				{ x: width * 0.25, y: height * 0.38, color: '#fbbf24', radius: 70, intensity: 1.0 },
-				{ x: width * 0.75, y: height * 0.38, color: '#f59e0b', radius: 70, intensity: 1.0 }
+				{
+					x: width * 0.25,
+					y: height * 0.38,
+					color: "#fbbf24",
+					radius: 70,
+					intensity: 1.0,
+				},
+				{
+					x: width * 0.75,
+					y: height * 0.38,
+					color: "#f59e0b",
+					radius: 70,
+					intensity: 1.0,
+				},
 			);
 		} else {
 			lightEmitters.push({
 				x: width * 0.5,
 				y: height * 0.3,
-				color: '#34d399',
+				color: "#34d399",
 				radius: 110,
 				intensity: 0.8,
 			});
@@ -377,11 +417,11 @@ const EmberlightCombatBackdrop = (() => {
 		let unsubs = [];
 		let time = 0;
 		/** @type {BackdropBiome} */
-		let activeBiome = 'CRYPT';
+		let activeBiome = "CRYPT";
 
 		// Cinematic Illumination & Post-Processing State
 		let flareIntensity = 0.0;
-		let flareColor = '255, 157, 77';
+		let flareColor = "255, 157, 77";
 		let flareDecay = 0.04;
 
 		/**
@@ -391,19 +431,24 @@ const EmberlightCombatBackdrop = (() => {
 		 * @returns {void}
 		 */
 		function ensureCanvas() {
-			if (isHeadless || typeof document === 'undefined') return;
+			if (isHeadless || typeof document === "undefined") return;
 			if (canvas?.parentElement) return;
-			canvas = document.getElementById('combat-backdrop-canvas');
+			canvas = document.getElementById("combat-backdrop-canvas");
 			if (!canvas) {
-				const arena = document.getElementById('pane-combat-arena') || document.getElementById('combat-theater');
+				const arena =
+					document.getElementById("pane-combat-arena") ||
+					document.getElementById("combat-theater");
 				if (arena) {
-					canvas = document.createElement('canvas');
-					canvas.id = 'combat-backdrop-canvas';
+					canvas = document.createElement("canvas");
+					canvas.id = "combat-backdrop-canvas";
 					arena.insertBefore(canvas, arena.firstChild);
 				}
 			}
 			if (canvas) {
-				ctx = typeof canvas.getContext === 'function' ? canvas.getContext('2d') : null;
+				ctx =
+					typeof canvas.getContext === "function"
+						? canvas.getContext("2d")
+						: null;
 				resize();
 			}
 		}
@@ -419,7 +464,8 @@ const EmberlightCombatBackdrop = (() => {
 			const rect = canvas.parentElement?.getBoundingClientRect
 				? canvas.parentElement.getBoundingClientRect()
 				: { width: 800, height: 400 };
-			const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+			const dpr =
+				(typeof window !== "undefined" && window.devicePixelRatio) || 1;
 			canvas.width = Math.floor((rect.width || 800) * dpr);
 			canvas.height = Math.floor((rect.height || 400) * dpr);
 			if (ctx.setTransform) {
@@ -438,28 +484,28 @@ const EmberlightCombatBackdrop = (() => {
 		 * @returns {void}
 		 */
 		function renderSkyVault(w, h, biome) {
-			if (typeof ctx.createLinearGradient === 'function') {
+			if (typeof ctx.createLinearGradient === "function") {
 				const skyGrad = ctx.createLinearGradient(0, 0, 0, h * 0.65);
-				if (biome === 'BOSS') {
-					skyGrad.addColorStop(0, '#1a0202');
-					skyGrad.addColorStop(0.5, '#3b0707');
-					skyGrad.addColorStop(1, '#581c87');
-				} else if (biome === 'TOWN') {
-					skyGrad.addColorStop(0, '#2e1005');
-					skyGrad.addColorStop(0.5, '#431407');
-					skyGrad.addColorStop(1, '#78350f');
-				} else if (biome === 'MEADOW') {
-					skyGrad.addColorStop(0, '#020617');
-					skyGrad.addColorStop(0.5, '#0f172a');
-					skyGrad.addColorStop(1, '#065f46');
+				if (biome === "BOSS") {
+					skyGrad.addColorStop(0, "#1a0202");
+					skyGrad.addColorStop(0.5, "#3b0707");
+					skyGrad.addColorStop(1, "#581c87");
+				} else if (biome === "TOWN") {
+					skyGrad.addColorStop(0, "#2e1005");
+					skyGrad.addColorStop(0.5, "#431407");
+					skyGrad.addColorStop(1, "#78350f");
+				} else if (biome === "MEADOW") {
+					skyGrad.addColorStop(0, "#020617");
+					skyGrad.addColorStop(0.5, "#0f172a");
+					skyGrad.addColorStop(1, "#065f46");
 				} else {
-					skyGrad.addColorStop(0, '#030309');
-					skyGrad.addColorStop(0.5, '#0d0d24');
-					skyGrad.addColorStop(1, '#1e1b4b');
+					skyGrad.addColorStop(0, "#030309");
+					skyGrad.addColorStop(0.5, "#0d0d24");
+					skyGrad.addColorStop(1, "#1e1b4b");
 				}
 				ctx.fillStyle = skyGrad;
 			} else {
-				ctx.fillStyle = '#0a0a14';
+				ctx.fillStyle = "#0a0a14";
 			}
 			ctx.fillRect(0, 0, w, h * 0.65);
 		}
@@ -475,11 +521,19 @@ const EmberlightCombatBackdrop = (() => {
 		function renderDeepParallax(currentSim, biome) {
 			const deepLayer = currentSim.parallaxLayers?.[0];
 			if (!deepLayer?.elements) return;
-			ctx.fillStyle = biome === 'BOSS' ? 'rgba(249, 115, 22, 0.7)' : 'rgba(255, 255, 255, 0.6)';
+			ctx.fillStyle =
+				biome === "BOSS"
+					? "rgba(249, 115, 22, 0.7)"
+					: "rgba(255, 255, 255, 0.6)";
 			deepLayer.elements.forEach((elem, idx) => {
 				const drift = Math.sin(time * 0.8 + idx) * 4;
 				ctx.globalAlpha = elem.alpha || 0.5;
-				ctx.fillRect(elem.x + drift * (elem.speedMultiplier || 0.2), elem.y, elem.size, elem.size);
+				ctx.fillRect(
+					elem.x + drift * (elem.speedMultiplier || 0.2),
+					elem.y,
+					elem.size,
+					elem.size,
+				);
 			});
 			ctx.globalAlpha = 1.0;
 		}
@@ -496,7 +550,7 @@ const EmberlightCombatBackdrop = (() => {
 		 */
 		function renderMidgroundSilhouettes(w, h, currentSim, biome) {
 			ctx.fillStyle = getMidgroundFill(biome);
-			const strokeColor = biome === 'BOSS' ? '#2c0b0b' : '#1e1b4b';
+			const strokeColor = biome === "BOSS" ? "#2c0b0b" : "#1e1b4b";
 			currentSim.midElements?.forEach((pillar) => {
 				const pX = pillar.x;
 				const pW = pillar.width;
@@ -517,17 +571,33 @@ const EmberlightCombatBackdrop = (() => {
 		 * @returns {void}
 		 */
 		function renderLightEmitters(currentSim) {
-			if (typeof ctx.createRadialGradient !== 'function' || !currentSim.lightEmitters) return;
+			if (
+				typeof ctx.createRadialGradient !== "function" ||
+				!currentSim.lightEmitters
+			)
+				return;
 			ctx.save();
-			ctx.globalCompositeOperation = 'screen';
+			ctx.globalCompositeOperation = "screen";
 			currentSim.lightEmitters.forEach((light, idx) => {
-				const pulseFactor = light.pulse ? Math.sin(time * 4.0) * 0.15 : Math.sin(time * 3.0 + idx) * 0.1;
+				const pulseFactor = light.pulse
+					? Math.sin(time * 4.0) * 0.15
+					: Math.sin(time * 3.0 + idx) * 0.1;
 				const pulse = (light.pulse ? 0.85 : 0.9) + pulseFactor;
 				const r = light.radius * pulse;
-				const grad = ctx.createRadialGradient(light.x, light.y, 2, light.x, light.y, r);
+				const grad = ctx.createRadialGradient(
+					light.x,
+					light.y,
+					2,
+					light.x,
+					light.y,
+					r,
+				);
 				grad.addColorStop(0, light.color);
-				grad.addColorStop(0.5, light.color.replace(')', ', 0.3)').replace('rgb', 'rgba'));
-				grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+				grad.addColorStop(
+					0.5,
+					light.color.replace(")", ", 0.3)").replace("rgb", "rgba"),
+				);
+				grad.addColorStop(1, "rgba(0, 0, 0, 0)");
 				ctx.fillStyle = grad;
 				ctx.fillRect(light.x - r, light.y - r, r * 2, r * 2);
 			});
@@ -544,30 +614,30 @@ const EmberlightCombatBackdrop = (() => {
 		 * @returns {void}
 		 */
 		function renderPerspectiveFloor(w, h, biome) {
-			if (typeof ctx.createLinearGradient === 'function') {
-				const floorGrad = ctx.createLinearGradient(0, h * 0.60, 0, h);
-				if (biome === 'BOSS') {
-					floorGrad.addColorStop(0, '#2b0a0a');
-					floorGrad.addColorStop(0.4, '#140303');
-					floorGrad.addColorStop(1, '#050101');
-				} else if (biome === 'TOWN') {
-					floorGrad.addColorStop(0, '#361d10');
-					floorGrad.addColorStop(0.4, '#1c0f08');
-					floorGrad.addColorStop(1, '#080402');
-				} else if (biome === 'MEADOW') {
-					floorGrad.addColorStop(0, '#064e3b');
-					floorGrad.addColorStop(0.4, '#022c22');
-					floorGrad.addColorStop(1, '#02130e');
+			if (typeof ctx.createLinearGradient === "function") {
+				const floorGrad = ctx.createLinearGradient(0, h * 0.6, 0, h);
+				if (biome === "BOSS") {
+					floorGrad.addColorStop(0, "#2b0a0a");
+					floorGrad.addColorStop(0.4, "#140303");
+					floorGrad.addColorStop(1, "#050101");
+				} else if (biome === "TOWN") {
+					floorGrad.addColorStop(0, "#361d10");
+					floorGrad.addColorStop(0.4, "#1c0f08");
+					floorGrad.addColorStop(1, "#080402");
+				} else if (biome === "MEADOW") {
+					floorGrad.addColorStop(0, "#064e3b");
+					floorGrad.addColorStop(0.4, "#022c22");
+					floorGrad.addColorStop(1, "#02130e");
 				} else {
-					floorGrad.addColorStop(0, '#171738');
-					floorGrad.addColorStop(0.4, '#0b0b1a');
-					floorGrad.addColorStop(1, '#030308');
+					floorGrad.addColorStop(0, "#171738");
+					floorGrad.addColorStop(0.4, "#0b0b1a");
+					floorGrad.addColorStop(1, "#030308");
 				}
 				ctx.fillStyle = floorGrad;
 			} else {
-				ctx.fillStyle = '#060610';
+				ctx.fillStyle = "#060610";
 			}
-			ctx.fillRect(0, h * 0.60, w, h * 0.40);
+			ctx.fillRect(0, h * 0.6, w, h * 0.4);
 		}
 
 		/**
@@ -580,11 +650,14 @@ const EmberlightCombatBackdrop = (() => {
 		 * @returns {void}
 		 */
 		function renderPerspectiveGrid(w, h, biome) {
-			ctx.strokeStyle = biome === 'BOSS' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(120, 120, 180, 0.25)';
+			ctx.strokeStyle =
+				biome === "BOSS"
+					? "rgba(239, 68, 68, 0.3)"
+					: "rgba(120, 120, 180, 0.25)";
 			ctx.lineWidth = 1;
 			for (let x = 0; x < w; x += 42) {
 				ctx.beginPath();
-				ctx.moveTo(x, h * 0.60);
+				ctx.moveTo(x, h * 0.6);
 				ctx.lineTo(x + (x - w * 0.5) * 0.7, h);
 				ctx.stroke();
 			}
@@ -601,9 +674,9 @@ const EmberlightCombatBackdrop = (() => {
 		 */
 		function renderAtmosphericParticles(w, h, currentSim) {
 			if (!currentSim.atmosphericParticles?.length) return;
-			ctx.fillStyle = '#fb923c';
+			ctx.fillStyle = "#fb923c";
 			currentSim.atmosphericParticles.forEach((p) => {
-				const py = h * 0.6 - ((Math.abs(p.y + time * 40)) % (h * 0.6));
+				const py = h * 0.6 - (Math.abs(p.y + time * 40) % (h * 0.6));
 				ctx.fillRect(p.x, py, p.size, p.size);
 			});
 		}
@@ -617,7 +690,8 @@ const EmberlightCombatBackdrop = (() => {
 		 * @returns {void}
 		 */
 		function renderCinematicBackground(w, h) {
-			const currentSim = sim || synthesizeCinematicStage(1337, activeBiome, w, h);
+			const currentSim =
+				sim || synthesizeCinematicStage(1337, activeBiome, w, h);
 			const biome = currentSim.biome || activeBiome;
 
 			renderSkyVault(w, h, biome);
@@ -640,21 +714,42 @@ const EmberlightCombatBackdrop = (() => {
 		function renderPostProcessingShaders(w, h) {
 			if (!ctx) return;
 			// Cinematic Vignette Shader Pass
-			if (typeof ctx.createRadialGradient === 'function') {
-				const vignette = ctx.createRadialGradient(w * 0.5, h * 0.5, w * 0.35, w * 0.5, h * 0.5, w * 0.75);
-				vignette.addColorStop(0, 'rgba(0, 0, 0, 0)');
-				vignette.addColorStop(1, 'rgba(2, 2, 8, 0.75)');
+			if (typeof ctx.createRadialGradient === "function") {
+				const vignette = ctx.createRadialGradient(
+					w * 0.5,
+					h * 0.5,
+					w * 0.35,
+					w * 0.5,
+					h * 0.5,
+					w * 0.75,
+				);
+				vignette.addColorStop(0, "rgba(0, 0, 0, 0)");
+				vignette.addColorStop(1, "rgba(2, 2, 8, 0.75)");
 				ctx.fillStyle = vignette;
 				ctx.fillRect(0, 0, w, h);
 			}
 			// Dynamic Illumination Flare Pulse Overlay
 			if (flareIntensity > 0.01) {
 				ctx.save();
-				if (ctx.globalCompositeOperation) ctx.globalCompositeOperation = 'screen';
-				if (typeof ctx.createRadialGradient === 'function') {
-					const flareGrad = ctx.createRadialGradient(w * 0.5, h * 0.55, 10, w * 0.5, h * 0.55, w * 0.65);
-					flareGrad.addColorStop(0, `rgba(${flareColor},${Math.min(0.8, flareIntensity)})`);
-					flareGrad.addColorStop(0.6, `rgba(${flareColor},${Math.min(0.3, flareIntensity * 0.4)})`);
+				if (ctx.globalCompositeOperation)
+					ctx.globalCompositeOperation = "screen";
+				if (typeof ctx.createRadialGradient === "function") {
+					const flareGrad = ctx.createRadialGradient(
+						w * 0.5,
+						h * 0.55,
+						10,
+						w * 0.5,
+						h * 0.55,
+						w * 0.65,
+					);
+					flareGrad.addColorStop(
+						0,
+						`rgba(${flareColor},${Math.min(0.8, flareIntensity)})`,
+					);
+					flareGrad.addColorStop(
+						0.6,
+						`rgba(${flareColor},${Math.min(0.3, flareIntensity * 0.4)})`,
+					);
 					flareGrad.addColorStop(1, `rgba(${flareColor}, 0)`);
 					ctx.fillStyle = flareGrad;
 				} else {
@@ -688,11 +783,11 @@ const EmberlightCombatBackdrop = (() => {
 			if (ctx.clearRect) ctx.clearRect(0, 0, w, h);
 			renderCinematicBackground(w, h);
 			renderPostProcessingShaders(w, h);
-			if (typeof overlayCallback === 'function') {
+			if (typeof overlayCallback === "function") {
 				overlayCallback(ctx, w, h);
 			}
 			time += 0.016;
-			if (!isHeadless && typeof requestAnimationFrame !== 'undefined') {
+			if (!isHeadless && typeof requestAnimationFrame !== "undefined") {
 				animFrameId = requestAnimationFrame(renderFrame);
 			}
 		}
@@ -704,7 +799,11 @@ const EmberlightCombatBackdrop = (() => {
 		 * @returns {void}
 		 */
 		function startLoop() {
-			if (!animFrameId && !isHeadless && typeof requestAnimationFrame !== 'undefined') {
+			if (
+				!animFrameId &&
+				!isHeadless &&
+				typeof requestAnimationFrame !== "undefined"
+			) {
 				animFrameId = requestAnimationFrame(renderFrame);
 			}
 		}
@@ -722,7 +821,7 @@ const EmberlightCombatBackdrop = (() => {
 			configure(cfg = {}) {
 				hostConfig = deepFreeze({ ...cfg });
 				lifecycleState = State.CONFIGURED;
-				return Object.freeze({ accepted: true, driverId: 'battle_backdrop' });
+				return Object.freeze({ accepted: true, driverId: "battle_backdrop" });
 			},
 
 			/**
@@ -740,19 +839,38 @@ const EmberlightCombatBackdrop = (() => {
 				hostContext = context;
 				eventBus = resolveEventBus(context);
 				ensureCanvas();
-				if (typeof window !== 'undefined') {
-					window.addEventListener('resize', resize);
+				if (typeof window !== "undefined") {
+					window.addEventListener("resize", resize);
 				}
 				if (eventBus) {
 					unsubs.push(
-						eventBus.subscribe('stage:illuminate', (/** @type {StageIlluminatePayload} */ { color, intensity, duration }) => {
-							this.pulseIllumination(color || '255, 157, 77', intensity || 0.7, duration || 0.04);
-						}),
-						eventBus.subscribe('combat:sfx', (/** @type {CombatSfxPayload} */ { sfx }) => {
-							if (sfx === 'SPELL_BOLT') this.pulseIllumination('56, 189, 248', 0.6, 0.04);
-							else if (sfx === 'HEAL') this.pulseIllumination('250, 204, 21', 0.65, 0.03);
-							else if (sfx === 'ATTACK_HIT') this.pulseIllumination('239, 68, 68', 0.45, 0.05);
-						})
+						eventBus.subscribe(
+							"stage:illuminate",
+							(
+                /** @type {StageIlluminatePayload} */ {
+									color,
+									intensity,
+									duration,
+								},
+							) => {
+								this.pulseIllumination(
+									color || "255, 157, 77",
+									intensity || 0.7,
+									duration || 0.04,
+								);
+							},
+						),
+						eventBus.subscribe(
+							"combat:sfx",
+							(/** @type {CombatSfxPayload} */ { sfx }) => {
+								if (sfx === "SPELL_BOLT")
+									this.pulseIllumination("56, 189, 248", 0.6, 0.04);
+								else if (sfx === "HEAL")
+									this.pulseIllumination("250, 204, 21", 0.65, 0.03);
+								else if (sfx === "ATTACK_HIT")
+									this.pulseIllumination("239, 68, 68", 0.45, 0.05);
+							},
+						),
 					);
 				}
 				sim = synthesizeCinematicStage(1337, activeBiome);
@@ -769,7 +887,7 @@ const EmberlightCombatBackdrop = (() => {
 			 */
 			reset(snapshot = null) {
 				const seed = snapshot?.seed || 1337;
-				const biome = snapshot?.biome || activeBiome || 'CRYPT';
+				const biome = snapshot?.biome || activeBiome || "CRYPT";
 				activeBiome = biome;
 				sim = synthesizeCinematicStage(seed, biome);
 				lifecycleState = State.READY;
@@ -797,12 +915,12 @@ const EmberlightCombatBackdrop = (() => {
 			 * @returns {void}
 			 */
 			render(targetOrRenderer, context) {
-				if (typeof targetOrRenderer === 'string') {
-					if (typeof document !== 'undefined') {
+				if (typeof targetOrRenderer === "string") {
+					if (typeof document !== "undefined") {
 						const found = document.getElementById(targetOrRenderer);
 						if (found) {
 							canvas = found;
-							ctx = canvas.getContext ? canvas.getContext('2d') : null;
+							ctx = canvas.getContext ? canvas.getContext("2d") : null;
 						}
 					}
 				} else if (targetOrRenderer?.renderBackdrop) {
@@ -835,8 +953,8 @@ const EmberlightCombatBackdrop = (() => {
 			 */
 			getDiagnostics() {
 				return {
-					driverId: 'battle_backdrop',
-					moduleId: 'battle_backdrop_cinematic',
+					driverId: "battle_backdrop",
+					moduleId: "battle_backdrop_cinematic",
 					lifecycleState,
 					activeBiome: sim?.biome || activeBiome,
 					currentBiome: sim?.biome || activeBiome,
@@ -857,15 +975,15 @@ const EmberlightCombatBackdrop = (() => {
 			 */
 			getModuleInfo() {
 				return {
-					moduleId: 'battle_backdrop_cinematic',
-					version: '4.0.0',
-					protocolVersion: 'VSRP-001',
+					moduleId: "battle_backdrop_cinematic",
+					version: "4.0.0",
+					protocolVersion: "VSRP-001",
 					capabilities: [
-						'tier4_cinematic_kernel',
-						'multi_layered_parallax',
-						'volumetric_god_rays',
-						'post_processing_vignette',
-						'headless_stage_synthesis',
+						"tier4_cinematic_kernel",
+						"multi_layered_parallax",
+						"volumetric_god_rays",
+						"post_processing_vignette",
+						"headless_stage_synthesis",
 					],
 				};
 			},
@@ -879,7 +997,11 @@ const EmberlightCombatBackdrop = (() => {
 			 * @param {number} [decayRate=0.04] - Per-frame flare dissipation delta.
 			 * @returns {void}
 			 */
-			pulseIllumination(colorRgb = '255, 157, 77', intensity = 0.7, decayRate = 0.04) {
+			pulseIllumination(
+				colorRgb = "255, 157, 77",
+				intensity = 0.7,
+				decayRate = 0.04,
+			) {
 				flareColor = colorRgb;
 				flareIntensity = intensity;
 				flareDecay = decayRate;
@@ -894,11 +1016,17 @@ const EmberlightCombatBackdrop = (() => {
 			 * @returns {void}
 			 */
 			setBiome(biome) {
-				const bKey = String(biome || 'CRYPT').toUpperCase();
-				if (bKey.includes('BOSS') || bKey.includes('MALAKOR')) activeBiome = 'BOSS';
-				else if (bKey.includes('MEADOW') || bKey.includes('SURFACE') || bKey === '.') activeBiome = 'MEADOW';
-				else if (bKey.includes('TOWN') || bKey === 'T') activeBiome = 'TOWN';
-				else activeBiome = 'CRYPT';
+				const bKey = String(biome || "CRYPT").toUpperCase();
+				if (bKey.includes("BOSS") || bKey.includes("MALAKOR"))
+					activeBiome = "BOSS";
+				else if (
+					bKey.includes("MEADOW") ||
+					bKey.includes("SURFACE") ||
+					bKey === "."
+				)
+					activeBiome = "MEADOW";
+				else if (bKey.includes("TOWN") || bKey === "T") activeBiome = "TOWN";
+				else activeBiome = "CRYPT";
 
 				if (!sim) {
 					sim = synthesizeCinematicStage(1337, activeBiome);
@@ -914,7 +1042,7 @@ const EmberlightCombatBackdrop = (() => {
 			 * @returns {void}
 			 */
 			setOverlayRenderer(fn) {
-				overlayCallback = typeof fn === 'function' ? fn : null;
+				overlayCallback = typeof fn === "function" ? fn : null;
 			},
 
 			/**
@@ -924,18 +1052,18 @@ const EmberlightCombatBackdrop = (() => {
 			 * @returns {void}
 			 */
 			destroy() {
-				if (animFrameId && typeof cancelAnimationFrame !== 'undefined') {
+				if (animFrameId && typeof cancelAnimationFrame !== "undefined") {
 					cancelAnimationFrame(animFrameId);
 					animFrameId = null;
 				}
 				unsubs.forEach((u) => {
 					try {
-						if (typeof u === 'function') u();
+						if (typeof u === "function") u();
 					} catch (_) { }
 				});
 				unsubs = [];
-				if (typeof window !== 'undefined') {
-					window.removeEventListener('resize', resize);
+				if (typeof window !== "undefined") {
+					window.removeEventListener("resize", resize);
 				}
 				if (canvas?.parentElement) {
 					canvas.remove();
@@ -956,11 +1084,11 @@ const EmberlightCombatBackdrop = (() => {
 	return defaultInstance;
 })();
 
-if (typeof window !== 'undefined') {
-	window['EmberlightCombatBackdrop'] = EmberlightCombatBackdrop;
-	window['EmberlightBattleBackdrop'] = EmberlightCombatBackdrop;
+if (typeof window !== "undefined") {
+	window["EmberlightCombatBackdrop"] = EmberlightCombatBackdrop;
+	window["EmberlightBattleBackdrop"] = EmberlightCombatBackdrop;
 }
-if (typeof module !== 'undefined' && module.exports) {
+if (typeof module !== "undefined" && module.exports) {
 	module.exports = EmberlightCombatBackdrop;
 }
 //#endregion

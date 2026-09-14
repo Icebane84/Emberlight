@@ -78,6 +78,11 @@ const EMBERLIGHT_SCRIPT_LOAD_ORDER = Object.freeze([
   'threat_oracle.js',
   'cockpit_renderer.js',
   'combat_renderer.js',
+  // Map Renderer domain subsystems (populate window._MapInternal)
+  'map/map_textures.js',
+  'map/map_particles.js',
+  'map/map_los.js',
+  'map/map_compositor.js',
   'map_renderer.js',
   'armory_renderer.js',
   'chronicle_renderer.js',

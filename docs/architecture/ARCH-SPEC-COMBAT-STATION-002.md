@@ -172,7 +172,7 @@ Mouse gestures and keyboard shortcuts complement each other with zero conflict:
 
 ## 7. Gesture Engine State Machine & Intent Envelope
 
-```
+```plaintext
                        [IDLE]
                          │
                pointerdown (RMB)
@@ -233,4 +233,3 @@ Pass 21 (`Pass21_CombatStation_Integration_Battery` in `auditor/auditor_endgame.
 3. Hero chassis cards party vitals, row indicators, active turn elevation, and radial action tokens.
 4. Permanent DOM anchor presence for `#combat-spatial-canvas`, `#combat-backdrop-canvas`, `#combat-hero-chassis-grid`, and `#combat-hero-radial`.
 5. Dual Dispatch and EventBus intent routing verified with 100% test suite parity.
-

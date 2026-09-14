@@ -6,9 +6,8 @@
  * Subsystem:           Conditional Turn-Based Scheduling, Delay Calculus, Status Conditions
  * ============================================================================
  */
-'use strict';
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
 	window._CombatInternal = window._CombatInternal || {};
 }
 
@@ -31,7 +30,7 @@ function applyAilment(target, ailmentId, duration = 3, appendLog) {
 		target.ailments.push({ id: ailmentId, duration });
 	}
 	if (appendLog) {
-		appendLog(`${target.name} is afflicted with ${ailmentId}!`, 'damage');
+		appendLog(`${target.name} is afflicted with ${ailmentId}!`, "damage");
 	}
 }
 
@@ -52,24 +51,21 @@ function tickAilments(target, manifest, appendLog) {
 		const active = target.ailments[i];
 		const def = manifest?.Ailments?.[active.id];
 		if (def) {
-			if (def.type === 'skip_turn') {
+			if (def.type === "skip_turn") {
 				isStunned = true;
 				if (appendLog) {
-					appendLog(
-						`${target.name} is stunned and loses their turn!`,
-						'ember',
-					);
+					appendLog(`${target.name} is stunned and loses their turn!`, "ember");
 				}
-			} else if (def.type === 'dot') {
+			} else if (def.type === "dot") {
 				const res = def.tick(target);
 				if (appendLog) {
-					appendLog(res.msg, 'damage');
+					appendLog(res.msg, "damage");
 				}
 				if (target.hp <= 0) {
 					target.hp = 0;
 					target.alive = false;
 					if (appendLog) {
-						appendLog(`${target.name} succumbed to ${active.id}!`, 'damage');
+						appendLog(`${target.name} succumbed to ${active.id}!`, "damage");
 					}
 				}
 			}
@@ -77,7 +73,7 @@ function tickAilments(target, manifest, appendLog) {
 		active.duration -= 1;
 		if (active.duration <= 0) {
 			if (appendLog) {
-				appendLog(`${target.name} recovered from ${active.id}.`, 'system');
+				appendLog(`${target.name} recovered from ${active.id}.`, "system");
 			}
 			target.ailments.splice(i, 1);
 		}
@@ -95,21 +91,21 @@ function tickAilments(target, manifest, appendLog) {
  */
 function buildTurnQueue(sim, appendLog, dispatchSFX) {
 	if (!sim) return;
-	const isIce = sim.terrain === 'ICE' || sim.terrain === '=';
-	const isGrass = sim.terrain === 'GRASS' || sim.terrain === '"';
+	const isIce = sim.terrain === "ICE" || sim.terrain === "=";
+	const isGrass = sim.terrain === "GRASS" || sim.terrain === '"';
 
 	const allLiving = [
 		...sim.party
 			.filter((c) => c.alive)
 			.map((c) => ({
-				type: 'party',
+				type: "party",
 				entity: c,
 				effectiveAgi: c.agi + (isIce ? 2 : 0),
 			})),
 		...sim.enemies
 			.filter((e) => e.alive)
 			.map((e) => ({
-				type: 'enemy',
+				type: "enemy",
 				entity: e,
 				effectiveAgi: e.agi,
 			})),
@@ -121,16 +117,13 @@ function buildTurnQueue(sim, appendLog, dispatchSFX) {
 	);
 
 	if (isGrass && sim.roundCount === 0) {
-		const enemies = allLiving.filter((u) => u.type === 'enemy');
-		const heroes = allLiving.filter((u) => u.type === 'party');
+		const enemies = allLiving.filter((u) => u.type === "enemy");
+		const heroes = allLiving.filter((u) => u.type === "party");
 		sim.turnQueue = [...enemies, ...heroes];
 		if (appendLog) {
-			appendLog(
-				'⚡ AMBUSH! Foes strike first from the tall grass!',
-				'damage',
-			);
+			appendLog("⚡ AMBUSH! Foes strike first from the tall grass!", "damage");
 		}
-		if (dispatchSFX) dispatchSFX('ENCOUNTER_TRIGGER');
+		if (dispatchSFX) dispatchSFX("ENCOUNTER_TRIGGER");
 	} else {
 		sim.turnQueue = allLiving;
 	}
@@ -145,10 +138,10 @@ const CombatQueue = Object.freeze({
 	buildTurnQueue,
 });
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
 	window._CombatInternal = window._CombatInternal || {};
 	window._CombatInternal.Queue = CombatQueue;
 }
-if (typeof module !== 'undefined' && module.exports) {
+if (typeof module !== "undefined" && module.exports) {
 	module.exports = CombatQueue;
 }

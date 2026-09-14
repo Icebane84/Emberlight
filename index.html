@@ -413,25 +413,16 @@
               <div class="oracle-tier oracle-intent-tier" id="oracle-intent-tier">
                 <div class="oracle-tier-header">🎯 HOSTILE INTENT & THREAT VECTORS</div>
                 <div id="oracle-intent-feed" class="oracle-intent-feed"></div>
+                <div id="oracle-affinity-badges" class="oracle-affinity-badges"></div>
               </div>
 
-              <!-- Tier 3: Elemental Affinity Scanner & Engagement Feed -->
-              <div class="oracle-tier oracle-affinity-tier">
-                <div id="theater-telemetry-bar" class="theater-telemetry-bar">
-                  <span id="telemetry-dmg-range" class="telemetry-metric"
-                    >EST DMG: --</span
-                  >
-                  <span id="telemetry-hit-rate" class="telemetry-metric"
-                    >HIT: 100%</span
-                  >
-                  <span
-                    id="telemetry-affinity-tag"
-                    class="telemetry-metric affinity-tag"
-                    >AFFINITY: NEUTRAL</span
-                  >
+              <!-- Tier 3: Live Combat Chronicle Stream (Eliminating the Void) -->
+              <div class="oracle-tier oracle-chronicle-tier">
+                <div class="oracle-tier-header">📜 LIVE COMBAT CHRONICLE</div>
+                <div id="combat-chronicle-stream" class="combat-chronicle-stream">
+                  <div class="chronicle-empty-hint">⚔️ Battle commenced. Awaiting tactical execution...</div>
                 </div>
-                <div id="oracle-affinity-badges" class="oracle-affinity-badges"></div>
-                <div id="log-box"></div>
+                <div id="log-box" class="hidden"></div>
               </div>
             </div>
           </section>
@@ -599,6 +590,9 @@
 
                 <!-- Sub-Deck for Skills, Items, Targets -->
                 <div id="command-sub-deck" class="command-sub-deck"></div>
+
+                <!-- 4-Column Glassmorphic Metric Chip Deck -->
+                <div id="combat-telemetry-chips" class="telemetry-chip-deck"></div>
 
                 <!-- 4-Leaf Quick Action Radial Menu Socket (RMB Triggered) -->
                 <div id="combat-hero-radial" class="combat-hero-radial hidden"></div>
@@ -841,6 +835,11 @@
     <script src="threat_oracle.js"></script>
     <script src="cockpit_renderer.js"></script>
     <script src="combat_renderer.js"></script>
+    <!-- Map Renderer Domain Subsystems (Loaded in Dependency Order) -->
+    <script src="map/map_textures.js"></script>
+    <script src="map/map_particles.js"></script>
+    <script src="map/map_los.js"></script>
+    <script src="map/map_compositor.js"></script>
     <script src="map_renderer.js"></script>
     <script src="armory_renderer.js"></script>
     <script src="chronicle_renderer.js"></script>

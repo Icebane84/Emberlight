@@ -26,15 +26,22 @@
 	--text: #f8fafc;
 	--text-dim: #94a3b8;
 	--text-bright: #ffffff;
-	--hp: #ef4444;
+	--hp: #10b981;
 	--mp: #38bdf8;
 	--ember: #ff9d4d;
-	--danger: #ff5555;
-	--ok: #4ade80;
+	--danger: #ef4444;
+	--ok: #34d399;
 	--cyan: #38bdf8;
+	--gold: #fbbf24;
 	--shadow-ember: rgba(255, 157, 77, 0.35);
-	--font-display: 'Press Start 2P', 'Courier New', 'Lucida Console', ui-monospace, monospace;
-	--font-mono: 'JetBrains Mono', 'VT323', 'Cascadia Code', 'Consolas', 'Courier New', ui-monospace, monospace;
+	--font-display:
+		"JetBrains Mono", "Cascadia Code", "Inter", -apple-system,
+		BlinkMacSystemFont, "Segoe UI", sans-serif;
+	--font-mono:
+		"JetBrains Mono", "Cascadia Code", "Consolas", "Courier New", ui-monospace,
+		monospace;
+	--font-ui:
+		"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
 	/* Tactical Reticle Attunement Tokens (ARCH-SPEC-RMB-INTEGRATION-001) */
 	--reticle-accent: #ff9d4d;
@@ -44,10 +51,10 @@
 	--nav-row-ratio: 1.6fr;
 	--deck-row-ratio: 0.9fr;
 	--q1-q2-split: 1.05fr 0.95fr;
-	--ui-font-scale: 1.0;
+	--ui-font-scale: 1;
 	--font-size-base: 13px;
-	--font-size-sm: 11px;
-	--font-size-xs: 10px;
+	--font-size-sm: 11.5px;
+	--font-size-xs: 11px;
 	box-sizing: border-box;
 }
 
@@ -66,7 +73,7 @@ body {
 	background: var(--bg);
 	color: var(--text);
 	font-family: var(--font-mono);
-	font-size: calc(var(--font-size-base) * var(--ui-font-scale, 1.0));
+	font-size: calc(var(--font-size-base) * var(--ui-font-scale, 1));
 	line-height: 1.4;
 	margin: 0;
 	padding: 4px;
@@ -82,7 +89,9 @@ body {
 	-moz-osx-font-smoothing: grayscale;
 	text-rendering: geometricPrecision;
 	background-image:
-		radial-gradient(ellipse at 50% 10%, rgba(232, 163, 61, 0.09), transparent 70%),
+		radial-gradient(ellipse at 50% 10%,
+			rgba(232, 163, 61, 0.09),
+			transparent 70%),
 		linear-gradient(rgba(10, 10, 25, 0.55) 1px, transparent 1px),
 		linear-gradient(90deg, rgba(10, 10, 25, 0.55) 1px, transparent 1px);
 	background-size:
@@ -96,7 +105,7 @@ body {
 /* #region [SEC-02] Master Cockpit Enclosure, Panels & CRT Overlay */
 /* --- RETRO CRT SCANLINE OVERLAY --- */
 body.crt-enabled::before {
-	content: ' ';
+	content: " ";
 	display: block;
 	position: fixed;
 	top: 0;
@@ -437,7 +446,9 @@ body.crt-enabled::before {
 	left: 0;
 	right: 0;
 	bottom: 0;
-	background: radial-gradient(circle at center, rgba(10, 15, 30, 0.85) 0%, rgba(2, 2, 8, 0.95) 100%);
+	background: radial-gradient(circle at center,
+			rgba(10, 15, 30, 0.85) 0%,
+			rgba(2, 2, 8, 0.95) 100%);
 	backdrop-filter: blur(8px);
 	z-index: 10000;
 	display: flex;
@@ -464,13 +475,20 @@ body.crt-enabled::before {
 }
 
 @keyframes banner-glide {
-	from { transform: scale(0.92) translateY(8px); opacity: 0; }
-	to { transform: scale(1) translateY(0); opacity: 1; }
+	from {
+		transform: scale(0.92) translateY(8px);
+		opacity: 0;
+	}
+
+	to {
+		transform: scale(1) translateY(0);
+		opacity: 1;
+	}
 }
 
 .zone-title {
 	font-family: var(--font-display);
-	font-size: calc(16px * var(--ui-font-scale, 1.0));
+	font-size: calc(16px * var(--ui-font-scale, 1));
 	color: var(--ember);
 	letter-spacing: 2px;
 	margin-bottom: 8px;
@@ -479,7 +497,7 @@ body.crt-enabled::before {
 
 .zone-subtitle {
 	font-family: var(--font-mono);
-	font-size: calc(11px * var(--ui-font-scale, 1.0));
+	font-size: calc(11px * var(--ui-font-scale, 1));
 	color: var(--text-dim);
 	letter-spacing: 1.5px;
 }
@@ -495,7 +513,7 @@ body.crt-enabled::before {
 	height: 100%;
 	display: grid;
 	grid-template-columns: 1fr 1fr;
-	grid-template-rows: minmax(0, 1.4fr) minmax(0, 1.0fr);
+	grid-template-rows: minmax(0, 1.4fr) minmax(0, 1fr);
 	gap: 6px;
 	min-height: 0;
 	box-sizing: border-box;
@@ -531,7 +549,7 @@ body.crt-enabled::before {
 .combat-active-matrix {
 	display: grid;
 	grid-template-columns: 1fr 1fr;
-	grid-template-rows: minmax(0, 1.4fr) minmax(0, 1.0fr);
+	grid-template-rows: minmax(0, 1.4fr) minmax(0, 1fr);
 }
 
 /* Default Mode: Exploration Layer Visibilities */
@@ -593,7 +611,7 @@ footer#district-nav {
 	border: 1px solid var(--danger);
 	color: #fca5a5;
 	font-family: var(--font-display);
-	font-size: calc(9.5px * var(--ui-font-scale, 1.0));
+	font-size: calc(9.5px * var(--ui-font-scale, 1));
 	padding: 5px 14px;
 	border-radius: 4px;
 	letter-spacing: 1px;
@@ -604,10 +622,13 @@ footer#district-nav {
 }
 
 @keyframes pulse-nav-lock {
-	0%, 100% {
+
+	0%,
+	100% {
 		opacity: 0.88;
 		transform: translateX(-50%) scale(1);
 	}
+
 	50% {
 		opacity: 1;
 		transform: translateX(-50%) scale(1.03);
@@ -835,7 +856,9 @@ footer#district-nav {
 	flex-direction: column;
 	justify-content: center;
 	align-items: center;
-	background: radial-gradient(circle at 50% 35%, rgba(26, 18, 48, 0.98) 0%, rgba(4, 4, 12, 0.99) 75%);
+	background: radial-gradient(circle at 50% 35%,
+			rgba(26, 18, 48, 0.98) 0%,
+			rgba(4, 4, 12, 0.99) 75%);
 }
 
 /* --- MULTI-SLOT SAVE / LOAD ARCHIVES MODAL --- */
@@ -844,7 +867,9 @@ footer#district-nav {
 	width: 90%;
 	background: rgba(12, 12, 28, 0.98);
 	border: 2px solid var(--border);
-	box-shadow: 0 0 35px rgba(0, 0, 0, 0.95), inset 0 0 20px rgba(255, 157, 77, 0.05);
+	box-shadow:
+		0 0 35px rgba(0, 0, 0, 0.95),
+		inset 0 0 20px rgba(255, 157, 77, 0.05);
 	border-radius: 4px;
 	z-index: 120;
 }
@@ -959,4 +984,5 @@ footer#district-nav {
 .slot-delete-btn:hover {
 	background: rgba(255, 85, 85, 0.2);
 }
+
 /* #endregion */

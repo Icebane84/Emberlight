@@ -6,7 +6,6 @@
  * Subsystem:           Action Handling, Attack/Skill/Item Resolution, Guard & Flee
  * ============================================================================
  */
-'use strict';
 
 /**
  * Resolves basic physical melee attack executed by active hero.
@@ -29,45 +28,51 @@ function playerExecuteAttack(sim, targetEnemyIndex, helpers) {
 	const Calc = helpers.Calc;
 	const AI = helpers.AI;
 
-	const { actualTarget, actualIndex, wasIntercepted } = Displacement.applyInterception(
-		sim,
-		target,
-		targetEnemyIndex,
-		true,
-		helpers.appendLog,
-		helpers.dispatchSFX,
-		helpers.triggerDisplacementVisual,
-		helpers.isHeadless,
-	);
+	const { actualTarget, actualIndex, wasIntercepted } =
+		Displacement.applyInterception(
+			sim,
+			target,
+			targetEnemyIndex,
+			true,
+			helpers.appendLog,
+			helpers.dispatchSFX,
+			helpers.triggerDisplacementVisual,
+			helpers.isHeadless,
+		);
 
 	const rawDmg = Math.max(1, activeChar.atk * 2 - actualTarget.def);
 	const variance = Math.floor(helpers.getRandomFloat() * 3) - 1;
 	const attackDmg = Math.max(1, rawDmg + variance);
 	const { finalDmg, isWeakness, isResisted } = Calc.calculateAffinityDamage(
 		attackDmg,
-		'PHYSICAL',
+		"PHYSICAL",
 		actualTarget,
 	);
 
 	actualTarget.hp = Math.max(0, actualTarget.hp - finalDmg);
-	helpers.dispatchSFX('ATTACK_HIT');
+	helpers.dispatchSFX("ATTACK_HIT");
 
 	const tag = Calc.resolveAffinityTag(isWeakness, isResisted);
-	const interceptTag = wasIntercepted ? ' [INTERCEPTED]' : '';
+	const interceptTag = wasIntercepted ? " [INTERCEPTED]" : "";
 	helpers.appendLog(
 		`${activeChar.name} strikes ${actualTarget.name} for ${finalDmg} DMG!${tag}${interceptTag}`,
-		isWeakness ? 'ember' : 'damage',
+		isWeakness ? "ember" : "damage",
 	);
 
-	helpers.publish('combat:damage', {
+	helpers.publish("combat:damage", {
 		amount: finalDmg,
-		targetType: 'enemy',
+		targetType: "enemy",
 		targetIndex: actualIndex,
 		isCrit: isWeakness || variance > 0,
 		isHeal: false,
 	});
 
-	AI.checkBossPhase(actualTarget, helpers.appendLog, helpers.dispatchSFX, helpers.hostContext);
+	AI.checkBossPhase(
+		actualTarget,
+		helpers.appendLog,
+		helpers.dispatchSFX,
+		helpers.hostContext,
+	);
 
 	if (helpers.checkUnitDefeat(actualTarget) && helpers.checkBattleEnd()) {
 		return;
@@ -93,20 +98,19 @@ function playerExecuteGuard(sim, helpers) {
 	activeChar.mp = Math.min(activeChar.maxMp, activeChar.mp + 2);
 	helpers.appendLog(
 		`${activeChar.name} raises their guard! (-50% DMG, +2 MP)`,
-		'system',
+		"system",
 	);
-	helpers.dispatchSFX('BUFF');
+	helpers.dispatchSFX("BUFF");
 
 	const heroIdx = sim.party.findIndex((c) => c.id === activeChar.id);
-	helpers.publish('combat:text', {
-		text: 'GUARD',
-		targetType: 'party',
+	helpers.publish("combat:text", {
+		text: "GUARD",
+		targetType: "party",
 		targetIndex: heroIdx !== -1 ? heroIdx : 0,
-		color: '#38bdf8',
+		color: "#38bdf8",
 		isLarge: true,
 	});
 
-	sim.activeTurnIndex += 1;
 	helpers.renderPresentation();
 	helpers.schedule(helpers.stepTurn, 400);
 }
@@ -125,50 +129,50 @@ function playerExecuteItem(sim, itemId, targetIdx, helpers) {
 	const target = sim.party[targetIdx];
 	if (!target) return;
 
-	if (itemId === 'POTION') {
+	if (itemId === "POTION") {
 		if (!target.alive) {
 			helpers.appendLog(
 				`${target.name} is collapsed and cannot drink a potion!`,
-				'damage',
+				"damage",
 			);
 			return;
 		}
 		target.hp = Math.min(target.maxHp, target.hp + 30);
-		helpers.appendLog(`${target.name} drank Potion (+30 HP)!`, 'heal');
-		helpers.dispatchSFX('HEAL');
-		helpers.publish('combat:damage', {
+		helpers.appendLog(`${target.name} drank Potion (+30 HP)!`, "heal");
+		helpers.dispatchSFX("HEAL");
+		helpers.publish("combat:damage", {
 			amount: 30,
-			targetType: 'party',
+			targetType: "party",
 			targetIndex: targetIdx,
 			isHeal: true,
 			isCrit: false,
 		});
-	} else if (itemId === 'ETHER') {
+	} else if (itemId === "ETHER") {
 		if (!target.alive) {
-			helpers.appendLog(`${target.name} is collapsed!`, 'damage');
+			helpers.appendLog(`${target.name} is collapsed!`, "damage");
 			return;
 		}
 		target.mp = Math.min(target.maxMp, target.mp + 15);
-		helpers.appendLog(`${target.name} drank Ether (+15 MP)!`, 'ember');
-		helpers.dispatchSFX('HEAL');
-		helpers.publish('combat:damage', {
+		helpers.appendLog(`${target.name} drank Ether (+15 MP)!`, "ember");
+		helpers.dispatchSFX("HEAL");
+		helpers.publish("combat:damage", {
 			amount: 15,
-			targetType: 'party',
+			targetType: "party",
 			targetIndex: targetIdx,
 			isHeal: true,
 			isCrit: false,
 		});
-	} else if (itemId === 'PHOENIX_EMBER') {
+	} else if (itemId === "PHOENIX_EMBER") {
 		target.alive = true;
 		target.hp = Math.max(1, Math.round(target.maxHp * 0.5));
 		helpers.appendLog(
 			`${target.name} revived by Phoenix Ember (+${target.hp} HP)!`,
-			'heal',
+			"heal",
 		);
-		helpers.dispatchSFX('HEAL');
-		helpers.publish('combat:damage', {
+		helpers.dispatchSFX("HEAL");
+		helpers.publish("combat:damage", {
 			amount: target.hp,
-			targetType: 'party',
+			targetType: "party",
 			targetIndex: targetIdx,
 			isHeal: true,
 			isCrit: true,
@@ -179,9 +183,8 @@ function playerExecuteItem(sim, itemId, targetIdx, helpers) {
 		sim.inventory[itemId] -= 1;
 	}
 
-	sim.phase = 'PLAYER_INPUT';
-	sim.selectedTab = 'ATTACK';
-	sim.activeTurnIndex += 1;
+	sim.phase = "PLAYER_INPUT";
+	sim.selectedTab = "ATTACK";
 	helpers.renderPresentation();
 	helpers.schedule(helpers.stepTurn, 400);
 }
@@ -197,23 +200,30 @@ function playerExecuteItem(sim, itemId, targetIdx, helpers) {
  * @param {any} helpers - Helper kernel functions bundle.
  * @returns {void}
  */
-function executeAllySkill(sim, node, targetIndex, isGuaranteedCrit, activeChar, helpers) {
+function executeAllySkill(
+	sim,
+	node,
+	targetIndex,
+	isGuaranteedCrit,
+	activeChar,
+	helpers,
+) {
 	if (!sim) return;
 	const ally = sim.party[targetIndex];
 	if (!ally?.alive) return;
-	const power = typeof node?.power === 'number' ? node.power : 20;
+	const power = typeof node?.power === "number" ? node.power : 20;
 	const missingHp = Math.max(0, (ally.maxHp || 30) - (ally.hp || 0));
 	const healed = power === 999 ? missingHp : Math.min(power, missingHp);
 	ally.hp = Math.min(ally.maxHp || 30, (ally.hp || 0) + healed);
-	helpers.dispatchSFX('HEAL');
+	helpers.dispatchSFX("HEAL");
 	helpers.appendLog(
-		`${activeChar.name} casts ${node.label || 'Heal'} on ${ally.name}, restoring ${healed} HP!`,
-		'heal',
+		`${activeChar.name} casts ${node.label || "Heal"} on ${ally.name}, restoring ${healed} HP!`,
+		"heal",
 	);
 
-	helpers.publish('combat:damage', {
+	helpers.publish("combat:damage", {
 		amount: healed,
-		targetType: 'party',
+		targetType: "party",
 		targetIndex,
 		isCrit: isGuaranteedCrit,
 		isHeal: true,
@@ -231,7 +241,14 @@ function executeAllySkill(sim, node, targetIndex, isGuaranteedCrit, activeChar, 
  * @param {any} helpers - Helper kernel functions bundle.
  * @returns {void}
  */
-function executeEnemySkill(sim, node, targetIndex, isGuaranteedCrit, activeChar, helpers) {
+function executeEnemySkill(
+	sim,
+	node,
+	targetIndex,
+	isGuaranteedCrit,
+	activeChar,
+	helpers,
+) {
 	if (!sim) return;
 	const enemy = sim.enemies[targetIndex];
 	if (!enemy?.alive) return;
@@ -241,19 +258,28 @@ function executeEnemySkill(sim, node, targetIndex, isGuaranteedCrit, activeChar,
 	const AI = helpers.AI;
 	const Queue = helpers.Queue;
 
-	const isMelee = node.subType === 'strike';
-	const { actualTarget, actualIndex, wasIntercepted } = Displacement.applyInterception(
-		sim,
-		enemy,
-		targetIndex,
-		isMelee,
-		helpers.appendLog,
-		helpers.dispatchSFX,
-		helpers.triggerDisplacementVisual,
-		helpers.isHeadless,
-	);
+	const isMelee = node.subType === "strike";
+	const { actualTarget, actualIndex, wasIntercepted } =
+		Displacement.applyInterception(
+			sim,
+			enemy,
+			targetIndex,
+			isMelee,
+			helpers.appendLog,
+			helpers.dispatchSFX,
+			helpers.triggerDisplacementVisual,
+			helpers.isHeadless,
+		);
 
-	if (Calc.checkArcaneEvasion(actualTarget, node, helpers.getRandomFloat, helpers.appendLog, helpers.dispatchSFX)) {
+	if (
+		Calc.checkArcaneEvasion(
+			actualTarget,
+			node,
+			helpers.getRandomFloat,
+			helpers.appendLog,
+			helpers.dispatchSFX,
+		)
+	) {
 		helpers.schedule(helpers.stepTurn, 500);
 		return;
 	}
@@ -267,30 +293,33 @@ function executeEnemySkill(sim, node, targetIndex, isGuaranteedCrit, activeChar,
 		helpers.appendLog,
 	);
 	actualTarget.hp = Math.max(0, actualTarget.hp - finalDmg);
-	helpers.dispatchSFX(node.subType === 'bolt' ? 'SPELL_BOLT' : 'ATTACK_HIT');
+	helpers.dispatchSFX(node.subType === "bolt" ? "SPELL_BOLT" : "ATTACK_HIT");
 
 	const tag = Calc.resolveSkillHitTag(isGuaranteedCrit, isWeakness, isResisted);
-	const interceptTag = wasIntercepted ? ' [INTERCEPTED]' : '';
-	const logTone = isWeakness || isGuaranteedCrit ? 'ember' : 'damage';
+	const interceptTag = wasIntercepted ? " [INTERCEPTED]" : "";
+	const logTone = isWeakness || isGuaranteedCrit ? "ember" : "damage";
 	helpers.appendLog(
 		`${activeChar.name} casts ${node.label} on ${actualTarget.name} for ${finalDmg} DMG!${tag}${interceptTag}`,
 		logTone,
 	);
 
-	helpers.publish('combat:damage', {
+	helpers.publish("combat:damage", {
 		amount: finalDmg,
-		targetType: 'enemy',
+		targetType: "enemy",
 		targetIndex: actualIndex,
 		isCrit:
-			isGuaranteedCrit ||
-			isWeakness ||
-			Boolean(node.mult && node.mult > 1.5),
+			isGuaranteedCrit || isWeakness || Boolean(node.mult && node.mult > 1.5),
 		isHeal: false,
 	});
 
-	AI.checkBossPhase(actualTarget, helpers.appendLog, helpers.dispatchSFX, helpers.hostContext);
-	if (node.id === 'mag_des_1' && helpers.getRandomFloat() < 0.4) {
-		Queue.applyAilment(actualTarget, 'BURN', 3, helpers.appendLog);
+	AI.checkBossPhase(
+		actualTarget,
+		helpers.appendLog,
+		helpers.dispatchSFX,
+		helpers.hostContext,
+	);
+	if (node.id === "mag_des_1" && helpers.getRandomFloat() < 0.4) {
+		Queue.applyAilment(actualTarget, "BURN", 3, helpers.appendLog);
 	}
 	if (node.displacement && actualTarget.alive) {
 		Displacement.executeDisplacement(
@@ -319,22 +348,43 @@ function executeEnemySkill(sim, node, targetIndex, isGuaranteedCrit, activeChar,
  * @param {any} helpers - Helper kernel functions bundle.
  * @returns {void}
  */
-function finalizeSkillExecution(sim, node, targetIndex, isAllyTarget, isGuaranteedCrit, helpers) {
+function finalizeSkillExecution(
+	sim,
+	node,
+	targetIndex,
+	isAllyTarget,
+	isGuaranteedCrit,
+	helpers,
+) {
 	if (!sim) return;
 	const activeChar = sim.turnQueue[sim.activeTurnIndex]?.entity;
 	if (!activeChar) return;
 
 	const heroIdx = sim.party.findIndex((c) => c.id === activeChar.id);
-	if (node.subType === 'strike') {
+	if (node.subType === "strike") {
 		helpers.triggerAttackerLunge(true, heroIdx !== -1 ? heroIdx : 0);
 	} else {
 		helpers.triggerChannelingSurge(heroIdx !== -1 ? heroIdx : 0);
 	}
 
 	if (isAllyTarget) {
-		executeAllySkill(sim, node, targetIndex, isGuaranteedCrit, activeChar, helpers);
+		executeAllySkill(
+			sim,
+			node,
+			targetIndex,
+			isGuaranteedCrit,
+			activeChar,
+			helpers,
+		);
 	} else {
-		executeEnemySkill(sim, node, targetIndex, isGuaranteedCrit, activeChar, helpers);
+		executeEnemySkill(
+			sim,
+			node,
+			targetIndex,
+			isGuaranteedCrit,
+			activeChar,
+			helpers,
+		);
 	}
 
 	if (helpers.checkBattleEnd()) {
@@ -360,8 +410,8 @@ function playerExecuteSkill(sim, node, targetIndex, isAllyTarget, helpers) {
 	const activeChar = sim.turnQueue[sim.activeTurnIndex]?.entity;
 	if (!activeChar || activeChar.mp < node.mpCost) return;
 
-	if (node.tier === 3 || node.id?.endsWith('_3')) {
-		sim.phase = 'HARMONIC_CHANNELING';
+	if (node.tier === 3 || node.id?.endsWith("_3")) {
+		sim.phase = "HARMONIC_CHANNELING";
 		helpers.renderHarmonicChannelingStage(node, (resonanceScore) => {
 			activeChar.mp -= node.mpCost;
 			const isGuaranteedCrit = resonanceScore >= 90;
@@ -391,54 +441,95 @@ function playerExecuteSkill(sim, node, targetIndex, isAllyTarget, helpers) {
 function handleConfirmChoice(sim, helpers) {
 	if (!sim) return;
 
-	if (sim.phase === 'VICTORY') {
-		helpers.finishBattle(sim, 'victory');
+	if (sim.phase === "VICTORY") {
+		helpers.finishBattle(sim, "victory");
 		return;
 	}
-	if (sim.phase === 'DEFEAT') {
-		helpers.finishBattle(sim, 'defeat');
+	if (sim.phase === "DEFEAT") {
+		helpers.finishBattle(sim, "defeat");
 		return;
 	}
-	if (sim.selectedTab === 'GUARD') {
-		handleViewAction(sim, { type: 'GUARD' }, helpers);
+	if (sim.selectedTab === "GUARD") {
+		handleViewAction(sim, { type: "GUARD" }, helpers);
 		return;
 	}
-	if (sim.phase === 'TARGETING_ALLY' || sim.phase === 'TARGET_ALLY') {
-		const isEmber = sim.pendingItem === 'PHOENIX_EMBER';
-		const targetAllyIdx = sim.party.findIndex((c) => (isEmber ? !c.alive : c.alive));
+	if (sim.phase === "TARGETING_ALLY" || sim.phase === "TARGET_ALLY") {
+		const isEmber = sim.pendingItem === "PHOENIX_EMBER";
+		const targetAllyIdx = sim.party.findIndex((c) =>
+			isEmber ? !c.alive : c.alive,
+		);
 		if (targetAllyIdx !== -1) {
 			if (sim.pendingItem) {
-				handleViewAction(sim, { type: 'ITEM', itemId: sim.pendingItem, targetIndex: targetAllyIdx }, helpers);
+				handleViewAction(
+					sim,
+					{ type: "ITEM", itemId: sim.pendingItem, targetIndex: targetAllyIdx },
+					helpers,
+				);
 			} else if (sim.pendingSkill) {
-				handleViewAction(sim, { type: 'SKILL', skill: sim.pendingSkill, targetIndex: targetAllyIdx, isAlly: true }, helpers);
+				handleViewAction(
+					sim,
+					{
+						type: "SKILL",
+						skill: sim.pendingSkill,
+						targetIndex: targetAllyIdx,
+						isAlly: true,
+					},
+					helpers,
+				);
 			}
 		}
 		return;
 	}
-	if (sim.selectedTab === 'ATTACK' || sim.phase === 'TARGETING_ENEMY') {
+	if (sim.selectedTab === "ATTACK" || sim.phase === "TARGETING_ENEMY") {
 		const livingEnemyIdx = sim.enemies.findIndex((e) => e.alive);
 		if (livingEnemyIdx !== -1) {
 			if (sim.pendingSkill) {
-				handleViewAction(sim, { type: 'SKILL', skill: sim.pendingSkill, targetIndex: livingEnemyIdx, isAlly: false }, helpers);
+				handleViewAction(
+					sim,
+					{
+						type: "SKILL",
+						skill: sim.pendingSkill,
+						targetIndex: livingEnemyIdx,
+						isAlly: false,
+					},
+					helpers,
+				);
 			} else {
-				handleViewAction(sim, { type: 'ATTACK', targetIndex: livingEnemyIdx }, helpers);
+				handleViewAction(
+					sim,
+					{ type: "ATTACK", targetIndex: livingEnemyIdx },
+					helpers,
+				);
 			}
 		}
 		return;
 	}
-	if (sim.selectedTab === 'SKILLS') {
+	if (sim.selectedTab === "SKILLS") {
 		const activeChar = sim.turnQueue[sim.activeTurnIndex]?.entity;
-		const skills = helpers.Calc.getAvailableSkills(activeChar, helpers.getActiveManifest());
+		const skills = helpers.Calc.getAvailableSkills(
+			activeChar,
+			helpers.getActiveManifest(),
+		);
 		if (skills.length > 0) {
-			handleViewAction(sim, { type: 'SELECT_SKILL', skill: skills[0] }, helpers);
+			handleViewAction(
+				sim,
+				{ type: "SELECT_SKILL", skill: skills[0] },
+				helpers,
+			);
 		}
 		return;
 	}
-	if (sim.selectedTab === 'POUCH') {
+	if (sim.selectedTab === "POUCH") {
 		const inv = sim.inventory || {};
-		const availableItem = ['POTION', 'ETHER', 'PHOENIX_EMBER'].find((id) => (inv[id] || 0) > 0);
+		const availableItem = ["POTION", "ETHER", "PHOENIX_EMBER"].find(
+			(id) => (inv[id] || 0) > 0,
+		);
 		if (availableItem) {
-			handleViewAction(sim, { type: 'SELECT_ITEM', itemId: availableItem }, helpers);
+			handleViewAction(
+				sim,
+				{ type: "SELECT_ITEM", itemId: availableItem },
+				helpers,
+			);
 		}
 	}
 }
@@ -453,13 +544,13 @@ function handleConfirmChoice(sim, helpers) {
 function handleCancelChoice(sim, helpers) {
 	if (!sim) return;
 	if (sim.pendingSkill) {
-		handleViewAction(sim, { type: 'CANCEL_SKILL' }, helpers);
+		handleViewAction(sim, { type: "CANCEL_SKILL" }, helpers);
 	} else if (sim.pendingItem) {
-		handleViewAction(sim, { type: 'CANCEL_ITEM' }, helpers);
-	} else if (sim.selectedTab !== 'ATTACK') {
-		handleViewAction(sim, { type: 'SELECT_TAB', tab: 'ATTACK' }, helpers);
-	} else if (sim.phase === 'PLAYER_INPUT') {
-		handleViewAction(sim, { type: 'FLEE' }, helpers);
+		handleViewAction(sim, { type: "CANCEL_ITEM" }, helpers);
+	} else if (sim.selectedTab !== "ATTACK") {
+		handleViewAction(sim, { type: "SELECT_TAB", tab: "ATTACK" }, helpers);
+	} else if (sim.phase === "PLAYER_INPUT") {
+		handleViewAction(sim, { type: "FLEE" }, helpers);
 	}
 }
 
@@ -473,15 +564,15 @@ function handleCancelChoice(sim, helpers) {
  */
 function handleDirectionalNav(sim, direction, helpers) {
 	if (!sim) return;
-	const tabs = ['ATTACK', 'SKILLS', 'GUARD', 'POUCH'];
-	const curTabIdx = tabs.indexOf(sim.selectedTab || 'ATTACK');
+	const tabs = ["ATTACK", "SKILLS", "GUARD", "POUCH"];
+	const curTabIdx = tabs.indexOf(sim.selectedTab || "ATTACK");
 
-	if (direction === 'LEFT' || direction === 'UP') {
+	if (direction === "LEFT" || direction === "UP") {
 		const nextIdx = (curTabIdx - 1 + tabs.length) % tabs.length;
-		handleViewAction(sim, { type: 'SELECT_TAB', tab: tabs[nextIdx] }, helpers);
-	} else if (direction === 'RIGHT' || direction === 'DOWN') {
+		handleViewAction(sim, { type: "SELECT_TAB", tab: tabs[nextIdx] }, helpers);
+	} else if (direction === "RIGHT" || direction === "DOWN") {
 		const nextIdx = (curTabIdx + 1) % tabs.length;
-		handleViewAction(sim, { type: 'SELECT_TAB', tab: tabs[nextIdx] }, helpers);
+		handleViewAction(sim, { type: "SELECT_TAB", tab: tabs[nextIdx] }, helpers);
 	}
 }
 
@@ -497,26 +588,48 @@ function handleChoiceIndex(sim, choiceNum, helpers) {
 	if (!sim) return;
 	const idx = choiceNum - 1;
 
-	if (sim.phase === 'TARGETING_ENEMY') {
+	if (sim.phase === "TARGETING_ENEMY") {
 		if (sim.enemies[idx]?.alive) {
 			if (sim.pendingSkill) {
-				handleViewAction(sim, { type: 'SKILL', skill: sim.pendingSkill, targetIndex: idx, isAlly: false }, helpers);
+				handleViewAction(
+					sim,
+					{
+						type: "SKILL",
+						skill: sim.pendingSkill,
+						targetIndex: idx,
+						isAlly: false,
+					},
+					helpers,
+				);
 			} else {
-				handleViewAction(sim, { type: 'ATTACK', targetIndex: idx }, helpers);
+				handleViewAction(sim, { type: "ATTACK", targetIndex: idx }, helpers);
 			}
 		}
 		return;
 	}
-	if (sim.phase === 'TARGETING_ALLY') {
+	if (sim.phase === "TARGETING_ALLY") {
 		const targetAlly = sim.party[idx];
 		if (targetAlly) {
-			const isEmber = sim.pendingItem === 'PHOENIX_EMBER';
+			const isEmber = sim.pendingItem === "PHOENIX_EMBER";
 			const isValid = isEmber ? !targetAlly.alive : targetAlly.alive;
 			if (isValid) {
 				if (sim.pendingItem) {
-					handleViewAction(sim, { type: 'ITEM', itemId: sim.pendingItem, targetIndex: idx }, helpers);
+					handleViewAction(
+						sim,
+						{ type: "ITEM", itemId: sim.pendingItem, targetIndex: idx },
+						helpers,
+					);
 				} else if (sim.pendingSkill) {
-					handleViewAction(sim, { type: 'SKILL', skill: sim.pendingSkill, targetIndex: idx, isAlly: true }, helpers);
+					handleViewAction(
+						sim,
+						{
+							type: "SKILL",
+							skill: sim.pendingSkill,
+							targetIndex: idx,
+							isAlly: true,
+						},
+						helpers,
+					);
 				}
 			}
 		}
@@ -524,14 +637,14 @@ function handleChoiceIndex(sim, choiceNum, helpers) {
 	}
 
 	const choiceMap = {
-		1: 'ATTACK',
-		2: 'SKILLS',
-		3: 'GUARD',
-		4: 'POUCH',
+		1: "ATTACK",
+		2: "SKILLS",
+		3: "GUARD",
+		4: "POUCH",
 	};
 	const mappedTab = choiceMap[choiceNum];
 	if (mappedTab) {
-		handleViewAction(sim, { type: 'SELECT_TAB', tab: mappedTab }, helpers);
+		handleViewAction(sim, { type: "SELECT_TAB", tab: mappedTab }, helpers);
 	}
 }
 
@@ -546,7 +659,7 @@ function handleChoiceIndex(sim, choiceNum, helpers) {
 function handleViewAction(sim, action, helpers) {
 	if (!action || !sim) return;
 
-	const actObj = typeof action === 'string' ? { type: action } : action;
+	const actObj = typeof action === "string" ? { type: action } : action;
 	const type = actObj.type || actObj.actionType;
 	if (!type) return;
 
@@ -560,9 +673,9 @@ function handleViewAction(sim, action, helpers) {
 
 	// Resolve target index fallback if omitted
 	let targetIdx =
-		typeof actObj.targetIndex === 'number'
+		typeof actObj.targetIndex === "number"
 			? actObj.targetIndex
-			: typeof actObj.targetSlot === 'number'
+			: typeof actObj.targetSlot === "number"
 				? actObj.targetSlot
 				: null;
 
@@ -577,7 +690,7 @@ function handleViewAction(sim, action, helpers) {
 
 	const actionHandlers = {
 		ATTACK: () => {
-			if (typeof targetIdx === 'number') {
+			if (typeof targetIdx === "number") {
 				playerExecuteAttack(sim, targetIdx, helpers);
 			}
 		},
@@ -588,19 +701,19 @@ function handleViewAction(sim, action, helpers) {
 				const catalog = manifest?.skills || manifest?.progression?.skills || [];
 				targetSkill = catalog.find((s) => s.id === actObj.skillId) || null;
 			}
-			if (targetSkill && typeof targetIdx === 'number') {
+			if (targetSkill && typeof targetIdx === "number") {
 				playerExecuteSkill(
 					sim,
 					targetSkill,
 					targetIdx,
-					Boolean(actObj.isAlly || targetSkill.targetType === 'ally'),
+					Boolean(actObj.isAlly || targetSkill.targetType === "ally"),
 					helpers,
 				);
 			}
 			if (sim) sim.pendingSkill = null;
 		},
 		ITEM: () => {
-			if (typeof targetIdx === 'number') {
+			if (typeof targetIdx === "number") {
 				const itemToUse = actObj.itemId || sim?.pendingItem;
 				if (itemToUse) {
 					playerExecuteItem(sim, itemToUse, targetIdx, helpers);
@@ -613,14 +726,13 @@ function handleViewAction(sim, action, helpers) {
 		},
 		FLEE: () => {
 			if (sim.enemies.some((enemy) => enemy.isBoss)) {
-				helpers.appendLog('Cannot flee from a boss battle!', 'damage');
-				helpers.dispatchSFX('DEFEAT');
+				helpers.appendLog("Cannot flee from a boss battle!", "damage");
+				helpers.dispatchSFX("DEFEAT");
 			} else if (helpers.getRandomFloat() < 0.6) {
-				helpers.appendLog('Retreated from the battlefield!', 'system');
-				helpers.finishBattle(sim, 'escaped');
+				helpers.appendLog("Retreated from the battlefield!", "system");
+				helpers.finishBattle(sim, "escaped");
 			} else {
-				helpers.appendLog('Failed to escape!', 'damage');
-				sim.activeTurnIndex += 1;
+				helpers.appendLog("Failed to escape!", "damage");
 				helpers.stepTurn();
 			}
 		},
@@ -630,7 +742,7 @@ function handleViewAction(sim, action, helpers) {
 				sim.pendingSkill = null;
 				sim.pendingItem = null;
 				sim.phase =
-					actObj.tab === 'ATTACK' ? 'TARGETING_ENEMY' : 'PLAYER_INPUT';
+					actObj.tab === "ATTACK" ? "TARGETING_ENEMY" : "PLAYER_INPUT";
 				helpers.renderPresentation();
 			}
 		},
@@ -638,61 +750,82 @@ function handleViewAction(sim, action, helpers) {
 			if (actObj.skill && sim) {
 				sim.pendingSkill = actObj.skill;
 				sim.phase =
-					actObj.skill.targetType === 'ally'
-						? 'TARGETING_ALLY'
-						: 'TARGETING_ENEMY';
+					actObj.skill.targetType === "ally"
+						? "TARGETING_ALLY"
+						: "TARGETING_ENEMY";
 				helpers.renderPresentation();
 			}
 		},
 		CANCEL_SKILL: () => {
 			if (sim) {
 				sim.pendingSkill = null;
-				sim.phase = 'PLAYER_INPUT';
+				sim.phase = "PLAYER_INPUT";
 				helpers.renderPresentation();
 			}
 		},
 		SELECT_ITEM: () => {
 			if (actObj.itemId && sim) {
 				sim.pendingItem = actObj.itemId;
-				sim.phase = 'TARGETING_ALLY';
+				sim.phase = "TARGETING_ALLY";
 				helpers.renderPresentation();
 			}
 		},
 		CANCEL_ITEM: () => {
 			if (sim) {
 				sim.pendingItem = null;
-				sim.phase = 'PLAYER_INPUT';
+				sim.phase = "PLAYER_INPUT";
 				helpers.renderPresentation();
 			}
 		},
 		SELECT_TARGET: () => {
-			if (typeof actObj.targetIndex === 'number' && sim) {
+			if (typeof actObj.targetIndex === "number" && sim) {
 				const isAlly = Boolean(actObj.isAlly);
 				if (isAlly) {
 					if (sim.pendingItem) {
-						playerExecuteItem(sim, sim.pendingItem, actObj.targetIndex, helpers);
+						playerExecuteItem(
+							sim,
+							sim.pendingItem,
+							actObj.targetIndex,
+							helpers,
+						);
 						sim.pendingItem = null;
 					} else if (sim.pendingSkill) {
-						playerExecuteSkill(sim, sim.pendingSkill, actObj.targetIndex, true, helpers);
+						playerExecuteSkill(
+							sim,
+							sim.pendingSkill,
+							actObj.targetIndex,
+							true,
+							helpers,
+						);
 						sim.pendingSkill = null;
 					}
+				} else if (sim.pendingSkill) {
+					playerExecuteSkill(
+						sim,
+						sim.pendingSkill,
+						actObj.targetIndex,
+						false,
+						helpers,
+					);
+					sim.pendingSkill = null;
 				} else {
-					if (sim.pendingSkill) {
-						playerExecuteSkill(sim, sim.pendingSkill, actObj.targetIndex, false, helpers);
-						sim.pendingSkill = null;
-					} else {
-						playerExecuteAttack(sim, actObj.targetIndex, helpers);
-					}
+					playerExecuteAttack(sim, actObj.targetIndex, helpers);
 				}
 			}
 		},
 		TARGET_ALLY: () => {
-			if (typeof actObj.targetIndex === 'number' && sim) {
+			if (typeof actObj.targetIndex === "number" && sim) {
 				if (sim.pendingItem) {
 					playerExecuteItem(sim, sim.pendingItem, actObj.targetIndex, helpers);
 					sim.pendingItem = null;
 				} else if (sim.pendingSkill) {
-					playerExecuteSkill(sim, sim.pendingSkill, actObj.targetIndex, true, helpers);
+					playerExecuteSkill(
+						sim,
+						sim.pendingSkill,
+						actObj.targetIndex,
+						true,
+						helpers,
+					);
 					sim.pendingSkill = null;
 				}
 			}
@@ -722,10 +855,15 @@ const CombatActions = Object.freeze({
 	handleViewAction,
 });
 
-const _rootMem = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : {});
+const _rootMem =
+	typeof window !== "undefined"
+		? window
+		: typeof globalThis !== "undefined"
+			? globalThis
+			: {};
 _rootMem._CombatInternal = _rootMem._CombatInternal || {};
 _rootMem._CombatInternal.Actions = CombatActions;
 
-if (typeof module !== 'undefined' && module.exports) {
+if (typeof module !== "undefined" && module.exports) {
 	module.exports = CombatActions;
 }

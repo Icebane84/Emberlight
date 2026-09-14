@@ -125,8 +125,6 @@
  */
 
 const EmberlightCombatVFX = (() => {
-	'use strict';
-
 	//#region [SEC-01] Structural Constants & Typed Buffer Allocation
 	/** @type {number} */
 	const MAX_PARTICLES = 300;
@@ -159,7 +157,9 @@ const EmberlightCombatVFX = (() => {
 	 */
 	function prngFloat() {
 		prngSeed = Math.imul(prngSeed ^ (prngSeed >>> 15), 1 | prngSeed);
-		prngSeed = (prngSeed + Math.imul(prngSeed ^ (prngSeed >>> 7), 61 | prngSeed)) ^ prngSeed;
+		prngSeed =
+			(prngSeed + Math.imul(prngSeed ^ (prngSeed >>> 7), 61 | prngSeed)) ^
+			prngSeed;
 		return ((prngSeed ^ (prngSeed >>> 14)) >>> 0) / 4294967296;
 	}
 
@@ -196,22 +196,26 @@ const EmberlightCombatVFX = (() => {
 	 * @returns {void}
 	 */
 	function ensureCanvas() {
-		if (typeof document === 'undefined') return;
+		if (typeof document === "undefined") return;
 		if (canvas?.parentElement) return;
-		const combatView = document.getElementById('combat-theater') || document.getElementById('combat-view');
+		const combatView =
+			document.getElementById("combat-theater") ||
+			document.getElementById("combat-view");
 		if (!combatView) return;
-		combatView.style.position = 'relative';
-		canvas = /** @type {HTMLCanvasElement} */ (document.createElement('canvas'));
-		canvas.id = 'combat-vfx-canvas';
-		canvas.style.position = 'absolute';
-		canvas.style.top = '0';
-		canvas.style.left = '0';
-		canvas.style.width = '100%';
-		canvas.style.height = '100%';
-		canvas.style.pointerEvents = 'none';
-		canvas.style.zIndex = '50';
+		combatView.style.position = "relative";
+		canvas = /** @type {HTMLCanvasElement} */ (
+			document.createElement("canvas")
+		);
+		canvas.id = "combat-vfx-canvas";
+		canvas.style.position = "absolute";
+		canvas.style.top = "0";
+		canvas.style.left = "0";
+		canvas.style.width = "100%";
+		canvas.style.height = "100%";
+		canvas.style.pointerEvents = "none";
+		canvas.style.zIndex = "50";
 		combatView.appendChild(canvas);
-		ctx = canvas.getContext ? canvas.getContext('2d') : null;
+		ctx = canvas.getContext ? canvas.getContext("2d") : null;
 		resize();
 	}
 
@@ -225,7 +229,7 @@ const EmberlightCombatVFX = (() => {
 		const rect = canvas.parentElement.getBoundingClientRect
 			? canvas.parentElement.getBoundingClientRect()
 			: { width: 600, height: 400 };
-		const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+		const dpr = (typeof window !== "undefined" && window.devicePixelRatio) || 1;
 		canvas.width = (rect.width || 600) * dpr;
 		canvas.height = (rect.height || 400) * dpr;
 		if (ctx.setTransform) {
@@ -249,12 +253,13 @@ const EmberlightCombatVFX = (() => {
 		const rect = canvas.getBoundingClientRect
 			? canvas.getBoundingClientRect()
 			: { left: 0, top: 0, width: 600, height: 400 };
-		if (typeof document !== 'undefined') {
+		if (typeof document !== "undefined") {
 			if (isAllyTarget) {
-				const cards = document.querySelectorAll('.character');
-				const targetCard = cards[targetIndex] ||
-					document.querySelector('.character.active-turn') ||
-					document.querySelector('.character:not(.fainted)');
+				const cards = document.querySelectorAll(".character");
+				const targetCard =
+					cards[targetIndex] ||
+					document.querySelector(".character.active-turn") ||
+					document.querySelector(".character:not(.fainted)");
 				if (targetCard?.getBoundingClientRect) {
 					const cRect = targetCard.getBoundingClientRect();
 					return {
@@ -264,10 +269,11 @@ const EmberlightCombatVFX = (() => {
 				}
 				return { x: (rect.width || 600) * 0.25, y: (rect.height || 400) * 0.5 };
 			}
-			const enemies = document.querySelectorAll('.enemy');
-			const targetEnemy = enemies[targetIndex] ||
-				document.querySelector('.enemy.targetable') ||
-				document.querySelector('.enemy:not(.dead)');
+			const enemies = document.querySelectorAll(".enemy");
+			const targetEnemy =
+				enemies[targetIndex] ||
+				document.querySelector(".enemy.targetable") ||
+				document.querySelector(".enemy:not(.dead)");
 			if (targetEnemy?.getBoundingClientRect) {
 				const eRect = targetEnemy.getBoundingClientRect();
 				return {
@@ -351,7 +357,7 @@ const EmberlightCombatVFX = (() => {
 	 * @param {boolean} [isLarge=false] - Emphasized typographic rendering flag.
 	 * @returns {void}
 	 */
-	function spawnFloatingText(x, y, text, color = '#ff5555', isLarge = false) {
+	function spawnFloatingText(x, y, text, color = "#ff5555", isLarge = false) {
 		if (floatingTexts.length >= MAX_FLOATING_TEXTS) {
 			floatingTexts.shift();
 		}
@@ -378,7 +384,7 @@ const EmberlightCombatVFX = (() => {
 	 * @param {number} [duration=2.2] - Total visible lifespan in seconds.
 	 * @returns {void}
 	 */
-	function showBanner(text, subtext = '', color = '#ff9d4d', duration = 2.2) {
+	function showBanner(text, subtext = "", color = "#ff9d4d", duration = 2.2) {
 		activeBanner = {
 			text,
 			subtext,
@@ -405,13 +411,13 @@ const EmberlightCombatVFX = (() => {
 		triggerScreenShake(8);
 		const dir = isAllyTarget ? 1 : -1;
 		slashes.push({
-			startX: x + (dir * 35),
+			startX: x + dir * 35,
 			startY: y - 35,
-			endX: x - (dir * 35),
+			endX: x - dir * 35,
 			endY: y + 35,
-			ctrlX: x + (dir * 10),
+			ctrlX: x + dir * 10,
 			ctrlY: y,
-			color: isAllyTarget ? '#ef4444' : '#ff9d4d',
+			color: isAllyTarget ? "#ef4444" : "#ff9d4d",
 			alpha: 1.0,
 			life: 0.25,
 			maxLife: 0.25,
@@ -509,7 +515,7 @@ const EmberlightCombatVFX = (() => {
 	function updateCinematicBanner(dt) {
 		if (!activeBanner) return;
 		activeBanner.timer -= dt;
-		const progress = 1.0 - (activeBanner.timer / activeBanner.maxTime);
+		const progress = 1.0 - activeBanner.timer / activeBanner.maxTime;
 		if (progress < 0.2) {
 			activeBanner.alpha = progress / 0.2;
 		} else if (progress > 0.8) {
@@ -602,9 +608,9 @@ const EmberlightCombatVFX = (() => {
 			ctx.save();
 			ctx.globalAlpha = ft.alpha;
 			ctx.fillStyle = ft.color;
-			ctx.font = ft.isLarge ? 'bold 13px monospace' : 'bold 9px monospace';
-			ctx.textAlign = 'center';
-			ctx.shadowColor = '#000000';
+			ctx.font = ft.isLarge ? "bold 13px monospace" : "bold 9px monospace";
+			ctx.textAlign = "center";
+			ctx.shadowColor = "#000000";
 			ctx.shadowBlur = 4;
 			ctx.fillText(ft.text, ft.x, ft.y);
 			ctx.restore();
@@ -624,18 +630,18 @@ const EmberlightCombatVFX = (() => {
 		const cy = h * 0.32;
 		ctx.save();
 		ctx.globalAlpha = activeBanner.alpha;
-		ctx.fillStyle = 'rgba(10, 10, 18, 0.85)';
+		ctx.fillStyle = "rgba(10, 10, 18, 0.85)";
 		ctx.fillRect(0, cy - 28, w, 56);
 		ctx.strokeStyle = activeBanner.color;
 		ctx.lineWidth = 1;
 		ctx.strokeRect(0, cy - 28, w, 56);
 		ctx.fillStyle = activeBanner.color;
-		ctx.font = 'bold 12px monospace';
-		ctx.textAlign = 'center';
+		ctx.font = "bold 12px monospace";
+		ctx.textAlign = "center";
 		ctx.fillText(activeBanner.text, cx, cy - 4);
 		if (activeBanner.subtext) {
-			ctx.fillStyle = '#dbe4ef';
-			ctx.font = '7.5px monospace';
+			ctx.fillStyle = "#dbe4ef";
+			ctx.font = "7.5px monospace";
 			ctx.fillText(activeBanner.subtext, cx, cy + 14);
 		}
 		ctx.restore();
@@ -679,7 +685,7 @@ const EmberlightCombatVFX = (() => {
 			activeBanner !== null ||
 			shakeIntensity > 0.2;
 
-		if (hasActiveEffects && typeof requestAnimationFrame !== 'undefined') {
+		if (hasActiveEffects && typeof requestAnimationFrame !== "undefined") {
 			animFrameId = requestAnimationFrame(renderFrame);
 		} else {
 			animFrameId = null;
@@ -692,7 +698,7 @@ const EmberlightCombatVFX = (() => {
 	 * @returns {void}
 	 */
 	function startLoop() {
-		if (!animFrameId && typeof requestAnimationFrame !== 'undefined') {
+		if (!animFrameId && typeof requestAnimationFrame !== "undefined") {
 			animFrameId = requestAnimationFrame(renderFrame);
 		}
 	}
@@ -707,10 +713,17 @@ const EmberlightCombatVFX = (() => {
 	 */
 	function resolveEventBusInstance(context) {
 		if (!context) return null;
-		if (typeof /** @type {EventBusSubscriber} */ (context).subscribe === 'function') {
+		if (
+			typeof (/** @type {EventBusSubscriber} */ (context).subscribe) ===
+			"function"
+		) {
 			return /** @type {EventBusSubscriber} */ (context);
 		}
-		if ('eventBus' in context && context.eventBus && typeof context.eventBus.subscribe === 'function') {
+		if (
+			"eventBus" in context &&
+			context.eventBus &&
+			typeof context.eventBus.subscribe === "function"
+		) {
 			return context.eventBus;
 		}
 		return null;
@@ -725,10 +738,10 @@ const EmberlightCombatVFX = (() => {
 	 * @returns {string}
 	 */
 	function resolveDamageTextColor(isHeal, isCrit, isAlly) {
-		if (isHeal) return '#34d399';
-		if (isCrit) return '#fbbf24';
-		if (isAlly) return '#ef4444';
-		return '#ffffff';
+		if (isHeal) return "#34d399";
+		if (isCrit) return "#fbbf24";
+		if (isAlly) return "#ef4444";
+		return "#ffffff";
 	}
 
 	/**
@@ -741,7 +754,7 @@ const EmberlightCombatVFX = (() => {
 	 */
 	function formatDamageText(amount, isHeal, isCrit) {
 		if (isHeal) return `+${amount}`;
-		const suffix = isCrit ? '!' : '';
+		const suffix = isCrit ? "!" : "";
 		return `-${amount}${suffix}`;
 	}
 
@@ -770,42 +783,77 @@ const EmberlightCombatVFX = (() => {
 			eventBus = resolveEventBusInstance(context);
 
 			ensureCanvas();
-			if (typeof window !== 'undefined') {
-				window.addEventListener('resize', resize);
+			if (typeof window !== "undefined") {
+				window.addEventListener("resize", resize);
 			}
 
 			if (eventBus) {
 				unsubs.push(
-					eventBus.subscribe('combat:damage', (/** @type {CombatDamagePayload} */ payload) => {
-						const isAlly = payload.targetType === 'party';
-						const { x, y } = getTargetCoords(isAlly, payload.targetIndex || 0);
-						const isHeal = Boolean(payload.isHeal);
-						const isCrit = Boolean(payload.isCrit);
-						const color = resolveDamageTextColor(isHeal, isCrit, isAlly);
-						const text = formatDamageText(payload.amount, isHeal, isCrit);
-						const burstCount = isCrit ? 20 : 8;
-						const burstHue = resolveBurstHue(isHeal, isCrit);
-						spawnFloatingText(x, y, text, color, isCrit);
-						spawnBurst(x, y, burstCount, burstHue, 4.0);
-					}),
-					eventBus.subscribe('combat:text', (/** @type {CombatTextPayload} */ payload) => {
-						const { x, y } = getTargetCoords(payload.targetType === 'party', payload.targetIndex || 0);
-						spawnFloatingText(x, y, payload.text, payload.color || '#38bdf8', Boolean(payload.isLarge));
-					}),
-					eventBus.subscribe('combat:banner', (/** @type {CombatBannerPayload} */ payload) => {
-						showBanner(payload.text, payload.subtext || '', payload.color || '#ff9d4d', payload.duration || 2.2);
-					}),
-					eventBus.subscribe('combat:animation', (/** @type {CombatAnimationPayload} */ payload) => {
-						const isAlly = payload.targetType === 'party';
-						if (payload.animation === 'LUNGE') {
-							playSlashVFX(isAlly, payload.targetIndex || 0);
-						} else if (payload.animation === 'DEFLECT') {
-							playDeflectVFX(payload.targetIndex || 0, isAlly);
-						} else if (payload.animation === 'KNOCKBACK' || payload.animation === 'PULL') {
-							const { x, y } = getTargetCoords(isAlly, payload.targetIndex || 0);
-							spawnBurst(x, y, 14, 210, 4.0);
-						}
-					})
+					eventBus.subscribe(
+						"combat:damage",
+						(/** @type {CombatDamagePayload} */ payload) => {
+							const isAlly = payload.targetType === "party";
+							const { x, y } = getTargetCoords(
+								isAlly,
+								payload.targetIndex || 0,
+							);
+							const isHeal = Boolean(payload.isHeal);
+							const isCrit = Boolean(payload.isCrit);
+							const color = resolveDamageTextColor(isHeal, isCrit, isAlly);
+							const text = formatDamageText(payload.amount, isHeal, isCrit);
+							const burstCount = isCrit ? 20 : 8;
+							const burstHue = resolveBurstHue(isHeal, isCrit);
+							spawnFloatingText(x, y, text, color, isCrit);
+							spawnBurst(x, y, burstCount, burstHue, 4.0);
+						},
+					),
+					eventBus.subscribe(
+						"combat:text",
+						(/** @type {CombatTextPayload} */ payload) => {
+							const { x, y } = getTargetCoords(
+								payload.targetType === "party",
+								payload.targetIndex || 0,
+							);
+							spawnFloatingText(
+								x,
+								y,
+								payload.text,
+								payload.color || "#38bdf8",
+								Boolean(payload.isLarge),
+							);
+						},
+					),
+					eventBus.subscribe(
+						"combat:banner",
+						(/** @type {CombatBannerPayload} */ payload) => {
+							showBanner(
+								payload.text,
+								payload.subtext || "",
+								payload.color || "#ff9d4d",
+								payload.duration || 2.2,
+							);
+						},
+					),
+					eventBus.subscribe(
+						"combat:animation",
+						(/** @type {CombatAnimationPayload} */ payload) => {
+							const isAlly = payload.targetType === "party";
+							if (payload.animation === "LUNGE") {
+								playSlashVFX(isAlly, payload.targetIndex || 0);
+							} else if (payload.animation === "DEFLECT") {
+								playDeflectVFX(payload.targetIndex || 0, isAlly);
+							} else if (
+								payload.animation === "KNOCKBACK" ||
+								payload.animation === "PULL"
+							) {
+								const { x, y } = getTargetCoords(
+									isAlly,
+									payload.targetIndex || 0,
+								);
+								spawnBurst(x, y, 14, 210, 4.0);
+							}
+						},
+					),
 				);
 			}
 		},
@@ -822,7 +870,7 @@ const EmberlightCombatVFX = (() => {
 		 */
 		getDiagnostics() {
 			return {
-				driverId: 'combat_vfx',
+				driverId: "combat_vfx",
 				activeParticles: activeParticleCount,
 				activeSlashes: slashes.length,
 				activeTexts: floatingTexts.length,
@@ -838,15 +886,15 @@ const EmberlightCombatVFX = (() => {
 		 */
 		getModuleInfo() {
 			return {
-				moduleId: 'combat_vfx_driver',
-				version: '1.0.0',
-				protocolVersion: 'VSRP-001',
+				moduleId: "combat_vfx_driver",
+				version: "1.0.0",
+				protocolVersion: "VSRP-001",
 				capabilities: [
-					'typed_particle_pool',
-					'bezier_slashes',
-					'kinetic_floating_text',
-					'cinematic_banners',
-					'screen_shake',
+					"typed_particle_pool",
+					"bezier_slashes",
+					"kinetic_floating_text",
+					"cinematic_banners",
+					"screen_shake",
 				],
 			};
 		},
@@ -857,16 +905,18 @@ const EmberlightCombatVFX = (() => {
 		 * @returns {void}
 		 */
 		destroy() {
-			if (animFrameId && typeof cancelAnimationFrame !== 'undefined') {
+			if (animFrameId && typeof cancelAnimationFrame !== "undefined") {
 				cancelAnimationFrame(animFrameId);
 				animFrameId = null;
 			}
 			unsubs.forEach((u) => {
-				try { if (typeof u === 'function') u(); } catch (_) { }
+				try {
+					if (typeof u === "function") u();
+				} catch (_) { }
 			});
 			unsubs = [];
-			if (typeof window !== 'undefined') {
-				window.removeEventListener('resize', resize);
+			if (typeof window !== "undefined") {
+				window.removeEventListener("resize", resize);
 			}
 			if (canvas?.parentElement) {
 				canvas.remove();
@@ -885,11 +935,10 @@ const EmberlightCombatVFX = (() => {
 })();
 
 //#region [SEC-10] Global Environment & CommonJS Module Export
-if (typeof window !== 'undefined') {
-	// @ts-ignore
+if (typeof window !== "undefined") {
 	window.EmberlightCombatVFX = EmberlightCombatVFX;
 }
-if (typeof module !== 'undefined' && module.exports) {
+if (typeof module !== "undefined" && module.exports) {
 	module.exports = EmberlightCombatVFX;
 }
 //#endregion

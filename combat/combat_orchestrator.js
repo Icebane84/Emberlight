@@ -79,18 +79,32 @@ function stepTurn(sim, helpers) {
 		);
 	});
 
-	activeUnit.entity.accumulatedDelay =
-		1000 / Math.max(1, activeUnit.entity.agi);
+	// Build 12-turn CTB forecast queue:
+	// Slot 0 (Turn 1) is ALWAYS the currently acting unit taking their turn right now!
+	const forecastQueue = [
+		{
+			type: activeUnit.type === 'party' ? 'HERO' : 'ENEMY',
+			entity: activeUnit.entity,
+			id: activeUnit.entity.id,
+			name: activeUnit.entity.name,
+			phenotype: activeUnit.entity.phenotype,
+			key: activeUnit.entity.key,
+			turnIndex: 1,
+		},
+	];
 
-	// Build 12-turn CTB forecast queue
-	const forecastQueue = [];
+	// For simulating future turns (turns 2..12), the active unit will act again after 1000/agi
 	const simulatedDelays = allLiving.map((u) => ({
-		type: u.type,
+		type: u.type === 'party' ? 'HERO' : 'ENEMY',
 		entity: u.entity,
-		delay: u.entity.accumulatedDelay || 0,
+		delay:
+			u.entity.id === activeUnit.entity.id
+				? 1000 / Math.max(1, u.entity.agi || 10)
+				: u.entity.accumulatedDelay || 0,
 		agi: Math.max(1, u.entity.agi || 10),
 	}));
-	for (let i = 0; i < 12; i++) {
+
+	for (let i = 1; i < 12; i++) {
 		simulatedDelays.sort((a, b) => a.delay - b.delay);
 		const nextTurn = simulatedDelays[0];
 		forecastQueue.push({
@@ -98,12 +112,20 @@ function stepTurn(sim, helpers) {
 			entity: nextTurn.entity,
 			id: nextTurn.entity.id,
 			name: nextTurn.entity.name,
+			phenotype: nextTurn.entity.phenotype,
+			key: nextTurn.entity.key,
+			turnIndex: i + 1,
 		});
 		nextTurn.delay += 1000 / nextTurn.agi;
 	}
+
 	sim.turnQueue = forecastQueue;
 	sim.activeTurnIndex = 0;
 	sim.forecastQueue = forecastQueue;
+
+	// Reset the active unit's actual accumulated delay for when this turn completes
+	activeUnit.entity.accumulatedDelay =
+		1000 / Math.max(1, activeUnit.entity.agi);
 
 	const stunned = helpers.Queue.tickAilments(activeUnit.entity, helpers.getActiveManifest(), helpers.appendLog);
 	if (helpers.checkBattleEnd()) return;

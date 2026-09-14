@@ -19,8 +19,6 @@
  */
 
 const EmberlightAcousticSFX = (() => {
-	'use strict';
-
 	//#region [SEC-01] Module State, Type Definitions & Acoustic Zone Profiles
 	/**
 	 * Canonical acoustic environment zone keys.
@@ -107,7 +105,7 @@ const EmberlightAcousticSFX = (() => {
 	let convolverNode = null;
 	let userHasInteracted = false;
 	/** @type {ZoneKey} */
-	let currentZone = 'MEADOW';
+	let currentZone = "MEADOW";
 	let stepFootToggle = false;
 	let noiseSeed = 1337;
 
@@ -123,7 +121,7 @@ const EmberlightAcousticSFX = (() => {
 	const ZONE_PROFILES = Object.freeze({
 		MEADOW: { dry: 0.95, wet: 0.05, decay: 0.25, power: 3.5 },
 		TOWN: { dry: 0.82, wet: 0.18, decay: 0.65, power: 2.2 },
-		CRYPT: { dry: 0.52, wet: 0.48, decay: 2.40, power: 1.6 },
+		CRYPT: { dry: 0.52, wet: 0.48, decay: 2.4, power: 1.6 },
 	});
 	//#endregion
 
@@ -136,10 +134,10 @@ const EmberlightAcousticSFX = (() => {
 	 * @returns {EventBusSubscriber | null} Resolved EventBus reference.
 	 */
 	function resolveEventBus(busRef) {
-		if (busRef && typeof busRef.subscribe === 'function') {
+		if (busRef && typeof busRef.subscribe === "function") {
 			return busRef;
 		}
-		if (busRef?.eventBus && typeof busRef.eventBus.subscribe === 'function') {
+		if (busRef?.eventBus && typeof busRef.eventBus.subscribe === "function") {
 			return busRef.eventBus;
 		}
 		return null;
@@ -152,9 +150,10 @@ const EmberlightAcousticSFX = (() => {
 	 * @returns {void}
 	 */
 	function ensureContext() {
-		if (!userHasInteracted || typeof window === 'undefined') return;
+		if (!userHasInteracted || typeof window === "undefined") return;
 		if (!ctx) {
-			const AudioCtx = window.AudioContext || /** @type {any} */ (window).webkitAudioContext;
+			const AudioCtx =
+				window.AudioContext || /** @type {any} */ (window).webkitAudioContext;
 			if (!AudioCtx) return;
 			try {
 				ctx = new AudioCtx();
@@ -167,7 +166,7 @@ const EmberlightAcousticSFX = (() => {
 				// Parallel Dry and Wet Acoustic Busses
 				dryBus = ctx.createGain();
 				wetBus = ctx.createGain();
-				if (typeof ctx.createConvolver === 'function') {
+				if (typeof ctx.createConvolver === "function") {
 					convolverNode = ctx.createConvolver();
 					convolverNode.connect(wetBus);
 				}
@@ -183,7 +182,7 @@ const EmberlightAcousticSFX = (() => {
 				ctx = null;
 			}
 		}
-		if (ctx?.state === 'suspended') {
+		if (ctx?.state === "suspended") {
 			ctx.resume().catch(() => {
 				// Ignored: Promise rejected if browser autoplay policy prevents resumption prior to gesture
 			});
@@ -197,17 +196,21 @@ const EmberlightAcousticSFX = (() => {
 	 * @returns {void}
 	 */
 	function armUserGestureUnlock() {
-		if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
+		if (
+			typeof window === "undefined" ||
+			typeof window.addEventListener !== "function"
+		)
+			return;
 		const unlockHandler = () => {
 			userHasInteracted = true;
 			ensureContext();
-			window.removeEventListener('click', unlockHandler);
-			window.removeEventListener('keydown', unlockHandler);
-			window.removeEventListener('touchstart', unlockHandler);
+			window.removeEventListener("click", unlockHandler);
+			window.removeEventListener("keydown", unlockHandler);
+			window.removeEventListener("touchstart", unlockHandler);
 		};
-		window.addEventListener('click', unlockHandler, { once: true });
-		window.addEventListener('keydown', unlockHandler, { once: true });
-		window.addEventListener('touchstart', unlockHandler, { once: true });
+		window.addEventListener("click", unlockHandler, { once: true });
+		window.addEventListener("keydown", unlockHandler, { once: true });
+		window.addEventListener("touchstart", unlockHandler, { once: true });
 	}
 	//#endregion
 
@@ -233,7 +236,7 @@ const EmberlightAcousticSFX = (() => {
 	 * @returns {void}
 	 */
 	function bakeImpulseResponses() {
-		if (!ctx || typeof ctx.createBuffer !== 'function') return;
+		if (!ctx || typeof ctx.createBuffer !== "function") return;
 		const sampleRate = ctx.sampleRate || 44100;
 
 		try {
@@ -264,7 +267,7 @@ const EmberlightAcousticSFX = (() => {
 	 * @returns {void}
 	 */
 	function applyZoneProfile(zoneKey) {
-		currentZone = ZONE_PROFILES[zoneKey] ? zoneKey : 'MEADOW';
+		currentZone = ZONE_PROFILES[zoneKey] ? zoneKey : "MEADOW";
 		if (!ctx || !dryBus || !wetBus) return;
 
 		const profile = ZONE_PROFILES[currentZone];
@@ -276,10 +279,10 @@ const EmberlightAcousticSFX = (() => {
 		}
 
 		const t = ctx.currentTime;
-		if (dryBus.gain && typeof dryBus.gain.setTargetAtTime === 'function') {
+		if (dryBus.gain && typeof dryBus.gain.setTargetAtTime === "function") {
 			dryBus.gain.setTargetAtTime(profile.dry, t, 0.05);
 		}
-		if (wetBus.gain && typeof wetBus.gain.setTargetAtTime === 'function') {
+		if (wetBus.gain && typeof wetBus.gain.setTargetAtTime === "function") {
 			wetBus.gain.setTargetAtTime(profile.wet, t, 0.05);
 		}
 	}
@@ -300,7 +303,7 @@ const EmberlightAcousticSFX = (() => {
 
 		/** @type {StereoPannerNode | null} */
 		let panner = null;
-		if (typeof ctx.createStereoPanner === 'function') {
+		if (typeof ctx.createStereoPanner === "function") {
 			try {
 				panner = ctx.createStereoPanner();
 				panner.pan.setValueAtTime(clampedPan, ctx.currentTime);
@@ -337,7 +340,15 @@ const EmberlightAcousticSFX = (() => {
 	 * @param {number} [gainEnd=0.001] - Final decay volume gain floor.
 	 * @returns {void}
 	 */
-	function scheduleSpatialTone(freq, type, startTime, duration, pan = 0.0, gainStart = 0.15, gainEnd = 0.001) {
+	function scheduleSpatialTone(
+		freq,
+		type,
+		startTime,
+		duration,
+		pan = 0.0,
+		gainStart = 0.15,
+		gainEnd = 0.001,
+	) {
 		if (isMuted) return;
 		ensureContext();
 		if (!ctx || !masterGain) return;
@@ -392,7 +403,7 @@ const EmberlightAcousticSFX = (() => {
 		SELECT(pan = 0.0) {
 			ensureContext();
 			if (!ctx) return;
-			scheduleSpatialTone(520, 'square', ctx.currentTime, 0.06, pan, 0.1);
+			scheduleSpatialTone(520, "square", ctx.currentTime, 0.06, pan, 0.1);
 		},
 
 		/**
@@ -408,7 +419,14 @@ const EmberlightAcousticSFX = (() => {
 			if (stepPan === 0.0) {
 				stepPan = stepFootToggle ? -0.12 : 0.12;
 			}
-			scheduleSpatialTone(110, 'triangle', ctx.currentTime, 0.035, stepPan, 0.045);
+			scheduleSpatialTone(
+				110,
+				"triangle",
+				ctx.currentTime,
+				0.035,
+				stepPan,
+				0.045,
+			);
 		},
 
 		/**
@@ -424,7 +442,7 @@ const EmberlightAcousticSFX = (() => {
 				const osc = ctx.createOscillator();
 				const gain = ctx.createGain();
 
-				osc.type = 'sawtooth';
+				osc.type = "sawtooth";
 				osc.frequency.setValueAtTime(170, t);
 				osc.frequency.exponentialRampToValueAtTime(35, t + 0.14);
 
@@ -460,8 +478,8 @@ const EmberlightAcousticSFX = (() => {
 			ensureContext();
 			if (!ctx) return;
 			const t = ctx.currentTime;
-			scheduleSpatialTone(620, 'sine', t, 0.18, pan, 0.16);
-			scheduleSpatialTone(880, 'sine', t + 0.06, 0.15, pan + 0.1, 0.14);
+			scheduleSpatialTone(620, "sine", t, 0.18, pan, 0.16);
+			scheduleSpatialTone(880, "sine", t + 0.06, 0.15, pan + 0.1, 0.14);
 		},
 
 		/**
@@ -473,9 +491,9 @@ const EmberlightAcousticSFX = (() => {
 			ensureContext();
 			if (!ctx) return;
 			const t = ctx.currentTime;
-			scheduleSpatialTone(330, 'triangle', t, 0.16, pan - 0.1, 0.15);
-			scheduleSpatialTone(440, 'triangle', t + 0.08, 0.16, pan, 0.15);
-			scheduleSpatialTone(660, 'triangle', t + 0.16, 0.26, pan + 0.1, 0.15);
+			scheduleSpatialTone(330, "triangle", t, 0.16, pan - 0.1, 0.15);
+			scheduleSpatialTone(440, "triangle", t + 0.08, 0.16, pan, 0.15);
+			scheduleSpatialTone(660, "triangle", t + 0.16, 0.26, pan + 0.1, 0.15);
 		},
 
 		/**
@@ -487,9 +505,9 @@ const EmberlightAcousticSFX = (() => {
 			ensureContext();
 			if (!ctx) return;
 			const t = ctx.currentTime;
-			scheduleSpatialTone(240, 'square', t, 0.08, -0.3, 0.18);
-			scheduleSpatialTone(190, 'square', t + 0.07, 0.08, 0.0, 0.18);
-			scheduleSpatialTone(140, 'square', t + 0.14, 0.16, 0.3, 0.22);
+			scheduleSpatialTone(240, "square", t, 0.08, -0.3, 0.18);
+			scheduleSpatialTone(190, "square", t + 0.07, 0.08, 0.0, 0.18);
+			scheduleSpatialTone(140, "square", t + 0.14, 0.16, 0.3, 0.22);
 		},
 
 		/**
@@ -504,7 +522,14 @@ const EmberlightAcousticSFX = (() => {
 			const notes = [523.25, 523.25, 523.25, 659.25, 783.99];
 			notes.forEach((freq, idx) => {
 				const sweepPan = -0.4 + (idx / (notes.length - 1)) * 0.8;
-				scheduleSpatialTone(freq, 'square', t + idx * 0.11, 0.16, sweepPan, 0.12);
+				scheduleSpatialTone(
+					freq,
+					"square",
+					t + idx * 0.11,
+					0.16,
+					sweepPan,
+					0.12,
+				);
 			});
 		},
 
@@ -519,7 +544,7 @@ const EmberlightAcousticSFX = (() => {
 			const t = ctx.currentTime;
 			const notes = [320, 270, 220, 170];
 			notes.forEach((freq, idx) => {
-				scheduleSpatialTone(freq, 'sawtooth', t + idx * 0.16, 0.26, 0.0, 0.15);
+				scheduleSpatialTone(freq, "sawtooth", t + idx * 0.16, 0.26, 0.0, 0.15);
 			});
 		},
 
@@ -532,8 +557,8 @@ const EmberlightAcousticSFX = (() => {
 			ensureContext();
 			if (!ctx || isMuted) return;
 			const t = ctx.currentTime;
-			scheduleSpatialTone(85, 'sine', t, 0.22, pan, 0.18);
-			scheduleSpatialTone(120, 'triangle', t + 0.04, 0.18, pan, 0.10);
+			scheduleSpatialTone(85, "sine", t, 0.22, pan, 0.18);
+			scheduleSpatialTone(120, "triangle", t + 0.04, 0.18, pan, 0.1);
 		},
 
 		/**
@@ -545,8 +570,8 @@ const EmberlightAcousticSFX = (() => {
 			ensureContext();
 			if (!ctx || isMuted) return;
 			const t = ctx.currentTime;
-			scheduleSpatialTone(190, 'sawtooth', t, 0.16, pan, 0.15);
-			scheduleSpatialTone(70, 'square', t + 0.06, 0.24, pan, 0.22);
+			scheduleSpatialTone(190, "sawtooth", t, 0.16, pan, 0.15);
+			scheduleSpatialTone(70, "square", t + 0.06, 0.24, pan, 0.22);
 		},
 
 		/**
@@ -558,8 +583,8 @@ const EmberlightAcousticSFX = (() => {
 			ensureContext();
 			if (!ctx || isMuted) return;
 			const t = ctx.currentTime;
-			scheduleSpatialTone(480, 'sine', t, 0.08, pan - 0.15, 0.12);
-			scheduleSpatialTone(220, 'triangle', t + 0.04, 0.09, pan + 0.15, 0.08);
+			scheduleSpatialTone(480, "sine", t, 0.08, pan - 0.15, 0.12);
+			scheduleSpatialTone(220, "triangle", t + 0.04, 0.09, pan + 0.15, 0.08);
 		},
 
 		/**
@@ -571,8 +596,8 @@ const EmberlightAcousticSFX = (() => {
 			ensureContext();
 			if (!ctx || isMuted) return;
 			const t = ctx.currentTime;
-			scheduleSpatialTone(85, 'triangle', t, 0.05, pan, 0.09);
-			scheduleSpatialTone(45, 'sine', t + 0.02, 0.07, pan, 0.06);
+			scheduleSpatialTone(85, "triangle", t, 0.05, pan, 0.09);
+			scheduleSpatialTone(45, "sine", t + 0.02, 0.07, pan, 0.06);
 		},
 
 		/**
@@ -584,8 +609,8 @@ const EmberlightAcousticSFX = (() => {
 			ensureContext();
 			if (!ctx || isMuted) return;
 			const t = ctx.currentTime;
-			scheduleSpatialTone(720, 'triangle', t, 0.06, pan, 0.18);
-			scheduleSpatialTone(340, 'square', t + 0.02, 0.12, pan, 0.14);
+			scheduleSpatialTone(720, "triangle", t, 0.06, pan, 0.18);
+			scheduleSpatialTone(340, "square", t + 0.02, 0.12, pan, 0.14);
 		},
 	};
 	//#endregion
@@ -601,13 +626,13 @@ const EmberlightAcousticSFX = (() => {
 	 * @returns {number} Normalized stereo panning coefficient in [-0.55, 0.75].
 	 */
 	function computeCombatPan(targetType, targetIndex = 0, enemyCount = 3) {
-		if (targetType === 'party') {
+		if (targetType === "party") {
 			const slotOffset = (targetIndex || 0) * 0.12;
 			return -0.55 + slotOffset;
 		}
 		if (enemyCount <= 1) return 0.45;
 		const relativePos = (targetIndex || 0) / Math.max(1, enemyCount - 1);
-		return 0.25 + relativePos * 0.50;
+		return 0.25 + relativePos * 0.5;
 	}
 
 	/**
@@ -619,8 +644,8 @@ const EmberlightAcousticSFX = (() => {
 	 * @returns {number} Normalized stereo panning coefficient in [-0.75, 0.75].
 	 */
 	function computeOverworldPan(posX, mapWidth = 48) {
-		if (typeof posX !== 'number') return 0.0;
-		const w = (typeof mapWidth === 'number' && mapWidth > 1) ? mapWidth : 48;
+		if (typeof posX !== "number") return 0.0;
+		const w = typeof mapWidth === "number" && mapWidth > 1 ? mapWidth : 48;
 		return (posX / Math.max(1, w - 1)) * 1.5 - 0.75;
 	}
 
@@ -629,18 +654,18 @@ const EmberlightAcousticSFX = (() => {
 	 * @type {Readonly<Record<string, string>>}
 	 */
 	const SFX_ALIASES = Object.freeze({
-		sfx_confirm: 'SELECT',
-		sfx_select: 'SELECT',
-		sfx_bump: 'FOOTSTEP_THUD',
-		sfx_heal: 'HEAL',
-		sfx_damage: 'ATTACK_HIT',
-		sfx_coin: 'SELECT',
-		sfx_victory: 'VICTORY',
-		sfx_defeat: 'DEFEAT',
-		ATTACK: 'ATTACK_HIT',
-		SWORD_HIT: 'ATTACK_HIT',
-		BUMP: 'FOOTSTEP_THUD',
-		CHEST_OPEN: 'SELECT',
+		sfx_confirm: "SELECT",
+		sfx_select: "SELECT",
+		sfx_bump: "FOOTSTEP_THUD",
+		sfx_heal: "HEAL",
+		sfx_damage: "ATTACK_HIT",
+		sfx_coin: "SELECT",
+		sfx_victory: "VICTORY",
+		sfx_defeat: "DEFEAT",
+		ATTACK: "ATTACK_HIT",
+		SWORD_HIT: "ATTACK_HIT",
+		BUMP: "FOOTSTEP_THUD",
+		CHEST_OPEN: "SELECT",
 	});
 
 	/** @type {Array<function(): void>} */
@@ -668,45 +693,56 @@ const EmberlightAcousticSFX = (() => {
 				 */
 				const handleGenericSfx = (payload = {}) => {
 					if (payload?.sfx || payload?.cue) {
-						const pan = typeof payload.pan === 'number' ? payload.pan : 0.0;
+						const pan = typeof payload.pan === "number" ? payload.pan : 0.0;
 						this.play(payload.sfx || payload.cue, pan);
 					}
 				};
 
 				cleanupCallbacks.push(
-					bus.subscribe('audio:sfx', handleGenericSfx),
-					bus.subscribe('overworld:sfx', handleGenericSfx),
-					bus.subscribe('dialogue:sfx', handleGenericSfx),
-					bus.subscribe('progression:sfx', handleGenericSfx),
-					bus.subscribe('armory:sfx', handleGenericSfx),
-					bus.subscribe('relic_forge:sfx', handleGenericSfx),
-					bus.subscribe('lockpick:sfx', handleGenericSfx),
-					bus.subscribe('combat:sfx', (/** @type {CombatSfxPayload} */ evt = {}) => {
-						const sfx = evt?.sfx;
-						if (!sfx) return;
-						const pan = evt.targetType ? computeCombatPan(evt.targetType, evt.targetIndex) : 0.0;
-						this.play(sfx, pan);
-					}),
-					bus.subscribe('overworld:step', (/** @type {OverworldStepPayload} */ evt = {}) => {
-						const pos = evt?.pos;
-						if (pos) {
-							const pan = computeOverworldPan(pos.x, evt.mapWidth || 48);
-							this.play('STEP', pan);
+					bus.subscribe("audio:sfx", handleGenericSfx),
+					bus.subscribe("overworld:sfx", handleGenericSfx),
+					bus.subscribe("dialogue:sfx", handleGenericSfx),
+					bus.subscribe("progression:sfx", handleGenericSfx),
+					bus.subscribe("armory:sfx", handleGenericSfx),
+					bus.subscribe("relic_forge:sfx", handleGenericSfx),
+					bus.subscribe("lockpick:sfx", handleGenericSfx),
+					bus.subscribe(
+						"combat:sfx",
+						(/** @type {CombatSfxPayload} */ evt = {}) => {
+							const sfx = evt?.sfx;
+							if (!sfx) return;
+							const pan = evt.targetType
+								? computeCombatPan(evt.targetType, evt.targetIndex)
+								: 0.0;
+							this.play(sfx, pan);
+						},
+					),
+					bus.subscribe(
+						"overworld:step",
+						(/** @type {OverworldStepPayload} */ evt = {}) => {
+							const pos = evt?.pos;
+							if (pos) {
+								const pan = computeOverworldPan(pos.x, evt.mapWidth || 48);
+								this.play("STEP", pan);
 
-							if (pos.x >= 32 || (pos.depth && pos.depth > 0)) {
-								this.setZone('CRYPT');
-							} else if (pos.inTown) {
-								this.setZone('TOWN');
-							} else {
-								this.setZone('MEADOW');
+								if (pos.x >= 32 || (pos.depth && pos.depth > 0)) {
+									this.setZone("CRYPT");
+								} else if (pos.inTown) {
+									this.setZone("TOWN");
+								} else {
+									this.setZone("MEADOW");
+								}
 							}
-						}
-					}),
-					bus.subscribe('system:command', (/** @type {SystemCommandPayload} */ evt = {}) => {
-						if (evt?.command === 'TOGGLE_MUTE') {
-							this.toggleMute();
-						}
-					})
+						},
+					),
+					bus.subscribe(
+						"system:command",
+						(/** @type {SystemCommandPayload} */ evt = {}) => {
+							if (evt?.command === "TOGGLE_MUTE") {
+								this.toggleMute();
+							}
+						},
+					),
 				);
 			}
 		},
@@ -764,8 +800,8 @@ const EmberlightAcousticSFX = (() => {
 		 */
 		getDiagnostics() {
 			return {
-				serviceId: 'acoustic_sfx_driver',
-				contextState: ctx ? ctx.state : 'uninitialized',
+				serviceId: "acoustic_sfx_driver",
+				contextState: ctx ? ctx.state : "uninitialized",
 				activeZone: currentZone,
 				userUnlocked: userHasInteracted,
 				isMuted,
@@ -784,7 +820,7 @@ const EmberlightAcousticSFX = (() => {
 		destroy() {
 			cleanupCallbacks.forEach((unbind) => {
 				try {
-					if (typeof unbind === 'function') unbind();
+					if (typeof unbind === "function") unbind();
 				} catch (_) {
 					// Ignored: Teardown unbind failure
 				}
@@ -793,7 +829,7 @@ const EmberlightAcousticSFX = (() => {
 
 			activeNodes.forEach((node) => {
 				try {
-          /** @type {any} */ (node).stop?.();
+					/** @type {any} */ (node).stop?.();
 					node.disconnect();
 				} catch (_) {
 					// Ignored: Node may already be stopped or disconnected
@@ -818,11 +854,11 @@ const EmberlightAcousticSFX = (() => {
 })();
 
 //#region [SEC-08] Global Export & Dual-Binding Registration
-if (typeof window !== 'undefined') {
-	window['EmberlightAcousticSFX'] = EmberlightAcousticSFX;
-	window['EmberlightAudio'] = EmberlightAcousticSFX;
+if (typeof window !== "undefined") {
+	window["EmberlightAcousticSFX"] = EmberlightAcousticSFX;
+	window["EmberlightAudio"] = EmberlightAcousticSFX;
 }
-if (typeof module !== 'undefined' && module.exports) {
+if (typeof module !== "undefined" && module.exports) {
 	module.exports = EmberlightAcousticSFX;
 }
 //#endregion
