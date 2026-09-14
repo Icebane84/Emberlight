@@ -1,27 +1,50 @@
-/* cSpell:words VSRP KNOCKBACK unsubs targetable Ailments Malakor catacomb Cataclysm miasma portcullis UNCONFIGURED SSOT Backline backline channeler pheno firebolt */
+/* cSpell:words VSRP UNCONFIGURED SSOT */
 /**
  * ============================================================================
  * EMBERLIGHT SOVEREIGN ENGINE: COMBAT SIMULATION CORE (VSRP-001 FACADE)
  * Document Identifier: VSRP-001-COMBAT-FACADE
  * Governing Protocol:  VSRP-001 / MPFS-001 / ARCH-SPEC-COMBAT-002
  * Authority:           Ephemeral Simulation Tenant
- * Timestamp:           2026-09-10T22:45:00Z
+ * Timestamp:           2026-09-13T21:50:00Z
  * Index Anchor:        PRS-001
+ * ============================================================================
+ *
+ * This file is a thin facade. It ingests all 8 sub-module namespace keys
+ * from the VSRP-001 staging membrane (window._CombatInternal), purges
+ * the membrane, and exports the canonical VSRP-001 EmberlightCombat object.
+ *
+ * Sub-module load order (must precede this file in index.html / load_order.js):
+ *   combat/combat_state.js
+ *   combat/combat_calc.js
+ *   combat/combat_displacement.js
+ *   combat/combat_queue.js
+ *   combat/combat_ai.js
+ *   combat/combat_actions.js
+ *   combat/combat_projection.js
+ *   combat/combat_orchestrator.js
  * ============================================================================
  */
 'use strict';
 
 const EmberlightCombat = (() => {
 	// Ingest private subsystems from MPFS-001 staging membrane
-	const {
-		Calc,
-		Displacement,
-		Queue,
-		AI,
-		State: CombatState,
-	} = (typeof window !== 'undefined' ? window._CombatInternal : {}) || {};
+	const _mem =
+		(typeof window !== 'undefined' && window._CombatInternal) ||
+		(typeof globalThis !== 'undefined' && globalThis._CombatInternal) ||
+		{};
 
-	const State = CombatState?.State || {
+	const {
+		Calc = {},
+		Displacement = {},
+		Queue = {},
+		AI = {},
+		State: CombatState = {},
+		Actions = {},
+		Projection = {},
+		Orchestrator = {},
+	} = _mem;
+
+	const State = CombatState.State || {
 		UNCONFIGURED: 'UNCONFIGURED',
 		CONFIGURED: 'CONFIGURED',
 		INITIALIZED: 'INITIALIZED',
@@ -30,11 +53,11 @@ const EmberlightCombat = (() => {
 		DESTROYED: 'DESTROYED',
 	};
 
-	const deepFreeze = CombatState?.deepFreeze || ((obj) => Object.freeze(obj));
-	const createDefaultState = CombatState?.createDefaultState || (() => ({}));
-	const hydratePartySnapshot = CombatState?.hydratePartySnapshot || ((p) => p || []);
-	const checkUnitDefeat = CombatState?.checkUnitDefeat || (() => false);
-	const finishBattle = CombatState?.finishBattle || (() => {});
+	const deepFreeze = CombatState.deepFreeze || ((obj) => Object.freeze(obj));
+	const createDefaultState = CombatState.createDefaultState || (() => ({}));
+	const hydratePartySnapshot = CombatState.hydratePartySnapshot || ((p) => p || []);
+	const checkUnitDefeat = CombatState.checkUnitDefeat || (() => false);
+	const finishBattle = CombatState.finishBattle || (() => {});
 
 	/**
 	 * Factory producing an isolated, VSRP-001 compliant combat simulation instance.
@@ -52,31 +75,20 @@ const EmberlightCombat = (() => {
 
 		/** @type {any} */
 		let hostConfig = null;
-
 		/** @type {any} */
 		let hostContext = null;
-
+		/** @type {any} */
+		let capabilities = null;
 		/** @type {any} */
 		let sim = null;
-
 		/** @type {Array<{ fn: function():void, remainingMs: number }>} */
 		let scheduledTasks = [];
-
 		/** @type {Array<function():void>} */
 		let headlessEventQueue = [];
-
 		/** @type {function():void|null} */
 		let intentUnsub = null;
-
 		let lastProcessedIntentId = '';
-		let lastActionTimestamp = 0;
 
-		/**
-		 * Validates tenant lifecycle state prior to method execution.
-		 * [State Assertion]
-		 * @param {...string} allowed - Permitted lifecycle states.
-		 * @returns {void}
-		 */
 		function assertLifecycle(...allowed) {
 			if (!allowed.includes(lifecycleState)) {
 				throw new Error(
@@ -86,11 +98,6 @@ const EmberlightCombat = (() => {
 			}
 		}
 
-		/**
-		 * Resolves the authoritative active declarative data manifest.
-		 * [Pure Query]
-		 * @returns {any} EmberlightManifest SSOT reference.
-		 */
 		function getActiveManifest() {
 			return (
 				hostConfig?.manifest ||
@@ -98,23 +105,19 @@ const EmberlightCombat = (() => {
 			);
 		}
 
-		/**
-		 * Dispatches an acoustic audio cue over the host EventBus.
-		 * [State Mutating / Bus Dispatch]
-		 * @param {string} sfxName - Sound effect registry token.
-		 * @returns {void}
-		 */
-		function dispatchSFX(sfxName) {
-			if (!isHeadless && hostContext?.eventBus?.publish) {
-				hostContext.eventBus.publish('combat:sfx', { sfx: sfxName });
+		function publish(eventName, payload) {
+			if (isHeadless) return;
+			if (capabilities?.publishCombatEvent) {
+				capabilities.publishCombatEvent(eventName, payload);
+			} else if (hostContext?.eventBus?.publish) {
+				hostContext.eventBus.publish(eventName, payload);
 			}
 		}
 
-		/**
-		 * Generates a deterministic pseudo-random float in range [0.0, 1.0).
-		 * [Authoritative State Mutation]
-		 * @returns {number} Deterministic pseudo-random value.
-		 */
+		function dispatchSFX(sfxName) {
+			publish('combat:sfx', { sfx: sfxName });
+		}
+
 		function getRandomFloat() {
 			if (!sim) return 0.5;
 			if (typeof EmberlightPRNG !== 'undefined' && EmberlightPRNG.create) {
@@ -130,28 +133,12 @@ const EmberlightCombat = (() => {
 			return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 		}
 
-		/**
-		 * Appends an event to the authoritative simulation log and emits bus telemetry.
-		 * [Authoritative State Mutation]
-		 * @param {string} msg - Narrative description text.
-		 * @param {'system'|'ember'|'damage'|'heal'} [type='system'] - Log categorization category.
-		 * @returns {void}
-		 */
 		function appendLog(msg, type = 'system') {
 			if (!sim) return;
 			sim.log.push({ msg, type });
-			if (!isHeadless) {
-				hostContext?.eventBus?.publish?.('combat:log', { msg, type });
-			}
+			publish('combat:log', { msg, type });
 		}
 
-		/**
-		 * Enqueues an asynchronous delayed task for visual staging or headless evaluation.
-		 * [State Mutating]
-		 * @param {function():void} fn - Action to execute.
-		 * @param {number} delayMs - Delay duration in milliseconds.
-		 * @returns {void}
-		 */
 		function schedule(fn, delayMs) {
 			if (isHeadless) {
 				headlessEventQueue.push(fn);
@@ -160,42 +147,8 @@ const EmberlightCombat = (() => {
 			}
 		}
 
-		/**
-		 * Advances elapsed clock time for all active scheduled tasks.
-		 * [State Mutating]
-		 * @param {number} dt - Frame delta time in seconds.
-		 * @returns {void}
-		 */
-		function advanceScheduledTasks(dt) {
-			if (!Number.isFinite(dt) || dt <= 0 || scheduledTasks.length === 0)
-				return;
-
-			/** @type {Array<function():void>} */
-			const readyTasks = [];
-			scheduledTasks = scheduledTasks.filter((task) => {
-				task.remainingMs -= dt * 1000;
-				if (task.remainingMs <= 0) {
-					readyTasks.push(task.fn);
-					return false;
-				}
-				return true;
-			});
-
-			readyTasks.forEach((task) => {
-				task();
-			});
-		}
-
-		/**
-		 * Emits an attack lunge kinetic animation trigger over the EventBus.
-		 * [Presentation Trigger]
-		 * @param {boolean} isParty - True if attacker is allied squad member.
-		 * @param {number} index - Attacker roster position.
-		 * @returns {void}
-		 */
 		function triggerAttackerLunge(isParty, index) {
-			if (isHeadless) return;
-			hostContext?.eventBus?.publish?.('combat:animation', {
+			publish('combat:animation', {
 				animation: 'LUNGE',
 				targetType: isParty ? 'party' : 'enemy',
 				targetIndex: index,
@@ -203,15 +156,8 @@ const EmberlightCombat = (() => {
 			});
 		}
 
-		/**
-		 * Emits an arcane channeling surge animation trigger over the EventBus.
-		 * [Presentation Trigger]
-		 * @param {number} index - Channeling character slot index.
-		 * @returns {void}
-		 */
 		function triggerChannelingSurge(index) {
-			if (isHeadless) return;
-			hostContext?.eventBus?.publish?.('combat:animation', {
+			publish('combat:animation', {
 				animation: 'CHANNEL',
 				targetType: 'party',
 				targetIndex: index,
@@ -219,17 +165,8 @@ const EmberlightCombat = (() => {
 			});
 		}
 
-		/**
-		 * Triggers a displacement visual effect through the host EventBus.
-		 * [Presentation Trigger]
-		 * @param {'party'|'enemy'} side - Target wing.
-		 * @param {number} index - Target index.
-		 * @param {'KNOCKBACK'|'PULL'} displacementType - Action category.
-		 * @returns {void}
-		 */
 		function triggerDisplacementVisual(side, index, displacementType) {
-			if (isHeadless) return;
-			hostContext?.eventBus?.publish?.('combat:animation', {
+			publish('combat:animation', {
 				animation: displacementType,
 				targetType: side,
 				targetIndex: index,
@@ -237,11 +174,18 @@ const EmberlightCombat = (() => {
 			});
 		}
 
-		/**
-		 * Evaluates terminal victory or defeat conditions across party and hostile units.
-		 * [Authoritative State Mutation]
-		 * @returns {boolean} True if combat encounter has concluded.
-		 */
+		function renderPresentation() {
+			if (!sim || isHeadless) return;
+			const activeRenderer =
+				hostContext?.combatRenderer ||
+				(typeof EmberlightCombatRenderer !== 'undefined'
+					? EmberlightCombatRenderer
+					: null);
+			if (activeRenderer?.render) {
+				activeRenderer.render(structuredClone(sim), (act) => Actions.handleViewAction(sim, act, getHelpers()));
+			}
+		}
+
 		function checkBattleEnd() {
 			if (!sim) return true;
 			return CombatState.checkBattleEnd(sim, {
@@ -257,350 +201,6 @@ const EmberlightCombat = (() => {
 			});
 		}
 
-		/**
-		 * Triggers presentation driver render pass.
-		 * [Presentation Invocation]
-		 * @returns {void}
-		 */
-		function renderPresentation() {
-			if (!sim || isHeadless) return;
-			const activeRenderer =
-				hostContext?.combatRenderer ||
-				(typeof EmberlightCombatRenderer !== 'undefined'
-					? EmberlightCombatRenderer
-					: null);
-			if (activeRenderer?.render) {
-				activeRenderer.render(structuredClone(sim), handleViewAction);
-			}
-		}
-
-		/**
-		 * Advances turn queue to the next active unit, subtracting elapsed delay time.
-		 * [State Machine Progression]
-		 * @returns {void}
-		 */
-		function stepTurn() {
-			if (!sim || checkBattleEnd()) return;
-
-			const allLiving = [
-				...sim.party
-					.filter((c) => c.alive)
-					.map((c) => ({ type: 'party', entity: c })),
-				...sim.enemies
-					.filter((e) => e.alive)
-					.map((e) => ({ type: 'enemy', entity: e })),
-			];
-
-			if (allLiving.length === 0) return;
-
-			allLiving.sort(
-				(a, b) =>
-					(a.entity.accumulatedDelay || 0) - (b.entity.accumulatedDelay || 0),
-			);
-			const activeUnit = allLiving[0];
-			const elapsed = activeUnit.entity.accumulatedDelay || 0;
-
-			allLiving.forEach((u) => {
-				u.entity.accumulatedDelay = Math.max(
-					0,
-					(u.entity.accumulatedDelay || 0) - elapsed,
-				);
-			});
-
-			activeUnit.entity.accumulatedDelay =
-				1000 / Math.max(1, activeUnit.entity.agi);
-
-			// Build 12-turn CTB forecast queue
-			const forecastQueue = [];
-			const simulatedDelays = allLiving.map((u) => ({
-				type: u.type,
-				entity: u.entity,
-				delay: u.entity.accumulatedDelay || 0,
-				agi: Math.max(1, u.entity.agi || 10),
-			}));
-			for (let i = 0; i < 12; i++) {
-				simulatedDelays.sort((a, b) => a.delay - b.delay);
-				const nextTurn = simulatedDelays[0];
-				forecastQueue.push({
-					type: nextTurn.type,
-					entity: nextTurn.entity,
-					id: nextTurn.entity.id,
-					name: nextTurn.entity.name,
-				});
-				nextTurn.delay += 1000 / nextTurn.agi;
-			}
-			sim.turnQueue = forecastQueue;
-			sim.activeTurnIndex = 0;
-			sim.forecastQueue = forecastQueue;
-
-			const stunned = Queue.tickAilments(activeUnit.entity, getActiveManifest(), appendLog);
-			if (checkBattleEnd()) return;
-
-			if (stunned) {
-				renderPresentation();
-				schedule(stepTurn, 600);
-				return;
-			}
-
-			if (activeUnit.type === 'enemy') {
-				sim.phase = 'ENEMY_ACTION';
-				renderPresentation();
-				schedule(() => {
-					AI.executeEnemyTurn(sim, {
-						stepTurn,
-						checkBattleEnd,
-						triggerAttackerLunge,
-						renderPresentation,
-						schedule,
-						appendLog,
-						dispatchSFX,
-						getRandomFloat,
-						hostContext,
-						applyAilment: (t, id, d) => Queue.applyAilment(t, id, d, appendLog),
-						executeDisplacement: (actor, target, disp, isAlly) =>
-							Displacement.executeDisplacement(
-								sim,
-								actor,
-								target,
-								disp,
-								isAlly,
-								appendLog,
-								dispatchSFX,
-								triggerDisplacementVisual,
-								isHeadless,
-							),
-						checkUnitDefeat: (t) => checkUnitDefeat(t, appendLog),
-					});
-				}, 700);
-			} else {
-				sim.phase = 'PLAYER_INPUT';
-				renderPresentation();
-				if (autoRun) {
-					autoExecutePlayerAction();
-				}
-			}
-		}
-
-		/**
-		 * Auto-selects and executes attacks during headless simulations or automated testing.
-		 * [State Mutating]
-		 * @returns {void}
-		 */
-		function autoExecutePlayerAction() {
-			if (!sim) return;
-			const livingEnemies = sim.enemies
-				.map((e, idx) => ({ e, idx }))
-				.filter(({ e }) => e.alive);
-			if (livingEnemies.length === 0) {
-				stepTurn();
-				return;
-			}
-			const validTarget =
-				livingEnemies.find(
-					({ e }) => !Displacement.isTargetShielded(sim, e, 'enemy', 'PHYSICAL'),
-				) || livingEnemies[0];
-			playerExecuteAttack(validTarget.idx);
-		}
-
-		/**
-		 * Runs synchronized headless combat execution loop to completion.
-		 * [State Mutating]
-		 * @returns {void}
-		 */
-		function runHeadlessLoop() {
-			if (!sim) return;
-			stepTurn();
-			let safetyCounter = 0;
-			while (
-				headlessEventQueue.length > 0 &&
-				sim.phase !== 'VICTORY' &&
-				sim.phase !== 'DEFEAT' &&
-				sim.phase !== 'escaped' &&
-				safetyCounter < 500
-			) {
-				safetyCounter++;
-				const fn = headlessEventQueue.shift();
-				if (fn) fn();
-			}
-		}
-
-		/**
-		 * Resolves basic physical melee attack executed by active hero.
-		 * [Authoritative State Mutation]
-		 * @param {number} targetEnemyIndex - Selected target position in enemy row.
-		 * @returns {void}
-		 */
-		function playerExecuteAttack(targetEnemyIndex) {
-			if (!sim) return;
-			const activeChar = sim.turnQueue[sim.activeTurnIndex]?.entity;
-			const target = sim.enemies[targetEnemyIndex];
-			if (!activeChar || !target?.alive) return;
-
-			const heroIdx = sim.party.findIndex((c) => c.id === activeChar.id);
-			triggerAttackerLunge(true, heroIdx !== -1 ? heroIdx : 0);
-
-			const { actualTarget, actualIndex, wasIntercepted } = Displacement.applyInterception(
-				sim,
-				target,
-				targetEnemyIndex,
-				true,
-				appendLog,
-				dispatchSFX,
-				triggerDisplacementVisual,
-				isHeadless,
-			);
-
-			const rawDmg = Math.max(1, activeChar.atk * 2 - actualTarget.def);
-			const variance = Math.floor(getRandomFloat() * 3) - 1;
-			const attackDmg = Math.max(1, rawDmg + variance);
-			const { finalDmg, isWeakness, isResisted } = Calc.calculateAffinityDamage(
-				attackDmg,
-				'PHYSICAL',
-				actualTarget,
-			);
-
-			actualTarget.hp = Math.max(0, actualTarget.hp - finalDmg);
-			dispatchSFX('ATTACK_HIT');
-
-			const tag = Calc.resolveAffinityTag(isWeakness, isResisted);
-			const interceptTag = wasIntercepted ? ' [INTERCEPTED]' : '';
-			appendLog(
-				`${activeChar.name} strikes ${actualTarget.name} for ${finalDmg} DMG!${tag}${interceptTag}`,
-				isWeakness ? 'ember' : 'damage',
-			);
-
-			if (hostContext?.eventBus?.publish) {
-				hostContext.eventBus.publish('combat:damage', {
-					amount: finalDmg,
-					targetType: 'enemy',
-					targetIndex: actualIndex,
-					isCrit: isWeakness || variance > 0,
-					isHeal: false,
-				});
-			}
-
-			AI.checkBossPhase(actualTarget, appendLog, dispatchSFX, hostContext);
-
-			if (checkUnitDefeat(actualTarget, appendLog) && checkBattleEnd()) {
-				return;
-			}
-
-			renderPresentation();
-			schedule(stepTurn, 600);
-		}
-
-		/**
-		 * Puts active character into tactical guard stance (-50% DMG, +2 MP).
-		 * [Authoritative State Mutation]
-		 * @returns {void}
-		 */
-		function playerExecuteGuard() {
-			if (!sim) return;
-			const activeChar = sim.turnQueue[sim.activeTurnIndex]?.entity;
-			if (!activeChar?.alive) return;
-
-			activeChar.isGuarding = true;
-			activeChar.mp = Math.min(activeChar.maxMp, activeChar.mp + 2);
-			appendLog(
-				`${activeChar.name} raises their guard! (-50% DMG, +2 MP)`,
-				'system',
-			);
-			dispatchSFX('BUFF');
-
-			const heroIdx = sim.party.findIndex((c) => c.id === activeChar.id);
-			hostContext?.eventBus?.publish?.('combat:text', {
-				text: 'GUARD',
-				targetType: 'party',
-				targetIndex: heroIdx !== -1 ? heroIdx : 0,
-				color: '#38bdf8',
-				isLarge: true,
-			});
-
-			sim.activeTurnIndex += 1;
-			renderPresentation();
-			schedule(stepTurn, 400);
-		}
-
-		/**
-		 * Resolves item consumption from squad pouch inventory onto target ally.
-		 * [Authoritative State Mutation]
-		 * @param {string} itemId - Consumable token ('POTION', 'ETHER', 'PHOENIX_EMBER').
-		 * @param {number} targetIdx - Target squad member index.
-		 * @returns {void}
-		 */
-		function playerExecuteItem(itemId, targetIdx) {
-			if (!sim) return;
-			const target = sim.party[targetIdx];
-			if (!target) return;
-
-			if (itemId === 'POTION') {
-				if (!target.alive) {
-					appendLog(
-						`${target.name} is collapsed and cannot drink a potion!`,
-						'damage',
-					);
-					return;
-				}
-				target.hp = Math.min(target.maxHp, target.hp + 30);
-				appendLog(`${target.name} drank Potion (+30 HP)!`, 'heal');
-				dispatchSFX('HEAL');
-				hostContext?.eventBus?.publish?.('combat:damage', {
-					amount: 30,
-					targetType: 'party',
-					targetIndex: targetIdx,
-					isHeal: true,
-					isCrit: false,
-				});
-			} else if (itemId === 'ETHER') {
-				if (!target.alive) {
-					appendLog(`${target.name} is collapsed!`, 'damage');
-					return;
-				}
-				target.mp = Math.min(target.maxMp, target.mp + 15);
-				appendLog(`${target.name} drank Ether (+15 MP)!`, 'ember');
-				dispatchSFX('HEAL');
-				hostContext?.eventBus?.publish?.('combat:damage', {
-					amount: 15,
-					targetType: 'party',
-					targetIndex: targetIdx,
-					isHeal: true,
-					isCrit: false,
-				});
-			} else if (itemId === 'PHOENIX_EMBER') {
-				target.alive = true;
-				target.hp = Math.max(1, Math.round(target.maxHp * 0.5));
-				appendLog(
-					`${target.name} revived by Phoenix Ember (+${target.hp} HP)!`,
-					'heal',
-				);
-				dispatchSFX('HEAL');
-				hostContext?.eventBus?.publish?.('combat:damage', {
-					amount: target.hp,
-					targetType: 'party',
-					targetIndex: targetIdx,
-					isHeal: true,
-					isCrit: true,
-				});
-			}
-
-			if ((sim.inventory[itemId] || 0) > 0) {
-				sim.inventory[itemId] -= 1;
-			}
-
-			sim.phase = 'PLAYER_INPUT';
-			sim.selectedTab = 'ATTACK';
-			sim.activeTurnIndex += 1;
-			renderPresentation();
-			schedule(stepTurn, 400);
-		}
-
-		/**
-		 * Invokes the harmonic channeling peripheral driver before tier-3 skill release.
-		 * [Peripheral Invocation]
-		 * @param {any} node - Attuned skill node.
-		 * @param {function(number):void} onComplete - Callback receiving resonance score.
-		 * @returns {void}
-		 */
 		function renderHarmonicChannelingStage(node, onComplete) {
 			const channelerDriver =
 				hostContext?.combatRenderer?.startHarmonicChanneling;
@@ -611,515 +211,34 @@ const EmberlightCombat = (() => {
 			channelerDriver(node, onComplete);
 		}
 
-		/**
-		 * Resolves ally-targeted recovery or warding skills.
-		 * [Authoritative State Mutation]
-		 * @param {any} node - Active skill definition.
-		 * @param {number} targetIndex - Target ally slot.
-		 * @param {boolean} isGuaranteedCrit - Critical boost assertion.
-		 * @param {any} activeChar - Casting unit.
-		 * @returns {void}
-		 */
-		function executeAllySkill(node, targetIndex, isGuaranteedCrit, activeChar) {
-			if (!sim) return;
-			const ally = sim.party[targetIndex];
-			if (!ally?.alive) return;
-			const power = typeof node?.power === 'number' ? node.power : 20;
-			const missingHp = Math.max(0, (ally.maxHp || 30) - (ally.hp || 0));
-			const healed = power === 999 ? missingHp : Math.min(power, missingHp);
-			ally.hp = Math.min(ally.maxHp || 30, (ally.hp || 0) + healed);
-			dispatchSFX('HEAL');
-			appendLog(
-				`${activeChar.name} casts ${node.label || 'Heal'} on ${ally.name}, restoring ${healed} HP!`,
-				'heal',
-			);
-
-			if (hostContext?.eventBus?.publish) {
-				hostContext.eventBus.publish('combat:damage', {
-					amount: healed,
-					targetType: 'party',
-					targetIndex,
-					isCrit: isGuaranteedCrit,
-					isHeal: true,
-				});
-			}
-		}
-
-		/**
-		 * Resolves offensive skills targeted against hostile enemies.
-		 * [Authoritative State Mutation]
-		 * @param {any} node - Offensive skill descriptor.
-		 * @param {number} targetIndex - Target hostile index.
-		 * @param {boolean} isGuaranteedCrit - Critical boost assertion.
-		 * @param {any} activeChar - Attacking unit.
-		 * @returns {void}
-		 */
-		function executeEnemySkill(
-			node,
-			targetIndex,
-			isGuaranteedCrit,
-			activeChar,
-		) {
-			if (!sim) return;
-			const enemy = sim.enemies[targetIndex];
-			if (!enemy?.alive) return;
-
-			const isMelee = node.subType === 'strike';
-			const { actualTarget, actualIndex, wasIntercepted } = Displacement.applyInterception(
-				sim,
-				enemy,
-				targetIndex,
-				isMelee,
-				appendLog,
-				dispatchSFX,
+		function getHelpers() {
+			return {
+				Calc,
+				Displacement,
+				Queue,
+				AI,
+				triggerAttackerLunge,
+				triggerChannelingSurge,
 				triggerDisplacementVisual,
-				isHeadless,
-			);
-
-			if (Calc.checkArcaneEvasion(actualTarget, node, getRandomFloat, appendLog, dispatchSFX)) {
-				schedule(stepTurn, 500);
-				return;
-			}
-
-			const { finalDmg, isWeakness, isResisted } = Calc.computeSkillDamage(
-				node,
-				activeChar,
-				actualTarget,
-				isGuaranteedCrit,
-				sim?.terrain,
+				dispatchSFX,
 				appendLog,
-			);
-			actualTarget.hp = Math.max(0, actualTarget.hp - finalDmg);
-			dispatchSFX(node.subType === 'bolt' ? 'SPELL_BOLT' : 'ATTACK_HIT');
-
-			const tag = Calc.resolveSkillHitTag(isGuaranteedCrit, isWeakness, isResisted);
-			const interceptTag = wasIntercepted ? ' [INTERCEPTED]' : '';
-			const logTone = isWeakness || isGuaranteedCrit ? 'ember' : 'damage';
-			appendLog(
-				`${activeChar.name} casts ${node.label} on ${actualTarget.name} for ${finalDmg} DMG!${tag}${interceptTag}`,
-				logTone,
-			);
-
-			if (hostContext?.eventBus?.publish) {
-				hostContext.eventBus.publish('combat:damage', {
-					amount: finalDmg,
-					targetType: 'enemy',
-					targetIndex: actualIndex,
-					isCrit:
-						isGuaranteedCrit ||
-						isWeakness ||
-						Boolean(node.mult && node.mult > 1.5),
-					isHeal: false,
-				});
-			}
-
-			AI.checkBossPhase(actualTarget, appendLog, dispatchSFX, hostContext);
-			if (node.id === 'mag_des_1' && getRandomFloat() < 0.4) {
-				Queue.applyAilment(actualTarget, 'BURN', 3, appendLog);
-			}
-			if (node.displacement && actualTarget.alive) {
-				Displacement.executeDisplacement(
-					sim,
-					activeChar,
-					actualTarget,
-					node.displacement,
-					false,
-					appendLog,
-					dispatchSFX,
-					triggerDisplacementVisual,
-					isHeadless,
-				);
-			}
-			checkUnitDefeat(actualTarget, appendLog);
-		}
-
-		/**
-		 * Finalizes skill resolution, visual effects, and advances the turn schedule.
-		 * [State Machine Progression]
-		 * @param {any} node - Resolved skill node.
-		 * @param {number} targetIndex - Target slot.
-		 * @param {boolean} isAllyTarget - Targeted side.
-		 * @param {boolean} [isGuaranteedCrit=false] - Critical assertion flag.
-		 * @returns {void}
-		 */
-		function finalizeSkillExecution(
-			node,
-			targetIndex,
-			isAllyTarget,
-			isGuaranteedCrit = false,
-		) {
-			if (!sim) return;
-			const activeChar = sim.turnQueue[sim.activeTurnIndex]?.entity;
-			if (!activeChar) return;
-
-			const heroIdx = sim.party.findIndex((c) => c.id === activeChar.id);
-			if (node.subType === 'strike') {
-				triggerAttackerLunge(true, heroIdx !== -1 ? heroIdx : 0);
-			} else {
-				triggerChannelingSurge(heroIdx !== -1 ? heroIdx : 0);
-			}
-
-			if (isAllyTarget) {
-				executeAllySkill(node, targetIndex, isGuaranteedCrit, activeChar);
-			} else {
-				executeEnemySkill(node, targetIndex, isGuaranteedCrit, activeChar);
-			}
-
-			if (checkBattleEnd()) {
-				return;
-			}
-
-			renderPresentation();
-			schedule(stepTurn, 500);
-		}
-
-		/**
-		 * Entry point for executing character skills, managing MP deduction and harmonic triggers.
-		 * [Authoritative State Mutation]
-		 * @param {any} node - Target skill node.
-		 * @param {number} targetIndex - Target entity index.
-		 * @param {boolean} isAllyTarget - Whether skill targets ally.
-		 * @returns {void}
-		 */
-		function playerExecuteSkill(node, targetIndex, isAllyTarget) {
-			if (!sim) return;
-			const activeChar = sim.turnQueue[sim.activeTurnIndex]?.entity;
-			if (!activeChar || activeChar.mp < node.mpCost) return;
-
-			if (node.tier === 3 || node.id?.endsWith('_3')) {
-				sim.phase = 'HARMONIC_CHANNELING';
-				renderHarmonicChannelingStage(node, (resonanceScore) => {
-					activeChar.mp -= node.mpCost;
-					const isGuaranteedCrit = resonanceScore >= 90;
-					finalizeSkillExecution(
-						node,
-						targetIndex,
-						isAllyTarget,
-						isGuaranteedCrit,
-					);
-				});
-				return;
-			}
-
-			activeChar.mp -= node.mpCost;
-			finalizeSkillExecution(node, targetIndex, isAllyTarget, false);
-		}
-
-		/**
-		 * Primary action dispatch handler receiving actions from presentation renderer.
-		 * [State Machine Progression]
-		 * @param {any} action - Incoming view command.
-		 * @returns {void}
-		 */
-		function handleViewAction(action) {
-			if (!action || !sim) return;
-
-			const actObj = typeof action === 'string' ? { type: action } : action;
-			const type = actObj.type || actObj.actionType;
-			if (!type) return;
-
-			// Transient Idempotency Guard for Dual Dispatch:
-			if (actObj.intentId) {
-				if (actObj.intentId === lastProcessedIntentId) {
-					return;
-				}
-				lastProcessedIntentId = actObj.intentId;
-			}
-
-			// Resolve target index fallback if omitted
-			let targetIdx =
-				typeof actObj.targetIndex === 'number'
-					? actObj.targetIndex
-					: typeof actObj.targetSlot === 'number'
-						? actObj.targetSlot
-						: null;
-
-			if (targetIdx === null) {
-				if (actObj.isAlly) {
-					targetIdx = (sim.party || []).findIndex((c) => c.alive);
-				} else {
-					targetIdx = (sim.enemies || []).findIndex((e) => e.alive);
-				}
-				if (targetIdx === -1) targetIdx = 0;
-			}
-
-			const actionHandlers = {
-				ATTACK: () => {
-					if (typeof targetIdx === 'number') {
-						playerExecuteAttack(targetIdx);
-					}
-				},
-				SKILL: () => {
-					let targetSkill = actObj.skill || sim?.pendingSkill;
-					if (!targetSkill && actObj.skillId) {
-						const manifest = getActiveManifest();
-						const catalog = manifest?.skills || manifest?.progression?.skills || [];
-						targetSkill = catalog.find((s) => s.id === actObj.skillId) || null;
-					}
-					if (targetSkill && typeof targetIdx === 'number') {
-						playerExecuteSkill(
-							targetSkill,
-							targetIdx,
-							Boolean(actObj.isAlly || targetSkill.targetType === 'ally'),
-						);
-					}
-					if (sim) sim.pendingSkill = null;
-				},
-				ITEM: () => {
-					if (typeof targetIdx === 'number') {
-						const itemToUse = actObj.itemId || sim?.pendingItem;
-						if (itemToUse) {
-							playerExecuteItem(itemToUse, targetIdx);
-						}
-						if (sim) sim.pendingItem = null;
-					}
-				},
-				GUARD: () => {
-					playerExecuteGuard();
-				},
-				FLEE: () => {
-					if (sim.enemies.some((enemy) => enemy.isBoss)) {
-						appendLog('Cannot flee from a boss battle!', 'damage');
-						dispatchSFX('DEFEAT');
-					} else if (getRandomFloat() < 0.6) {
-						appendLog('Retreated from the battlefield!', 'system');
-						finishBattle(sim, 'escaped', hostContext);
-					} else {
-						appendLog('Failed to escape!', 'damage');
-						sim.activeTurnIndex += 1;
-						stepTurn();
-					}
-				},
-				SELECT_TAB: () => {
-					if (actObj.tab && sim) {
-						sim.selectedTab = actObj.tab;
-						sim.pendingSkill = null;
-						sim.pendingItem = null;
-						sim.phase =
-							actObj.tab === 'ATTACK' ? 'TARGETING_ENEMY' : 'PLAYER_INPUT';
-						renderPresentation();
-					}
-				},
-				SELECT_SKILL: () => {
-					if (actObj.skill && sim) {
-						sim.pendingSkill = actObj.skill;
-						sim.phase =
-							actObj.skill.targetType === 'ally'
-								? 'TARGETING_ALLY'
-								: 'TARGETING_ENEMY';
-						renderPresentation();
-					}
-				},
-				CANCEL_SKILL: () => {
-					if (sim) {
-						sim.pendingSkill = null;
-						sim.phase = 'PLAYER_INPUT';
-						renderPresentation();
-					}
-				},
-				SELECT_ITEM: () => {
-					if (actObj.itemId && sim) {
-						sim.pendingItem = actObj.itemId;
-						sim.phase = 'TARGETING_ALLY';
-						renderPresentation();
-					}
-				},
-				CANCEL_ITEM: () => {
-					if (sim) {
-						sim.pendingItem = null;
-						sim.phase = 'PLAYER_INPUT';
-						renderPresentation();
-					}
-				},
-				SELECT_TARGET: () => {
-					if (typeof actObj.targetIndex === 'number' && sim) {
-						const isAlly = Boolean(actObj.isAlly);
-						if (isAlly) {
-							if (sim.pendingItem) {
-								playerExecuteItem(sim.pendingItem, actObj.targetIndex);
-								sim.pendingItem = null;
-							} else if (sim.pendingSkill) {
-								playerExecuteSkill(sim.pendingSkill, actObj.targetIndex, true);
-								sim.pendingSkill = null;
-							}
-						} else {
-							if (sim.pendingSkill) {
-								playerExecuteSkill(sim.pendingSkill, actObj.targetIndex, false);
-								sim.pendingSkill = null;
-							} else {
-								playerExecuteAttack(actObj.targetIndex);
-							}
-						}
-					}
-				},
-				TARGET_ALLY: () => {
-					if (typeof actObj.targetIndex === 'number' && sim) {
-						if (sim.pendingItem) {
-							playerExecuteItem(sim.pendingItem, actObj.targetIndex);
-							sim.pendingItem = null;
-						} else if (sim.pendingSkill) {
-							playerExecuteSkill(sim.pendingSkill, actObj.targetIndex, true);
-							sim.pendingSkill = null;
-						}
-					}
-				},
-				CONFIRM: () => {
-					handleConfirmChoice();
-				},
-				CANCEL: () => {
-					handleCancelChoice();
-				},
+				getRandomFloat,
+				publish,
+				hostContext,
+				checkUnitDefeat: (t) => checkUnitDefeat(t, appendLog),
+				checkBattleEnd,
+				renderPresentation,
+				schedule,
+				stepTurn: () => Orchestrator.stepTurn(sim, getHelpers()),
+				finishBattle: (s, outcome) => finishBattle(s, outcome, hostContext),
+				getActiveManifest,
+				isHeadless,
+				autoRun,
+				playerExecuteAttack: (idx) => Actions.playerExecuteAttack(sim, idx, getHelpers()),
+				renderHarmonicChannelingStage,
+				getLastProcessedIntentId: () => lastProcessedIntentId,
+				setLastProcessedIntentId: (id) => { lastProcessedIntentId = id; },
 			};
-
-			if (actionHandlers[type]) {
-				actionHandlers[type]();
-			}
-		}
-
-		/**
-		 * Resolves confirmation key input based on active menu phase.
-		 * [State Mutating]
-		 * @returns {void}
-		 */
-		function handleConfirmChoice() {
-			if (!sim) return;
-
-			if (sim.phase === 'VICTORY') {
-				finishBattle(sim, 'victory', hostContext);
-				return;
-			}
-			if (sim.phase === 'DEFEAT') {
-				finishBattle(sim, 'defeat', hostContext);
-				return;
-			}
-			if (sim.selectedTab === 'GUARD') {
-				handleViewAction({ type: 'GUARD' });
-				return;
-			}
-			if (sim.phase === 'TARGETING_ALLY' || sim.phase === 'TARGET_ALLY') {
-				const isEmber = sim.pendingItem === 'PHOENIX_EMBER';
-				const targetAllyIdx = sim.party.findIndex((c) => (isEmber ? !c.alive : c.alive));
-				if (targetAllyIdx !== -1) {
-					if (sim.pendingItem) {
-						handleViewAction({ type: 'ITEM', itemId: sim.pendingItem, targetIndex: targetAllyIdx });
-					} else if (sim.pendingSkill) {
-						handleViewAction({ type: 'SKILL', skill: sim.pendingSkill, targetIndex: targetAllyIdx, isAlly: true });
-					}
-				}
-				return;
-			}
-			if (sim.selectedTab === 'ATTACK' || sim.phase === 'TARGETING_ENEMY') {
-				const livingEnemyIdx = sim.enemies.findIndex((e) => e.alive);
-				if (livingEnemyIdx !== -1) {
-					if (sim.pendingSkill) {
-						handleViewAction({ type: 'SKILL', skill: sim.pendingSkill, targetIndex: livingEnemyIdx, isAlly: false });
-					} else {
-						handleViewAction({ type: 'ATTACK', targetIndex: livingEnemyIdx });
-					}
-				}
-				return;
-			}
-			if (sim.selectedTab === 'SKILLS') {
-				const activeChar = sim.turnQueue[sim.activeTurnIndex]?.entity;
-				const skills = Calc.getAvailableSkills(activeChar, getActiveManifest());
-				if (skills.length > 0) {
-					handleViewAction({ type: 'SELECT_SKILL', skill: skills[0] });
-				}
-				return;
-			}
-			if (sim.selectedTab === 'POUCH') {
-				const inv = sim.inventory || {};
-				const availableItem = ['POTION', 'ETHER', 'PHOENIX_EMBER'].find((id) => (inv[id] || 0) > 0);
-				if (availableItem) {
-					handleViewAction({ type: 'SELECT_ITEM', itemId: availableItem });
-				}
-			}
-		}
-
-		/**
-		 * Resolves cancel / back navigation in combat UI menus.
-		 * [State Mutating]
-		 * @returns {void}
-		 */
-		function handleCancelChoice() {
-			if (!sim) return;
-			if (sim.pendingSkill) {
-				handleViewAction({ type: 'CANCEL_SKILL' });
-			} else if (sim.pendingItem) {
-				handleViewAction({ type: 'CANCEL_ITEM' });
-			} else if (sim.selectedTab !== 'ATTACK') {
-				handleViewAction({ type: 'SELECT_TAB', tab: 'ATTACK' });
-			} else if (sim.phase === 'PLAYER_INPUT') {
-				handleViewAction({ type: 'FLEE' });
-			}
-		}
-
-		/**
-		 * Cycles active action tabs left and right.
-		 * [State Mutating]
-		 * @param {'UP'|'DOWN'|'LEFT'|'RIGHT'} direction - Directional token.
-		 * @returns {void}
-		 */
-		function handleDirectionalNav(direction) {
-			if (!sim) return;
-			const tabs = ['ATTACK', 'SKILLS', 'GUARD', 'POUCH'];
-			const curTabIdx = tabs.indexOf(sim.selectedTab || 'ATTACK');
-
-			if (direction === 'LEFT' || direction === 'UP') {
-				const nextIdx = (curTabIdx - 1 + tabs.length) % tabs.length;
-				handleViewAction({ type: 'SELECT_TAB', tab: tabs[nextIdx] });
-			} else if (direction === 'RIGHT' || direction === 'DOWN') {
-				const nextIdx = (curTabIdx + 1) % tabs.length;
-				handleViewAction({ type: 'SELECT_TAB', tab: tabs[nextIdx] });
-			}
-		}
-
-		/**
-		 * Routes numbered hotkey choices (1-4) to targeted actions or sub-menus.
-		 * [State Mutating]
-		 * @param {number} choiceNum - Numerical hotkey 1 to 4.
-		 * @returns {void}
-		 */
-		function handleChoiceIndex(choiceNum) {
-			if (!sim) return;
-			const idx = choiceNum - 1;
-
-			if (sim.phase === 'TARGETING_ENEMY') {
-				if (sim.enemies[idx]?.alive) {
-					if (sim.pendingSkill) {
-						handleViewAction({ type: 'SKILL', skill: sim.pendingSkill, targetIndex: idx, isAlly: false });
-					} else {
-						handleViewAction({ type: 'ATTACK', targetIndex: idx });
-					}
-				}
-				return;
-			}
-			if (sim.phase === 'TARGETING_ALLY') {
-				const targetAlly = sim.party[idx];
-				if (targetAlly) {
-					const isEmber = sim.pendingItem === 'PHOENIX_EMBER';
-					const isValid = isEmber ? !targetAlly.alive : targetAlly.alive;
-					if (isValid) {
-						if (sim.pendingItem) {
-							handleViewAction({ type: 'ITEM', itemId: sim.pendingItem, targetIndex: idx });
-						} else if (sim.pendingSkill) {
-							handleViewAction({ type: 'SKILL', skill: sim.pendingSkill, targetIndex: idx, isAlly: true });
-						}
-					}
-				}
-				return;
-			}
-
-			const choiceMap = {
-				1: 'ATTACK',
-				2: 'SKILLS',
-				3: 'GUARD',
-				4: 'POUCH',
-			};
-			const mappedTab = choiceMap[choiceNum];
-			if (mappedTab) {
-				handleViewAction({ type: 'SELECT_TAB', tab: mappedTab });
-			}
 		}
 
 		return {
@@ -1132,15 +251,28 @@ const EmberlightCombat = (() => {
 			init(context) {
 				assertLifecycle(State.CONFIGURED);
 				hostContext = context;
+
+				// SDCP-001 Attenuated Capability Membrane setup
+				if (context?.capabilities) {
+					capabilities = context.capabilities;
+				} else {
+					capabilities = {
+						publishCombatEvent: (event, payload) => hostContext?.eventBus?.publish?.(event, payload),
+						subscribeCombatIntent: (handler) => hostContext?.eventBus?.subscribe?.('combat:intent_action', handler),
+					};
+				}
+
 				if (intentUnsub) {
 					intentUnsub();
 					intentUnsub = null;
 				}
-				if (hostContext?.eventBus?.subscribe) {
-					intentUnsub = hostContext.eventBus.subscribe('combat:intent_action', (payload) => {
-						handleViewAction(payload);
+
+				if (capabilities.subscribeCombatIntent) {
+					intentUnsub = capabilities.subscribeCombatIntent((payload) => {
+						Actions.handleViewAction(sim, payload, getHelpers());
 					});
 				}
+
 				lifecycleState = State.INITIALIZED;
 			},
 
@@ -1175,7 +307,7 @@ const EmberlightCombat = (() => {
 				appendLog('Battle commenced!', 'ember');
 
 				if (sim.enemies.some((e) => e.isBoss)) {
-					hostContext?.eventBus?.publish?.('combat:banner', {
+					publish('combat:banner', {
 						text: '⚔️ BOSS ENCOUNTER ⚔️',
 						subtext: 'Malakor descends from the catacomb ashes!',
 						color: '#ff9d4d',
@@ -1188,16 +320,16 @@ const EmberlightCombat = (() => {
 
 				const shouldAutoRun = autoRun && (instanceOptions.autoRun === true || sim.encounterKey !== 'BOSS_MALAKOR');
 				if (shouldAutoRun) {
-					runHeadlessLoop();
+					Orchestrator.runHeadlessLoop(sim, headlessEventQueue, getHelpers());
 				} else {
-					stepTurn();
+					Orchestrator.stepTurn(sim, getHelpers());
 				}
 			},
 
 			update(dt, context) {
 				assertLifecycle(State.READY, State.RUNNING);
 				lifecycleState = State.RUNNING;
-				advanceScheduledTasks(dt);
+				Orchestrator.advanceScheduledTasks(scheduledTasks, dt);
 
 				const actions = context?.inputs;
 				if (Array.isArray(actions)) {
@@ -1206,14 +338,16 @@ const EmberlightCombat = (() => {
 							typeof action === 'string' ? { type: action } : action;
 						const type = actObj.type;
 						if (type === 'ATTACK' && typeof actObj.targetIndex === 'number') {
-							playerExecuteAttack(actObj.targetIndex);
+							Actions.playerExecuteAttack(sim, actObj.targetIndex, getHelpers());
 						} else if (type === 'GUARD') {
-							playerExecuteGuard();
+							Actions.playerExecuteGuard(sim, getHelpers());
 						} else if (type === 'SKILL' && actObj.skillNode) {
-							playerExecuteSkill(
+							Actions.playerExecuteSkill(
+								sim,
 								actObj.skillNode,
 								actObj.targetIndex || 0,
 								false,
+								getHelpers(),
 							);
 						}
 					}
@@ -1229,13 +363,13 @@ const EmberlightCombat = (() => {
 				if (act.startsWith('CHOICE_')) {
 					const num = Number.parseInt(act.replace('CHOICE_', ''), 10);
 					if (num >= 1 && num <= 4) {
-						handleChoiceIndex(num);
+						Actions.handleChoiceIndex(sim, num, getHelpers());
 						return;
 					}
 				}
 
 				if (act === 'UP' || act === 'DOWN' || act === 'LEFT' || act === 'RIGHT') {
-					handleDirectionalNav(act);
+					Actions.handleDirectionalNav(sim, act, getHelpers());
 					return;
 				}
 
@@ -1245,32 +379,32 @@ const EmberlightCombat = (() => {
 						const targetIdx =
 							typeof actObj.targetIndex === 'number' ? actObj.targetIndex : 0;
 						const isAlly = Boolean(actObj.isAlly);
-						playerExecuteSkill(skill, targetIdx, isAlly);
+						Actions.playerExecuteSkill(sim, skill, targetIdx, isAlly, getHelpers());
 						return;
 					}
 				}
 
 				if (act === 'ATTACK' && typeof actObj.targetIndex === 'number') {
-					playerExecuteAttack(actObj.targetIndex);
+					Actions.playerExecuteAttack(sim, actObj.targetIndex, getHelpers());
 					return;
 				}
 				if (act === 'GUARD') {
-					playerExecuteGuard();
+					Actions.playerExecuteGuard(sim, getHelpers());
 					return;
 				}
 				if (act === 'CONFIRM') {
-					handleConfirmChoice();
+					Actions.handleConfirmChoice(sim, getHelpers());
 					return;
 				}
 				if (act === 'CANCEL') {
-					handleCancelChoice();
+					Actions.handleCancelChoice(sim, getHelpers());
 					return;
 				}
 				if (act === 'FLEE') {
-					handleViewAction({ type: 'FLEE' });
+					Actions.handleViewAction(sim, { type: 'FLEE' }, getHelpers());
 					return;
 				}
-				handleViewAction(actObj);
+				Actions.handleViewAction(sim, actObj, getHelpers());
 			},
 
 			render(renderer, context) {
@@ -1279,192 +413,12 @@ const EmberlightCombat = (() => {
 				if (!activeRenderer) return;
 
 				const snapshot = context || structuredClone(sim);
-
-				// Assemble Frozen 4-Quadrant Projection DTO (AOP-COMBAT-STATION-002)
-				const activeCharId =
-					snapshot.turnQueue?.[snapshot.activeTurnIndex]?.entity?.id ||
-					snapshot.party?.[0]?.id ||
-					null;
-				const activeHeroIdx = (snapshot.party || []).findIndex(
-					(c) => c.id === activeCharId,
-				);
-
-				// Compute dynamic Q1 grid coordinates & trajectory vectors
-				const q1PartyNodes = (snapshot.party || []).map((p, idx) => {
-					const isFront = (p.row || 'FRONT') === 'FRONT';
-					return {
-						id: p.id,
-						name: p.name,
-						phenotype: p.phenotype || 'HERO',
-						row: p.row || 'FRONT',
-						hp: p.hp,
-						maxHp: p.maxHp,
-						alive: Boolean(p.alive),
-						gridX: isFront ? 2 : 1,
-						gridY: idx + 1,
-						isCurrentTurn: p.id === activeCharId,
-					};
-				});
-
-				const q1EnemyNodes = (snapshot.enemies || []).map((e, idx) => {
-					const isFront = (e.row || 'FRONT') === 'FRONT';
-					return {
-						id: e.id,
-						name: e.name,
-						key: e.key,
-						row: e.row || 'FRONT',
-						hp: e.hp,
-						maxHp: e.maxHp,
-						alive: Boolean(e.alive),
-						isBoss: Boolean(e.isBoss),
-						gridX: isFront ? 5 : 6,
-						gridY: idx + 1,
-						isCurrentTurn: e.id === activeCharId,
-					};
-				});
-
-				// Calculate displacement trajectory vectors if pending skill has knockback/pull
-				const activeDisplacementVectors = [];
-				if (snapshot.pendingSkill?.displacement) {
-					const disp = snapshot.pendingSkill.displacement;
-					q1EnemyNodes.forEach((node) => {
-						if (node.alive) {
-							const toX =
-								disp.type === 'KNOCKBACK'
-									? Math.min(7, node.gridX + (disp.tiles || 1))
-									: Math.max(5, node.gridX - (disp.tiles || 1));
-							activeDisplacementVectors.push({
-								fromX: node.gridX,
-								fromY: node.gridY,
-								toX,
-								toY: node.gridY,
-								type: disp.type,
-								isWallImpact: toX >= 7,
-							});
-						}
-					});
-				}
-
-				// Generate intent vectors linking enemies to party targets
-				const threatVectors = (snapshot.enemies || [])
-					.filter((e) => e.alive)
-					.map((e, eIdx) => {
-						const livingHeroes = (snapshot.party || []).filter((p) => p.alive);
-						const targetIdx =
-							(eIdx + (snapshot.roundCount || 0)) %
-							Math.max(1, livingHeroes.length);
-						const targetHero =
-							livingHeroes[targetIdx] ||
-							snapshot.party?.[0] ||
-							null;
-						return {
-							enemyId: e.id,
-							enemyName: e.name,
-							targetHeroId: targetHero?.id || null,
-							targetHeroName: targetHero?.name || 'Hero',
-							heroIndex: targetIdx,
-							isCharged: Boolean(e.isBoss && e.phaseTwoActive),
-						};
-					});
-
-				const q1Spatial = Object.freeze({
-					gridDimensions: Object.freeze({ cols: 8, rows: 6 }),
-					partyFormation: Object.freeze(q1PartyNodes),
-					enemyFormation: Object.freeze(q1EnemyNodes),
-					hazardTiles: Object.freeze([
-						{ x: 7, y: 1, type: 'WALL' },
-						{ x: 7, y: 2, type: 'WALL' },
-						{ x: 7, y: 3, type: 'WALL' },
-						{ x: 7, y: 4, type: 'WALL' },
-						{ x: 7, y: 5, type: 'WALL' },
-						{ x: 7, y: 6, type: 'WALL' },
-						{ x: 0, y: 1, type: 'WALL' },
-						{ x: 0, y: 2, type: 'WALL' },
-						{ x: 0, y: 3, type: 'WALL' },
-						{ x: 0, y: 4, type: 'WALL' },
-					]),
-					activeVectors: Object.freeze(activeDisplacementVectors),
-					threatVectors: Object.freeze(threatVectors),
-					allies: Object.freeze(q1PartyNodes),
-					enemies: Object.freeze(q1EnemyNodes),
-				});
-
-				const q2Clash = Object.freeze({
-					biome: snapshot.biome || snapshot.terrain || 'MEADOW',
-					activeTurnIndex: snapshot.activeTurnIndex || 0,
-					phase: snapshot.phase || 'PLAYER_INPUT',
-					enrageFactor: snapshot.enemies?.some(
-						(e) => e.isBoss && e.phaseTwoActive,
-					)
-						? 1.5
-						: 1.0,
-					allies: Object.freeze(q1PartyNodes),
-					enemies: Object.freeze(q1EnemyNodes),
-					activeClashAnimation: snapshot.pendingSkill ? 'CHANNELING' : null,
-				});
-
-				const q3Oracle = Object.freeze({
-					turnQueue: snapshot.turnQueue ? [...snapshot.turnQueue] : [],
-					forecastQueue: snapshot.forecastQueue
-						? [...snapshot.forecastQueue]
-						: [],
-					log: snapshot.log ? [...snapshot.log] : [],
-					threatVectors: Object.freeze(threatVectors),
-					enemies: Object.freeze(
-						(snapshot.enemies || []).map((e) => ({
-							id: e.id,
-							name: e.name,
-							weaknesses: e.weaknesses ? [...e.weaknesses] : [],
-							resistances: e.resistances ? [...e.resistances] : [],
-							immunities: e.immunities ? [...e.immunities] : [],
-							alive: Boolean(e.alive),
-							hp: e.hp,
-							maxHp: e.maxHp,
-						})),
-					),
-				});
-
-				const q4Deck = Object.freeze({
-					activeCharId,
-					activeHeroIndex: activeHeroIdx >= 0 ? activeHeroIdx : 0,
-					selectedTab: snapshot.selectedTab || 'ATTACK',
-					pendingSkill: snapshot.pendingSkill
-						? Object.freeze({ ...snapshot.pendingSkill })
-						: null,
-					pendingItem: snapshot.pendingItem || null,
-					partyVitals: Object.freeze(
-						(snapshot.party || []).map((c, idx) => ({
-							id: c.id,
-							name: c.name,
-							phenotype: c.phenotype || 'HERO',
-							hp: c.hp,
-							maxHp: c.maxHp,
-							mp: c.mp,
-							maxMp: c.maxMp,
-							row: c.row || 'FRONT',
-							alive: Boolean(c.alive),
-							ailments: c.ailments ? [...c.ailments] : [],
-							isCurrentTurn: idx === activeHeroIdx,
-						})),
-					),
-					inventory: snapshot.inventory
-						? Object.freeze({ ...snapshot.inventory })
-						: Object.freeze({}),
-					phase: snapshot.phase || 'PLAYER_INPUT',
-				});
-
-				const projection = Object.freeze({
-					q1Spatial,
-					q2Clash,
-					q3Oracle,
-					q4Deck,
-					snapshot,
-				});
+				const projection = Projection.createProjection(snapshot);
 
 				if (typeof activeRenderer.renderWarTable === 'function') {
-					activeRenderer.renderWarTable(projection, handleViewAction);
+					activeRenderer.renderWarTable(projection, (act) => Actions.handleViewAction(sim, act, getHelpers()));
 				} else if (typeof activeRenderer.render === 'function') {
-					activeRenderer.render(snapshot, handleViewAction);
+					activeRenderer.render(snapshot, (act) => Actions.handleViewAction(sim, act, getHelpers()));
 				}
 			},
 
@@ -1488,7 +442,7 @@ const EmberlightCombat = (() => {
 			getModuleInfo() {
 				return {
 					moduleId: 'combat_core',
-					version: '2.5.0',
+					version: '3.0.0',
 					protocolVersion: 'VSRP-001',
 					dependencies: ['manifest'],
 					capabilities: [
@@ -1511,6 +465,7 @@ const EmberlightCombat = (() => {
 				sim = null;
 				hostConfig = null;
 				hostContext = null;
+				capabilities = null;
 				lifecycleState = State.DESTROYED;
 			},
 		};
@@ -1525,6 +480,9 @@ const EmberlightCombat = (() => {
 if (typeof window !== 'undefined') {
 	delete window._CombatInternal;
 	window.EmberlightCombat = EmberlightCombat;
+}
+if (typeof globalThis !== 'undefined' && globalThis._CombatInternal) {
+	delete globalThis._CombatInternal;
 }
 if (typeof module !== 'undefined' && module.exports) {
 	module.exports = EmberlightCombat;

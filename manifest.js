@@ -12,7 +12,21 @@ const EmberlightManifest = (() => {
     'use strict';
 
     const root = typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global : globalThis);
-    const internal = root._ManifestInternal || {};
+    let internal = root._ManifestInternal;
+    if (!internal && typeof require === 'function') {
+        try {
+            internal = {
+                Config: require('./manifest/manifest_config.js'),
+                Actors: require('./manifest/manifest_actors.js'),
+                Items: require('./manifest/manifest_items.js'),
+                Progression: require('./manifest/manifest_progression.js'),
+                World: require('./manifest/manifest_world.js'),
+                Narrative: require('./manifest/manifest_narrative.js'),
+                Calculators: require('./manifest/manifest_calculators.js'),
+            };
+        } catch (_) {}
+    }
+    internal = internal || {};
     const { DefaultSettings, SessionConfig, ExplorationConfig } = internal.Config || {};
     const { Curves, PartyRoster, Phenotypes, Enemies, Encounters } = internal.Actors || {};
     const { Items } = internal.Items || {};

@@ -94,6 +94,9 @@ const EMBERLIGHT_SCRIPT_LOAD_ORDER = Object.freeze([
   'combat/combat_queue.js',
   'combat/combat_ai.js',
   'combat/combat_state.js',
+  'combat/combat_actions.js',
+  'combat/combat_projection.js',
+  'combat/combat_orchestrator.js',
   // Combat facade (seals membrane → export EmberlightCombat → purge membrane)
   'combat.js',
   'script.js',       // Browser menu bootstrap — safe headlessly in mock context
