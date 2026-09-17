@@ -5,7 +5,7 @@
  * Governing Protocol:  VSRP-001
  * Authority:           Ephemeral Simulation
  * ============================================================================
- * 
+ *
  * TABLE OF CONTENTS & NAVIGATION ANCHORS:
  *   [SEC-01] Type Definitions, Module State, Lifecycle Guard & Configuration Helpers
  *   [SEC-02] Sealed Delta Envelope & Event Dispatchers
@@ -16,13 +16,31 @@
 /**
  * @typedef {Object} ForgeDeltaObject
  * @property {number} goldDelta Accumulated gold change.
- * @property {Object.<string, number>} inventoryDelta Accumulated inventory changes.
+ * @property {Record<string, number>} inventoryDelta Accumulated inventory changes.
+ */
+
+/**
+ * @typedef {Object} ForgeCharacter
+ * @property {string} [id] Character ID.
+ * @property {string} [name] Character display name.
+ * @property {string} [phenotype] Phenotype key.
+ * @property {Record<string, any>} [equipment] Character equipment.
+ * @property {number} [level] Character level.
+ * @property {number} [hp] Health points.
+ * @property {number} [maxHp] Maximum health points.
+ * @property {number} [mp] Magic points.
+ * @property {number} [maxMp] Maximum magic points.
+ * @property {number} [atk] Attack power.
+ * @property {number} [def] Defense power.
+ * @property {number} [agi] Agility.
+ * @property {boolean} [alive] Alive status.
+ * @property {any[]} [ailments] Active status ailments.
  */
 
 /**
  * @typedef {Object} ForgeSimulationState
- * @property {Array<Object>} party Party members array.
- * @property {Object.<string, number>} inventory Item counts inventory map.
+ * @property {Array<ForgeCharacter>} party Party members array.
+ * @property {Record<string, number>} inventory Item counts inventory map.
  * @property {number} gold Current gold value.
  * @property {number} selectedCharIndex Selected character index slot.
  * @property {string} selectedCategory Selected gear category ('WEAPON' | 'ARMOR' | 'ACCESSORY').
@@ -33,15 +51,15 @@
 
 /**
  * @typedef {Object} ForgeSnapshot
- * @property {Array<Object>} [party] Initial party members array.
- * @property {Object.<string, number>} [inventory] Initial item inventory map.
+ * @property {Array<ForgeCharacter>} [party] Initial party members array.
+ * @property {Record<string, number>} [inventory] Initial item inventory map.
  * @property {number} [gold] Initial gold count.
  * @property {number} [seed] Initial procedural seed.
  */
 
 /**
  * @typedef {Object} ForgeContext
- * @property {Object} eventBus Host event bus reference.
+ * @property {EventBusBroker|{ publish?: (event: string, payload?: any) => void }} [eventBus] Host event bus reference.
  */
 
 /**
@@ -60,7 +78,7 @@
  * @property {string|null} activeChar Active character name.
  * @property {string|null} activeCategory Active gear category.
  * @property {number|null} activeSeed Active procedural seed.
- * @property {Object|null} hostConfig Active configuration object.
+ * @property {Record<string, any>|null} hostConfig Active configuration object.
  */
 
 /**
@@ -72,10 +90,7 @@
  * @property {string[]} capabilities Supported capability tags.
  */
 
-// @ts-ignore
 const EmberlightRelicForge = (() => {
-	'use strict';
-
 	//#region [SEC-01] Type Definitions, Module State, Lifecycle Guard & Configuration Helpers
 	// --- Formal Lifecycle States ---
 	const State = {
@@ -87,7 +102,7 @@ const EmberlightRelicForge = (() => {
 		DESTROYED: 'DESTROYED',
 	};
 	let lifecycleState = State.UNCONFIGURED;
-	/** @type {Object|null} */
+	/** @type {Record<string, any>|null} */
 	let hostConfig = null;
 	/** @type {ForgeContext|null} */
 	let hostContext = null;
@@ -113,14 +128,14 @@ const EmberlightRelicForge = (() => {
 	/**
 	 * Recursively freezes an object configuration dictionary.
 	 * (Pure calculation utility)
-	 * @param {Object} obj Target configuration object.
-	 * @returns {Object} Frozen object.
+	 * @param {Record<string, any>} obj Target configuration object.
+	 * @returns {Record<string, any>} Frozen object.
 	 */
 	function deepFreeze(obj) {
 		if (!obj || typeof obj !== 'object') return obj;
 		Object.keys(obj).forEach((prop) => {
-			if (typeof obj[prop] === 'object' && obj[prop] !== null && !Object.isFrozen(obj[prop])) {
-				deepFreeze(obj[prop]);
+			if (typeof obj[ prop ] === 'object' && obj[ prop ] !== null && !Object.isFrozen(obj[ prop ])) {
+				deepFreeze(obj[ prop ]);
 			}
 		});
 		return Object.freeze(obj);
@@ -221,9 +236,9 @@ const EmberlightRelicForge = (() => {
 		if (sim.gold >= cost && action.recipeYield) {
 			sim.gold -= cost;
 			sim.deltas.goldDelta -= cost;
-			sim.inventory[action.recipeYield] = (sim.inventory[action.recipeYield] || 0) + 1;
-			sim.deltas.inventoryDelta[action.recipeYield] =
-				(sim.deltas.inventoryDelta[action.recipeYield] || 0) + 1;
+			sim.inventory[ action.recipeYield ] = (sim.inventory[ action.recipeYield ] || 0) + 1;
+			sim.deltas.inventoryDelta[ action.recipeYield ] =
+				(sim.deltas.inventoryDelta[ action.recipeYield ] || 0) + 1;
 			dispatchSFX('HEAL');
 			finalizeForge();
 		}
@@ -234,7 +249,7 @@ const EmberlightRelicForge = (() => {
 		/**
 		 * Configures the relic forge simulation tenant.
 		 * (State-mutating lifecycle gateway)
-		 * @param {Object} config Configuration dictionary.
+		 * @param {Record<string, any>} config Configuration dictionary.
 		 * @returns {void}
 		 */
 		configure(config) {
@@ -289,7 +304,7 @@ const EmberlightRelicForge = (() => {
 		 * Updates the simulation state step.
 		 * (State-mutating update gateway)
 		 * @param {number} _dt Delta time step.
-		 * @param {Object} [_context] Update context.
+		 * @param {Record<string, any>} [_context] Update context.
 		 * @returns {void}
 		 */
 		update(_dt, _context) {
@@ -301,25 +316,25 @@ const EmberlightRelicForge = (() => {
 		/**
 		 * Renders the tenant presentation projection.
 		 * (State-mutating render gateway)
-		 * @param {Object} renderer Peripheral presentation renderer driver.
-		 * @param {Object} [_context] Rendering context.
+		 * @param {{ renderRelicForge?: (state: ForgeSimulationState | null, onAction: (action: any) => void) => void } | any} renderer Peripheral presentation renderer driver.
+		 * @param {Record<string, any>} [_context] Rendering context.
 		 * @returns {void}
 		 */
 		render(renderer, _context) {
 			assertLifecycle(State.READY, State.RUNNING);
 			if (renderer && typeof renderer.renderRelicForge === 'function') {
-				renderer.renderRelicForge(this.getState(), (action) => this.handleHostAction(action));
+				renderer.renderRelicForge(this.getState(), (/** @type {string | ForgeActionToken} */ action) => this.handleHostAction(action));
 			}
 		},
 
 		/**
 		 * Returns a deep clone snapshot of the private simulation vault.
 		 * (Pure state accessor)
-		 * @returns {ForgeSimulationState} Simulation state snapshot.
+		 * @returns {ForgeSimulationState|null} Simulation state snapshot.
 		 */
 		getState() {
 			assertLifecycle(State.READY, State.RUNNING);
-			return structuredClone(sim);
+			return sim ? structuredClone(sim) : null;
 		},
 
 		/**
@@ -328,10 +343,11 @@ const EmberlightRelicForge = (() => {
 		 * @returns {ForgeDiagnostics} Diagnostic report dictionary.
 		 */
 		getDiagnostics() {
+			const activeMember = (sim && Array.isArray(sim.party)) ? sim.party[ sim.selectedCharIndex ] : null;
 			return {
 				moduleId: 'relic_forge_core',
 				lifecycleState,
-				activeChar: sim?.party?.[sim?.selectedCharIndex]?.name || null,
+				activeChar: activeMember?.name || null,
 				activeCategory: sim?.selectedCategory || null,
 				activeSeed: sim?.currentSeed || null,
 				hostConfig,
@@ -349,7 +365,7 @@ const EmberlightRelicForge = (() => {
 				name: 'EmberlightRelicForge',
 				protocolVersion: 'VSRP-001',
 				version: '1.1.0',
-				capabilities: ['phenotype_crafting', 'events.relic_forge_resolved'],
+				capabilities: [ 'phenotype_crafting', 'events.relic_forge_resolved' ],
 			};
 		},
 
@@ -394,7 +410,6 @@ const EmberlightRelicForge = (() => {
 })();
 
 if (typeof window !== 'undefined') {
-	// @ts-ignore
 	window.EmberlightRelicForge = EmberlightRelicForge;
 }
 if (typeof module !== 'undefined' && module.exports) {

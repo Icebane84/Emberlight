@@ -18,8 +18,6 @@
  */
 
 const EmberlightMarket = (() => {
-	'use strict';
-
 	//#region [SEC-01] Domain Type Contracts & JSDoc Schemas
 	/**
 	 * @typedef {Object} MarketDeltas
@@ -95,9 +93,9 @@ const EmberlightMarket = (() => {
 	};
 
 	let lifecycleState = State.UNCONFIGURED;
-	/** @type {Object|null} */
+	/** @type {Record<string, any>|null} */
 	let hostConfig = null;
-	/** @type {Object|null} */
+	/** @type {Record<string, any>|null} */
 	let hostContext = null;
 	/** @type {MarketSimulationState|null} */
 	let sim = null;
@@ -136,7 +134,7 @@ const EmberlightMarket = (() => {
 	/**
 	 * Retrieves active game manifest.
 	 * [Pure Query]
-	 * @returns {Object} Manifest object.
+	 * @returns {Record<string, any>} Manifest object.
 	 */
 	function getActiveManifest() {
 		return hostConfig?.manifest || (typeof EmberlightManifest !== 'undefined' ? EmberlightManifest : {});
@@ -157,10 +155,11 @@ const EmberlightMarket = (() => {
 	/**
 	 * Retrieves item definition from manifest.
 	 * [Pure Query]
-	 * @param {string} itemId - Item identifier token.
-	 * @returns {Object|null} Item definition.
+	 * @param {string|null|undefined} itemId - Item identifier token.
+	 * @returns {Record<string, any>|null} Item definition.
 	 */
 	function getItem(itemId) {
+		if (!itemId) return null;
 		const manifest = getActiveManifest();
 		return manifest?.Items?.[itemId] || null;
 	}
@@ -168,10 +167,11 @@ const EmberlightMarket = (() => {
 	/**
 	 * Retrieves shop definition from manifest.
 	 * [Pure Query]
-	 * @param {string} shopId - Shop identifier token.
-	 * @returns {Object|null} Shop definition.
+	 * @param {string|null|undefined} shopId - Shop identifier token.
+	 * @returns {Record<string, any>|null} Shop definition.
 	 */
 	function getShop(shopId) {
+		if (!shopId) return null;
 		const manifest = getActiveManifest();
 		return manifest?.Shops?.[shopId] || null;
 	}
@@ -185,11 +185,12 @@ const EmberlightMarket = (() => {
 	 * @returns {boolean} Success assertion flag.
 	 */
 	function buyItem(itemId) {
+		if (!itemId || !sim) return false;
 		const item = getItem(itemId);
-		const shop = getShop(sim?.shopId);
-		if (!item || !shop || !sim) return false;
+		const shop = getShop(sim.shopId);
+		if (!item || !shop) return false;
 
-		const unitCost = Math.round(item.cost * (shop.buyRate || 1.0));
+		const unitCost = Math.round((item.cost || 0) * (shop.buyRate || 1.0));
 		if (sim.gold < unitCost) return false;
 
 		if (sim.workingStock[itemId] !== undefined && sim.workingStock[itemId] <= 0) {
@@ -216,12 +217,13 @@ const EmberlightMarket = (() => {
 	 * @returns {boolean} Success assertion flag.
 	 */
 	function sellItem(itemId) {
+		if (!itemId || !sim) return false;
 		const item = getItem(itemId);
-		const shop = getShop(sim?.shopId);
-		if (!item || !shop || !sim) return false;
+		const shop = getShop(sim.shopId);
+		if (!item || !shop) return false;
 		if ((sim.inventory[itemId] || 0) <= 0) return false;
 
-		const unitValue = Math.max(1, Math.round(item.cost * (shop.sellRate || 0.5)));
+		const unitValue = Math.max(1, Math.round((item.cost || 0) * (shop.sellRate || 0.5)));
 
 		sim.gold += unitValue;
 		sim.deltas.goldDelta += unitValue;
@@ -260,8 +262,8 @@ const EmberlightMarket = (() => {
 	/**
 	 * Computes equipment stat differentials for inspection UI.
 	 * [Pure Calculation]
-	 * @param {Object} character - Target character object.
-	 * @param {Object} item - Candidate equipment item definition.
+	 * @param {Record<string, any>} character - Target character object.
+	 * @param {Record<string, any>} item - Candidate equipment item definition.
 	 * @returns {ItemDiffReport|null} Differential report.
 	 */
 	function computeItemDiff(character, item) {
@@ -303,7 +305,7 @@ const EmberlightMarket = (() => {
 		/**
 		 * Configures commerce district tenant settings.
 		 * [Lifecycle: CONFIGURE]
-		 * @param {Object} cfg - Configuration dictionary.
+		 * @param {Record<string, any>} [cfg] - Configuration dictionary.
 		 * @returns {void}
 		 */
 		configure(cfg) {
@@ -318,7 +320,7 @@ const EmberlightMarket = (() => {
 		/**
 		 * Initializes commerce tenant with host runtime context.
 		 * [Lifecycle: INIT]
-		 * @param {Object} context - Host context reference.
+		 * @param {Record<string, any>} [context] - Host context reference.
 		 * @returns {void}
 		 */
 		init(context) {
@@ -333,19 +335,19 @@ const EmberlightMarket = (() => {
 		/**
 		 * Resets simulation snapshot and shop working stock.
 		 * [Lifecycle: RESET]
-		 * @param {Object} [snapshot={}] - Session state snapshot.
+		 * @param {Partial<MarketSimulationState>|Record<string, any>} [snapshot={}] - Session state snapshot.
 		 * @returns {void}
 		 */
 		reset(snapshot = {}) {
 			assertLifecycle(State.INITIALIZED, State.READY, State.RUNNING);
-			const incoming = snapshot || {};
+			const incoming = /** @type {Record<string, any>} */ (snapshot || {});
 			const shopId = incoming.shopId || 'VILLAGE_BLACKSMITH';
 			const shop = getShop(shopId);
 
 			/** @type {Record<string, number>} */
 			const workingStock = {};
-			if (shop?.stock) {
-				shop.stock.forEach((entry) => {
+			if (shop?.stock && Array.isArray(shop.stock)) {
+				shop.stock.forEach((/** @type {any} */ entry) => {
 					workingStock[entry.itemId] = entry.maxQuantity;
 				});
 			}
@@ -373,8 +375,8 @@ const EmberlightMarket = (() => {
 		/**
 		 * Updates simulation tick and processes input queues.
 		 * [Lifecycle: UPDATE]
-		 * @param {number} _dt - Delta time.
-		 * @param {Object} [context] - Update context.
+		 * @param {number} [_dt] - Delta time.
+		 * @param {Record<string, any>} [context] - Update context.
 		 * @returns {void}
 		 */
 		update(_dt, context) {
@@ -382,7 +384,7 @@ const EmberlightMarket = (() => {
 			if (!sim?.active) return;
 			lifecycleState = State.RUNNING;
 
-			const activeCtx = context || hostContext;
+			const activeCtx = /** @type {Record<string, any>} */ (context || hostContext);
 			if (activeCtx?.inputs && Array.isArray(activeCtx.inputs)) {
 				for (const element of activeCtx.inputs) {
 					this.handleHostAction(element);
@@ -400,18 +402,18 @@ const EmberlightMarket = (() => {
 		render(renderer, _context) {
 			assertLifecycle(State.READY, State.RUNNING);
 			if (renderer && typeof renderer.renderMarket === 'function') {
-				renderer.renderMarket(this.getState(), (action) => this.handleHostAction(action));
+				renderer.renderMarket(this.getState(), (/** @type {any} */ action) => this.handleHostAction(action));
 			}
 		},
 
 		/**
 		 * Retrieves current simulation state clone.
 		 * [Pure Query]
-		 * @returns {MarketSimulationState} Simulation state copy.
+		 * @returns {MarketSimulationState|null} Simulation state copy.
 		 */
 		getState() {
 			assertLifecycle(State.READY, State.RUNNING);
-			return structuredClone(sim);
+			return sim ? structuredClone(sim) : null;
 		},
 
 		/**
@@ -453,6 +455,15 @@ const EmberlightMarket = (() => {
 					'events.market_resolved',
 				],
 			};
+		},
+
+		/**
+		 * Backward-compatibility alias for getModuleInfo.
+		 * [Pure Query]
+		 * @returns {MarketModuleInfo} Module info dictionary.
+		 */
+		getInfo() {
+			return this.getModuleInfo();
 		},
 
 		/**
@@ -501,7 +512,6 @@ const EmberlightMarket = (() => {
 
 //#region [SEC-05] Global Environment & CommonJS Module Export
 if (typeof window !== 'undefined') {
-	// @ts-ignore
 	window.EmberlightMarket = EmberlightMarket;
 }
 if (typeof module !== 'undefined' && module.exports) {

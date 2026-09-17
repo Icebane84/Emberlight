@@ -1,92 +1,90 @@
-/**
- * ============================================================================
- * EMBERLIGHT SOVEREIGN ENGINE: BATTLER PIPELINE & DIAGNOSTICS SUB-MODULE
- * Document Identifier: VSRP-001-BATTLER-PIPELINE
- * Governing Protocol:  VSRP-001 / ARCH-SPEC-BATTLER-BAKER-001
- * Authority:           Peripheral Presentation (Tier 3)
- * ============================================================================
- *
- * SECTIONS EXTRACTED:
- *   [SEC-06] Semantic Resolution, Aliasing & Asset Resolvers (Lines 3671–3772)
- *   [SEC-07] PNG Encoding & Composition Pipeline (Lines 3774–3874)
- *   [SEC-08] Caching, Telemetry & Diagnostic Reporters (Lines 3876–4210)
- *
- * STAGING MEMBRANE KEY: window._BattlerBakerInternal.Pipeline
- * DEPENDENCIES:
- *   window._BattlerBakerInternal.Primitives
- *   window._BattlerBakerInternal.Heroes
- *   window._BattlerBakerInternal.Equipment
- *   window._BattlerBakerInternal.Enemies
- * ============================================================================
- */
+// battler_pipeline.js — Zero-Dependency Battler Baker Asset Pipeline & Diagnostic Ledger
+// Architecture: Pure JS / Canvas Composition / Semantic Resolvers / Diagnostic Telemetry
 
 if (typeof window !== 'undefined') window._BattlerBakerInternal = window._BattlerBakerInternal || {};
 
 (() => {
-	'use strict';
-
-	const { VERSION, SPRITE_SIZE, RENDER_SCALE, WORK_SIZE, cache, diagnosticLog, canvas, ctxConfig, reset } = window._BattlerBakerInternal.Primitives || (typeof require !== 'undefined' ? require('./battler_primitives.js') : {});
-	const { HERO_BAKERS } = window._BattlerBakerInternal.Heroes || (typeof require !== 'undefined' ? require('./battler_heroes.js') : {});
-	const { armor, weapon } = window._BattlerBakerInternal.Equipment || (typeof require !== 'undefined' ? require('./battler_equipment.js') : {});
-	const { ENEMY_BAKERS, EXPLICIT_ALIASES, SEMANTIC_RULES } = window._BattlerBakerInternal.Enemies || (typeof require !== 'undefined' ? require('./battler_enemies.js') : {});
+	const { VERSION, SPRITE_SIZE, RENDER_SCALE, cache, diagnosticLog, canvas, ctxConfig, reset } =
+		/** @type {any} */ (window._BattlerBakerInternal?.Primitives || (typeof require !== 'undefined' ? require('./battler_primitives.js') : {}));
+	const { HERO_BAKERS } =
+		/** @type {any} */ (window._BattlerBakerInternal?.Heroes || (typeof require !== 'undefined' ? require('./battler_heroes.js') : {}));
+	const { armor, weapon } =
+		/** @type {any} */ (window._BattlerBakerInternal?.Equipment || (typeof require !== 'undefined' ? require('./battler_equipment.js') : {}));
+	const { ENEMY_BAKERS, EXPLICIT_ALIASES, SEMANTIC_RULES } =
+		/** @type {any} */ (window._BattlerBakerInternal?.Enemies || (typeof require !== 'undefined' ? require('./battler_enemies.js') : {}));
 
 	//#region [SEC-06] Semantic Resolution, Aliasing & Asset Resolvers
 	/**
-	 * Normalizes an asset identifier string for registry lookups.
-	 * Pure string transformation utility.
-	 * @param {any} v - Input identifier value.
-	 * @returns {string} Normalized uppercase string.
+	 * Normalizes an asset specifier string to uppercase alphanumeric tokens.
+	 * Pure normalization procedure.
+	 * @param {string} [s=""] - Raw identifier string.
+	 * @returns {string} Normalized uppercase identifier.
 	 */
-	function norm(v) {
-		return String(v == null ? "" : v)
+	function norm(s = "") {
+		return String(s || "")
 			.trim()
-			.toUpperCase();
+			.toUpperCase()
+			.replace(/[^A-Z0-9_]/g, "_")
+			.replace(/_+/g, "_")
+			.replace(/^_|_$/g, "");
 	}
 
 	/**
-	 * Resolves requested enemy identifier to canonical baker and telemetry records.
-	 * Pure resolution procedure.
-	 * @param {string} requested - Requested enemy name or token.
-	 * @returns {EnemyResolution | null} Resolved enemy descriptor or null.
+	 * Resolves requested enemy identifier to canonical baked asset key.
+	 * Pure semantic resolution procedure.
+	 * @param {string} requested - Requested asset specifier.
+	 * @returns {EnemyResolution | null} Resolution descriptor or null if not an enemy.
 	 */
 	function resolveEnemy(requested) {
 		const key = norm(requested);
+
+		if (!key) return null;
 
 		if (ENEMY_BAKERS[key]) {
 			return {
 				requested: key,
 				canonical: key,
-				baker: ENEMY_BAKERS[key],
 				classification: "INTENDED",
 				resolution: "CANONICAL",
 			};
 		}
 
 		if (EXPLICIT_ALIASES[key]) {
-			const canonical = EXPLICIT_ALIASES[key];
+			const target = EXPLICIT_ALIASES[key];
 
 			return {
 				requested: key,
-				canonical,
-				baker: ENEMY_BAKERS[canonical],
-				classification: "ALIAS",
+				canonical: target,
+				classification: "INTENDED_ALIAS",
 				resolution: "EXPLICIT_ALIAS",
-				reason: `"${key}" is an explicit alias for "${canonical}".`,
+				reason: `Mapped via explicit alias table to ${target}.`,
 			};
 		}
 
-		const rule = SEMANTIC_RULES.find(([token]) => key.includes(token));
+		const rule = (SEMANTIC_RULES || []).find((/** @type {[string, string]} */ [token]) => key.includes(token));
 
 		if (rule) {
 			return {
 				requested: key,
 				canonical: rule[1],
-				baker: ENEMY_BAKERS[rule[1]],
 				classification: "SEMANTIC_FALLBACK",
-				resolution: "SEMANTIC_MATCH",
-				reason:
-					`Matched semantic token "${rule[0]}"; ` +
-					`no exact canonical asset was requested.`,
+				resolution: "SEMANTIC_RULE",
+				reason: `Matched keyword "${rule[0]}" -> fallback to ${rule[1]}.`,
+			};
+		}
+
+		if (
+			key.includes("ENEMY") ||
+			key.includes("MONSTER") ||
+			key.includes("CREATURE") ||
+			key.includes("BEAST")
+		) {
+			return {
+				requested: key,
+				canonical: "CATACOMB_SKELETON",
+				classification: "SEMANTIC_FALLBACK",
+				resolution: "GENERIC_ENEMY_FALLBACK",
+				reason: "Generic enemy requested; fallback to CATACOMB_SKELETON.",
 			};
 		}
 
@@ -348,11 +346,8 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		if (spec && typeof spec === "object") {
 			return {
 				id: String(spec.id || spec.phenotype || "HERO"),
-
 				phenotype: String(spec.phenotype || spec.id || "HERO"),
-
 				weapon: spec.weapon || null,
-
 				armor: spec.armor || null,
 			};
 		}
@@ -376,12 +371,12 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 	function get(spec = "HERO", options = null) {
 		const parsed = parseSpec(spec, options);
 
-		const requested = norm(parsed.id);
+		const requested = norm(parsed.id || "HERO");
 
 		const enemy = resolveEnemy(requested);
 
 		if (enemy && !parsed.weapon && !parsed.armor) {
-			const data = cache.get(enemy.canonical) || null;
+			const data = cache.get(enemy.canonical || "HERO") || null;
 
 			logDiagnostic(`request:${requested}`, {
 				...enemy,
@@ -392,10 +387,10 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 			return data;
 		}
 
-		const hero = resolveHero(parsed.phenotype);
+		const hero = resolveHero(parsed.phenotype || "HERO");
 
 		if (!parsed.weapon && !parsed.armor) {
-			const data = cache.get(hero.canonical) || cache.get("HERO") || null;
+			const data = cache.get(hero.canonical || "HERO") || cache.get("HERO") || null;
 
 			logDiagnostic(`request:${requested}`, {
 				...hero,
@@ -406,9 +401,12 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 			return data;
 		}
 
-		const w = norm(parsed.weapon) || "DEFAULT";
+		const weaponStr = typeof parsed.weapon === "string" ? parsed.weapon : undefined;
+		const armorStr = typeof parsed.armor === "string" ? parsed.armor : undefined;
 
-		const a = norm(parsed.armor) || "DEFAULT";
+		const w = (weaponStr ? norm(weaponStr) : "") || "DEFAULT";
+
+		const a = (armorStr ? norm(armorStr) : "") || "DEFAULT";
 
 		const key = `${hero.canonical}_W:${w}_A:${a}`;
 
@@ -424,10 +422,10 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 			return cache.get(key);
 		}
 
-		const rendered = renderHero(hero.canonical, parsed.weapon, parsed.armor);
+		const rendered = renderHero(hero.canonical || "HERO", weaponStr, armorStr);
 
 		if (!rendered.dataUrl) {
-			const fallback = cache.get(hero.canonical) || cache.get("HERO") || null;
+			const fallback = cache.get(hero.canonical || "HERO") || cache.get("HERO") || null;
 
 			logDiagnostic(`request:${requested}:${key}`, {
 				requested,
@@ -473,10 +471,10 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 	 */
 	function getDiagnosticReport(spec = null, options = null) {
 		if (spec !== null && spec !== undefined) {
-			const requested = norm(parseSpec(spec, options).id);
+			const requested = norm(parseSpec(spec, options).id || "HERO");
 
 			const matches = [...diagnosticLog.values()].filter(
-				(x) => x.requested === requested,
+				(/** @type {any} */ x) => x.requested === requested,
 			);
 
 			const latest = matches.length ? matches.at(-1) : null;
@@ -496,10 +494,11 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 
 		const entries = [...diagnosticLog.values()];
 
-		const counts = {};
+		const counts = /** @type {Record<string, number>} */ ({});
 
 		for (const e of entries) {
-			counts[e.classification] = (counts[e.classification] || 0) + 1;
+			const cls = /** @type {any} */ (e).classification || "UNKNOWN";
+			counts[cls] = (counts[cls] || 0) + 1;
 		}
 
 		return Object.freeze({
@@ -542,7 +541,7 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		];
 
 		const results = required.map((key) => {
-			const d = diagnosticLog.get(key);
+			const d = /** @type {any} */ (diagnosticLog.get(key));
 
 			return {
 				key,

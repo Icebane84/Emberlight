@@ -6,11 +6,7 @@
  * Subsystem:           Pure Domain Calculus, Elemental Affinities, Skills & Growth
  * ============================================================================
  */
-'use strict';
-
-if (typeof window !== 'undefined') {
-	window._CombatInternal = window._CombatInternal || {};
-}
+(() => {
 
 /**
  * Resolves elemental damage effectiveness against target defensive profile.
@@ -81,6 +77,21 @@ function resolveSkillHitTag(isGuaranteedCrit, isWeakness, isResisted) {
 }
 
 /**
+ * Computes raw base power from skill multiplier or power baseline.
+ * @param {any} node - Skill descriptor.
+ * @param {number} charAtk - Attacker attack.
+ * @param {number} targetDef - Defender defense.
+ * @returns {number} Raw power.
+ */
+function computeBaseSkillPower(node, charAtk, targetDef) {
+	if (typeof node?.mult === 'number') {
+		return Math.round(charAtk * node.mult * 2 - targetDef);
+	}
+	const power = typeof node?.power === 'number' ? node.power : 10;
+	return power * 2 - targetDef;
+}
+
+/**
  * Calculates damage for skills including positioning bonuses, elemental affinity, and terrain multipliers.
  * [Pure Query]
  * @param {any} node - Skill descriptor.
@@ -88,7 +99,7 @@ function resolveSkillHitTag(isGuaranteedCrit, isWeakness, isResisted) {
  * @param {any} actualTarget - Targeted recipient.
  * @param {boolean} isGuaranteedCrit - Critical hit assertion flag.
  * @param {string} [terrain] - Current combat terrain.
- * @param {function(string, string=):void} [appendLog] - Log dispatch helper.
+ * @param {(msg: string, type?: string) => void} [appendLog] - Log dispatch helper.
  * @returns {{ finalDmg: number, isWeakness: boolean, isResisted: boolean }} Damage outcome.
  */
 function computeSkillDamage(node, activeChar, actualTarget, isGuaranteedCrit, terrain, appendLog) {
@@ -99,14 +110,7 @@ function computeSkillDamage(node, activeChar, actualTarget, isGuaranteedCrit, te
 	const charAtk = typeof activeChar?.atk === 'number' ? activeChar.atk : 10;
 	const targetDef = typeof actualTarget?.def === 'number' ? actualTarget.def : 0;
 
-	let baseVal;
-	if (typeof node?.mult === 'number') {
-		baseVal = Math.round(charAtk * node.mult * 2 - targetDef);
-	} else {
-		const power = typeof node?.power === 'number' ? node.power : 10;
-		baseVal = power * 2 - targetDef;
-	}
-
+	const baseVal = computeBaseSkillPower(node, charAtk, targetDef);
 	let rawDmg = Math.max(1, Number.isFinite(baseVal) ? baseVal : 1);
 	const backlineBonus = activeChar?.row === 'BACK' && isRanged ? 1.15 : 1.0;
 	rawDmg = Math.round(rawDmg * backlineBonus);
@@ -145,9 +149,9 @@ function computeSkillDamage(node, activeChar, actualTarget, isGuaranteedCrit, te
  * [Pure Query]
  * @param {any} target - Target defender.
  * @param {any} node - Skill descriptor.
- * @param {function():number} getRandomFloat - PRNG float helper.
- * @param {function(string, string=):void} appendLog - Log helper.
- * @param {function(string):void} dispatchSFX - Audio helper.
+ * @param {() => number} getRandomFloat - PRNG float helper.
+ * @param {(msg: string, type?: string) => void} [appendLog] - Log helper.
+ * @param {(sfxName: string) => void} [dispatchSFX] - Audio helper.
  * @returns {boolean}
  */
 function checkArcaneEvasion(target, node, getRandomFloat, appendLog, dispatchSFX) {
@@ -173,6 +177,7 @@ function checkArcaneEvasion(target, node, getRandomFloat, appendLog, dispatchSFX
  * @returns {any[]} Array of executable skills.
  */
 function collectAetherActiveSkills(unlockedIds, manifest) {
+	/** @type {any[]} */
 	const skills = [];
 	if (!manifest?.AetherNodes) return skills;
 	for (const nodeId of unlockedIds) {
@@ -193,6 +198,7 @@ function collectAetherActiveSkills(unlockedIds, manifest) {
  * @returns {any[]} Array of executable skills.
  */
 function collectSkillTreeActiveSkills(unlockedIds, phenotype, manifest) {
+	/** @type {any[]} */
 	const skills = [];
 	const tree = manifest?.SkillTrees?.[phenotype];
 	if (!tree) return skills;
@@ -279,7 +285,7 @@ function getAvailableSkills(activeChar, manifest) {
  * [Authoritative State Mutation]
  * @param {any} c - Hero entity.
  * @param {any} manifest - Manifest SSOT reference.
- * @param {function(string, string=):void} appendLog - Log helper.
+ * @param {(msg: string, type?: string) => void} [appendLog] - Log helper.
  * @returns {void}
  */
 function applyHeroLevelUp(c, manifest, appendLog) {
@@ -328,3 +334,4 @@ if (typeof window !== 'undefined') {
 if (typeof module !== 'undefined' && module.exports) {
 	module.exports = CombatCalc;
 }
+})();

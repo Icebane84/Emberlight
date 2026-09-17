@@ -45,7 +45,7 @@ const EmberlightStatus = (() => {
 	 * @property {boolean} active - Active simulation flag.
 	 *
 	 * @typedef {Object} EventBusPublisher
-	 * @property {function(string, any): void} publish - Synchronous event broadcast method.
+	 * @property {(event: string, payload?: any) => void} publish - Synchronous event broadcast method.
 	 *
 	 * @typedef {Object} HostContext
 	 * @property {EventBusPublisher} [eventBus] - Central synchronous event broker.
@@ -132,19 +132,19 @@ const EmberlightStatus = (() => {
 	 * @property {string[]} capabilities
 	 *
 	 * @typedef {Object} StatusRenderer
-	 * @property {function(StatusStateSnapshot, function(StatusActionToken): void): void} renderStatus
+	 * @property {(state: StatusStateSnapshot, dispatch: (action: StatusActionToken) => void) => void} [renderStatus]
 	 *
 	 * @typedef {Object} IEmberlightStatus
-	 * @property {function(HostConfig=): void} configure - Ingests host configuration.
-	 * @property {function(HostContext): void} init - Initializes runtime context.
-	 * @property {function(Partial<StatusStateSnapshot>=): void} reset - Ingests detached state snapshot.
-	 * @property {function(number=, HostContext=): void} update - Frame ticker step.
-	 * @property {function(StatusRenderer=): void} render - Projects detached state to presentation.
-	 * @property {function(): StatusStateSnapshot} getState - Returns detached POJO snapshot.
-	 * @property {function(): StatusDiagnostics} getDiagnostics - Returns module health telemetry.
-	 * @property {function(): StatusModuleInfo} getModuleInfo - Returns module metadata descriptor.
-	 * @property {function(): void} destroy - Tears down module and releases references.
-	 * @property {function(StatusActionToken): void} handleHostAction - Action-inversion command router.
+	 * @property {(config?: HostConfig) => void} configure - Ingests host configuration.
+	 * @property {(context: HostContext) => void} init - Initializes runtime context.
+	 * @property {(snapshot?: Partial<StatusStateSnapshot>) => void} reset - Ingests detached state snapshot.
+	 * @property {(delta?: number, context?: HostContext) => void} update - Frame ticker step.
+	 * @property {(renderer?: StatusRenderer) => void} render - Projects detached state to presentation.
+	 * @property {() => StatusStateSnapshot} getState - Returns detached POJO snapshot.
+	 * @property {() => StatusDiagnostics} getDiagnostics - Returns module health telemetry.
+	 * @property {() => StatusModuleInfo} getModuleInfo - Returns module metadata descriptor.
+	 * @property {() => void} destroy - Tears down module and releases references.
+	 * @property {(action: StatusActionToken) => void} handleHostAction - Action-inversion command router.
 	 */
 
 	// --- Formal Lifecycle States ---
@@ -179,12 +179,13 @@ const EmberlightStatus = (() => {
 	 */
 	function deepFreeze(obj) {
 		if (!obj || typeof obj !== 'object') return obj;
-		Object.keys(obj).forEach((prop) => {
-			if (typeof obj[prop] === 'object' && obj[prop] !== null && !Object.isFrozen(obj[prop])) {
-				deepFreeze(obj[prop]);
+		const target = /** @type {Record<string, any>} */ (obj);
+		Object.keys(target).forEach((prop) => {
+			if (typeof target[prop] === 'object' && target[prop] !== null && !Object.isFrozen(target[prop])) {
+				deepFreeze(target[prop]);
 			}
 		});
-		return Object.freeze(obj);
+		return /** @type {Readonly<T>} */ (Object.freeze(target));
 	}
 
 	/**
@@ -210,7 +211,8 @@ const EmberlightStatus = (() => {
 	 */
 	function getActiveManifest() {
 		if (hostConfig?.manifest) return hostConfig.manifest;
-		if (typeof EmberlightManifest !== 'undefined') return EmberlightManifest;
+		if (typeof window !== 'undefined' && window.EmberlightManifest) return window.EmberlightManifest;
+		if (typeof globalThis !== 'undefined' && (/** @type {any} */ (globalThis)).EmberlightManifest) return (/** @type {any} */ (globalThis)).EmberlightManifest;
 		return {};
 	}
 	//#endregion
@@ -234,22 +236,25 @@ const EmberlightStatus = (() => {
 		if (!caster?.alive || !target?.alive) return false;
 
 		const manifest = getActiveManifest();
-		const tree = manifest.SkillTrees?.[caster.phenotype] || {};
+		const tree = manifest?.SkillTrees?.[caster.phenotype] || {};
 		/** @type {SkillTreeNode | null} */
 		let skill = null;
 		Object.values(tree).forEach((branch) => {
-			branch?.forEach((node) => {
-				if (node.id === skillId) skill = node;
-			});
+			if (Array.isArray(branch)) {
+				branch.forEach((node) => {
+					if (node?.id === skillId) skill = node;
+				});
+			}
 		});
 
-		if (skill?.subType !== 'heal') return false;
+		const activeSkill = /** @type {SkillTreeNode | null} */ (skill);
+		if (activeSkill?.subType !== 'heal') return false;
 		if (!caster.unlocked?.includes(skillId)) return false;
-		if (caster.mp < skill.mpCost) return false;
+		if (caster.mp < activeSkill.mpCost) return false;
 
-		caster.mp -= skill.mpCost;
+		caster.mp -= activeSkill.mpCost;
 		const missingHp = target.maxHp - target.hp;
-		const restored = skill.power === 999 ? missingHp : Math.min(skill.power, missingHp);
+		const restored = activeSkill.power === 999 ? missingHp : Math.min(activeSkill.power || 0, missingHp);
 		target.hp += restored;
 
 		if (hostContext?.eventBus?.publish) {
@@ -261,7 +266,7 @@ const EmberlightStatus = (() => {
 			const spellPayload = {
 				casterName: caster.name,
 				targetName: target.name,
-				skillLabel: skill.label,
+				skillLabel: activeSkill.label,
 				restored,
 				party: structuredClone(sim.party),
 			};

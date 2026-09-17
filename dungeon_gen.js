@@ -14,44 +14,51 @@
  */
 
 const EmberlightDungeonGen = (() => {
-	'use strict';
-
 	// Ingest sub-module dependencies from staging membrane
+	/** @type {any} */
 	const membrane = (typeof window !== 'undefined' && window._DungeonGenInternal)
-		|| (typeof globalThis !== 'undefined' && globalThis._DungeonGenInternal)
+		|| (typeof globalThis !== 'undefined' && (/** @type {any} */ (globalThis))._DungeonGenInternal)
 		|| {};
 
 	const {
-		createRNG = (s) => {
+		createRNG = (/** @type {any} */ s) => {
 			let seed = Number(s) || 123456789;
 			return () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
 		},
-		splitLeaf = () => {},
-		carveLayout = () => [],
+		splitLeaf = (/** @type {any} */ _leaf, /** @type {any} */ _ctx) => {},
+		carveLayout = (/** @type {any} */ _m, /** @type {any} */ _r, /** @type {any} */ _w, /** @type {any} */ _h) => [],
 	} = membrane.BSP || {};
 
 	const {
-		applyDrunkardsWalk = () => {},
+		applyDrunkardsWalk = (/** @type {any} */ _m, /** @type {any} */ _w, /** @type {any} */ _h, /** @type {any} */ _c, /** @type {any} */ _r) => {},
 	} = membrane.Drunkard || {};
 
 	const {
 		ASSET_MANIFEST = {},
-		applyFloorHazards = () => {},
+		applyFloorHazards = (/** @type {any} */ _m, /** @type {any} */ _s, /** @type {any} */ _o) => {},
 	} = membrane.Hazards || {};
 
 	// Clean membrane
-	if (typeof window !== 'undefined' && window._DungeonGenInternal) {
-		delete window._DungeonGenInternal;
+	if (typeof window !== 'undefined' && (/** @type {any} */ (window))._DungeonGenInternal) {
+		delete (/** @type {any} */ (window))._DungeonGenInternal;
 	}
-	if (typeof globalThis !== 'undefined' && globalThis._DungeonGenInternal) {
-		delete globalThis._DungeonGenInternal;
+	if (typeof globalThis !== 'undefined' && (/** @type {any} */ (globalThis))._DungeonGenInternal) {
+		delete (/** @type {any} */ (globalThis))._DungeonGenInternal;
 	}
 
 	let configured = false;
 	let config = Object.freeze({});
 	let initialized = false;
+	/** @type {any} */
 	let lastSimulation = null;
 
+	/**
+	 * @param {number} [seed]
+	 * @param {number} [width]
+	 * @param {number} [height]
+	 * @param {number} [floorLevel]
+	 * @returns {Record<string, any>}
+	 */
 	function generate(
 		seed = Date.now(),
 		width = 12,
@@ -63,6 +70,7 @@ const EmberlightDungeonGen = (() => {
 		const h = Math.max(8, height);
 
 		const map = Array.from({ length: h }, () => new Array(w).fill("#"));
+		/** @type {Array<any>} */
 		const rooms = [];
 
 		splitLeaf({ rx: 1, ry: 1, rw: w - 2, rh: h - 2, depth: 3 }, { rng, rooms });
@@ -100,7 +108,7 @@ const EmberlightDungeonGen = (() => {
 
 		applyFloorHazards(map, sortedByDist, { spawn, exitPt, chestPt, floorLevel, w, h, rng });
 
-		carvedCoords.forEach((pt) => {
+		carvedCoords.forEach((/** @type {any} */ pt) => {
 			if (
 				map[pt.y][pt.x] === "." &&
 				(pt.x !== spawn.x || pt.y !== spawn.y) &&
@@ -154,12 +162,18 @@ const EmberlightDungeonGen = (() => {
 		};
 	}
 
+	/**
+	 * @param {Record<string, any>} [options]
+	 */
 	function configure(options = {}) {
 		config = Object.freeze({ ...config, ...options });
 		configured = true;
 		return Object.freeze({ accepted: true, driverId: "dungeon_gen" });
 	}
 
+	/**
+	 * @param {any} [context]
+	 */
 	function init(context) {
 		if (!configured) configured = true;
 		initialized = true;
@@ -169,6 +183,9 @@ const EmberlightDungeonGen = (() => {
 		return true;
 	}
 
+	/**
+	 * @param {any} [snapshot]
+	 */
 	function reset(snapshot = null) {
 		const seed = snapshot?.seed || Date.now();
 		const width = snapshot?.width || 12;
@@ -178,12 +195,19 @@ const EmberlightDungeonGen = (() => {
 		return lastSimulation;
 	}
 
+	/**
+	 * @param {number} [dt]
+	 */
 	function update(dt) {
 		if (dt) {
 			// Delta time acknowledged
 		}
 	}
 
+	/**
+	 * @param {any} [renderer]
+	 * @param {any} [context]
+	 */
 	function render(renderer, context) {
 		if (renderer || context) {
 			// Render context acknowledged
@@ -228,6 +252,10 @@ const EmberlightDungeonGen = (() => {
 		};
 	}
 
+	function getInfo() {
+		return getModuleInfo();
+	}
+
 	function destroy() {
 		lastSimulation = null;
 		initialized = false;
@@ -245,6 +273,7 @@ const EmberlightDungeonGen = (() => {
 		getState,
 		getDiagnostics,
 		getModuleInfo,
+		getInfo,
 		destroy,
 	};
 })();

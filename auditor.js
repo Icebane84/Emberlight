@@ -35,15 +35,18 @@ const EmberlightAuditor = (() => {
   };
 
   let lifecycleState = State.UNCONFIGURED;
+  /** @type {any} */
   let hostConfig = null;
+  /** @type {any} */
   let hostContext = null;
+  /** @type {any} */
   let sim = null;
 
   // ─── Membrane Ingestion ───────────────────────────────────────────────────
   // All 7 sub-modules have written their keys to window._AuditorInternal
   // before this IIFE executes. Ingest and immediately purge the membrane.
 
-  const _mem = window._AuditorInternal;
+  const _mem = /** @type {any} */ (window._AuditorInternal);
 
   // Kernel utilities
   const {
@@ -61,7 +64,7 @@ const EmberlightAuditor = (() => {
   } = _mem.Endgame;
 
   // Membrane purge — remove the staging scaffold from the global scope
-  delete window._AuditorInternal;
+  delete (/** @type {Record<string, unknown>} */ (window))._AuditorInternal;
 
   // ─── Facade Utilities (retained here — close over lifecycle state) ────────
 
@@ -69,6 +72,7 @@ const EmberlightAuditor = (() => {
    * Guards lifecycle-gated method invocations.
    * Verbatim from auditor.js:104–111.
    * Intentionally NOT extracted: closes over the facade-owned `lifecycleState`.
+   * @param {...string} allowed - Permitted lifecycle states.
    */
   function assertLifecycle(...allowed) {
     if (!allowed.includes(lifecycleState)) {
@@ -84,7 +88,7 @@ const EmberlightAuditor = (() => {
   return {
     /**
      * Seals the host configuration. Verbatim delegate from auditor.js:2044–2049.
-     * @param {object} cfg - { manifest, ... }
+     * @param {Record<string, any>} [cfg] - { manifest, ... }
      */
     configure(cfg) {
       assertLifecycle(State.UNCONFIGURED);
@@ -94,7 +98,7 @@ const EmberlightAuditor = (() => {
 
     /**
      * Stores host context (eventBus, renderers). Verbatim from auditor.js:2051–2055.
-     * @param {object} context - Host context object.
+     * @param {Record<string, any>} [context] - Host context object.
      */
     init(context) {
       assertLifecycle(State.CONFIGURED);
@@ -103,21 +107,30 @@ const EmberlightAuditor = (() => {
     },
 
     /**
-     * Runs all 19 audit passes against the provided snapshot.
+     * Runs all 21 audit passes against the provided snapshot.
      * Verbatim delegate from auditor.js:2057–2069.
      * Facade adaptation: uses Kernel._bindLog(sim) to wire the sim accumulator
      * before delegating to Endgame.executeAuditPasses.
      *
-     * @param {object} snapshot - { modules, drivers, eventBus }
+     * @param {Record<string, any>} [snapshot] - { modules, drivers, eventBus }
      */
-    reset(snapshot) {
+    reset(snapshot = {}) {
       assertLifecycle(State.INITIALIZED, State.READY, State.RUNNING);
       sim = createDefaultState();
       _bindLog(sim);
 
       const targets = snapshot?.modules || {};
       const drivers = resolveDriverRegistry(snapshot?.drivers || null);
-      const activeManifest = hostConfig?.manifest || (typeof EmberlightManifest !== 'undefined' ? EmberlightManifest : {});
+      let activeManifest = hostConfig?.manifest;
+      if (!activeManifest) {
+        if (typeof window !== 'undefined' && window.EmberlightManifest) {
+          activeManifest = window.EmberlightManifest;
+        } else if (typeof globalThis !== 'undefined' && (/** @type {any} */ (globalThis)).EmberlightManifest) {
+          activeManifest = (/** @type {any} */ (globalThis)).EmberlightManifest;
+        } else {
+          activeManifest = {};
+        }
+      }
       const bus = snapshot?.eventBus || createIsolatedEventBus();
 
       executeAuditPasses(targets, drivers, activeManifest, bus);
@@ -128,6 +141,8 @@ const EmberlightAuditor = (() => {
 
     /**
      * Transitions to RUNNING state. Verbatim from auditor.js:2071–2074.
+     * @param {number} [_dt]
+     * @param {any} [_context]
      */
     update(_dt, _context) {
       assertLifecycle(State.READY, State.RUNNING);
@@ -140,7 +155,8 @@ const EmberlightAuditor = (() => {
      * Facade adaptation: passes (sim, hostContext) to renderDefaultPresentation
      * since that function is now parameterized (no facade closure access).
      *
-     * @param {object|null} renderer - Optional external renderer with renderAuditor().
+     * @param {{ renderAuditor?: (state: any) => void } | any} [renderer] - Optional external renderer with renderAuditor().
+     * @param {any} [_context]
      */
     render(renderer, _context) {
       assertLifecycle(State.READY, State.RUNNING);
@@ -226,4 +242,7 @@ const EmberlightAuditor = (() => {
 
 if (typeof window !== 'undefined') {
   window.EmberlightAuditor = EmberlightAuditor;
+}
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = EmberlightAuditor;
 }

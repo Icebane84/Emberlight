@@ -103,6 +103,7 @@ const EmberlightSessionStore = (() => {
 	let canonicalSurfaceMutations = {}; // Sparse dictionary: { "x,y": tile }
 	/** @type {Record<string, Record<string, string>>} */
 	let canonicalTownMutations = {}; // Sparse dictionary: { townId: { "x,y": tile } }
+	/** @type {any} */
 	let canonicalDungeonSpec = null; // Sparse descriptor: { seed, depth, width, height, mutations: { "x,y": tile } }
 	/** @type {string|null} */
 	let canonicalTownId = null; // null = Macro Wilderness, 'OAKHAVEN' = Inside town
@@ -230,12 +231,12 @@ const EmberlightSessionStore = (() => {
 	}
 
 	/**
-	 * Constructs an existing character record with verified base attributes.
-	 * [Pure Subroutine]
-	 * @param {any} existing - Existing character record.
-	 * @param {Object} tmpl - Template definition.
+	 * Merges and normalizes existing character data with class baseline template.
+	 * [Pure Transformation]
+	 * @param {any} existing - Preserved character record.
+	 * @param {any} tmpl - Template definition.
 	 * @param {string} pKey - Phenotype key.
-	 * @param {Object} base - Base stats object.
+	 * @param {any} base - Base stats object.
 	 * @returns {PartyMemberRecord} Hydrated character record.
 	 */
 	function hydrateExistingCharacter(existing, tmpl, pKey, base) {
@@ -275,9 +276,9 @@ const EmberlightSessionStore = (() => {
 	/**
 	 * Constructs a fresh default character record from template and phenotype stats.
 	 * [Pure Subroutine]
-	 * @param {Object} tmpl - Template definition.
+	 * @param {any} tmpl - Template definition.
 	 * @param {string} pKey - Phenotype key.
-	 * @param {Object} base - Base stats object.
+	 * @param {any} base - Base stats object.
 	 * @returns {PartyMemberRecord} Default character record.
 	 */
 	function createDefaultCharacter(tmpl, pKey, base) {
@@ -292,7 +293,11 @@ const EmberlightSessionStore = (() => {
 			unlocked: [],
 			unlockedNodes: [],
 			spent: {},
-			equipment: { weapon: tmpl.weapon, armor: tmpl.armor, accessory: null },
+			equipment: {
+				weapon: tmpl.weapon,
+				armor: tmpl.armor,
+				accessory: null,
+			},
 			ailments: [],
 			alive: true,
 			hp: base.hp,
@@ -306,12 +311,12 @@ const EmberlightSessionStore = (() => {
 	}
 
 	/**
-	 * Maps a template character definition to an existing or fallback record.
+	 * Resolves a character record from existing map or generates a fresh default.
 	 * [Pure Subroutine]
-	 * @param {Object} tmpl - Template definition.
+	 * @param {any} tmpl - Template definition.
 	 * @param {Map<string, any>} existingMap - Existing character map.
-	 * @param {Object} phenotypes - Phenotypes dictionary.
-	 * @returns {PartyMemberRecord} Resolved party member record.
+	 * @param {Record<string, any>} phenotypes - Phenotype definitions dictionary.
+	 * @returns {PartyMemberRecord} Resolved character record.
 	 */
 	function resolveCharacterRecord(tmpl, existingMap, phenotypes) {
 		const existing =
@@ -334,13 +339,22 @@ const EmberlightSessionStore = (() => {
 	}
 
 	/**
+	 * @returns {any}
+	 */
+	function getWin() {
+		if (typeof window !== "undefined") return window;
+		if (typeof globalThis !== "undefined") return globalThis;
+		return {};
+	}
+
+	/**
 	 * Sanitizes and validates canonical party roster data.
 	 * [State Mutating]
 	 * @returns {void}
 	 */
 	function sanitizeCanonicalParty() {
-		const manifest =
-			typeof EmberlightManifest !== "undefined" ? EmberlightManifest : {};
+		const win = getWin();
+		const manifest = win.EmberlightManifest || {};
 		const phenotypes = manifest.Phenotypes || {};
 		const templates = [
 			{
@@ -377,12 +391,13 @@ const EmberlightSessionStore = (() => {
 			canonicalParty.forEach(normalizeCharacterRecord);
 		}
 
+		const prog = win.EmberlightProgression;
 		if (
-			typeof EmberlightProgression !== "undefined" &&
-			typeof EmberlightProgression.getState === "function"
+			prog &&
+			typeof prog.getState === "function"
 		) {
 			try {
-				const progState = EmberlightProgression.getState();
+				const progState = prog.getState();
 				if (Array.isArray(progState?.party)) {
 					progState.party.forEach(normalizeCharacterRecord);
 				}
@@ -416,8 +431,8 @@ const EmberlightSessionStore = (() => {
 	 * @returns {void}
 	 */
 	function startNewGame() {
-		const manifest =
-			typeof EmberlightManifest !== "undefined" ? EmberlightManifest : {};
+		const win = getWin();
+		const manifest = win.EmberlightManifest || {};
 		const phenotypes = manifest.Phenotypes || {};
 
 		const rosterTemplates = [
@@ -477,7 +492,7 @@ const EmberlightSessionStore = (() => {
 		canonicalStepCounter = 0;
 		lastInteractedChestPos = null;
 
-		if (typeof EmberlightSaveManager !== "undefined") {
+		if (win.EmberlightSaveManager) {
 			StorageManager.save();
 		}
 	}
@@ -487,14 +502,16 @@ const EmberlightSessionStore = (() => {
 	// --- Persistence Gateway ---
 	const StorageManager = {
 		get CURRENT_VERSION() {
-			return typeof EmberlightSaveManager !== "undefined"
-				? EmberlightSaveManager.CURRENT_VERSION
+			const win = getWin();
+			return win.EmberlightSaveManager
+				? win.EmberlightSaveManager.CURRENT_VERSION
 				: "1.4.0";
 		},
 
 		get MIGRATIONS() {
-			return typeof EmberlightSaveManager !== "undefined"
-				? EmberlightSaveManager.MIGRATIONS
+			const win = getWin();
+			return win.EmberlightSaveManager
+				? win.EmberlightSaveManager.MIGRATIONS
 				: {};
 		},
 
@@ -505,8 +522,9 @@ const EmberlightSessionStore = (() => {
 		 * @returns {Object} Migrated payload.
 		 */
 		migrate(payload) {
-			if (typeof EmberlightSaveManager !== "undefined") {
-				return EmberlightSaveManager.migrate(payload);
+			const win = getWin();
+			if (win.EmberlightSaveManager) {
+				return win.EmberlightSaveManager.migrate(payload);
 			}
 			return payload;
 		},
@@ -521,9 +539,9 @@ const EmberlightSessionStore = (() => {
 		 * @returns {boolean} Existence flag.
 		 */
 		hasSave(slotId) {
-			return (
-				typeof EmberlightSaveManager !== "undefined" &&
-				EmberlightSaveManager.hasSave(slotId)
+			const win = getWin();
+			return Boolean(
+				win.EmberlightSaveManager?.hasSave(slotId)
 			);
 		},
 
@@ -549,8 +567,9 @@ const EmberlightSessionStore = (() => {
 		 * @returns {Array<Object>}
 		 */
 		listSlots() {
-			return typeof EmberlightSaveManager !== "undefined"
-				? EmberlightSaveManager.listSlots()
+			const win = getWin();
+			return win.EmberlightSaveManager
+				? win.EmberlightSaveManager.listSlots()
 				: [];
 		},
 
@@ -561,75 +580,68 @@ const EmberlightSessionStore = (() => {
 		 * @returns {SaveMetadata|null} Save metadata or null.
 		 */
 		getSaveMetadata(slotId) {
-			return typeof EmberlightSaveManager !== "undefined"
-				? EmberlightSaveManager.getSaveMetadata(slotId)
+			const win = getWin();
+			return win.EmberlightSaveManager
+				? win.EmberlightSaveManager.getSaveMetadata(slotId)
 				: null;
 		},
 
 		/**
 		 * Persists session snapshot to local storage.
 		 * [State Mutating]
-		 * @param {Object|string|function(string): void} [arg1] - Snapshot object, slotId string, or notification callback.
-		 * @param {string|function(string): void} [arg2] - Optional slotId or notification callback.
-		 * @param {function(string): void} [arg3] - Optional notification callback.
+		 * @param {Object|string|((msg: string) => void)} [arg1] - Snapshot object, slotId string, or notification callback.
+		 * @param {string|((msg: string) => void)} [arg2] - Optional slotId or notification callback.
+		 * @param {((msg: string) => void)} [arg3] - Optional notification callback.
 		 * @returns {boolean} Success assertion flag.
 		 */
 		save(arg1, arg2, arg3) {
-			if (typeof EmberlightSaveManager === "undefined") {
+			const win = getWin();
+			if (!win.EmberlightSaveManager) {
 				return false;
 			}
 			let snapshot;
 			let targetSlot = activeSlotId || "SLOT_1";
-			/** @type {function(string): void|null} */
+			/** @type {((msg: string) => void) | null} */
 			let notifyFn = null;
 
 			if (arg1 && typeof arg1 === "object" && !Array.isArray(arg1)) {
 				snapshot = arg1;
-				if (typeof arg2 === "string") targetSlot = arg2;
-				else if (typeof arg2 === "function") notifyFn = arg2;
-				if (typeof arg3 === "function") notifyFn = arg3;
-			} else {
-				if (typeof arg1 === "string") {
-					targetSlot = arg1;
-					if (typeof arg2 === "function") notifyFn = arg2;
-				} else if (typeof arg1 === "function") {
-					notifyFn = arg1;
-				}
-
-				snapshot = {
-					canonicalParty,
-					canonicalGold,
-					canonicalInventory,
-					canonicalWorldPos,
-					canonicalFlags,
-					canonicalQuests,
-					canonicalDungeonDepth,
-					canonicalDungeonSpec,
-					canonicalSurfaceMutations,
-					canonicalTownMutations,
-					canonicalTownId,
-					canonicalMacroPos,
-					canonicalStepCounter,
-				};
+			} else if (typeof arg1 === "string") {
+				targetSlot = arg1;
+				if (typeof arg2 === "function") notifyFn = arg2;
+			} else if (typeof arg1 === "function") {
+				notifyFn = arg1;
 			}
 
-			activeSlotId = targetSlot;
-			const ok = EmberlightSaveManager.save(snapshot, targetSlot);
-			if (ok && typeof notifyFn === "function") {
-				notifyFn(`Game state saved to ${targetSlot}.`);
+			if (typeof arg2 === "string") {
+				targetSlot = arg2;
+				if (typeof arg3 === "function") notifyFn = arg3;
+			}
+
+			if (!snapshot) {
+				snapshot = EmberlightSessionStore.getSnapshot();
+			}
+
+			const ok = win.EmberlightSaveManager.save(snapshot, targetSlot);
+			if (ok) {
+				activeSlotId = targetSlot;
+				if (typeof notifyFn === "function") {
+					notifyFn(`Archived to ${targetSlot}`);
+				}
 			}
 			return ok;
 		},
 
 		/**
-		 * Restores session state from local storage.
+		 * Restores game state from save records.
 		 * [State Mutating]
-		 * @param {string|function(string): void} [arg1] - Slot ID or notification callback.
-		 * @param {function(string): void} [arg2] - Notification callback if slotId passed as arg1.
+		 * @param {string|((msg: string) => void)} [arg1] - Slot ID or notification callback.
+		 * @param {((msg: string) => void)} [arg2] - Notification callback if slotId passed as arg1.
 		 * @returns {boolean} Success assertion flag.
 		 */
 		load(arg1, arg2) {
-			if (typeof EmberlightSaveManager === "undefined") {
+			const win = getWin();
+			if (!win.EmberlightSaveManager) {
 				console.warn(
 					"[StorageManager] Load failed: EmberlightSaveManager is undefined.",
 				);
@@ -637,7 +649,7 @@ const EmberlightSessionStore = (() => {
 			}
 
 			let targetSlot = null;
-			/** @type {function(string): void|null} */
+			/** @type {((msg: string) => void) | null} */
 			let notifyFn = null;
 
 			if (typeof arg1 === "string") {
@@ -647,7 +659,7 @@ const EmberlightSessionStore = (() => {
 				notifyFn = arg1;
 			}
 
-			const payload = EmberlightSaveManager.load(targetSlot);
+			const payload = win.EmberlightSaveManager.load(targetSlot);
 			if (!payload) return false;
 
 			activeSlotId = payload.slotId || targetSlot || "SLOT_1";
@@ -693,8 +705,9 @@ const EmberlightSessionStore = (() => {
 		 * @returns {boolean}
 		 */
 		deleteSlot(slotId) {
-			if (typeof EmberlightSaveManager !== "undefined") {
-				return EmberlightSaveManager.deleteSlot(slotId);
+			const win = getWin();
+			if (win.EmberlightSaveManager) {
+				return win.EmberlightSaveManager.deleteSlot(slotId);
 			}
 			return false;
 		},
@@ -702,8 +715,8 @@ const EmberlightSessionStore = (() => {
 		/**
 		 * Clears local storage save records.
 		 * [State Mutating]
-		 * @param {string|function(string): void} [arg1] - Optional slot ID or notification callback.
-		 * @param {function(string): void} [arg2] - Notification callback if slotId passed as arg1.
+		 * @param {string|((msg: string) => void)} [arg1] - Optional slot ID or notification callback.
+		 * @param {((msg: string) => void)} [arg2] - Notification callback if slotId passed as arg1.
 		 * @returns {void}
 		 */
 		clear(arg1, arg2) {
@@ -716,8 +729,9 @@ const EmberlightSessionStore = (() => {
 				notifyFn = arg1;
 			}
 
-			if (typeof EmberlightSaveManager !== "undefined") {
-				EmberlightSaveManager.clear(targetSlot);
+			const win = getWin();
+			if (win.EmberlightSaveManager) {
+				win.EmberlightSaveManager.clear(targetSlot);
 			}
 			if (typeof notifyFn === "function") {
 				notifyFn(
@@ -945,10 +959,15 @@ const EmberlightSessionStore = (() => {
 
 		// Mutations
 		recordTileMutation,
-		recordMutation(district, key, mutation) {
+		/**
+		 * @param {string} [_district]
+		 * @param {string} [key]
+		 * @param {any} [mutation]
+		 */
+		recordMutation(_district, key, mutation) {
 			if (typeof key === "string" && key.includes(",")) {
 				const [x, y] = key.split(",").map(Number);
-				if (!isNaN(x) && !isNaN(y)) {
+				if (!Number.isNaN(x) && !Number.isNaN(y)) {
 					recordTileMutation(x, y, mutation);
 				}
 			}
@@ -984,7 +1003,6 @@ const EmberlightSessionStore = (() => {
 
 //#region [SEC-06] Global Environment & CommonJS Export
 if (typeof window !== "undefined") {
-	// @ts-expect-error
 	window.EmberlightSessionStore = EmberlightSessionStore;
 }
 if (typeof module !== "undefined" && module.exports) {

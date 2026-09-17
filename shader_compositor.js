@@ -23,14 +23,11 @@
 
 /**
  * @typedef {Object} ShaderEventBus
- * @property {function(string, function(any): void): void} [subscribe] Subscription registration function.
- * @property {function(string, any): void} [publish] Event publishing function.
+ * @property {(event: string, handler: (payload?: any) => void) => (() => void) | void} [subscribe] Subscription registration function.
+ * @property {(event: string, payload?: any) => void} [publish] Event publishing function.
  */
 
-// @ts-ignore
 const EmberlightShaderCompositor = (() => {
-	'use strict';
-
 	//#region [SEC-01] Type Definitions, Context Initialization, WebGL Shaders & Program Binding
 	/** @type {HTMLCanvasElement|null} */
 	let canvas = null;
@@ -412,8 +409,9 @@ const EmberlightShaderCompositor = (() => {
 })();
 
 if (typeof window !== 'undefined') {
-	// @ts-ignore
 	window.EmberlightShaderCompositor = EmberlightShaderCompositor;
-	// @ts-ignore
-	window.EmberlightCompositor = EmberlightShaderCompositor;
+	(/** @type {any} */ (window)).EmberlightCompositor = EmberlightShaderCompositor;
+}
+if (typeof module !== 'undefined' && module.exports) {
+	module.exports = EmberlightShaderCompositor;
 }

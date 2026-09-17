@@ -20,7 +20,7 @@
 
 /**
  * @typedef {Object} ChronicleEventBus
- * @property {function(string, Object): void} [publish] Event publication handle.
+ * @property {(event: string, payload: Record<string, any>) => void} [publish] Event publication handle.
  */
 
 /**
@@ -106,8 +106,6 @@
  */
 
 const ChronicleModule = (() => {
-	'use strict';
-
 	//#region [SEC-01] Type Definitions, Lifecycle States & Utility Functions
 	const State = {
 		UNCONFIGURED: 'UNCONFIGURED',
@@ -119,7 +117,9 @@ const ChronicleModule = (() => {
 	};
 
 	let lifecycleState = State.UNCONFIGURED;
+	/** @type {any} */
 	let hostConfig = null;
+	/** @type {any} */
 	let hostContext = null;
 
 	// Authoritative Ephemeral Working Memory
@@ -151,9 +151,10 @@ const ChronicleModule = (() => {
 	 */
 	function deepFreeze(obj) {
 		if (!obj || typeof obj !== 'object') return obj;
-		Object.keys(obj).forEach((prop) => {
-			if (typeof obj[prop] === 'object' && obj[prop] !== null && !Object.isFrozen(obj[prop])) {
-				deepFreeze(obj[prop]);
+		const o = /** @type {Record<string, any>} */ (obj);
+		Object.keys(o).forEach((prop) => {
+			if (typeof o[prop] === 'object' && o[prop] !== null && !Object.isFrozen(o[prop])) {
+				deepFreeze(o[prop]);
 			}
 		});
 		return Object.freeze(obj);
@@ -165,7 +166,7 @@ const ChronicleModule = (() => {
 	 * @returns {Object} Manifest object.
 	 */
 	function getActiveManifest() {
-		return hostConfig?.manifest || (typeof EmberlightManifest !== 'undefined' ? EmberlightManifest : {});
+		return hostConfig?.manifest || (typeof EmberlightManifest !== 'undefined' ? EmberlightManifest : /** @type {any} */ ({}));
 	}
 
 	/**
@@ -204,7 +205,7 @@ const ChronicleModule = (() => {
 	 * @returns {QuestDefinition|null} Quest definition object or null.
 	 */
 	function getQuestDefinition(questId) {
-		const manifest = getActiveManifest();
+		const manifest = /** @type {any} */ (getActiveManifest());
 		return manifest?.Quests?.[questId] || null;
 	}
 
@@ -240,7 +241,7 @@ const ChronicleModule = (() => {
 		const current = sim.quests[questId];
 		const newStage = typeof targetStage === 'number' ? targetStage : current.stage + 1;
 		const stages = Array.isArray(questDef.stages) ? questDef.stages : [];
-		const stageData = stages[newStage];
+		const stageData = /** @type {any} */ (stages[newStage]);
 
 		current.stage = newStage;
 		current.completed = stageData && typeof stageData === 'object'
@@ -281,7 +282,7 @@ const ChronicleModule = (() => {
 		/**
 		 * Configures the chronicle tenant with immutable host configuration options[cite: 3].
 		 * (State-mutating lifecycle gateway)
-		 * @param {ChronicleConfig} cfg Configuration payload object.
+		 * @param {ChronicleConfig|Record<string, any>} [cfg] Configuration payload object.
 		 * @returns {void}
 		 */
 		configure(cfg) {
@@ -296,7 +297,7 @@ const ChronicleModule = (() => {
 		/**
 		 * Initializes the chronicle tenant with host runtime services and event bus handles[cite: 3].
 		 * (State-mutating lifecycle gateway)
-		 * @param {ChronicleContext} context Host context container.
+		 * @param {ChronicleContext|Record<string, any>} [context] Host context container.
 		 * @returns {void}
 		 */
 		init(context) {
@@ -311,30 +312,28 @@ const ChronicleModule = (() => {
 		/**
 		 * Resets or bootstraps simulation state from an optional incoming snapshot[cite: 3].
 		 * (State-mutating lifecycle gateway)
-		 * @param {ChronicleState|null} [snapshot] Optional incoming state snapshot.
+		 * @param {ChronicleState|Record<string, any>|null} [snapshot] Optional incoming state snapshot.
 		 * @returns {void}
 		 */
 		reset(snapshot) {
 			assertLifecycle(State.INITIALIZED, State.READY, State.RUNNING);
 
 			const baseline = createDefaultState();
-			const incoming = snapshot ? structuredClone(snapshot) : {};
+			const incoming = snapshot ? structuredClone(snapshot) : /** @type {any} */ ({});
+			const questKeys = Object.keys((/** @type {any} */ (getActiveManifest()))?.Quests || {});
+			const selectedQuestId = incoming.selectedQuestId || (questKeys.length > 0 ? questKeys[0] : null);
 
 			sim = {
 				...baseline,
 				...incoming,
 				flags: incoming.flags || {},
 				quests: incoming.quests || {},
+				selectedQuestId,
 				deltas: {
 					flagsDelta: {},
 					questsDelta: {},
 				},
 			};
-
-			const questKeys = Object.keys(getActiveManifest()?.Quests || {});
-			if (questKeys.length > 0 && !sim.selectedQuestId) {
-				sim.selectedQuestId = questKeys[0];
-			}
 
 			lifecycleState = State.READY;
 		},
@@ -361,14 +360,14 @@ const ChronicleModule = (() => {
 		/**
 		 * Projects simulation state to an external presentation renderer[cite: 3].
 		 * (Pure presentation projection)
-		 * @param {Object} renderer Presentation renderer driver object.
-		 * @param {Object} [_context] Optional rendering context.
+		 * @param {any} [renderer] Presentation renderer driver object.
+		 * @param {any} [_context] Optional rendering context.
 		 * @returns {void}
 		 */
 		render(renderer, _context) {
 			assertLifecycle(State.READY, State.RUNNING);
 			if (renderer && typeof renderer.renderChronicle === 'function' && sim) {
-				renderer.renderChronicle(this.getState(), (action) => this.handleHostAction(action));
+				renderer.renderChronicle(this.getState(), (/** @type {any} */ action) => this.handleHostAction(action));
 			}
 		},
 

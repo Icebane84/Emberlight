@@ -19,12 +19,11 @@
  */
 
 const EmberlightMapRenderer = (() => {
-	"use strict";
-
 	// ─── Membrane Ingestion ───────────────────────────────────────────────────
+	/** @type {Record<string, any>} */
 	const _mem =
-		(typeof window !== "undefined" && window._MapInternal) ||
-		(typeof globalThis !== "undefined" && globalThis._MapInternal) ||
+		(typeof window !== "undefined" && (/** @type {any} */ (window))._MapInternal) ||
+		(typeof globalThis !== "undefined" && (/** @type {any} */ (globalThis))._MapInternal) ||
 		{};
 
 	const {
@@ -57,11 +56,11 @@ const EmberlightMapRenderer = (() => {
 	} = _mem.Compositor || {};
 
 	// ─── Faraday Membrane Purge ───────────────────────────────────────────────
-	if (typeof window !== "undefined" && window._MapInternal) {
-		delete window._MapInternal;
+	if (typeof window !== "undefined" && (/** @type {any} */ (window))._MapInternal) {
+		delete (/** @type {any} */ (window))._MapInternal;
 	}
-	if (typeof globalThis !== "undefined" && globalThis._MapInternal) {
-		delete globalThis._MapInternal;
+	if (typeof globalThis !== "undefined" && (/** @type {any} */ (globalThis))._MapInternal) {
+		delete (/** @type {any} */ (globalThis))._MapInternal;
 	}
 
 	//#region [SEC-01] Type Definitions & Internal State
@@ -101,8 +100,8 @@ const EmberlightMapRenderer = (() => {
 	 * Overworld map working state snapshot.
 	 * @typedef {Object} MapSnapshot
 	 * @property {string[][]} [map] - 2D grid matrix of terrain characters.
-	 * @property {{ x: number, y: number }} [playerPos] - Player grid coordinates.
-	 * @property {{ x: number, y: number }} [pos] - Fallback player grid coordinates.
+	 * @property {{ x: number, y: number, inTown?: boolean }} [playerPos] - Player grid coordinates.
+	 * @property {{ x: number, y: number, inTown?: boolean }} [pos] - Fallback player grid coordinates.
 	 * @property {'UP' | 'DOWN' | 'LEFT' | 'RIGHT' | string} [facing] - Avatar facing direction.
 	 * @property {MapAvatarState} [avatar] - Player gear and phenotype visual spec.
 	 * @property {MapEntityState[]} [entities] - Active map entities.
@@ -112,6 +111,7 @@ const EmberlightMapRenderer = (() => {
 	 * @property {number} [depth] - Fallback dungeon depth level.
 	 * @property {{ x: number, y: number }} [activeQuestTarget] - Quest marker coordinates.
 	 * @property {number} [stepAnimFrame] - Walk cycle animation frame index.
+	 * @property {string} [townId] - Active town identifier.
 	 */
 
 	/**
@@ -162,7 +162,7 @@ const EmberlightMapRenderer = (() => {
 	// Cached Snapshot & Dispatch Hook
 	/** @type {MapSnapshot | null} */
 	let currentSnapshot = null;
-	/** @type {function(MapActionToken): void | null} */
+	/** @type {((token: MapActionToken) => void) | null} */
 	let actionDispatch = null;
 	/** @type {any} */
 	let eventBusRef = null;
@@ -184,7 +184,7 @@ const EmberlightMapRenderer = (() => {
 		zoom: 1.0,
 		offsetX: 0,
 		offsetY: 0,
-		rect: { left: 0, top: 0, width: 480, height: 320 },
+		rect: { left: 0, top: 0, width: 480, height: 320, right: 480, bottom: 320 },
 	};
 	//#endregion
 
@@ -222,7 +222,7 @@ const EmberlightMapRenderer = (() => {
 		)
 			return;
 
-		targetCanvas.addEventListener("mousemove", (e) => {
+		targetCanvas.addEventListener("mousemove", (/** @type {MouseEvent | any} */ e) => {
 			if (!currentSnapshot || !canvas) return;
 			const rect = canvas.getBoundingClientRect();
 			const mouseX = e.clientX - rect.left;
@@ -622,7 +622,7 @@ const EmberlightMapRenderer = (() => {
 		 * State-mutating presentation projection gateway.
 		 *
 		 * @param {MapSnapshot} snapshot - Overworld state snapshot.
-		 * @param {function(MapActionToken): void} [dispatch] - Action dispatch callback.
+		 * @param {(token: MapActionToken) => void} [dispatch] - Action dispatch callback.
 		 * @returns {void}
 		 */
 		render(snapshot, dispatch) {
@@ -634,14 +634,14 @@ const EmberlightMapRenderer = (() => {
 		 * State-mutating presentation projection gateway.
 		 *
 		 * @param {MapSnapshot} snapshot - Overworld state snapshot.
-		 * @param {function(MapActionToken): void} [dispatch] - Action dispatch callback.
+		 * @param {(token: MapActionToken) => void} [dispatch] - Action dispatch callback.
 		 * @returns {void}
 		 */
 		renderOverworld(snapshot, dispatch) {
 			if (!snapshot) return;
 			const prevMap = currentSnapshot?.map;
 			currentSnapshot = snapshot;
-			actionDispatch = dispatch;
+			actionDispatch = dispatch || null;
 			ensureCanvas();
 			updateThreatGauge(snapshot);
 			updateCatacombMode(snapshot);

@@ -16,27 +16,36 @@
 
 const EmberlightDynamicLights = (() => {
 	// Ingest sub-module dependencies from staging membrane
+	/** @type {any} */
 	const membrane =
 		(typeof window !== "undefined" && window._DynamicLightsInternal) ||
-		(typeof globalThis !== "undefined" && globalThis._DynamicLightsInternal) ||
+		(typeof globalThis !== "undefined" && (/** @type {any} */ (globalThis))._DynamicLightsInternal) ||
 		{};
 
 	const {
 		MAX_TRANSIENTS = 24,
-		moteRand = () => Math.random(),
+		moteRand = () =>
+			typeof EmberlightPRNG !== "undefined" &&
+			typeof EmberlightPRNG.random === "function"
+				? EmberlightPRNG.random()
+				: 0.5,
 		initDustMotes = () => { },
-		calculateScreenPlayerCoords = (px, py, tw, th, ox, oy) => ({
+		calculateScreenPlayerCoords = (/** @type {number} */ px, /** @type {number} */ py, /** @type {number} */ tw, /** @type {number} */ th, /** @type {number} */ ox, /** @type {number} */ oy) => ({
 			pScreenX: ox + px * tw,
 			pScreenY: oy + py * th,
 		}),
 		evaluateZone = () => "SURFACE",
 	} = membrane.Primitives || {};
 
-	const { castShadowFromOccluder = () => { }, drawBeveledWallEdges = () => { } } =
-		membrane.Shadows || {};
+	const {
+		castShadowFromOccluder = () => { },
+		drawBeveledWallEdges = () => { },
+	} = membrane.Shadows || {};
 
-	const { spawnTransientLight = () => { }, assembleEmitters = () => [] } =
-		membrane.Emitters || {};
+	const {
+		spawnTransientLight = () => { },
+		assembleEmitters = () => [],
+	} = membrane.Emitters || {};
 
 	const {
 		renderDarknessAndShadows = () => { },
@@ -45,16 +54,20 @@ const EmberlightDynamicLights = (() => {
 	} = membrane.Pipeline || {};
 
 	// Clean membrane
-	if (typeof window !== "undefined" && window._DynamicLightsInternal) {
-		delete window._DynamicLightsInternal;
+	if (typeof window !== "undefined" && (/** @type {any} */ (window))._DynamicLightsInternal) {
+		delete (/** @type {any} */ (window))._DynamicLightsInternal;
 	}
-	if (typeof globalThis !== "undefined" && globalThis._DynamicLightsInternal) {
-		delete globalThis._DynamicLightsInternal;
+	if (typeof globalThis !== "undefined" && (/** @type {any} */ (globalThis))._DynamicLightsInternal) {
+		delete (/** @type {any} */ (globalThis))._DynamicLightsInternal;
 	}
 
+	/** @type {HTMLCanvasElement | any} */
 	let canvas = null;
+	/** @type {CanvasRenderingContext2D | any} */
 	let ctx = null;
+	/** @type {any} */
 	let eventBus = null;
+	/** @type {number | any} */
 	let animFrameId = null;
 
 	let tileW = 38;
@@ -67,11 +80,15 @@ const EmberlightDynamicLights = (() => {
 
 	let activeZoneType = "SURFACE";
 	let dungeonDepth = 0;
+	/** @type {any} */
 	let cachedMap = null;
 
+	/** @type {Array<any>} */
 	const transientLights = [];
+	/** @type {Array<any>} */
 	const dustMotes = [];
 	let flickerTime = 0;
+	/** @type {Array<() => void>} */
 	let unsubs = [];
 
 	function ensureCanvas() {
@@ -114,7 +131,7 @@ const EmberlightDynamicLights = (() => {
 		}
 
 		if (typeof document !== "undefined") {
-			const sampleTile = document.querySelector("#overworld-grid .tile");
+			const sampleTile = /** @type {HTMLElement | null} */ (document.querySelector("#overworld-grid .tile"));
 			if (sampleTile) {
 				tileW = sampleTile.offsetWidth || 38;
 				tileH = sampleTile.offsetHeight || 30;
@@ -122,6 +139,9 @@ const EmberlightDynamicLights = (() => {
 		}
 	}
 
+	/**
+	 * @param {number} [time]
+	 */
 	function render(time = 0) {
 		if (!canvas || !ctx) return;
 		const rect = canvas.getBoundingClientRect
@@ -157,7 +177,6 @@ const EmberlightDynamicLights = (() => {
 			tileH,
 			offsetX,
 			offsetY,
-			canvas,
 		);
 
 		const isSubterranean = dungeonDepth > 0 || activeZoneType === "CRYPT";
@@ -220,6 +239,9 @@ const EmberlightDynamicLights = (() => {
 	}
 
 	return {
+		/**
+		 * @param {any} [bus]
+		 */
 		init(bus) {
 			this.destroy();
 			eventBus = bus;
@@ -231,7 +253,7 @@ const EmberlightDynamicLights = (() => {
 
 			if (eventBus && typeof eventBus.subscribe === "function") {
 				unsubs.push(
-					eventBus.subscribe("overworld:step", (payload) => {
+					eventBus.subscribe("overworld:step", (/** @type {any} */ payload) => {
 						const pos = payload?.pos;
 						const depth = payload?.depth ?? pos?.depth;
 						if (typeof depth === "number") dungeonDepth = depth;
@@ -246,7 +268,7 @@ const EmberlightDynamicLights = (() => {
 							);
 						}
 					}),
-					eventBus.subscribe("overworld:map_loaded", ({ map, depth, pos }) => {
+					eventBus.subscribe("overworld:map_loaded", (/** @type {any} */ { map, depth, pos }) => {
 						if (Array.isArray(map)) {
 							cachedMap = map;
 							resize();
@@ -263,7 +285,7 @@ const EmberlightDynamicLights = (() => {
 							cachedMap,
 						);
 					}),
-					eventBus.subscribe("combat:sfx", ({ sfx }) => {
+					eventBus.subscribe("combat:sfx", (/** @type {any} */ { sfx }) => {
 						const sx = targetPlayerX * tileW + tileW * 0.5;
 						const sy = targetPlayerY * tileH + tileH * 0.5;
 						if (sfx === "SPELL_BOLT") {
@@ -303,7 +325,7 @@ const EmberlightDynamicLights = (() => {
 					}),
 					eventBus.subscribe(
 						"overworld:transmute_request",
-						({ type, playerPos }) => {
+						(/** @type {any} */ { type, playerPos }) => {
 							const px = (playerPos?.x || targetPlayerX) * tileW + tileW * 0.5;
 							const py = (playerPos?.y || targetPlayerY) * tileH + tileH * 0.5;
 							if (type === "SCORCH") {
@@ -339,6 +361,10 @@ const EmberlightDynamicLights = (() => {
 			}
 		},
 
+		/**
+		 * @param {any} map
+		 * @param {any} [depth]
+		 */
 		setMap(map, depth) {
 			if (Array.isArray(map)) {
 				cachedMap = map;
@@ -355,6 +381,9 @@ const EmberlightDynamicLights = (() => {
 			}
 		},
 
+		/**
+		 * @param {any} depth
+		 */
 		setDepth(depth) {
 			if (typeof depth === "number") {
 				dungeonDepth = depth;
@@ -367,16 +396,30 @@ const EmberlightDynamicLights = (() => {
 			}
 		},
 
+		/**
+		 * @param {any} zone
+		 */
 		setZone(zone) {
 			activeZoneType = String(zone || "SURFACE").toUpperCase();
 		},
 
+		/**
+		 * @param {number} x
+		 * @param {number} y
+		 */
 		setTargetPosition(x, y) {
 			targetPlayerX = x;
 			targetPlayerY = y;
 			activeZoneType = evaluateZone(x, y, dungeonDepth, cachedMap);
 		},
 
+		/**
+		 * @param {number} x
+		 * @param {number} y
+		 * @param {number} radius
+		 * @param {string} colorRgb
+		 * @param {number} duration
+		 */
 		spawnFlare(x, y, radius, colorRgb, duration) {
 			const sx = x * tileW + tileW * 0.5;
 			const sy = y * tileH + tileH * 0.5;
@@ -420,6 +463,19 @@ const EmberlightDynamicLights = (() => {
 				transientLightCount: transientLights.length,
 				hasMap: Boolean(cachedMap),
 			};
+		},
+
+		getModuleInfo() {
+			return {
+				moduleId: "dynamic_lights",
+				version: "2.0.0",
+				protocolVersion: "VSRP-001",
+				capabilities: ["dynamic_lights", "occlusion_shadows", "dust_motes"],
+			};
+		},
+
+		getInfo() {
+			return this.getModuleInfo();
 		},
 
 		destroy() {

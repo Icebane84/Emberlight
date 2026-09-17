@@ -46,7 +46,7 @@
       "useRecentlyEdited": true,
       "useRecentlyOpened": true,
     },
-  "systemMessage": "Strictly enforce the 4-Tier Sovereign Architecture and VSRP-001 contract:\n1. Root Topology: All 34 runtime JavaScript files reside strictly at workspace root (./). Zero src/ prefixes.\n2. Faraday Boundary: Tier 2 simulation districts and Tier 4 kernels must NEVER touch DOM elements, window, document, canvas, or alert().\n3. Clocks & Timers: Zero setTimeout, setInterval, or unmanaged requestAnimationFrame in simulation.\n4. Deterministic Math: Zero Math.random(). Use EmberlightPRNG (Mulberry32) exclusively.\n5. Universal Export: Support both window.ModuleName and module.exports.",
+  "systemMessage": "Strictly enforce the 4-Tier Sovereign Architecture and VSRP-001 contract:\n1. Root Topology: All 34 runtime JavaScript files reside strictly at workspace root (./). Zero src/ prefixes.\n2. Faraday Boundary: Tier 2 simulation districts and Tier 4 kernels must NEVER touch DOM elements, window, document, canvas, or alert().\n3. Clocks & Timers: Zero setTimeout, setInterval, or unmanaged requestAnimationFrame in simulation.\n4. Deterministic Math: Zero Math.random(). Use (Mulberry32) exclusively.\n5. Universal Export: Support both window.ModuleName and module.exports.",
   "prompts":
     [
       { "name": "audit", "prompt": "file://.continue/prompts/audit.md" },

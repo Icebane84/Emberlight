@@ -45,7 +45,7 @@
  * @property {string} canonicalId Manifest canonical item identifier.
  * @property {number} cost Gold purchase cost.
  * @property {string} slot Equipment slot string.
- * @property {function(CanvasRenderingContext2D, number): void} draw Procedural drawing function.
+ * @property {(ctx: CanvasRenderingContext2D, size: number) => void} draw Procedural drawing function.
  */
 
 /**
@@ -59,8 +59,6 @@
  */
 
 const EmberlightRelicForgeRenderer = (() => {
-	'use strict';
-
 	//#region [SEC-01] Type Definitions, Module State & DOM/Emission Helpers
 	/**
 	 * Safely retrieves the relic forge view element from the DOM[cite: 6].
@@ -74,7 +72,7 @@ const EmberlightRelicForgeRenderer = (() => {
 	/**
 	 * Dispatches an action token via the provided dispatch callback[cite: 6].
 	 * (Action inversion dispatcher)
-	 * @param {function(RelicForgeActionToken): void} dispatch Dispatch handler function.
+	 * @param {(action: RelicForgeActionToken) => void} dispatch Dispatch handler function.
 	 * @param {RelicForgeActionToken} action Action payload object.
 	 * @returns {void}
 	 */
@@ -89,7 +87,7 @@ const EmberlightRelicForgeRenderer = (() => {
 	 * (State-mutating animation procedure)
 	 * @param {HTMLCanvasElement|null} canvas Canvas target element.
 	 * @param {number} seed Procedural math seed.
-	 * @param {function(): void} [onComplete] Callback triggered upon animation completion.
+	 * @param {(() => void)|null} [onComplete] Callback triggered upon animation completion.
 	 * @returns {void}
 	 */
 	function playForgeBurst(canvas, seed, onComplete) {
@@ -97,11 +95,12 @@ const EmberlightRelicForgeRenderer = (() => {
 			if (typeof onComplete === 'function') onComplete();
 			return;
 		}
-		const ctx = canvas.getContext('2d');
-		if (!ctx) {
+		const rawCtx = canvas.getContext('2d');
+		if (!rawCtx) {
 			if (typeof onComplete === 'function') onComplete();
 			return;
 		}
+		const ctx = rawCtx;
 		const w = canvas.width;
 		const h = canvas.height;
 		const cx = w / 2;
@@ -407,7 +406,7 @@ const EmberlightRelicForgeRenderer = (() => {
 		 * Renders the Relic Forge presentation interface and binds actions[cite: 6].
 		 * (State-mutating DOM presenter)
 		 * @param {RelicForgeState} state Active forge state snapshot.
-		 * @param {function(RelicForgeActionToken): void} dispatch Action dispatch handler.
+		 * @param {(action: RelicForgeActionToken) => void} dispatch Action dispatch handler.
 		 * @returns {void}
 		 */
 		renderRelicForge(state, dispatch) {

@@ -83,8 +83,8 @@ const EmberlightAcousticSFX = (() => {
 	/**
 	 * Synchronous EventBus consumer contract.
 	 * @typedef {Object} EventBusSubscriber
-	 * @property {function(string, function(any): void): function(): void} subscribe - Bus listener registry.
-	 * @property {function(string, any): void} [publish] - Bus event broadcaster.
+	 * @property {(event: string, handler: (payload?: any) => void) => (() => void)} subscribe - Bus listener registry.
+	 * @property {(event: string, payload?: any) => void} [publish] - Bus event broadcaster.
 	 */
 
 	/**
@@ -159,25 +159,30 @@ const EmberlightAcousticSFX = (() => {
 				ctx = new AudioCtx();
 
 				// Master Output Stage
-				masterGain = ctx.createGain();
-				masterGain.gain.setValueAtTime(isMuted ? 0.0 : 1.0, ctx.currentTime);
-				masterGain.connect(ctx.destination);
+				const mGain = ctx.createGain();
+				mGain.gain.setValueAtTime(isMuted ? 0.0 : 1.0, ctx.currentTime);
+				mGain.connect(ctx.destination);
 
 				// Parallel Dry and Wet Acoustic Busses
-				dryBus = ctx.createGain();
-				wetBus = ctx.createGain();
+				const dBus = ctx.createGain();
+				const wBus = ctx.createGain();
 				if (typeof ctx.createConvolver === "function") {
-					convolverNode = ctx.createConvolver();
-					convolverNode.connect(wetBus);
+					const cNode = ctx.createConvolver();
+					cNode.connect(wBus);
+					convolverNode = cNode;
 				}
 
-				dryBus.connect(masterGain);
-				wetBus.connect(masterGain);
+				dBus.connect(mGain);
+				wBus.connect(mGain);
+
+				masterGain = mGain;
+				dryBus = dBus;
+				wetBus = wBus;
 
 				// Pre-bake Algorithmic Impulse Buffers
 				bakeImpulseResponses();
 				applyZoneProfile(currentZone);
-			} catch (_) {
+			} catch {
 				// Ignored: AudioContext creation may fail if Web Audio is unsupported in mock or headless contexts
 				ctx = null;
 			}
@@ -305,9 +310,10 @@ const EmberlightAcousticSFX = (() => {
 		let panner = null;
 		if (typeof ctx.createStereoPanner === "function") {
 			try {
-				panner = ctx.createStereoPanner();
-				panner.pan.setValueAtTime(clampedPan, ctx.currentTime);
-			} catch (_) {
+				const localPanner = ctx.createStereoPanner();
+				localPanner.pan.setValueAtTime(clampedPan, ctx.currentTime);
+				panner = localPanner;
+			} catch {
 				// Ignored: StereoPannerNode instantiation can fail in headless or unsupported browser engines
 				panner = null;
 			}
@@ -392,7 +398,7 @@ const EmberlightAcousticSFX = (() => {
 	//#region [SEC-05] Canonical SFX Waveform Registry
 	/**
 	 * Authoritative procedural synthesizer definitions for game audio cues.
-	 * @type {Record<string, function(number=): void>}
+	 * @type {Record<string, (pan?: number) => void>}
 	 */
 	const SFX_REGISTRY = {
 		/**
@@ -668,7 +674,7 @@ const EmberlightAcousticSFX = (() => {
 		CHEST_OPEN: "SELECT",
 	});
 
-	/** @type {Array<function(): void>} */
+	/** @type {Array<() => void>} */
 	let cleanupCallbacks = [];
 	//#endregion
 
@@ -692,9 +698,10 @@ const EmberlightAcousticSFX = (() => {
 				 * @param {GenericSfxPayload} [payload={}]
 				 */
 				const handleGenericSfx = (payload = {}) => {
-					if (payload?.sfx || payload?.cue) {
+					const sfxKey = payload?.sfx || payload?.cue;
+					if (sfxKey) {
 						const pan = typeof payload.pan === "number" ? payload.pan : 0.0;
-						this.play(payload.sfx || payload.cue, pan);
+						this.play(sfxKey, pan);
 					}
 				};
 
@@ -855,8 +862,8 @@ const EmberlightAcousticSFX = (() => {
 
 //#region [SEC-08] Global Export & Dual-Binding Registration
 if (typeof window !== "undefined") {
-	window["EmberlightAcousticSFX"] = EmberlightAcousticSFX;
-	window["EmberlightAudio"] = EmberlightAcousticSFX;
+	window.EmberlightAcousticSFX = EmberlightAcousticSFX;
+	window.EmberlightAudio = EmberlightAcousticSFX;
 }
 if (typeof module !== "undefined" && module.exports) {
 	module.exports = EmberlightAcousticSFX;

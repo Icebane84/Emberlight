@@ -22,7 +22,6 @@
  * ============================================================================
  */
 
-// @ts-expect-error
 const EmberlightSpriteBaker = (() => {
 	//#region [SEC-01] Type Definitions & Contract Schemas
 	/**
@@ -42,8 +41,8 @@ const EmberlightSpriteBaker = (() => {
 
 	/**
 	 * @typedef {Object} SpriteBakerContext
-	 * @property {{ publish?: function(string, any): void }} [eventBus] - Host event bus reference.
-	 * @property {function(string, any): void} [publish] - Direct publication routine.
+	 * @property {{ publish?: (event: string, payload?: any) => void }} [eventBus] - Host event bus reference.
+	 * @property {(event: string, payload?: any) => void} [publish] - Direct publication routine.
 	 */
 
 	/**
@@ -572,11 +571,11 @@ const EmberlightSpriteBaker = (() => {
 	 * Renders modular cuirass, robe, and shoulder armor overlays.
 	 * State-mutating canvas composite procedure.
 	 * @param {string} armorId - Armor configuration token.
-	 * @param {string} facing - Facing orientation direction.
+	 * @param {string} _facing - Facing orientation direction.
 	 * @param {number} frame - Walk animation gait frame index.
 	 * @returns {void}
 	 */
-	function drawArmorOverlay(armorId, facing, frame) {
+	function drawArmorOverlay(armorId, _facing, frame) {
 		if (!workCtx || !armorId) return;
 		const isStep = frame % 2 === 1;
 		const bobY = isStep ? -0.75 : 0;

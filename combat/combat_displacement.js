@@ -6,12 +6,7 @@
  * Subsystem:           Tactical Row Physics, Vanguard Shielding, Interception, Knockback & Pull
  * ============================================================================
  */
-'use strict';
-
-if (typeof window !== 'undefined') {
-	window._CombatInternal = window._CombatInternal || {};
-}
-
+(() => {
 /**
  * Checks whether any conscious frontline units remain to block incoming attacks.
  * [Pure Query]
@@ -23,11 +18,11 @@ function isFrontRowAlive(sim, side) {
 	if (!sim) return false;
 	if (side === 'enemy') {
 		return sim.enemies.some(
-			(e) => e.alive && (e.row === 'FRONT' || e.row === 'BOTH'),
+			(/** @type {any} */ e) => e.alive && (e.row === 'FRONT' || e.row === 'BOTH'),
 		);
 	}
 	return sim.party.some(
-		(c) => c.alive && (c.row === 'FRONT' || c.row === 'BOTH'),
+		(/** @type {any} */ c) => c.alive && (c.row === 'FRONT' || c.row === 'BOTH'),
 	);
 }
 
@@ -59,10 +54,9 @@ function isTargetShielded(sim, target, side, attackType = 'PHYSICAL') {
  * @param {any} enemy - Original target.
  * @param {number} targetIndex - Original target index.
  * @param {boolean} isMelee - Physical melee indicator.
- * @param {function(string, string=):void} [appendLog] - Log helper.
- * @param {function(string):void} [dispatchSFX] - Audio helper.
- * @param {function(string, string, number, number):void} [triggerAnimation] - Animation trigger callback.
- * @param {boolean} [isHeadless=false] - Headless execution flag.
+ * @param {(msg: string, type?: string) => void} [appendLog] - Log helper.
+ * @param {(sfxName: string) => void} [dispatchSFX] - Audio helper.
+ * @param {(anim: string, side: string, idx: number, dur: number) => void} [triggerAnimation] - Animation trigger callback.
  * @returns {{ actualTarget: any, actualIndex: number, wasIntercepted: boolean }}
  */
 function applyInterception(
@@ -73,7 +67,6 @@ function applyInterception(
 	appendLog,
 	dispatchSFX,
 	triggerAnimation,
-	isHeadless = false,
 ) {
 	if (!sim) {
 		return {
@@ -84,12 +77,12 @@ function applyInterception(
 	}
 	if (isMelee && isTargetShielded(sim, enemy, 'enemy', 'PHYSICAL')) {
 		const livingFrontline = sim.enemies.filter(
-			(e) => e.alive && (e.row === 'FRONT' || e.row === 'BOTH'),
+			(/** @type {any} */ e) => e.alive && (e.row === 'FRONT' || e.row === 'BOTH'),
 		);
 		if (livingFrontline.length > 0) {
 			const actualTarget = livingFrontline[0];
 			const actualIndex = sim.enemies.findIndex(
-				(e) => e.id === actualTarget.id,
+				(/** @type {any} */ e) => e.id === actualTarget.id,
 			);
 			if (appendLog) {
 				appendLog(
@@ -98,7 +91,7 @@ function applyInterception(
 				);
 			}
 			if (dispatchSFX) dispatchSFX('RESIST');
-			if (!isHeadless && triggerAnimation) {
+			if (triggerAnimation) {
 				triggerAnimation('DEFLECT', 'enemy', targetIndex, 350);
 			}
 			return { actualTarget, actualIndex, wasIntercepted: true };
@@ -112,43 +105,16 @@ function applyInterception(
 }
 
 /**
- * Repositions target unit between Frontline and Rear Backline.
- * [Authoritative State Mutation]
- * @param {any} sim - Active simulation state.
- * @param {any} actor - Unit executing displacement.
- * @param {any} target - Unit being shifted.
- * @param {'KNOCKBACK'|'PULL'} displacementType - Displacement vector.
- * @param {boolean} isAllyTarget - Whether target belongs to party wing.
- * @param {function(string, string=):void} [appendLog] - Log helper.
- * @param {function(string):void} [dispatchSFX] - Audio helper.
- * @param {function(string, string, number, number):void} [triggerAnimation] - Animation trigger callback.
- * @param {boolean} [isHeadless=false] - Headless execution flag.
- * @returns {void}
+ * Applies knockback repositioning to backline.
+ * @param {any} target - Target unit.
+ * @param {string} side - Formation side.
+ * @param {number} targetIndex - Target position.
+ * @param {(msg: string, type?: string) => void} [appendLog] - Log helper.
+ * @param {(sfxName: string) => void} [dispatchSFX] - Audio helper.
+ * @param {(anim: string, side: string, idx: number, dur: number) => void} [triggerAnimation] - Animation callback.
  */
-function executeDisplacement(
-	sim,
-	actor,
-	target,
-	displacementType,
-	isAllyTarget,
-	appendLog,
-	dispatchSFX,
-	triggerAnimation,
-	isHeadless = false,
-) {
-	if (!sim || !target?.alive || target.isBoss || target.row === 'BOTH') {
-		return;
-	}
-
-	const side = isAllyTarget ? 'party' : 'enemy';
-	const targetIndex = isAllyTarget
-		? sim.party.findIndex((c) => c.id === target.id)
-		: sim.enemies.findIndex((e) => e.id === target.id);
-
-	if (
-		displacementType === 'KNOCKBACK' &&
-		(target.row === 'FRONT' || !target.row)
-	) {
+function applyKnockback(target, side, targetIndex, appendLog, dispatchSFX, triggerAnimation) {
+	if (target.row === 'FRONT' || !target.row) {
 		target.row = 'BACK';
 		if (appendLog) {
 			appendLog(
@@ -157,10 +123,23 @@ function executeDisplacement(
 			);
 		}
 		if (dispatchSFX) dispatchSFX('SWIFT_WHOOSH');
-		if (!isHeadless && triggerAnimation) {
+		if (triggerAnimation) {
 			triggerAnimation('KNOCKBACK', side, targetIndex, 450);
 		}
-	} else if (displacementType === 'PULL' && target.row === 'BACK') {
+	}
+}
+
+/**
+ * Applies pull repositioning to frontline.
+ * @param {any} target - Target unit.
+ * @param {string} side - Formation side.
+ * @param {number} targetIndex - Target position.
+ * @param {(msg: string, type?: string) => void} [appendLog] - Log helper.
+ * @param {(sfxName: string) => void} [dispatchSFX] - Audio helper.
+ * @param {(anim: string, side: string, idx: number, dur: number) => void} [triggerAnimation] - Animation callback.
+ */
+function applyPull(target, side, targetIndex, appendLog, dispatchSFX, triggerAnimation) {
+	if (target.row === 'BACK') {
 		target.row = 'FRONT';
 		if (appendLog) {
 			appendLog(
@@ -169,9 +148,46 @@ function executeDisplacement(
 			);
 		}
 		if (dispatchSFX) dispatchSFX('SWIFT_WHOOSH');
-		if (!isHeadless && triggerAnimation) {
+		if (triggerAnimation) {
 			triggerAnimation('PULL', side, targetIndex, 450);
 		}
+	}
+}
+
+/**
+ * Repositions target unit between Frontline and Rear Backline.
+ * [Authoritative State Mutation]
+ * @param {any} sim - Active simulation state.
+ * @param {any} target - Unit being shifted.
+ * @param {'KNOCKBACK'|'PULL'} displacementType - Displacement vector.
+ * @param {boolean} isAllyTarget - Whether target belongs to party wing.
+ * @param {(msg: string, type?: string) => void} [appendLog] - Log helper.
+ * @param {(sfxName: string) => void} [dispatchSFX] - Audio helper.
+ * @param {(anim: string, side: string, idx: number, dur: number) => void} [triggerAnimation] - Animation trigger callback.
+ * @returns {void}
+ */
+function executeDisplacement(
+	sim,
+	target,
+	displacementType,
+	isAllyTarget,
+	appendLog,
+	dispatchSFX,
+	triggerAnimation,
+) {
+	if (!sim || !target?.alive || target.isBoss || target.row === 'BOTH') {
+		return;
+	}
+
+	const side = isAllyTarget ? 'party' : 'enemy';
+	const targetIndex = isAllyTarget
+		? sim.party.findIndex((/** @type {any} */ c) => c.id === target.id)
+		: sim.enemies.findIndex((/** @type {any} */ e) => e.id === target.id);
+
+	if (displacementType === 'KNOCKBACK') {
+		applyKnockback(target, side, targetIndex, appendLog, dispatchSFX, triggerAnimation);
+	} else if (displacementType === 'PULL') {
+		applyPull(target, side, targetIndex, appendLog, dispatchSFX, triggerAnimation);
 	}
 }
 
@@ -189,3 +205,4 @@ if (typeof window !== 'undefined') {
 if (typeof module !== 'undefined' && module.exports) {
 	module.exports = CombatDisplacement;
 }
+})();

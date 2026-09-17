@@ -44,14 +44,24 @@
 if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInternal || {};
 
 (() => {
-  'use strict';
-
   // ─── Dependency Ingestion from Membrane ──────────────────────────────────
-  const { logAudit } = window._AuditorInternal.Kernel;
+  const membrane = /** @type {any} */ (
+    (typeof window !== 'undefined' ? window._AuditorInternal : null) ||
+    (typeof require !== 'undefined' ? {
+      Kernel: require('./auditor_kernel.js'),
+      Contracts: require('./auditor_contracts.js'),
+      DistrictSims: require('./auditor_district_sims.js'),
+      CombatExtended: require('./auditor_combat_extended.js'),
+      Persistence: require('./auditor_persistence.js'),
+      Constitutional: require('./auditor_constitutional.js'),
+    } : {})
+  );
+
+  const { logAudit } = membrane?.Kernel || {};
 
   const {
     runContractAndFaradayAudit,
-  } = window._AuditorInternal.Contracts;
+  } = membrane?.Contracts || {};
 
   const {
     runInSituCombatAudit,
@@ -61,25 +71,25 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
     runInSituLockpickAudit,
     runInSituRelicForgeAudit,
     runInSituPseudo3DAudit,
-  } = window._AuditorInternal.DistrictSims;
+  } = membrane?.DistrictSims || {};
 
   const {
     runSDCPCapabilityAudit,
     runInSituFormationShieldingAudit,
     runInSituBossAndAilmentAudit,
     runInSituDualPerspectiveAudit,
-  } = window._AuditorInternal.CombatExtended;
+  } = membrane?.CombatExtended || {};
 
   const {
     runPersistenceAndTeardownAudit,
     runCombatAestheticsAudit,
     runDistrictTransitionsAndChestAudit,
     runSurfacingAndLegibilityAudit,
-  } = window._AuditorInternal.Persistence;
+  } = membrane?.Persistence || {};
 
   const {
     runConstitutionalComplianceAudit,
-  } = window._AuditorInternal.Constitutional;
+  } = membrane?.Constitutional || {};
 
   // ─── Pass 18: Tactical Displacement & Row Invariance Battery ─────────────
 
@@ -87,18 +97,19 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
    * Verifies KNOCKBACK/PULL displacement mechanics and boss row immunity.
    * Verbatim from auditor.js:1745–1829.
    *
-   * @param {object} manifest - EmberlightManifest reference.
-   * @param {object|null} combatModule - EmberlightCombat factory (optional in headless harness).
+   * @param {unknown} manifest - EmberlightManifest reference.
+   * @param {unknown} combatModule - EmberlightCombat factory (optional in headless harness).
    * @returns {void}
    */
   function runTacticalDisplacementAudit(manifest, combatModule) {
     logAudit('=== PASS 18: Tactical Displacement & Row Invariance Battery ===', true);
-    if (!combatModule || typeof combatModule.createInstance !== 'function') {
+    const cm = /** @type {any} */ (combatModule);
+    if (!cm || typeof cm.createInstance !== 'function') {
       logAudit('[FAIL] Combat factory unavailable for Pass 18.', false);
       return;
     }
     try {
-      const testCombat = combatModule.createInstance({ isHeadless: true, autoRun: false });
+      const testCombat = cm.createInstance({ isHeadless: true, autoRun: false });
       testCombat.configure({ manifest });
       testCombat.init({ eventBus: { publish: () => {}, subscribe: () => {} } });
 
@@ -112,8 +123,8 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
       });
 
       const state = testCombat.getState();
-      const wolf = state.enemies.find((e) => e.key === 'SHADE_WOLF');
-      const archer = state.enemies.find((e) => e.key === 'BONE_ARCHER');
+      const wolf = state.enemies.find((/** @type {any} */ e) => e.key === 'SHADE_WOLF');
+      const archer = state.enemies.find((/** @type {any} */ e) => e.key === 'BONE_ARCHER');
 
       // 1. Initial State Assertions
       if (wolf.row !== 'FRONT' || archer.row !== 'BACK') {
@@ -121,7 +132,7 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
       }
 
       // 2. Test Knockback on Frontline Wolf -> Must become BACK
-      const wolfIdx = state.enemies.findIndex((e) => e.id === wolf.id);
+      const wolfIdx = state.enemies.findIndex((/** @type {any} */ e) => e.id === wolf.id);
       testCombat.handleHostAction({
         type: 'SKILL',
         targetIndex: wolfIdx,
@@ -129,14 +140,14 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
       });
 
       const stateAfterKnockback = testCombat.getState();
-      const postWolf = stateAfterKnockback.enemies.find((e) => e.id === wolf.id);
+      const postWolf = stateAfterKnockback.enemies.find((/** @type {any} */ e) => e.id === wolf.id);
       if (postWolf.row !== 'BACK') {
         throw new Error(`KNOCKBACK failed: Wolf row is ${postWolf.row}, expected BACK`);
       }
       logAudit('[PASS] Tactical Displacement: KNOCKBACK successfully relocated frontline unit to BACK.', true);
 
       // 3. Test Pull on Backline Archer -> Must become FRONT
-      const archerIdx = stateAfterKnockback.enemies.findIndex((e) => e.id === archer.id);
+      const archerIdx = stateAfterKnockback.enemies.findIndex((/** @type {any} */ e) => e.id === archer.id);
       testCombat.handleHostAction({
         type: 'SKILL',
         targetIndex: archerIdx,
@@ -144,14 +155,14 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
       });
 
       const stateAfterPull = testCombat.getState();
-      const postArcher = stateAfterPull.enemies.find((e) => e.id === archer.id);
+      const postArcher = stateAfterPull.enemies.find((/** @type {any} */ e) => e.id === archer.id);
       if (postArcher.row !== 'FRONT') {
         throw new Error(`PULL failed: Archer row is ${postArcher.row}, expected FRONT`);
       }
       logAudit('[PASS] Tactical Displacement: PULL successfully dragged backline unit to FRONT.', true);
 
       // 4. Test Boss Immunity Invariant
-      const bossCombat = combatModule.createInstance({ isHeadless: true, autoRun: false });
+      const bossCombat = cm.createInstance({ isHeadless: true, autoRun: false });
       bossCombat.configure({ manifest });
       bossCombat.init({ eventBus: { publish: () => {}, subscribe: () => {} } });
       bossCombat.reset({ party: mockParty, encounterKey: 'BOSS_MALAKOR' });
@@ -163,7 +174,7 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
       });
 
       const bossState = bossCombat.getState();
-      const boss = bossState.enemies.find((e) => e.isBoss);
+      const boss = bossState.enemies.find((/** @type {any} */ e) => e.isBoss);
       if (boss.row !== 'BOTH') {
         throw new Error(`Boss Immunity Violation: Malakor row mutated to ${boss.row}`);
       }
@@ -172,59 +183,84 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
       testCombat.destroy();
       bossCombat.destroy();
     } catch (err) {
-      logAudit(`[FAIL] Pass 18 Battery Error: ${err.message}`, false);
+      const msg = err instanceof Error ? err.message : String(err);
+      logAudit(`[FAIL] Pass 18 Battery Error: ${msg}`, false);
     }
   }
 
   // ─── Pass 19: Deep Analysis Mode & Tactical Terminal Canvas Battery ───────
 
   /**
+   * @param {any} sm
+   */
+  function auditStatusDeepTelemetry(sm) {
+    const mockParty = [
+      { id: 'hero_1', name: 'Valen', hp: 20, maxHp: 30, mp: 10, maxMp: 15, row: 'FRONT', ailments: ['POISON'], stats: { str: 10, dex: 8, int: 5, con: 12, agi: 7 } },
+      { id: 'hero_2', name: 'Lyra', hp: 18, maxHp: 18, mp: 25, maxMp: 25, row: 'BACK', ailments: [], stats: { str: 4, dex: 6, int: 14, con: 8, agi: 9 } },
+    ];
+    sm.reset({ party: mockParty, inventory: { POTION: 2, ANTIDOTE: 1 } });
+
+    // Test Row Shifting Action
+    sm.handleHostAction({ type: 'TOGGLE_ROW', characterId: 'hero_1' });
+    let st = sm.getState();
+    let valen = st.party.find((/** @type {any} */ c) => c.id === 'hero_1');
+    if (valen.row !== 'BACK') throw new Error(`Status TOGGLE_ROW failed: row is ${valen.row}`);
+
+    // Test Field Medical Suite Actions
+    sm.handleHostAction({ type: 'ADMINISTER_POTION', characterId: 'hero_1' });
+    st = sm.getState();
+    valen = st.party.find((/** @type {any} */ c) => c.id === 'hero_1');
+    if (valen.hp <= 20) throw new Error('Status ADMINISTER_POTION failed to restore HP');
+
+    sm.handleHostAction({ type: 'CLEANSE_AILMENTS', characterId: 'hero_1' });
+    st = sm.getState();
+    valen = st.party.find((/** @type {any} */ c) => c.id === 'hero_1');
+    if (valen.ailments.length !== 0) throw new Error('Status CLEANSE_AILMENTS failed to purge status ailments');
+
+    logAudit('[PASS] Status Deep Analysis: Biometric Telemetry, Row Engineering, and Field Medical actions validated.', true);
+  }
+
+  function auditRadarMath() {
+    const stats = /** @type {Record<string, number>} */ ({ str: 10, dex: 12, int: 14, con: 8, agi: 9 });
+    const axes = ['str', 'dex', 'int', 'con', 'agi'];
+    const points = axes.map((axis, i) => {
+      const angle = (Math.PI * 2 / 5) * i - Math.PI / 2;
+      const val = Math.min(20, Math.max(1, stats[axis] || 5));
+      const r = (val / 20) * 45;
+      return { x: 55 + r * Math.cos(angle), y: 55 + r * Math.sin(angle) };
+    });
+    if (points.length !== 5 || points.some(p => Number.isNaN(p.x) || Number.isNaN(p.y))) {
+      throw new Error('Pentagonal stat radar geometry generated invalid numeric coordinates.');
+    }
+    logAudit('[PASS] Tactical Terminal Canvas: Pentagonal radar projection & closed-circuit telemetry verified.', true);
+  }
+
+  /**
    * Verifies Status module deep telemetry, Armory paper-doll compositing,
    * and pentagonal radar geometry correctness (PRS-DES-027).
    * Verbatim from auditor.js:1831–1893.
    *
-   * @param {object} manifest - EmberlightManifest reference.
-   * @param {object|null} statusModule - EmberlightStatus module (optional).
-   * @param {object|null} armoryModule - EmberlightArmory module (optional, unused in body).
-   * @param {object|null} battlerDriver - EmberlightBattlerBaker driver (optional).
+   * @param {unknown} _manifest - EmberlightManifest reference.
+   * @param {unknown} statusModule - EmberlightStatus module (optional).
+   * @param {unknown} _armoryModule - EmberlightArmory module (optional).
+   * @param {unknown} battlerDriver - EmberlightBattlerBaker driver (optional).
    * @returns {void}
    */
-  function runDeepAnalysisWorkstationAudit(manifest, statusModule, armoryModule, battlerDriver) {
+  function runDeepAnalysisWorkstationAudit(_manifest, statusModule, _armoryModule, battlerDriver) {
     logAudit('=== PASS 19: Deep Analysis Mode & Workstation Architecture ===', true);
+    const sm = /** @type {any} */ (statusModule);
+    const bd = /** @type {any} */ (battlerDriver);
     try {
       // 1. Status Module Deep Telemetry & Formation Engineering
-      if (statusModule) {
-        const mockParty = [
-          { id: 'hero_1', name: 'Valen', hp: 20, maxHp: 30, mp: 10, maxMp: 15, row: 'FRONT', ailments: ['POISON'], stats: { str: 10, dex: 8, int: 5, con: 12, agi: 7 } },
-          { id: 'hero_2', name: 'Lyra', hp: 18, maxHp: 18, mp: 25, maxMp: 25, row: 'BACK', ailments: [], stats: { str: 4, dex: 6, int: 14, con: 8, agi: 9 } },
-        ];
-        statusModule.reset({ party: mockParty, inventory: { POTION: 2, ANTIDOTE: 1 } });
-
-        // Test Row Shifting Action
-        statusModule.handleHostAction({ type: 'TOGGLE_ROW', characterId: 'hero_1' });
-        let st = statusModule.getState();
-        let valen = st.party.find(c => c.id === 'hero_1');
-        if (valen.row !== 'BACK') throw new Error(`Status TOGGLE_ROW failed: row is ${valen.row}`);
-
-        // Test Field Medical Suite Actions
-        statusModule.handleHostAction({ type: 'ADMINISTER_POTION', characterId: 'hero_1' });
-        st = statusModule.getState();
-        valen = st.party.find(c => c.id === 'hero_1');
-        if (valen.hp <= 20) throw new Error('Status ADMINISTER_POTION failed to restore HP');
-
-        statusModule.handleHostAction({ type: 'CLEANSE_AILMENTS', characterId: 'hero_1' });
-        st = statusModule.getState();
-        valen = st.party.find(c => c.id === 'hero_1');
-        if (valen.ailments.length !== 0) throw new Error('Status CLEANSE_AILMENTS failed to purge status ailments');
-
-        logAudit('[PASS] Status Deep Analysis: Biometric Telemetry, Row Engineering, and Field Medical actions validated.', true);
+      if (sm) {
+        auditStatusDeepTelemetry(sm);
       } else {
         logAudit('[SKIP] Status module not supplied for Pass 19.', true);
       }
 
       // 2. Armory Paper-Doll Composite & Loadout Deficit Telemetry
-      if (battlerDriver) {
-        const compositeUrl = battlerDriver.get({ phenotype: 'HERO', weapon: 'IRON_SWORD', armor: 'IRON_ARMOR' });
+      if (bd) {
+        const compositeUrl = bd.get({ phenotype: 'HERO', weapon: 'IRON_SWORD', armor: 'IRON_ARMOR' });
         if (typeof compositeUrl !== 'string' || !compositeUrl.startsWith('data:image/png;base64,')) {
           throw new Error('Battler paper-doll composite synthesis failed to produce valid Base64 PNG data URL.');
         }
@@ -234,25 +270,25 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
       }
 
       // 3. Pentagonal Radar Math & Waveform Signal Integrity
-      const stats = { str: 10, dex: 12, int: 14, con: 8, agi: 9 };
-      const axes = ['str', 'dex', 'int', 'con', 'agi'];
-      const points = axes.map((axis, i) => {
-        const angle = (Math.PI * 2 / 5) * i - Math.PI / 2;
-        const val = Math.min(20, Math.max(1, stats[axis] || 5));
-        const r = (val / 20) * 45;
-        return { x: 55 + r * Math.cos(angle), y: 55 + r * Math.sin(angle) };
-      });
-      if (points.length !== 5 || points.some(p => Number.isNaN(p.x) || Number.isNaN(p.y))) {
-        throw new Error('Pentagonal stat radar geometry generated invalid numeric coordinates.');
-      }
-      logAudit('[PASS] Tactical Terminal Canvas: Pentagonal radar projection & closed-circuit telemetry verified.', true);
+      auditRadarMath();
 
     } catch (err) {
-      logAudit(`[FAIL] Pass 19 Deep Analysis Error: ${err.message}`, false);
+      const msg = err instanceof Error ? err.message : String(err);
+      logAudit(`[FAIL] Pass 19 Deep Analysis Error: ${msg}`, false);
     }
   }
 
   // ─── Presentation Viewport ────────────────────────────────────────────────
+
+  /**
+   * Helper to retrieve global scope object cleanly without nested ternaries.
+   * @returns {Record<string, any>}
+   */
+  function getGlobalScope() {
+    if (typeof window !== 'undefined') return /** @type {Record<string, any>} */ (window);
+    if (typeof globalThis !== 'undefined') return /** @type {Record<string, any>} */ (globalThis);
+    return /** @type {Record<string, any>} */ ({});
+  }
 
   /**
    * Renders the auditor result panel into #auditor-view.
@@ -260,11 +296,11 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
    * parameterized as (simRef, hostCtx) to remove closure dependency.
    * The facade calls this as: renderDefaultPresentation(sim, hostContext)
    *
-   * @param {object} simRef   - Live sim accumulator from the facade (facade's `sim` var).
-   * @param {object} hostCtx  - Live host context from the facade (facade's `hostContext` var).
+   * @param {any} [simRef]   - Live sim accumulator from the facade (facade's `sim` var).
+   * @param {any} [hostCtx]  - Live host context from the facade (facade's `hostContext` var).
    * @returns {void}
    */
-  function renderDefaultPresentation(simRef, hostCtx) {
+  function renderDefaultPresentation(simRef = null, hostCtx = null) {
     if (typeof document === 'undefined' || !simRef) return;
     const view = document.getElementById('auditor-view');
     if (!view) return;
@@ -294,14 +330,16 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
     `;
 
     const term = panel.querySelector('#audit-log-terminal');
-    simRef.auditLog.forEach((log) => {
-      const line = document.createElement('div');
-      line.style.color = log.passed ? 'var(--text)' : 'var(--danger)';
-      line.textContent = log.message;
-      term.appendChild(line);
-    });
+    if (term && Array.isArray(simRef.auditLog)) {
+      simRef.auditLog.forEach((/** @type {any} */ log) => {
+        const line = document.createElement('div');
+        line.style.color = log.passed ? 'var(--text)' : 'var(--danger)';
+        line.textContent = log.message;
+        term.appendChild(line);
+      });
+    }
 
-    const closeBtn = panel.querySelector('#close-auditor-btn');
+    const closeBtn = /** @type {HTMLButtonElement | null} */ (panel.querySelector('#close-auditor-btn'));
     if (closeBtn) {
       closeBtn.onclick = () => {
         if (hostCtx?.eventBus?.publish) {
@@ -319,67 +357,70 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
 
   /**
    * Verbatim from auditor.js:1944–1948.
-   * @param {object} targets - Registered module map.
+   * @param {any} targets - Registered module map.
    * @param {string} key     - Module key to resolve.
-   * @param {*} globalObj    - Fallback global value (pass `undefined` to skip).
+   * @param {any} globalObj    - Fallback global value (pass `undefined` to skip).
    * @returns {object|null}
    */
   function resolveTargetModule(targets, key, globalObj) {
-    if (targets?.[key]) return targets[key];
+    const t = /** @type {Record<string, unknown> | null} */ (targets);
+    if (t?.[key]) return /** @type {any} */ (t[key]);
     return globalObj !== undefined ? globalObj : null;
   }
 
   /**
    * Verbatim from auditor.js:1950–1956.
-   * @param {object} targets - Registered module map.
+   * @param {any} targets - Registered module map.
    * @returns {object|null}
    */
   function resolvePseudo3DTarget(targets) {
-    if (targets?.pseudo3d) return targets.pseudo3d;
-    if (targets?.pseudo3D) return targets.pseudo3D;
-    if (typeof EmberlightPseudo3D !== 'undefined') return EmberlightPseudo3D;
-    if (typeof EmberlightCorridorSensor !== 'undefined') return EmberlightCorridorSensor;
-    return null;
+    const t = /** @type {Record<string, unknown> | null} */ (targets);
+    if (t?.pseudo3d) return /** @type {any} */ (t.pseudo3d);
+    if (t?.pseudo3D) return /** @type {any} */ (t.pseudo3D);
+    const globalScope = getGlobalScope();
+    return globalScope.EmberlightPseudo3D || globalScope.EmberlightCorridorSensor || null;
   }
 
   /**
    * Verbatim from auditor.js:1958–1974.
-   * @param {object|null} snapshotDrivers - Driver map passed by caller (or null for auto-resolve).
-   * @returns {object}
+   * @param {unknown} snapshotDrivers - Driver map passed by caller (or null for auto-resolve).
+   * @returns {Record<string, any>}
    */
   function resolveDriverRegistry(snapshotDrivers) {
-    if (snapshotDrivers) return snapshotDrivers;
+    if (snapshotDrivers && typeof snapshotDrivers === 'object') return /** @type {Record<string, any>} */ (snapshotDrivers);
+    const globalScope = getGlobalScope();
     return {
-      acoustic: (typeof EmberlightAcousticSFX !== 'undefined') ? EmberlightAcousticSFX : null,
-      pseudo3d: (typeof EmberlightPseudo3D !== 'undefined') ? EmberlightPseudo3D : null,
-      lights: (typeof EmberlightDynamicLights !== 'undefined') ? EmberlightDynamicLights : null,
-      backdrop: (typeof EmberlightCombatBackdrop !== 'undefined') ? EmberlightCombatBackdrop : null,
-      combatRenderer: (typeof EmberlightCombatRenderer !== 'undefined') ? EmberlightCombatRenderer : null,
-      overworldRenderer: (typeof EmberlightOverworldRenderer !== 'undefined') ? EmberlightOverworldRenderer : null,
-      armoryRenderer: (typeof EmberlightArmoryRenderer !== 'undefined') ? EmberlightArmoryRenderer : null,
-      chronicleRenderer: (typeof EmberlightChronicleRenderer !== 'undefined') ? EmberlightChronicleRenderer : null,
-      progressionRenderer: (typeof EmberlightProgressionRenderer !== 'undefined') ? EmberlightProgressionRenderer : null,
-      marketRenderer: (typeof EmberlightMarketRenderer !== 'undefined') ? EmberlightMarketRenderer : null,
-      statusRenderer: (typeof EmberlightStatusRenderer !== 'undefined') ? EmberlightStatusRenderer : null,
-      relicForgeRenderer: (typeof EmberlightRelicForgeRenderer !== 'undefined') ? EmberlightRelicForgeRenderer : null,
-      cockpitRenderer: (typeof EmberlightCockpitRenderer !== 'undefined') ? EmberlightCockpitRenderer : null,
-      battler: (typeof EmberlightBattlerBaker !== 'undefined') ? EmberlightBattlerBaker : null,
-      input: (typeof EmberlightInput !== 'undefined') ? EmberlightInput : null,
+      acoustic: globalScope.EmberlightAcousticSFX || null,
+      pseudo3d: globalScope.EmberlightPseudo3D || null,
+      lights: globalScope.EmberlightDynamicLights || null,
+      backdrop: globalScope.EmberlightCombatBackdrop || null,
+      combatRenderer: globalScope.EmberlightCombatRenderer || null,
+      overworldRenderer: globalScope.EmberlightOverworldRenderer || null,
+      armoryRenderer: globalScope.EmberlightArmoryRenderer || null,
+      chronicleRenderer: globalScope.EmberlightChronicleRenderer || null,
+      progressionRenderer: globalScope.EmberlightProgressionRenderer || null,
+      marketRenderer: globalScope.EmberlightMarketRenderer || null,
+      statusRenderer: globalScope.EmberlightStatusRenderer || null,
+      relicForgeRenderer: globalScope.EmberlightRelicForgeRenderer || null,
+      cockpitRenderer: globalScope.EmberlightCockpitRenderer || null,
+      battler: globalScope.EmberlightBattlerBaker || null,
+      input: globalScope.EmberlightInput || null,
     };
   }
 
   /**
-   * Orchestrates all 19 audit passes in canonical order.
+   * Orchestrates all 21 audit passes in canonical order.
    * Verbatim from auditor.js:1976–2022, with pass dispatchers ingested from
    * membrane keys rather than closed-over locals.
    *
-   * @param {object} targets       - Registered simulation module map.
-   * @param {object} drivers       - Peripheral driver registry.
-   * @param {object} activeManifest - EmberlightManifest reference.
-   * @param {object} bus           - EventBus reference.
+   * @param {any} targets       - Registered simulation module map.
+   * @param {any} drivers       - Peripheral driver registry.
+   * @param {any} activeManifest - EmberlightManifest reference.
+   * @param {any} bus           - EventBus reference.
    * @returns {void}
    */
   function executeAuditPasses(targets, drivers, activeManifest, bus) {
+    const regDrivers = resolveDriverRegistry(drivers);
     const combatTarget = resolveTargetModule(targets, 'combat', typeof EmberlightCombat !== 'undefined' ? EmberlightCombat : undefined);
     const overworldTarget = resolveTargetModule(targets, 'overworld', typeof EmberlightOverworld !== 'undefined' ? EmberlightOverworld : undefined);
     const marketTarget = resolveTargetModule(targets, 'market', typeof EmberlightMarket !== 'undefined' ? EmberlightMarket : undefined);
@@ -387,8 +428,11 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
     const lockpickTarget = resolveTargetModule(targets, 'lockpick', typeof EmberlightLockpick !== 'undefined' ? EmberlightLockpick : undefined);
     const forgeTarget = resolveTargetModule(targets, 'relic_forge', typeof EmberlightRelicForge !== 'undefined' ? EmberlightRelicForge : undefined);
     const pseudo3dTarget = resolvePseudo3DTarget(targets);
+    const statusTarget = resolveTargetModule(targets, 'status', typeof EmberlightStatus !== 'undefined' ? EmberlightStatus : undefined);
+    const armoryTarget = resolveTargetModule(targets, 'armory', typeof EmberlightArmory !== 'undefined' ? EmberlightArmory : undefined);
+    const vfxTarget = typeof EmberlightCombatVFX !== 'undefined' ? EmberlightCombatVFX : null;
 
-    runContractAndFaradayAudit(targets, drivers, activeManifest);
+    runContractAndFaradayAudit(targets, regDrivers, activeManifest);
     runInSituCombatAudit(activeManifest, combatTarget, 20);
     runInSituOverworldAudit(activeManifest, overworldTarget);
     runInSituMarketAudit(activeManifest, marketTarget);
@@ -398,44 +442,76 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
     runInSituPseudo3DAudit(activeManifest, pseudo3dTarget);
     runSDCPCapabilityAudit(activeManifest, bus);
     runInSituFormationShieldingAudit(activeManifest, combatTarget);
-    runInSituBossAndAilmentAudit(
-      activeManifest,
-      combatTarget,
-      typeof EmberlightCombatVFX !== 'undefined' ? EmberlightCombatVFX : null
-    );
+    runInSituBossAndAilmentAudit(activeManifest, combatTarget, vfxTarget);
     runInSituDualPerspectiveAudit(activeManifest, pseudo3dTarget);
-    runPersistenceAndTeardownAudit(activeManifest, bus, drivers);
-    runCombatAestheticsAudit(
-      activeManifest,
-      drivers?.battler || (typeof EmberlightBattlerBaker !== 'undefined' ? EmberlightBattlerBaker : null),
-      drivers?.backdrop || (typeof EmberlightCombatBackdrop !== 'undefined' ? EmberlightCombatBackdrop : null)
-    );
-    runDistrictTransitionsAndChestAudit(
-      activeManifest,
-      overworldTarget,
-      drivers?.input || (typeof EmberlightInput !== 'undefined' ? EmberlightInput : null),
-      bus
-    );
+    runPersistenceAndTeardownAudit(activeManifest, bus, regDrivers);
+    runCombatAestheticsAudit(activeManifest, regDrivers.battler, regDrivers.backdrop);
+    runDistrictTransitionsAndChestAudit(activeManifest, overworldTarget, regDrivers.input, bus);
     runSurfacingAndLegibilityAudit(activeManifest);
-    runConstitutionalComplianceAudit(activeManifest, targets, drivers, bus);
+    runConstitutionalComplianceAudit(activeManifest, targets, regDrivers, bus);
     runTacticalDisplacementAudit(activeManifest, combatTarget);
-    runDeepAnalysisWorkstationAudit(
-      activeManifest,
-      resolveTargetModule(targets, 'status', typeof EmberlightStatus !== 'undefined' ? EmberlightStatus : undefined),
-      resolveTargetModule(targets, 'armory', typeof EmberlightArmory !== 'undefined' ? EmberlightArmory : undefined),
-      drivers?.battler || (typeof EmberlightBattlerBaker !== 'undefined' ? EmberlightBattlerBaker : null)
-    );
-    runWarTableSkeletonAndProjectionAudit(
-      activeManifest,
-      combatTarget,
-      drivers?.combat || (typeof EmberlightCombatRenderer !== 'undefined' ? EmberlightCombatRenderer : null),
-      bus
-    );
-    runCombatStationIntegrationAudit(
-      activeManifest,
-      combatTarget,
-      drivers?.combat || (typeof EmberlightCombatRenderer !== 'undefined' ? EmberlightCombatRenderer : null)
-    );
+    runDeepAnalysisWorkstationAudit(activeManifest, statusTarget, armoryTarget, regDrivers.battler);
+    runWarTableSkeletonAndProjectionAudit(activeManifest, combatTarget, regDrivers.combatRenderer, bus);
+    runCombatStationIntegrationAudit(activeManifest, combatTarget, regDrivers.combatRenderer);
+  }
+
+  /**
+   * Validates PMIP-001 envelope structure.
+   * @param {any} eventBus
+   */
+  function auditPmipEnvelope(eventBus) {
+    if (eventBus && typeof eventBus.createEnvelope === 'function') {
+      const env = eventBus.createEnvelope('combat:intent', 'auditor_test', { action: 'ATTACK' }, 42);
+      if (env.topic !== 'combat:intent' || env.source !== 'auditor_test' || env.tick !== 42 || !env.timestamp) {
+        throw new Error('PMIP-001 envelope structure corrupted or non-conforming.');
+      }
+      if (!Object.isFrozen(env)) {
+        throw new Error('PMIP-001 envelope is not frozen.');
+      }
+      logAudit('[PASS] PMIP-001: Typed event envelope formatting and freezing verified.', true);
+    } else {
+      logAudit('[FAIL] EventBus.createEnvelope interface missing.', false);
+    }
+  }
+
+  /**
+   * Validates 4-Quadrant DTO projection purity.
+   * @param {any} activeManifest
+   * @param {any} combatModule
+   */
+  function auditTriPartiteProjection(activeManifest, combatModule) {
+    if (combatModule && typeof combatModule.createInstance === 'function') {
+      const testCombat = combatModule.createInstance({ isHeadless: true, autoRun: false });
+      testCombat.configure({ manifest: activeManifest });
+      testCombat.init({ eventBus: { publish: () => {}, subscribe: () => {} } });
+      testCombat.reset({ party: [{ id: 'h1', name: 'Aldric', hp: 30, maxHp: 30, mp: 10, maxMp: 10, alive: true, row: 'FRONT' }] });
+
+      let capturedProjection = /** @type {any} */ (null);
+      const mockComposite = {
+        renderWarTable(/** @type {any} */ proj) {
+          capturedProjection = proj;
+        },
+        render() {},
+      };
+
+      testCombat.render(mockComposite);
+
+      if (!capturedProjection) {
+        throw new Error('renderWarTable did not receive projection DTO.');
+      }
+
+      if (!capturedProjection.q1Spatial || !capturedProjection.q2Clash || !capturedProjection.q3Oracle || !capturedProjection.q4Deck) {
+        throw new Error('4-Quadrant projection DTO missing canonical slices (q1Spatial, q2Clash, q3Oracle, q4Deck).');
+      }
+
+      if (!Object.isFrozen(capturedProjection.q1Spatial) || !Object.isFrozen(capturedProjection.q4Deck)) {
+        throw new Error('Projection DTO slices are not strictly deep-frozen.');
+      }
+
+      logAudit('[PASS] Tri-Partite Projection: 4 frozen DTO slices validated with zero state leakage.', true);
+    } else {
+      logAudit('[FAIL] Combat factory unavailable for Pass 20.', false);
+    }
   }
 
   // ─── Pass 20: 4-Quadrant War Table Skeleton & Projection Battery (AOP-WAR-TABLE-SKELETON-001) ───
@@ -443,63 +519,18 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
   /**
    * Verifies 4-Quadrant War Table topology invariance, PMIP-001 event envelopes, and DTO projection purity.
    *
-   * @param {object} activeManifest - EmberlightManifest reference.
-   * @param {object|null} combatModule - EmberlightCombat factory.
-   * @param {object|null} combatRenderer - EmberlightCombatRenderer.
-   * @param {object|null} eventBus - EmberlightEventBus.
+   * @param {unknown} activeManifest - EmberlightManifest reference.
+   * @param {unknown} combatModule - EmberlightCombat factory.
+   * @param {unknown} _combatRenderer - EmberlightCombatRenderer (unused).
+   * @param {unknown} eventBus - EmberlightEventBus.
    * @returns {void}
    */
-  function runWarTableSkeletonAndProjectionAudit(activeManifest, combatModule, combatRenderer, eventBus) {
+  function runWarTableSkeletonAndProjectionAudit(activeManifest, combatModule, _combatRenderer, eventBus) {
     logAudit('=== PASS 20: 4-Quadrant War Table Skeleton & Projection Battery ===', true);
 
     try {
-      // 1. PMIP-001 Typed Event Envelope Validation
-      if (eventBus && typeof eventBus.createEnvelope === 'function') {
-        const env = eventBus.createEnvelope('combat:intent', 'auditor_test', { action: 'ATTACK' }, 42);
-        if (env.topic !== 'combat:intent' || env.source !== 'auditor_test' || env.tick !== 42 || !env.timestamp) {
-          throw new Error('PMIP-001 envelope structure corrupted or non-conforming.');
-        }
-        if (!Object.isFrozen(env)) {
-          throw new Error('PMIP-001 envelope is not frozen.');
-        }
-        logAudit('[PASS] PMIP-001: Typed event envelope formatting and freezing verified.', true);
-      } else {
-        logAudit('[FAIL] EventBus.createEnvelope interface missing.', false);
-      }
-
-      // 2. Tri-Partite DTO Projection Purity Validation
-      if (combatModule && typeof combatModule.createInstance === 'function') {
-        const testCombat = combatModule.createInstance({ isHeadless: true, autoRun: false });
-        testCombat.configure({ manifest: activeManifest });
-        testCombat.init({ eventBus: { publish: () => {}, subscribe: () => {} } });
-        testCombat.reset({ party: [{ id: 'h1', name: 'Aldric', hp: 30, maxHp: 30, mp: 10, maxMp: 10, alive: true, row: 'FRONT' }] });
-
-        let capturedProjection = null;
-        const mockComposite = {
-          renderWarTable(proj) {
-            capturedProjection = proj;
-          },
-          render() {},
-        };
-
-        testCombat.render(mockComposite);
-
-        if (!capturedProjection) {
-          throw new Error('renderWarTable did not receive projection DTO.');
-        }
-
-        if (!capturedProjection.q1Spatial || !capturedProjection.q2Clash || !capturedProjection.q3Oracle || !capturedProjection.q4Deck) {
-          throw new Error('4-Quadrant projection DTO missing canonical slices (q1Spatial, q2Clash, q3Oracle, q4Deck).');
-        }
-
-        if (!Object.isFrozen(capturedProjection.q1Spatial) || !Object.isFrozen(capturedProjection.q4Deck)) {
-          throw new Error('Projection DTO slices are not strictly deep-frozen.');
-        }
-
-        logAudit('[PASS] Tri-Partite Projection: 4 frozen DTO slices validated with zero state leakage.', true);
-      } else {
-        logAudit('[FAIL] Combat factory unavailable for Pass 20.', false);
-      }
+      auditPmipEnvelope(eventBus);
+      auditTriPartiteProjection(activeManifest, combatModule);
 
       // 3. Topology Invariance Simulation
       if (typeof document !== 'undefined') {
@@ -513,30 +544,81 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
         }
       }
     } catch (err) {
-      logAudit(`[FAIL] Pass 20 War Table Skeleton Audit Error: ${err.message}`, false);
+      const msg = err instanceof Error ? err.message : String(err);
+      logAudit(`[FAIL] Pass 20 War Table Skeleton Audit Error: ${msg}`, false);
     }
   }
 
   // ─── Pass 21: 4-Quadrant Combat Station Integration Battery (AOP-COMBAT-STATION-002) ───
 
   /**
+   * @param {any} capturedProj
+   */
+  function auditCapturedProjection(capturedProj) {
+    // 1. Validate Q1 Spatial Projection
+    const q1 = capturedProj.q1Spatial;
+    if (!q1 || q1.gridDimensions?.cols !== 8 || q1.gridDimensions?.rows !== 6) {
+      throw new Error('Q1 spatial grid dimensions missing or invalid (expected 8x6).');
+    }
+    if (!Array.isArray(q1.partyFormation) || !Array.isArray(q1.enemyFormation) || !Array.isArray(q1.hazardTiles)) {
+      throw new TypeError('Q1 spatial formation or hazard arrays corrupted.');
+    }
+    if (!Array.isArray(q1.activeVectors) || q1.activeVectors.length === 0) {
+      throw new Error('Q1 knockback displacement trajectory vector not generated.');
+    }
+    logAudit('[PASS] Q1 Spatial Flank: 8x6 battle room grid, hazard walls, and knockback trajectory math verified.', true);
+
+    // 2. Validate Q3 Threat Oracle Intent Vectors
+    const q3 = capturedProj.q3Oracle;
+    if (!q3 || !Array.isArray(q3.threatVectors) || q3.threatVectors.length === 0) {
+      throw new Error('Q3 threat vectors array missing or empty.');
+    }
+    const firstVector = q3.threatVectors[0];
+    if (!firstVector.enemyId || !firstVector.targetHeroName) {
+      throw new Error('Q3 threat vector missing canonical enemy or targetHero properties.');
+    }
+    logAudit('[PASS] Q3 Threat Oracle: Intent vectors and elemental affinity telemetry streams validated.', true);
+
+    // 3. Validate Q4 Hero Chassis & Cards Grid
+    const q4 = capturedProj.q4Deck;
+    if (!q4 || !Array.isArray(q4.partyVitals) || q4.partyVitals.length !== 2) {
+      throw new Error('Q4 party vitals array invalid.');
+    }
+    if (typeof q4.activeHeroIndex !== 'number' || !q4.activeCharId) {
+      throw new Error('Q4 active turn index or active character ID missing.');
+    }
+    logAudit('[PASS] Q4 Hero Chassis: Physical hero cards, live vital gauges, and active turn elevation verified.', true);
+  }
+
+  function auditCombatStationDOM() {
+    if (typeof document !== 'undefined') {
+      const spatialCanvas = document.getElementById('combat-spatial-canvas');
+      const heroChassisGrid = document.getElementById('combat-hero-chassis-grid');
+      const heroRadial = document.getElementById('combat-hero-radial');
+      if (spatialCanvas && heroChassisGrid && heroRadial) {
+        logAudit('[PASS] Combat Station DOM: Dedicated spatial canvas, 3-tier oracle, and hero chassis anchors validated.', true);
+      }
+    }
+  }
+
+  /**
    * Verifies Q1 spatial coordinates/trajectory math, Q3 intent vectors, Q4 hero chassis, and DOM anchors.
    *
-   * @param {object} activeManifest - EmberlightManifest reference.
-   * @param {object|null} combatModule - EmberlightCombat factory.
-   * @param {object|null} combatRenderer - EmberlightCombatRenderer.
+   * @param {unknown} activeManifest - EmberlightManifest reference.
+   * @param {unknown} combatModule - EmberlightCombat factory.
+   * @param {unknown} _combatRenderer - EmberlightCombatRenderer (unused).
    * @returns {void}
    */
-  function runCombatStationIntegrationAudit(activeManifest, combatModule, combatRenderer) {
+  function runCombatStationIntegrationAudit(activeManifest, combatModule, _combatRenderer) {
     logAudit('=== PASS 21: 4-Quadrant Combat Station Integration Battery ===', true);
-
-    if (!combatModule || typeof combatModule.createInstance !== 'function') {
+    const cm = /** @type {any} */ (combatModule);
+    if (!cm || typeof cm.createInstance !== 'function') {
       logAudit('[FAIL] Combat factory unavailable for Pass 21.', false);
       return;
     }
 
     try {
-      const testCombat = combatModule.createInstance({ isHeadless: true, autoRun: false });
+      const testCombat = cm.createInstance({ isHeadless: true, autoRun: false });
       testCombat.configure({ manifest: activeManifest });
       testCombat.init({ eventBus: { publish: () => {}, subscribe: () => {} } });
 
@@ -554,9 +636,9 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
         skill: { id: 'shield_bash', label: 'Shield Bash', displacement: { type: 'KNOCKBACK', tiles: 2 } },
       });
 
-      let capturedProj = null;
+      let capturedProj = /** @type {any} */ (null);
       testCombat.render({
-        renderWarTable(proj) {
+        renderWarTable(/** @type {any} */ proj) {
           capturedProj = proj;
         },
         render() {},
@@ -566,57 +648,17 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
         throw new Error('renderWarTable did not receive projection.');
       }
 
-      // 1. Validate Q1 Spatial Projection
-      const q1 = capturedProj.q1Spatial;
-      if (!q1 || q1.gridDimensions?.cols !== 8 || q1.gridDimensions?.rows !== 6) {
-        throw new Error('Q1 spatial grid dimensions missing or invalid (expected 8x6).');
-      }
-      if (!Array.isArray(q1.partyFormation) || !Array.isArray(q1.enemyFormation) || !Array.isArray(q1.hazardTiles)) {
-        throw new Error('Q1 spatial formation or hazard arrays corrupted.');
-      }
-      if (!Array.isArray(q1.activeVectors) || q1.activeVectors.length === 0) {
-        throw new Error('Q1 knockback displacement trajectory vector not generated.');
-      }
-      logAudit('[PASS] Q1 Spatial Flank: 8x6 battle room grid, hazard walls, and knockback trajectory math verified.', true);
-
-      // 2. Validate Q3 Threat Oracle Intent Vectors
-      const q3 = capturedProj.q3Oracle;
-      if (!q3 || !Array.isArray(q3.threatVectors) || q3.threatVectors.length === 0) {
-        throw new Error('Q3 threat vectors array missing or empty.');
-      }
-      const firstVector = q3.threatVectors[0];
-      if (!firstVector.enemyId || !firstVector.targetHeroName) {
-        throw new Error('Q3 threat vector missing canonical enemy or targetHero properties.');
-      }
-      logAudit('[PASS] Q3 Threat Oracle: Intent vectors and elemental affinity telemetry streams validated.', true);
-
-      // 3. Validate Q4 Hero Chassis & Cards Grid
-      const q4 = capturedProj.q4Deck;
-      if (!q4 || !Array.isArray(q4.partyVitals) || q4.partyVitals.length !== 2) {
-        throw new Error('Q4 party vitals array invalid.');
-      }
-      if (typeof q4.activeHeroIndex !== 'number' || !q4.activeCharId) {
-        throw new Error('Q4 active turn index or active character ID missing.');
-      }
-      logAudit('[PASS] Q4 Hero Chassis: Physical hero cards, live vital gauges, and active turn elevation verified.', true);
-
-      // 4. Validate DOM Anchors
-      if (typeof document !== 'undefined') {
-        const spatialCanvas = document.getElementById('combat-spatial-canvas');
-        const heroChassisGrid = document.getElementById('combat-hero-chassis-grid');
-        const heroRadial = document.getElementById('combat-hero-radial');
-        if (spatialCanvas && heroChassisGrid && heroRadial) {
-          logAudit('[PASS] Combat Station DOM: Dedicated spatial canvas, 3-tier oracle, and hero chassis anchors validated.', true);
-        }
-      }
+      auditCapturedProjection(capturedProj);
+      auditCombatStationDOM();
     } catch (err) {
-      logAudit(`[FAIL] Pass 21 Combat Station Integration Error: ${err.message}`, false);
+      const msg = err instanceof Error ? err.message : String(err);
+      logAudit(`[FAIL] Pass 21 Combat Station Integration Error: ${msg}`, false);
     }
   }
 
   // ─── Staging Membrane Export ──────────────────────────────────────────────
 
-  window._AuditorInternal.Endgame = Object.freeze({
+  const Endgame = Object.freeze({
     runTacticalDisplacementAudit,
     runDeepAnalysisWorkstationAudit,
     runWarTableSkeletonAndProjectionAudit,
@@ -627,4 +669,11 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
     resolveDriverRegistry,
     executeAuditPasses,
   });
+
+  if (typeof window !== 'undefined' && window._AuditorInternal) {
+    window._AuditorInternal.Endgame = Endgame;
+  }
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = Endgame;
+  }
 })();

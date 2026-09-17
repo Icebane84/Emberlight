@@ -9,12 +9,7 @@
  */
 
 const EmberlightManifest = (() => {
-	const root =
-		typeof window !== "undefined"
-			? window
-			: typeof global !== "undefined"
-				? global
-				: globalThis;
+	const root = /** @type {any} */ (typeof window !== "undefined" ? window : globalThis);
 	let internal = root._ManifestInternal;
 	if (!internal && typeof require === "function") {
 		try {
@@ -52,6 +47,7 @@ const EmberlightManifest = (() => {
 		Curves,
 		PartyRoster,
 		Phenotypes,
+		Classes: Phenotypes,
 		Items,
 		Enemies,
 		Encounters,
@@ -70,8 +66,6 @@ const EmberlightManifest = (() => {
 		computeCharacterStats,
 		getResolvedMap,
 	};
-
-	manifest.Classes = manifest.Phenotypes;
 
 	/**
 	 * Recursively freezes an object tree to guarantee strict runtime immutability[cite: 10].
@@ -94,10 +88,10 @@ const EmberlightManifest = (() => {
 })();
 
 if (typeof window !== "undefined") {
-	delete window._ManifestInternal;
-	window["EmberlightManifest"] = EmberlightManifest;
-} else if (typeof global !== "undefined") {
-	delete global._ManifestInternal;
+	delete (/** @type {any} */ (window))._ManifestInternal;
+	window.EmberlightManifest = EmberlightManifest;
+} else if (typeof globalThis !== "undefined") {
+	delete (/** @type {any} */ (globalThis))._ManifestInternal;
 }
 if (typeof module !== "undefined" && module.exports) {
 	module.exports = EmberlightManifest;

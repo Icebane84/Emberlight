@@ -123,7 +123,7 @@ Audit, detect, and neutralize all memory isolation leaks, forbidden DOM referenc
 
 5. EXECUTION DIRECTIVES:
 1. Scan TARGET_FILE line-by-line for illegal DOM and browser globals. Replace with host context signals or delegate to corresponding Tier 3 renderer.
-2. Scan for global unseeded Math.random(). Replace with EmberlightPRNG methods (prng.nextFloat(), prng.choice()).
+2. Scan for global unseeded Math.random(). Replace with methods (prng.nextFloat(), prng.choice()).
 3. Verify reset(snapshot) uses structuredClone(snapshot) for deep copy isolation.
 4. Verify update(dt, context) treats context.inputs as read-only (index iteration only; zero queue mutations).
 5. Verify all user interactions are accepted via handleHostAction(action) and emit normalized resolution deltas over EventBus.

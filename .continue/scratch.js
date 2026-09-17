@@ -64,7 +64,7 @@ Replace Sections[SEC-02], [SEC-03], and[SEC-06] with this bulletproofed patch:
 /**
  * Primary high-frequency loop driving isolated simulation ticks.
  * State-mutating procedure: Calculates frame timing deltas and steps active simulation sub-engines.
- * 
+ *
  * @param {DOMHighResTimeStamp} [timestamp] - Continuous high-resolution hardware frame timestamp.
  * @returns {void}
  */
@@ -104,7 +104,7 @@ const hostTick = (timestamp = (typeof performance !== 'undefined' ? performance.
 /**
  * Resolves the active terrain grid map based on current overworld position and environment flags.
  * Pure calculation procedure.
- * 
+ *
  * @returns {string[][] | null} Matrix array representing active layout grids.
  */
 const getActiveWorldMap = () => {
@@ -127,7 +127,7 @@ const getActiveWorldMap = () => {
 /**
  * Asserts collision boundaries and path verification for coordinate points.
  * Pure validation procedure.
- * 
+ *
  * @param {string[][]} map - Targeted map matrix structure.
  * @param {{x: number, y: number}} pos - Target coordinate packet to inspect.
  * @returns {boolean} True if coordinates represent an unobstructed path.
@@ -149,7 +149,7 @@ const commitWorldUpdate = (reason) => { commitSession(reason || 'WorldStateUpdat
 /**
  * Toggles full-pane workspace deck layout configurations across Quadrant 4 domains.
  * State-mutating procedure: Flushes keyboard intercept states and clears competing expansion rigs.
- * 
+ *
  * @param {boolean} [forceState] - Optional explicit toggle configuration override.
  * @returns {void}
  */
@@ -186,7 +186,7 @@ const toggleQ4DeckExpansion = (forceState) => {
 /**
  * Expands the First-Person Corridor Sensor viewport to occupy the upper display canvas matrix.
  * State-mutating procedure: Re-allocates density parameters and collapses competing deck setups.
- * 
+ *
  * @param {boolean} [forceState] - Optional explicit toggle immersion configuration override.
  * @returns {void}
  */
@@ -230,7 +230,7 @@ const toggle3DViewportExpansion = (forceState) => {
 /**
  * Fallback escape handler managing back-step configurations for modal layouts.
  * State-mutating procedure.
- * 
+ *
  * @returns {void}
  */
 const handleCancelAction = () => {
@@ -279,7 +279,7 @@ const normalizeDistrictName = (d) => {
 /**
  * Switches focus layouts and rehydrates variables using deep isolation rules.
  * State-mutating procedure: Drives target sub-tenant setup structures.
- * 
+ *
  * @param {string} targetDistrict - Target workspace directory node name.
  * @param {Object} [_metadata] - Optional additional transition tracking variables.
  * @returns {void}
@@ -396,7 +396,7 @@ const evaluateTileTrigger = (pos, facingPos = null, isInteraction = false) => {
 	const facingTile = facingPos ? (worldMap[facingPos.y]?.[facingPos.x] || null) : null;
 	const manifest = typeof EmberlightManifest !== 'undefined' ? EmberlightManifest : {};
 	const dungeonGen = typeof EmberlightDungeonGen !== 'undefined' ? EmberlightDungeonGen : null;
-	const prng = typeof EmberlightPRNG !== 'undefined' ? EmberlightPRNG.create(stepCounter + 1337) : null;
+	const prng = typeof !== 'undefined' ? EmberlightPRNG.create(stepCounter + 1337) : null;
 	const res = Ecology.evaluateTileTrigger({
 		isInteraction, pos, facingPos, facingTile, currentTile,
 		townId: getTownId(), dungeonDepth: getDungeonDepth(), macroPos: getMacroPos(),

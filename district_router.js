@@ -15,7 +15,6 @@
  *   [SEC-06] Global Export & Dual-Binding
  * ============================================================================
  */
-
 const EmberlightDistrictRouter = (() => {
 	//#region [SEC-01] Module State & View Registry
 	/**
@@ -31,26 +30,26 @@ const EmberlightDistrictRouter = (() => {
 	 */
 
 	/**
-	 * @typedef {Record<string, function(any=): void>} HostDistrictHandlers
+	 * @typedef {Record<string, (payload?: any) => void>} HostDistrictHandlers
 	 */
 
 	/**
 	 * @typedef {Object} HostInitContext
 	 * @property {Object} [eventBus]
-	 * @property {function(string, any=): void} [eventBus.publish]
-	 * @property {function(string, function(any): void): void} [eventBus.subscribe]
+	 * @property {(event: string, payload?: any) => void} [eventBus.publish]
+	 * @property {(event: string, handler: (payload: any) => void) => void} [eventBus.subscribe]
 	 * @property {Object} [sessionStore]
-	 * @property {function(): any} [sessionStore.getSnapshot]
+	 * @property {() => any} [sessionStore.getSnapshot]
 	 * @property {HostDistrictHandlers} [handlers]
 	 */
 
 	/**
 	 * @typedef {Object} HostExecutionContext
-	 * @property {function(): void} [resumeOverworld]
+	 * @property {() => void} [resumeOverworld]
 	 * @property {boolean} [isQ4DeckExpanded]
-	 * @property {function(boolean): void} [toggleQ4DeckExpansion]
+	 * @property {(expanded?: boolean) => void} [toggleQ4DeckExpansion]
 	 * @property {boolean} [is3DViewExpanded]
-	 * @property {function(boolean): void} [toggle3DViewportExpansion]
+	 * @property {(expanded?: boolean) => void} [toggle3DViewportExpansion]
 	 * @property {HostDistrictHandlers} [handlers]
 	 * @property {any} [snapshot]
 	 */
@@ -72,7 +71,13 @@ const EmberlightDistrictRouter = (() => {
 	 */
 
 	let activeDistrict = "TITLE";
+	/**
+	 * @type {any}
+	 */
 	let eventBusRef = null;
+	/**
+	 * @type {any}
+	 */
 	let sessionStoreRef = null;
 	/** @type {HostDistrictHandlers} */
 	let hostDistrictHandlers = {};
@@ -329,7 +334,7 @@ const EmberlightDistrictRouter = (() => {
 	 * Registers custom host district navigation handlers.
 	 * State-mutating procedure.
 	 *
-	 * @param {HostDistrictHandlers} handlers - Host handler map.
+	 * @param {HostDistrictHandlers | any} handlers - Host handler map.
 	 * @returns {void}
 	 */
 	function registerHandlers(handlers) {
@@ -342,7 +347,7 @@ const EmberlightDistrictRouter = (() => {
 	 * Coordinates escape / cancel hotkey routing across modals and expanded viewports.
 	 * State-mutating procedure.
 	 *
-	 * @param {HostExecutionContext} [context={}] - Active host runtime execution context.
+	 * @param {HostExecutionContext | any} [context={}] - Active host runtime execution context.
 	 * @returns {void}
 	 */
 	function handleCancelAction(context = {}) {
@@ -418,7 +423,7 @@ const EmberlightDistrictRouter = (() => {
 	 * Pure state resolution procedure.
 	 *
 	 * @param {string} district - Active district identifier.
-	 * @param {Partial<NormalizedStateSnapshot>} [snapshot] - Optional snapshot override.
+	 * @param {Partial<NormalizedStateSnapshot> | any} [snapshot] - Optional snapshot override.
 	 * @returns {{ rawSnapshot: any, normalized: NormalizedStateSnapshot }}
 	 */
 	function resolveNormalizedSnapshot(district, snapshot) {
@@ -553,7 +558,7 @@ const EmberlightDistrictRouter = (() => {
 	 * @returns {void}
 	 */
 	function dispatchTenantRender(district, activeSnapshot, hostContext) {
-		const renderer = TENANT_RENDERERS[district];
+		const renderer = TENANT_RENDERERS[ district ];
 		if (renderer) {
 			renderer(activeSnapshot, hostContext);
 		}
@@ -583,7 +588,7 @@ const EmberlightDistrictRouter = (() => {
 	 *
 	 * @param {string} rawDistrict - Target district name.
 	 * @param {string} [activeViewId] - Optional specific DOM view identifier.
-	 * @param {Partial<NormalizedStateSnapshot>} [snapshot] - Optional state snapshot override.
+	 * @param {Partial<NormalizedStateSnapshot> | any} [snapshot] - Optional state snapshot override.
 	 * @returns {void}
 	 */
 	function switchDistrict(rawDistrict, activeViewId, snapshot) {
@@ -627,14 +632,14 @@ const EmberlightDistrictRouter = (() => {
 	 *
 	 * @param {string} district - Target district name.
 	 * @param {any} [payload] - Optional navigation payload data.
-	 * @param {HostExecutionContext} [context] - Optional navigation context.
+	 * @param {HostExecutionContext | any} [context] - Optional navigation context.
 	 * @returns {void}
 	 */
 	function mountDistrict(district, payload, context) {
 		if (activeDistrict === "COMBAT" || activeDistrict === "GAME_OVER") return;
 
 		const handler =
-			context?.handlers?.[district] || hostDistrictHandlers[district];
+			context?.handlers?.[ district ] || hostDistrictHandlers[ district ];
 		if (typeof handler === "function") {
 			handler(payload);
 		} else {
@@ -659,7 +664,7 @@ const EmberlightDistrictRouter = (() => {
 		 * Initializes district router with host event bus, store, and handler bindings.
 		 * State-mutating lifecycle gateway.
 		 *
-		 * @param {HostInitContext} [context] - Host initialization context.
+		 * @param {HostInitContext | any} [context] - Host initialization context.
 		 * @returns {void}
 		 */
 		init(context) {
@@ -687,7 +692,10 @@ const EmberlightDistrictRouter = (() => {
 						if (rawNav === "POUCH") {
 							if (typeof hostDistrictHandlers.togglePouch === "function") {
 								hostDistrictHandlers.togglePouch();
-							} else if (typeof GameRuntime !== "undefined") {
+							} else if (
+								typeof GameRuntime !== "undefined" &&
+								typeof GameRuntime.handleInputAction === "function"
+							) {
 								GameRuntime.handleInputAction("MENU_POUCH");
 							}
 							return;

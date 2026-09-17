@@ -7,8 +7,6 @@
  * ============================================================================
  */
 
-'use strict';
-
 if (typeof window !== 'undefined') {
 	window._Pseudo3DInternal = window._Pseudo3DInternal || {};
 }

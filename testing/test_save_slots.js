@@ -6,47 +6,49 @@
  * ============================================================================
  */
 
-const assert = require('assert');
-const fs = require('fs');
-const path = require('path');
-const vm = require('vm');
+const assert = require('node:assert');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
 
 console.log('=== TEST SUITE: MULTI-SLOT PERSISTENCE & ARCHIVES ===');
 
 // Mock DOM / Browser Environment
 class MockStorage {
-  constructor() {
-    this.store = {};
-  }
-  getItem(k) {
-    return Object.prototype.hasOwnProperty.call(this.store, k) ? this.store[k] : null;
-  }
-  setItem(k, v) {
-    this.store[k] = String(v);
-  }
-  removeItem(k) {
-    delete this.store[k];
-  }
-  clear() {
-    this.store = {};
-  }
+	constructor() {
+		this.store = {};
+	}
+	getItem(k) {
+		return Object.hasOwn(this.store, k) ? this.store[ k ] : null;
+	}
+	setItem(k, v) {
+		this.store[ k ] = String(v);
+	}
+	removeItem(k) {
+		delete this.store[ k ];
+	}
+	clear() {
+		this.store = {};
+	}
 }
 
 const mockLocalStorage = new MockStorage();
 const sandbox = {
-  window: {},
-  document: {
-    getElementById: () => null,
-    querySelectorAll: () => [],
-    createElement: () => ({ classList: { add: () => {}, remove: () => {} }, style: {} }),
-  },
-  localStorage: mockLocalStorage,
-  console: console,
-  setTimeout: setTimeout,
-  clearTimeout: clearTimeout,
-  Math: Math,
-  Date: Date,
-  JSON: JSON,
+	window: {},
+	document: {
+		getElementById: () => null,
+		querySelectorAll: () => [],
+		createElement: () => ({ classList: { add: () => { }, remove: () => { } }, style: {} }),
+	},
+	localStorage: mockLocalStorage,
+	console: console,
+	setTimeout: setTimeout,
+	clearTimeout: clearTimeout,
+	Math: Math,
+	Date: Date,
+	addEventListener: () => { },
+	removeEventListener: () => { },
+	structuredClone: typeof structuredClone !== 'undefined' ? structuredClone : (x) => structuredClone(x),
 };
 sandbox.window = sandbox;
 
@@ -55,26 +57,34 @@ const context = vm.createContext(sandbox);
 // Load SSOT modules in dependency order
 const baseDir = path.resolve(__dirname, '..');
 const loadOrder = [
-  'manifest/manifest_config.js',
-  'manifest/manifest_actors.js',
-  'manifest/manifest_items.js',
-  'manifest/manifest_progression.js',
-  'manifest/manifest_world.js',
-  'manifest/manifest_narrative.js',
-  'manifest/manifest_calculators.js',
-  'manifest.js',
-  'prng.js',
-  'save_manager.js',
-  'session_store.js',
-  'event_bus.js',
-  'acoustic_sfx.js',
-  'district_router.js',
-  'runtime.js'
+	'manifest/manifest_config.js',
+	'manifest/manifest_actors.js',
+	'manifest/manifest_items.js',
+	'manifest/manifest_progression.js',
+	'manifest/manifest_world.js',
+	'manifest/manifest_narrative.js',
+	'manifest/manifest_calculators.js',
+	'manifest.js',
+	'prng.js',
+	'save_manager.js',
+	'session_store.js',
+	'event_bus.js',
+	'acoustic_sfx.js',
+	'district_router.js',
+	'runtime/runtime_state.js',
+	'runtime/runtime_presentation.js',
+	'runtime/runtime_interactions.js',
+	'runtime/runtime_navigation.js',
+	'runtime/runtime_stepper.js',
+	'runtime/runtime_events.js',
+	'runtime.js'
 ];
 
 loadOrder.forEach((file) => {
-  const code = fs.readFileSync(path.join(baseDir, file), 'utf8');
-  vm.runInContext(code, context);
+	const filePath = path.join(baseDir, file);
+	const code = fs.readFileSync(filePath, 'utf8');
+	const script = new vm.Script(code, { filename: file }); // NOSONAR: Headless VM sandbox loading for sovereign test execution
+	script.runInContext(context);
 });
 
 const saveMgr = context.window.EmberlightSaveManager;
@@ -83,6 +93,7 @@ const runtime = context.window.GameRuntime;
 
 assert.ok(saveMgr, 'EmberlightSaveManager must be exported');
 assert.ok(sessionStore, 'EmberlightSessionStore must be exported');
+assert.ok(runtime, 'GameRuntime must be exported');
 
 // Test 1: Initial Empty Slot Listing
 console.log('\n--- Test 1: Initial Empty Slot Listing ---');
@@ -90,10 +101,10 @@ mockLocalStorage.clear();
 const initialSlots = saveMgr.listSlots();
 assert.strictEqual(initialSlots.length, 4, 'Must report exactly 4 slots');
 const slotIds = initialSlots.map(s => String(s.id));
-assert.strictEqual(slotIds[0], 'SLOT_1');
-assert.strictEqual(slotIds[1], 'SLOT_2');
-assert.strictEqual(slotIds[2], 'SLOT_3');
-assert.strictEqual(slotIds[3], 'AUTO_SAVE');
+assert.strictEqual(slotIds[ 0 ], 'SLOT_1');
+assert.strictEqual(slotIds[ 1 ], 'SLOT_2');
+assert.strictEqual(slotIds[ 2 ], 'SLOT_3');
+assert.strictEqual(slotIds[ 3 ], 'AUTO_SAVE');
 assert.ok(initialSlots.every(s => s.exists === false), 'All slots must initially be empty');
 assert.strictEqual(saveMgr.hasSave(), false, 'hasSave() must be false when empty');
 assert.strictEqual(saveMgr.getMostRecentSlotId(), 'SLOT_1', 'Default most recent slot is SLOT_1');
@@ -104,41 +115,41 @@ console.log('\n--- Test 2: Multi-Slot Isolation & Discrete Persistence ---');
 
 // Slot 1: Gold 100, Wilderness
 const snap1 = {
-  canonicalParty: [{ id: 'hero', name: 'Aldric', phenotype: 'HERO', level: 1, hp: 30, maxHp: 30, mp: 10, maxMp: 10, alive: true }],
-  canonicalGold: 150,
-  canonicalInventory: { POTION: 2 },
-  canonicalWorldPos: { x: 5, y: 5 },
-  canonicalTownId: null,
-  canonicalDungeonDepth: 0
+	canonicalParty: [ { id: 'hero', name: 'Aldric', phenotype: 'HERO', level: 1, hp: 30, maxHp: 30, mp: 10, maxMp: 10, alive: true } ],
+	canonicalGold: 150,
+	canonicalInventory: { POTION: 2 },
+	canonicalWorldPos: { x: 5, y: 5 },
+	canonicalTownId: null,
+	canonicalDungeonDepth: 0
 };
 assert.strictEqual(saveMgr.save(snap1, 'SLOT_1'), true, 'Save to SLOT_1 must succeed');
 
 // Slot 2: Gold 500, Oakhaven Hamlet
 const snap2 = {
-  canonicalParty: [
-    { id: 'hero', name: 'Aldric', phenotype: 'HERO', level: 3, hp: 45, maxHp: 45, mp: 15, maxMp: 15, alive: true },
-    { id: 'warrior', name: 'Brogan', phenotype: 'WARRIOR', level: 3, hp: 60, maxHp: 60, mp: 8, maxMp: 8, alive: true }
-  ],
-  canonicalGold: 500,
-  canonicalInventory: { POTION: 5, ETHER: 2 },
-  canonicalWorldPos: { x: 3, y: 7 },
-  canonicalTownId: 'OAKHAVEN',
-  canonicalDungeonDepth: 0
+	canonicalParty: [
+		{ id: 'hero', name: 'Aldric', phenotype: 'HERO', level: 3, hp: 45, maxHp: 45, mp: 15, maxMp: 15, alive: true },
+		{ id: 'warrior', name: 'Brogan', phenotype: 'WARRIOR', level: 3, hp: 60, maxHp: 60, mp: 8, maxMp: 8, alive: true }
+	],
+	canonicalGold: 500,
+	canonicalInventory: { POTION: 5, ETHER: 2 },
+	canonicalWorldPos: { x: 3, y: 7 },
+	canonicalTownId: 'OAKHAVEN',
+	canonicalDungeonDepth: 0
 };
 assert.strictEqual(saveMgr.save(snap2, 'SLOT_2'), true, 'Save to SLOT_2 must succeed');
 
 // Slot 3: Gold 1200, Catacombs Floor 2
 const snap3 = {
-  canonicalParty: [
-    { id: 'hero', name: 'Aldric', phenotype: 'HERO', level: 6, hp: 65, maxHp: 65, mp: 25, maxMp: 25, alive: true },
-    { id: 'warrior', name: 'Brogan', phenotype: 'WARRIOR', level: 6, hp: 90, maxHp: 90, mp: 12, maxMp: 12, alive: true },
-    { id: 'mage', name: 'Selene', phenotype: 'MAGE', level: 6, hp: 40, maxHp: 40, mp: 45, maxMp: 45, alive: true }
-  ],
-  canonicalGold: 1200,
-  canonicalInventory: { POTION: 8, ETHER: 4, PHOENIX_EMBER: 1 },
-  canonicalWorldPos: { x: 8, y: 2 },
-  canonicalTownId: null,
-  canonicalDungeonDepth: 2
+	canonicalParty: [
+		{ id: 'hero', name: 'Aldric', phenotype: 'HERO', level: 6, hp: 65, maxHp: 65, mp: 25, maxMp: 25, alive: true },
+		{ id: 'warrior', name: 'Brogan', phenotype: 'WARRIOR', level: 6, hp: 90, maxHp: 90, mp: 12, maxMp: 12, alive: true },
+		{ id: 'mage', name: 'Selene', phenotype: 'MAGE', level: 6, hp: 40, maxHp: 40, mp: 45, maxMp: 45, alive: true }
+	],
+	canonicalGold: 1200,
+	canonicalInventory: { POTION: 8, ETHER: 4, PHOENIX_EMBER: 1 },
+	canonicalWorldPos: { x: 8, y: 2 },
+	canonicalTownId: null,
+	canonicalDungeonDepth: 2
 };
 assert.strictEqual(saveMgr.save(snap3, 'SLOT_3'), true, 'Save to SLOT_3 must succeed');
 
@@ -200,13 +211,13 @@ console.log('\n--- Test 6: Legacy Migration from EMBERLIGHT_SAVE_V1 ---');
 saveMgr.clear();
 mockLocalStorage.clear();
 const legacyData = {
-  version: '1.0.0',
-  timestamp: '2026-01-01T00:00:00.000Z',
-  party: [{ id: 'hero', name: 'LegacyHero', phenotype: 'HERO', level: 5, hp: 50, maxHp: 50, mp: 20, maxMp: 20, alive: true }],
-  gold: 777,
-  inventory: { POTION: 3 },
-  worldPos: { x: 2, y: 4 },
-  flags: { tutorialDone: true }
+	version: '1.0.0',
+	timestamp: '2026-01-01T00:00:00.000Z',
+	party: [ { id: 'hero', name: 'LegacyHero', phenotype: 'HERO', level: 5, hp: 50, maxHp: 50, mp: 20, maxMp: 20, alive: true } ],
+	gold: 777,
+	inventory: { POTION: 3 },
+	worldPos: { x: 2, y: 4 },
+	flags: { tutorialDone: true }
 };
 mockLocalStorage.setItem('EMBERLIGHT_SAVE_V1', JSON.stringify(legacyData));
 

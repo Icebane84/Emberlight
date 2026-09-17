@@ -18,9 +18,8 @@
 if (typeof window !== 'undefined') window._BattlerBakerInternal = window._BattlerBakerInternal || {};
 
 (() => {
-	'use strict';
-
-	const { P, rect, rr, poly, line, ellipse, diamond, ground, glow, spec } = window._BattlerBakerInternal.Primitives || (typeof require !== 'undefined' ? require('./battler_primitives.js') : {});
+	const primitives = /** @type {any} */ (window._BattlerBakerInternal?.Primitives || (typeof require !== 'undefined' ? require('./battler_primitives.js') : {}));
+	const { P, rect, rr, poly, line, ellipse, diamond, ground, glow, spec } = primitives;
 
 	//#region [SEC-05] Enemy Battler Silhouette Bakers
 	/**

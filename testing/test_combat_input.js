@@ -321,5 +321,46 @@ runtime.handlePointerContextDown({ button: 2, clientX: 500, clientY: 300, target
 assert.strictEqual(runtime.is3DViewExpanded(), true, '3D view should remain expanded after RMB mousedown');
 console.log('[PASS] Test 14: In 3D Fullscreen mode, RMB spawns 3D_SENSOR radial without collapsing fullscreen');
 
+// Test 15: Q1 Radial Factory (Physical Geometry)
+const combatRenderer = context.window.EmberlightCombatRenderer;
+assert.ok(combatRenderer, 'EmberlightCombatRenderer must be present');
+const q1Config = combatRenderer.buildQ1RadialConfig(2, 3, { id: 'h1', row: 'FRONT', alive: true }, null);
+assert.strictEqual(q1Config.centerIcon, '🌐', 'Q1 Center icon must be 🌐');
+assert.strictEqual(q1Config.north.label, 'ROW SHIFT', 'Q1 North must be ROW SHIFT');
+assert.strictEqual(q1Config.east.label, 'STEER KNOCKBACK', 'Q1 East must be STEER KNOCKBACK');
+assert.strictEqual(q1Config.south.label, 'BARRICADE', 'Q1 South must be BARRICADE');
+assert.strictEqual(q1Config.west.label, 'DETONATE', 'Q1 West must be DETONATE');
+console.log('[PASS] Test 15: Q1 Spatial Kinematics Radial Config asserts 4 cardinal physical geometry descriptors');
+
+// Test 16: Q2 Radial Factory (Kinetic Confrontation)
+const mockHit = { index: 0, enemy: { id: 'e1', name: 'Goblin' } };
+const mockCombatState = { party: [{ id: 'h1', name: 'Aldric' }], enemies: [{ id: 'e1', name: 'Goblin', alive: true }] };
+const q2Config = combatRenderer.buildQ2RadialConfig(mockHit, mockCombatState);
+assert.strictEqual(q2Config.centerIcon, '⚔️', 'Q2 Center icon must be ⚔️');
+assert.ok(q2Config.north.label.includes('STRIKE'), 'Q2 North must be STRIKE');
+assert.strictEqual(q2Config.east.label, 'POSTURE BREAK', 'Q2 East must be POSTURE BREAK');
+assert.strictEqual(q2Config.south.label, 'FOCUS BEACON', 'Q2 South must be FOCUS BEACON');
+assert.strictEqual(q2Config.west.label, 'VULN SCAN', 'Q2 West must be VULN SCAN');
+console.log('[PASS] Test 16: Q2 Kinetic Confrontation Radial Config asserts 4 direct strike & beacon descriptors');
+
+// Test 17: Q3 Radial Factory (Chrono-Acoustic Timeline Interception)
+const q3Config = combatRenderer.buildQ3RadialConfig({ entityId: 'e1', id: 'e1' }, mockCombatState);
+assert.strictEqual(q3Config.centerIcon, '⏱️', 'Q3 Center icon must be ⏱️');
+assert.strictEqual(q3Config.north.label, 'DELAY STRIKE', 'Q3 North must be DELAY STRIKE');
+assert.strictEqual(q3Config.east.label, 'PHASE TUNE', 'Q3 East must be PHASE TUNE');
+assert.strictEqual(q3Config.south.label, 'PRE-EMPT BRACE', 'Q3 South must be PRE-EMPT BRACE');
+assert.strictEqual(q3Config.west.label, 'CHRONICLE AUDIT', 'Q3 West must be CHRONICLE AUDIT');
+console.log('[PASS] Test 17: Q3 Chrono-Acoustic Radial Config asserts timeline interception descriptors');
+
+// Test 18: Q4 Radial Factory (Squad Deck & Logistics)
+const q4Config = combatRenderer.buildQ4RadialConfig({ id: 'h1', name: 'Aldric' }, { id: 'e1', name: 'Goblin' }, [{ id: 'slash', name: 'Slash' }]);
+assert.strictEqual(q4Config.centerIcon, '⚔️', 'Q4 Center icon must be ⚔️');
+assert.strictEqual(q4Config.north.label, 'STRIKE', 'Q4 North must be STRIKE');
+assert.strictEqual(q4Config.east.label, 'SKILLS', 'Q4 East must be SKILLS');
+assert.strictEqual(q4Config.south.label, 'GUARD', 'Q4 South must be GUARD');
+assert.strictEqual(q4Config.west.label, 'POUCH', 'Q4 West must be POUCH');
+console.log('[PASS] Test 18: Q4 Squad Deck Radial Config asserts stance and loadout descriptors');
+
 console.log('=== ALL COMBAT & RMB INPUT VERIFICATION TESTS PASSED ===');
 process.exit(0);
+

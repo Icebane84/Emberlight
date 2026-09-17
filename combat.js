@@ -27,9 +27,10 @@
 
 const EmberlightCombat = (() => {
 	// Ingest private subsystems from MPFS-001 staging membrane
+	/** @type {any} */
 	const _mem =
 		(typeof window !== "undefined" && window._CombatInternal) ||
-		(typeof globalThis !== "undefined" && globalThis._CombatInternal) ||
+		(typeof globalThis !== "undefined" && (/** @type {any} */ (globalThis))._CombatInternal) ||
 		{};
 
 	const {
@@ -52,18 +53,25 @@ const EmberlightCombat = (() => {
 		DESTROYED: "DESTROYED",
 	};
 
+	/** @type {(obj: any) => any} */
 	const deepFreeze = CombatState.deepFreeze || ((obj) => Object.freeze(obj));
+	/** @type {() => any} */
 	const createDefaultState = CombatState.createDefaultState || (() => ({}));
+	/** @type {(p: any) => any} */
 	const hydratePartySnapshot =
 		CombatState.hydratePartySnapshot || ((p) => p || []);
+	/** @type {(t: any, logFn?: any) => boolean} */
 	const checkUnitDefeat = CombatState.checkUnitDefeat || (() => false);
+	/** @type {(sim: any, outcome: any, hostCtx?: any) => void} */
 	const finishBattle = CombatState.finishBattle || (() => { });
+
+	const DIRECTIONAL_COMMANDS = new Set(["UP", "DOWN", "LEFT", "RIGHT"]);
 
 	/**
 	 * Factory producing an isolated, VSRP-001 compliant combat simulation instance.
 	 * [State Mutating / Factory Constructor]
-	 * @param {Object} [instanceOptions={}] - Configuration options.
-	 * @returns {Object} Combat simulation tenant instance.
+	 * @param {{ isHeadless?: boolean, autoRun?: boolean, [key: string]: any }} [instanceOptions={}] - Configuration options.
+	 * @returns {Record<string, any>} Combat simulation tenant instance.
 	 */
 	function createInstance(instanceOptions = {}) {
 		const isHeadless = Boolean(instanceOptions.isHeadless);
@@ -81,14 +89,17 @@ const EmberlightCombat = (() => {
 		let capabilities = null;
 		/** @type {any} */
 		let sim = null;
-		/** @type {Array<{ fn: function():void, remainingMs: number }>} */
+		/** @type {Array<{ fn: () => void, remainingMs: number }>} */
 		let scheduledTasks = [];
-		/** @type {Array<function():void>} */
+		/** @type {Array<() => void>} */
 		let headlessEventQueue = [];
-		/** @type {function():void|null} */
+		/** @type {(() => void) | null} */
 		let intentUnsub = null;
 		let lastProcessedIntentId = "";
 
+		/**
+		 * @param {...string} allowed
+		 */
 		function assertLifecycle(...allowed) {
 			if (!allowed.includes(lifecycleState)) {
 				throw new Error(
@@ -105,6 +116,10 @@ const EmberlightCombat = (() => {
 			);
 		}
 
+		/**
+		 * @param {string} eventName
+		 * @param {any} [payload]
+		 */
 		function publish(eventName, payload) {
 			if (isHeadless) return;
 			if (capabilities?.publishCombatEvent) {
@@ -114,6 +129,9 @@ const EmberlightCombat = (() => {
 			}
 		}
 
+		/**
+		 * @param {string} sfxName
+		 */
 		function dispatchSFX(sfxName) {
 			publish("combat:sfx", { sfx: sfxName });
 		}
@@ -133,12 +151,20 @@ const EmberlightCombat = (() => {
 			return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 		}
 
+		/**
+		 * @param {string} msg
+		 * @param {string} [type]
+		 */
 		function appendLog(msg, type = "system") {
 			if (!sim) return;
 			sim.log.push({ msg, type });
 			publish("combat:log", { msg, type });
 		}
 
+		/**
+		 * @param {() => void} fn
+		 * @param {number} delayMs
+		 */
 		function schedule(fn, delayMs) {
 			if (isHeadless) {
 				headlessEventQueue.push(fn);
@@ -147,6 +173,10 @@ const EmberlightCombat = (() => {
 			}
 		}
 
+		/**
+		 * @param {boolean} isParty
+		 * @param {number} index
+		 */
 		function triggerAttackerLunge(isParty, index) {
 			publish("combat:animation", {
 				animation: "LUNGE",
@@ -156,6 +186,9 @@ const EmberlightCombat = (() => {
 			});
 		}
 
+		/**
+		 * @param {number} index
+		 */
 		function triggerChannelingSurge(index) {
 			publish("combat:animation", {
 				animation: "CHANNEL",
@@ -165,6 +198,11 @@ const EmberlightCombat = (() => {
 			});
 		}
 
+		/**
+		 * @param {string} side
+		 * @param {number} index
+		 * @param {string} displacementType
+		 */
 		function triggerDisplacementVisual(side, index, displacementType) {
 			publish("combat:animation", {
 				animation: displacementType,
@@ -182,7 +220,7 @@ const EmberlightCombat = (() => {
 					? EmberlightCombatRenderer
 					: null);
 			if (activeRenderer?.render) {
-				activeRenderer.render(structuredClone(sim), (act) =>
+				activeRenderer.render(structuredClone(sim), (/** @type {any} */ act) =>
 					Actions.handleViewAction(sim, act, getHelpers()),
 				);
 			}
@@ -195,7 +233,7 @@ const EmberlightCombat = (() => {
 				appendLog,
 				hostContext,
 				renderPresentation,
-				finishBattle: (outcome) => finishBattle(sim, outcome, hostContext),
+				finishBattle: (/** @type {any} */ outcome) => finishBattle(sim, outcome, hostContext),
 				isHeadless,
 				autoRun,
 				schedule,
@@ -203,6 +241,10 @@ const EmberlightCombat = (() => {
 			});
 		}
 
+		/**
+		 * @param {any} node
+		 * @param {(val: number) => void} onComplete
+		 */
 		function renderHarmonicChannelingStage(node, onComplete) {
 			const channelerDriver =
 				hostContext?.combatRenderer?.startHarmonicChanneling;
@@ -227,32 +269,66 @@ const EmberlightCombat = (() => {
 				getRandomFloat,
 				publish,
 				hostContext,
-				checkUnitDefeat: (t) => checkUnitDefeat(t, appendLog),
+				checkUnitDefeat: (/** @type {any} */ t) => checkUnitDefeat(t, appendLog),
 				checkBattleEnd,
 				renderPresentation,
 				schedule,
 				stepTurn: () => Orchestrator.stepTurn(sim, getHelpers()),
-				finishBattle: (s, outcome) => finishBattle(s, outcome, hostContext),
+				finishBattle: (/** @type {any} */ s, /** @type {any} */ outcome) => finishBattle(s, outcome, hostContext),
 				getActiveManifest,
 				isHeadless,
 				autoRun,
-				playerExecuteAttack: (idx) =>
+				playerExecuteAttack: (/** @type {number} */ idx) =>
 					Actions.playerExecuteAttack(sim, idx, getHelpers()),
 				renderHarmonicChannelingStage,
 				getLastProcessedIntentId: () => lastProcessedIntentId,
-				setLastProcessedIntentId: (id) => {
+				setLastProcessedIntentId: (/** @type {string} */ id) => {
 					lastProcessedIntentId = id;
 				},
 			};
 		}
 
+		/**
+		 * @param {string} act
+		 */
+		function dispatchChoiceAction(act) {
+			const num = Number.parseInt(act.replace("CHOICE_", ""), 10);
+			if (num >= 1 && num <= 4) {
+				Actions.handleChoiceIndex(sim, num, getHelpers());
+			}
+		}
+
+		/**
+		 * @param {any} actObj
+		 */
+		function dispatchSkillAction(actObj) {
+			const skill = actObj.skillNode ?? actObj.skill ?? sim?.pendingSkill;
+			if (!skill) return;
+			const targetIdx =
+				typeof actObj.targetIndex === "number" ? actObj.targetIndex : 0;
+			const isAlly = Boolean(actObj.isAlly);
+			Actions.playerExecuteSkill(
+				sim,
+				skill,
+				targetIdx,
+				isAlly,
+				getHelpers(),
+			);
+		}
+
 		return {
+			/**
+			 * @param {any} cfg
+			 */
 			configure(cfg) {
 				assertLifecycle(State.UNCONFIGURED);
 				hostConfig = deepFreeze({ ...cfg });
 				lifecycleState = State.CONFIGURED;
 			},
 
+			/**
+			 * @param {any} [context]
+			 */
 			init(context) {
 				assertLifecycle(State.CONFIGURED);
 				hostContext = context;
@@ -262,9 +338,9 @@ const EmberlightCombat = (() => {
 					capabilities = context.capabilities;
 				} else {
 					capabilities = {
-						publishCombatEvent: (event, payload) =>
+						publishCombatEvent: (/** @type {string} */ event, /** @type {any} */ payload) =>
 							hostContext?.eventBus?.publish?.(event, payload),
-						subscribeCombatIntent: (handler) =>
+						subscribeCombatIntent: (/** @type {any} */ handler) =>
 							hostContext?.eventBus?.subscribe?.(
 								"combat:intent_action",
 								handler,
@@ -278,7 +354,7 @@ const EmberlightCombat = (() => {
 				}
 
 				if (capabilities.subscribeCombatIntent) {
-					intentUnsub = capabilities.subscribeCombatIntent((payload) => {
+					intentUnsub = capabilities.subscribeCombatIntent((/** @type {any} */ payload) => {
 						Actions.handleViewAction(sim, payload, getHelpers());
 					});
 				}
@@ -286,6 +362,9 @@ const EmberlightCombat = (() => {
 				lifecycleState = State.INITIALIZED;
 			},
 
+			/**
+			 * @param {any} [snapshot]
+			 */
 			reset(snapshot) {
 				assertLifecycle(State.INITIALIZED, State.READY, State.RUNNING);
 				scheduledTasks = [];
@@ -302,8 +381,8 @@ const EmberlightCombat = (() => {
 					sim.roundCount = 0;
 					sim.party = hydratePartySnapshot(snapshot.party || []);
 
-					if (!sim.party.some((c) => c.alive) && sim.party.length > 0) {
-						sim.party.forEach((c) => {
+					if (!sim.party.some((/** @type {any} */ c) => c.alive) && sim.party.length > 0) {
+						sim.party.forEach((/** @type {any} */ c) => {
 							c.alive = true;
 							c.hp = c.maxHp || 30;
 						});
@@ -316,7 +395,7 @@ const EmberlightCombat = (() => {
 
 				appendLog("Battle commenced!", "ember");
 
-				if (sim.enemies.some((e) => e.isBoss)) {
+				if (sim.enemies.some((/** @type {any} */ e) => e.isBoss)) {
 					publish("combat:banner", {
 						text: "⚔️ BOSS ENCOUNTER ⚔️",
 						subtext: "Malakor descends from the catacomb ashes!",
@@ -339,6 +418,10 @@ const EmberlightCombat = (() => {
 				}
 			},
 
+			/**
+			 * @param {number} dt
+			 * @param {any} [context]
+			 */
 			update(dt, context) {
 				assertLifecycle(State.READY, State.RUNNING);
 				lifecycleState = State.RUNNING;
@@ -371,70 +454,58 @@ const EmberlightCombat = (() => {
 				}
 			},
 
+			/**
+			 * @param {any} action
+			 */
 			handleHostAction(action) {
 				if (!sim) return;
 				const actObj = typeof action === "string" ? { type: action } : action;
-				const act = actObj.type;
+				const act = actObj?.type;
 				if (!act) return;
 
 				if (act.startsWith("CHOICE_")) {
-					const num = Number.parseInt(act.replace("CHOICE_", ""), 10);
-					if (num >= 1 && num <= 4) {
-						Actions.handleChoiceIndex(sim, num, getHelpers());
-						return;
-					}
+					dispatchChoiceAction(act);
+					return;
 				}
 
-				if (
-					act === "UP" ||
-					act === "DOWN" ||
-					act === "LEFT" ||
-					act === "RIGHT"
-				) {
+				if (DIRECTIONAL_COMMANDS.has(act)) {
 					Actions.handleDirectionalNav(sim, act, getHelpers());
 					return;
 				}
 
 				if (act === "SKILL") {
-					const skill = actObj.skillNode ?? actObj.skill ?? sim.pendingSkill;
-					if (skill) {
-						const targetIdx =
-							typeof actObj.targetIndex === "number" ? actObj.targetIndex : 0;
-						const isAlly = Boolean(actObj.isAlly);
-						Actions.playerExecuteSkill(
-							sim,
-							skill,
-							targetIdx,
-							isAlly,
-							getHelpers(),
-						);
-						return;
-					}
+					dispatchSkillAction(actObj);
+					return;
 				}
 
-				if (act === "ATTACK" && typeof actObj.targetIndex === "number") {
-					Actions.playerExecuteAttack(sim, actObj.targetIndex, getHelpers());
-					return;
+				switch (act) {
+					case "ATTACK":
+						if (typeof actObj.targetIndex === "number") {
+							Actions.playerExecuteAttack(sim, actObj.targetIndex, getHelpers());
+						}
+						break;
+					case "GUARD":
+						Actions.playerExecuteGuard(sim, getHelpers());
+						break;
+					case "CONFIRM":
+						Actions.handleConfirmChoice(sim, getHelpers());
+						break;
+					case "CANCEL":
+						Actions.handleCancelChoice(sim, getHelpers());
+						break;
+					case "FLEE":
+						Actions.handleViewAction(sim, { type: "FLEE" }, getHelpers());
+						break;
+					default:
+						Actions.handleViewAction(sim, actObj, getHelpers());
+						break;
 				}
-				if (act === "GUARD") {
-					Actions.playerExecuteGuard(sim, getHelpers());
-					return;
-				}
-				if (act === "CONFIRM") {
-					Actions.handleConfirmChoice(sim, getHelpers());
-					return;
-				}
-				if (act === "CANCEL") {
-					Actions.handleCancelChoice(sim, getHelpers());
-					return;
-				}
-				if (act === "FLEE") {
-					Actions.handleViewAction(sim, { type: "FLEE" }, getHelpers());
-					return;
-				}
-				Actions.handleViewAction(sim, actObj, getHelpers());
 			},
 
+			/**
+			 * @param {any} [renderer]
+			 * @param {any} [context]
+			 */
 			render(renderer, context) {
 				assertLifecycle(State.READY, State.RUNNING);
 				const activeRenderer = renderer || hostContext?.combatRenderer || null;
@@ -444,11 +515,11 @@ const EmberlightCombat = (() => {
 				const projection = Projection.createProjection(snapshot);
 
 				if (typeof activeRenderer.renderWarTable === "function") {
-					activeRenderer.renderWarTable(projection, (act) =>
+					activeRenderer.renderWarTable(projection, (/** @type {any} */ act) =>
 						Actions.handleViewAction(sim, act, getHelpers()),
 					);
 				} else if (typeof activeRenderer.render === "function") {
-					activeRenderer.render(snapshot, (act) =>
+					activeRenderer.render(snapshot, (/** @type {any} */ act) =>
 						Actions.handleViewAction(sim, act, getHelpers()),
 					);
 				}
@@ -465,8 +536,8 @@ const EmberlightCombat = (() => {
 					lifecycleState,
 					phase: sim?.phase,
 					turnIndex: sim?.activeTurnIndex,
-					livingParty: sim?.party?.filter((c) => c.alive).length || 0,
-					livingEnemies: sim?.enemies?.filter((e) => e.alive).length || 0,
+					livingParty: sim?.party?.filter((/** @type {any} */ c) => c.alive).length || 0,
+					livingEnemies: sim?.enemies?.filter((/** @type {any} */ e) => e.alive).length || 0,
 					isHeadless,
 				};
 			},
@@ -487,6 +558,10 @@ const EmberlightCombat = (() => {
 				};
 			},
 
+			getInfo() {
+				return this.getModuleInfo();
+			},
+
 			destroy() {
 				if (intentUnsub) {
 					intentUnsub();
@@ -503,18 +578,18 @@ const EmberlightCombat = (() => {
 		};
 	}
 
-	const defaultInstance = createInstance({ isHeadless: false });
+	const defaultInstance = /** @type {any} */ (createInstance({ isHeadless: false }));
 	defaultInstance.createInstance = createInstance;
 	return defaultInstance;
 })();
 
 // Faraday Staging Purge & Global Attachment
 if (typeof window !== "undefined") {
-	delete window._CombatInternal;
-	window.EmberlightCombat = EmberlightCombat;
+	delete (/** @type {any} */ (window))._CombatInternal;
+	(/** @type {any} */ (window)).EmberlightCombat = EmberlightCombat;
 }
-if (typeof globalThis !== "undefined" && globalThis._CombatInternal) {
-	delete globalThis._CombatInternal;
+if (typeof globalThis !== "undefined" && (/** @type {any} */ (globalThis))._CombatInternal) {
+	delete (/** @type {any} */ (globalThis))._CombatInternal;
 }
 if (typeof module !== "undefined" && module.exports) {
 	module.exports = EmberlightCombat;

@@ -20,8 +20,6 @@
  */
 
 const EmberlightPartyIcons = (() => {
-	'use strict';
-
 	//#region [SEC-01] Canvas Initialization, Constants & Cache Management
 	const SIZE = 24;
 	/** @type {Map<string, string>} */

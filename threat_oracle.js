@@ -1,3 +1,4 @@
+/* cSpell:words Approximants Unsubscription EMPT PREEMPT */
 /**
  * ============================================================================
  * EMBERLIGHT SOVEREIGN ENGINE: THREAT ORACLE (CTB TIMELINE & TELEGRAPH ENGINE)
@@ -38,12 +39,13 @@
  * @property {number} [turnIndex] Sequential turn index.
  * @property {string} id Combatant identifier.
  * @property {string} name Combatant display name.
- * @property {'HERO' | 'ENEMY'} type Combatant type.
+ * @property {'HERO' | 'ENEMY' | 'party' | 'enemy'} type Combatant type.
  * @property {string} [phenotype] Character phenotype.
  * @property {string} [key] Enemy key.
  * @property {boolean} [isProjected] Projected forecast flag.
  * @property {number} [delayCost] Additional turn delay cost.
  * @property {number} [entityIndex] Array index in party or enemies.
+ * @property {{ phenotype?: string, key?: string }} [entity] Optional nested entity descriptor.
  */
 
 /**
@@ -61,18 +63,17 @@
  * @property {BossIntent|null} [bossIntent] Active boss intention telegraph.
  * @property {ThreatTimelineTurn[]} [forecastQueue] Pre-calculated forecast timeline queue.
  * @property {string} [activeHeroId] Currently active hero identifier.
+ * @property {string|null} [targetEnemyId] Currently targeted enemy identifier.
  * @property {number} [actionPreviewCost] Delay delta for action preview forecasting.
  */
 
 /**
  * @typedef {Object} ThreatEventBus
- * @property {function(string, function(any): void): function(): void} [subscribe] Subscription registration function.
- * @property {function(string, any): void} [publish] Event publishing function.
+ * @property {(event: string, handler: (payload?: any) => void) => (() => void)} [subscribe] Subscription registration function.
+ * @property {(event: string, payload?: any) => void} [publish] Event publishing function.
  */
 
-// @ts-ignore
 const EmberlightThreatOracle = (() => {
-	"use strict";
 
 	//#region [SEC-01] Type Definitions, Module State & Initialization Gateway
 	/** @type {ThreatEventBus|null} */
@@ -99,6 +100,7 @@ const EmberlightThreatOracle = (() => {
 	 * @returns {ThreatTimelineTurn[]} Calculated timeline queue array.
 	 */
 	function calculateTimeline(party = [], enemies = [], maxTurns = 12) {
+		/** @type {any[]} */
 		const combatants = [];
 
 		party.forEach((hero, pIdx) => {
@@ -178,6 +180,7 @@ const EmberlightThreatOracle = (() => {
 	 * @returns {ThreatTimelineTurn[]} Projected timeline queue array.
 	 */
 	function forecastActionTimeline(party = [], enemies = [], activeHeroId = null, actionDelayCost = 0, maxTurns = 12) {
+		/** @type {any[]} */
 		const combatants = [];
 
 		party.forEach((hero, pIdx) => {
@@ -192,7 +195,7 @@ const EmberlightThreatOracle = (() => {
 					phenotype: hero.phenotype,
 					agi,
 					delay,
-					currentDelay: isActor ? 0 : (hero.accumulatedDelay !== undefined ? hero.accumulatedDelay : delay),
+					currentDelay: isActor ? 0 : (hero.accumulatedDelay ?? delay),
 					entityIndex: pIdx,
 					isProjected: false,
 					delayCost: 0,
@@ -212,7 +215,7 @@ const EmberlightThreatOracle = (() => {
 					key: enemy.key,
 					agi,
 					delay,
-					currentDelay: isActor ? 0 : (enemy.accumulatedDelay !== undefined ? enemy.accumulatedDelay : delay),
+					currentDelay: isActor ? 0 : (enemy.accumulatedDelay ?? delay),
 					entityIndex: eIdx,
 					isProjected: false,
 					delayCost: 0,
@@ -314,18 +317,19 @@ const EmberlightThreatOracle = (() => {
 	/**
 	 * Binds interactive hover and targeting handlers onto rendered CTB turn slots.
 	 * @param {HTMLElement} ribbonContainer Target turn ribbon element.
-	 * @param {function(any): void} [onDispatch] Action dispatch callback.
+	 * @param {((action: any) => void)|null} [onDispatch] Action dispatch callback.
 	 * @returns {void}
 	 */
-	function bindRibbonEvents(ribbonContainer, onDispatch) {
+	function bindRibbonEvents(ribbonContainer, onDispatch = null) {
 		if (!ribbonContainer) return;
 		const slots = ribbonContainer.querySelectorAll('.turn-slot');
 		const win = /** @type {any} */ (typeof window !== 'undefined' ? window : {});
 
 		slots.forEach((slot) => {
-			const id = slot.getAttribute('data-entity-id') || '';
-			const type = slot.getAttribute('data-entity-type') || 'ENEMY';
-			const entityIdx = parseInt(slot.getAttribute('data-entity-index') || '0', 10);
+			const el = /** @type {HTMLElement} */ (slot);
+			const id = el.dataset.entityId || '';
+			const type = el.dataset.entityType || 'ENEMY';
+			const entityIdx = Number.parseInt(el.dataset.entityIndex || '0', 10);
 
 			slot.addEventListener('mouseenter', () => {
 				if (win.EmberlightCombatRenderer && typeof win.EmberlightCombatRenderer.setEphemeralHover === 'function') {
@@ -357,50 +361,61 @@ const EmberlightThreatOracle = (() => {
 				}
 			});
 
-			slot.addEventListener('contextmenu', (ev) => {
+			const openQ3RadialMenu = (/** @type {MouseEvent | PointerEvent} */ ev) => {
 				ev?.preventDefault?.();
-				if (win.EmberlightCombatRenderer && typeof win.EmberlightCombatRenderer.openRadial === 'function') {
-					win.EmberlightCombatRenderer.openRadial(ev.clientX, ev.clientY, {
+				ev?.stopPropagation?.();
+				if (Date.now() < (win.EmberlightCombatRenderer?.getSuppressContextMenuUntil?.() || 0)) return;
+				const slotData = { entityId: id, entityType: type, entityIndex: entityIdx, id, type };
+				const activeState = (win.EmberlightCombatRenderer && typeof win.EmberlightCombatRenderer.getLastCombatState === 'function')
+					? win.EmberlightCombatRenderer.getLastCombatState()
+					: null;
+				const config = (win.EmberlightCombatRenderer && typeof win.EmberlightCombatRenderer.buildQ3RadialConfig === 'function')
+					? win.EmberlightCombatRenderer.buildQ3RadialConfig(slotData, activeState)
+					: {
 						centerIcon: '⏱️',
 						north: {
 							icon: '⏳',
-							label: 'DELAY',
+							label: 'DELAY STRIKE',
 							onCommit: () => {
-								if (typeof onDispatch === 'function') onDispatch({ type: 'SELECT_TAB', tab: 'SKILLS' });
+								if (typeof onDispatch === 'function') onDispatch({ type: 'PREPARE_DELAY_STRIKE', targetEntityId: id });
 							},
 							onHover: () => {},
 						},
 						east: {
 							icon: '🔮',
-							label: 'RESONATE',
+							label: 'PHASE TUNE',
 							onCommit: () => {
-								if (typeof onDispatch === 'function') onDispatch({ type: 'HARMONIC_TUNE' });
+								if (typeof onDispatch === 'function') onDispatch({ type: 'TUNE_HARMONICS', frequency: 440 });
 							},
 							onHover: () => {},
 						},
 						south: {
 							icon: '🛡️',
-							label: 'BRACE',
+							label: 'PRE-EMPT BRACE',
 							onCommit: () => {
-								if (typeof onDispatch === 'function') onDispatch({ type: 'GUARD' });
+								if (typeof onDispatch === 'function') onDispatch({ type: 'PREPARE_REACTIVE_GUARD', targetHeroId: id });
 							},
 							onHover: () => {},
 						},
 						west: {
-							icon: '🔍',
-							label: 'INSPECT',
+							icon: '📜',
+							label: 'CHRONICLE AUDIT',
 							onCommit: () => {
-								if (win.EmberlightCombatRenderer?.setEphemeralHover) {
-									win.EmberlightCombatRenderer.setEphemeralHover({ id, type, index: entityIdx });
-								}
+								if (typeof onDispatch === 'function') onDispatch({ type: 'EXPAND_CHRONICLE_LOG' });
 							},
-							onHover: () => {
-								if (win.EmberlightCombatRenderer?.setEphemeralHover) {
-									win.EmberlightCombatRenderer.setEphemeralHover({ id, type, index: entityIdx });
-								}
-							},
+							onHover: () => {},
 						},
-					});
+					};
+				if (win.EmberlightCombatRenderer && typeof win.EmberlightCombatRenderer.openRadial === 'function') {
+					win.EmberlightCombatRenderer.openRadial(ev.clientX, ev.clientY, config);
+				}
+			};
+
+			slot.addEventListener('contextmenu', (e) => openQ3RadialMenu(/** @type {MouseEvent} */ (e)));
+			slot.addEventListener('pointerdown', (e) => {
+				const ev = /** @type {PointerEvent} */ (e);
+				if (ev.button === 2) {
+					openQ3RadialMenu(ev);
 				}
 			});
 		});
@@ -409,12 +424,12 @@ const EmberlightThreatOracle = (() => {
 	/**
 	 * Renders the Threat Oracle ribbon and telegraphs into the DOM container.
 	 * (State-mutating DOM presentation procedure)
-	 * @param {string|HTMLElement|null} [containerId] Target container element or ID string.
+	 * @param {string|HTMLElement|null} [containerId=null] Target container element or ID string.
 	 * @param {CombatStateSnapshot} [combatState={}] Combat state payload snapshot.
-	 * @param {function(any): void} [dispatchHandler] Action dispatch callback.
+	 * @param {((action: any) => void)|null} [dispatchHandler=null] Action dispatch callback.
 	 * @returns {void}
 	 */
-	function render(containerId, combatState = {}, dispatchHandler) {
+	function render(containerId = null, combatState = {}, dispatchHandler = null) {
 		if (typeof document === 'undefined') return;
 		const ribbonBar = document.getElementById('combat-ctb-ribbon-bar');
 		const targetContainer = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;
@@ -514,7 +529,7 @@ const EmberlightThreatOracle = (() => {
           </div>
         </div>
       `;
-			const innerRibbon = targetContainer.querySelector('.turn-ribbon');
+			const innerRibbon = /** @type {HTMLElement|null} */ (targetContainer.querySelector('.turn-ribbon'));
 			if (innerRibbon) {
 				bindRibbonEvents(innerRibbon, dispatchHandler);
 			}
@@ -523,6 +538,15 @@ const EmberlightThreatOracle = (() => {
 	//#endregion
 
 	//#region [SEC-04] Public VSRP-001 Interface Gateway & Diagnostics
+	/**
+	 * Releases event bus bindings and resets peripheral state.
+	 * (State-mutating teardown gateway)
+	 * @returns {void}
+	 */
+	function destroy() {
+		eventBus = null;
+	}
+
 	return {
 		init,
 		calculateTimeline,
@@ -534,13 +558,13 @@ const EmberlightThreatOracle = (() => {
 				eventBusActive: Boolean(eventBus),
 			};
 		},
+		destroy,
 	};
 	//#endregion
 })();
 
 //#region [SEC-05] Global Export & Dual-Binding
 if (typeof window !== 'undefined') {
-	// @ts-ignore
 	window.EmberlightThreatOracle = EmberlightThreatOracle;
 }
 if (typeof module !== 'undefined' && module.exports) {

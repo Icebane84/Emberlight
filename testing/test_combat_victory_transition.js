@@ -221,3 +221,5 @@ assert.ok(resolvedEventFired, 'combat:resolved event should have fired');
 assert.strictEqual(GameRuntime.getActiveDistrict(), 'OVERWORLD', 'Should transition back to OVERWORLD');
 
 console.log('=== COMBAT VICTORY TRANSITION TEST PASSED 100% ===');
+process.exit(0);
+

@@ -4,7 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Emberlight — Tactical War Table (ARCH-SPEC-WAR-TABLE-001)</title>
-    <link rel="stylesheet" href="index.css" />
+    <!-- Master Aesthetic Style Partitions (Parallel Load Pipeline) -->
+    <link rel="stylesheet" href="css/01_core_cockpit.css" />
+    <link rel="stylesheet" href="css/02_sensors_cartography.css" />
+    <link rel="stylesheet" href="css/03_scanner_progression.css" />
+    <link rel="stylesheet" href="css/04_combat_arena.css" />
+    <link rel="stylesheet" href="css/05_combat_vfx_nav.css" />
   </head>
   <body class="crt-enabled">
     <div id="game-cockpit">
@@ -888,8 +893,13 @@
     <script src="settings.js"></script>
     <script src="save_manager.js"></script>
 
-    <!-- 11. Tier 1: Orchestration & Entry Points -->
-    <script src="script.js"></script>
+    <!-- 11. Tier 1: Orchestration & Entry Points (MPFS-001) -->
+    <script src="runtime/runtime_state.js"></script>
+    <script src="runtime/runtime_presentation.js"></script>
+    <script src="runtime/runtime_interactions.js"></script>
+    <script src="runtime/runtime_navigation.js"></script>
+    <script src="runtime/runtime_stepper.js"></script>
+    <script src="runtime/runtime_events.js"></script>
     <script src="runtime.js"></script>
 
   </body>

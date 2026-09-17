@@ -13,7 +13,6 @@
  * @protocol VSRP-001
  * @version 1.0.0
  */
-'use strict';
 
 /** @type {readonly string[]} */
 const EMBERLIGHT_SCRIPT_LOAD_ORDER = Object.freeze([
@@ -134,8 +133,15 @@ const EMBERLIGHT_SCRIPT_LOAD_ORDER = Object.freeze([
   // ── Tier 1: Persistence ───────────────────────────────────────────────────
   'save_manager.js',
 
-  // ── Tier 1: Orchestration & Entry Point ───────────────────────────────────
+  // ── Tier 1: Host Runtime Orchestration & Subsystems (MPFS-001) ───────────
+  'runtime/runtime_state.js',
+  'runtime/runtime_presentation.js',
+  'runtime/runtime_interactions.js',
+  'runtime/runtime_navigation.js',
+  'runtime/runtime_stepper.js',
+  'runtime/runtime_events.js',
   'runtime.js',
 ]);
 
 if (typeof module !== 'undefined') module.exports = EMBERLIGHT_SCRIPT_LOAD_ORDER;
+

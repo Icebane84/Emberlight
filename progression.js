@@ -20,8 +20,6 @@
  */
 
 const EmberlightProgression = (() => {
-	'use strict';
-
 	//#region [SEC-01] Domain Type Contracts & JSDoc Schemas
 	/**
 	 * @typedef {Object} StatBlock
@@ -77,7 +75,7 @@ const EmberlightProgression = (() => {
 
 	/**
 	 * @typedef {Object} ProgressionConfig
-	 * @property {Object} [manifest] - Game data manifest.
+	 * @property {Record<string, any>} [manifest] - Game data manifest.
 	 */
 
 	/**
@@ -122,7 +120,7 @@ const EmberlightProgression = (() => {
 	// --- Host Environment & Locked Configuration ---
 	/** @type {ProgressionConfig|null} */
 	let hostConfig = null;
-	/** @type {Object|null} */
+	/** @type {Record<string, any>|null} */
 	let hostContext = null;
 	/** @type {Record<string, SkillNode>} */
 	let registry = {};
@@ -179,7 +177,7 @@ const EmberlightProgression = (() => {
 	/**
 	 * Retrieves active game manifest.
 	 * [Pure Query]
-	 * @returns {Object} Manifest object.
+	 * @returns {Record<string, any>} Manifest object.
 	 */
 	function getManifest() {
 		return hostConfig?.manifest || (typeof EmberlightManifest !== "undefined" ? EmberlightManifest : {});
@@ -206,7 +204,7 @@ const EmberlightProgression = (() => {
 	/**
 	 * Compiles skill nodes into local immutable registry.
 	 * [Pure Transformation]
-	 * @param {Object} [manifestRef] - Optional external manifest reference.
+	 * @param {Record<string, any>} [manifestRef] - Optional external manifest reference.
 	 * @returns {Record<string, SkillNode>} Compiled skill node dictionary.
 	 */
 	function compileRegistry(manifestRef) {
@@ -217,7 +215,7 @@ const EmberlightProgression = (() => {
 		// 1. Ingest Aether Matrix Constellation Nodes
 		if (manifest.AetherNodes) {
 			Object.entries(manifest.AetherNodes).forEach(([nodeId, rawNode]) => {
-				compiled[nodeId] = deepFreeze({ ...rawNode });
+				compiled[nodeId] = deepFreeze({ ...(/** @type {any} */ (rawNode)) });
 			});
 		}
 
@@ -225,7 +223,7 @@ const EmberlightProgression = (() => {
 		if (manifest.SkillTrees) {
 			Object.entries(manifest.SkillTrees).forEach(([classKey, branches]) => {
 				Object.entries(branches).forEach(([branchKey, nodes]) => {
-					nodes.forEach((rawNode) => {
+					(/** @type {any[]} */ (nodes)).forEach((rawNode) => {
 						if (!compiled[rawNode.id]) {
 							compiled[rawNode.id] = deepFreeze({
 								...rawNode,
@@ -246,7 +244,7 @@ const EmberlightProgression = (() => {
 	 * Computes full effective character stats from base, constellation nodes, and equipment.
 	 * [Pure Calculation]
 	 * @param {CharacterRecord} character - Target character record.
-	 * @param {Object} [manifestRef] - Optional manifest reference.
+	 * @param {Record<string, any>} [manifestRef] - Optional manifest reference.
 	 * @returns {StatBlock} Computed stat totals.
 	 */
 	function computeCharacterStats(character, manifestRef) {
@@ -256,7 +254,7 @@ const EmberlightProgression = (() => {
 		const growth = pheno.growth || { hp: 4, mp: 2, atk: 1, def: 1, agi: 1 };
 		const levelGains = Math.max(0, (character?.level || 1) - 1);
 
-		/** @type {StatBlock} */
+		/** @type {StatBlock & Record<string, number>} */
 		const totals = {
 			hp: base.hp + growth.hp * levelGains,
 			maxHp: base.hp + growth.hp * levelGains,
@@ -426,7 +424,7 @@ const EmberlightProgression = (() => {
 		/**
 		 * Configures progression district tenant settings.
 		 * [Lifecycle: CONFIGURE]
-		 * @param {ProgressionConfig} config - Configuration dictionary.
+		 * @param {ProgressionConfig} [config] - Configuration dictionary.
 		 * @returns {void}
 		 */
 		configure(config) {
@@ -437,33 +435,33 @@ const EmberlightProgression = (() => {
 				);
 			}
 			hostConfig = deepFreeze({ ...config });
-			registry = compileRegistry(hostConfig.manifest);
+			registry = compileRegistry(hostConfig?.manifest);
 			lifecycleState = State.CONFIGURED;
 		},
 
 		/**
 		 * Initializes progression tenant with host context.
 		 * [Lifecycle: INIT]
-		 * @param {Object} context - Host context reference.
+		 * @param {Record<string, any>} [context] - Host context reference.
 		 * @returns {void}
 		 */
 		init(context) {
 			assertLifecycle(State.CONFIGURED);
-			hostContext = context;
+			hostContext = context || null;
 			lifecycleState = State.INITIALIZED;
 		},
 
 		/**
 		 * Resets simulation snapshot and party working state.
 		 * [Lifecycle: RESET]
-		 * @param {ProgressionSimulationState|CharacterRecord[]} [stateSnapshot] - State snapshot or party array.
+		 * @param {ProgressionSimulationState|CharacterRecord[]|Record<string, any>} [stateSnapshot] - State snapshot or party array.
 		 * @returns {void}
 		 */
 		reset(stateSnapshot) {
 			assertLifecycle(State.INITIALIZED, State.READY, State.RUNNING);
 
 			const baseline = createDefaultState();
-			const incoming = stateSnapshot ? structuredClone(stateSnapshot) : {};
+			const incoming = /** @type {Record<string, any>} */ (stateSnapshot ? structuredClone(stateSnapshot) : {});
 
 			// Resolved nested ternary into explicit statements to satisfy SonarQube
 			/** @type {CharacterRecord[]} */
@@ -486,8 +484,8 @@ const EmberlightProgression = (() => {
 		/**
 		 * Updates simulation tick and processes input queues.
 		 * [Lifecycle: UPDATE]
-		 * @param {number} dt - Delta time.
-		 * @param {Object} [context] - Update context.
+		 * @param {number} [dt] - Delta time.
+		 * @param {Record<string, any>} [context] - Update context.
 		 * @returns {void}
 		 */
 		update(dt, context) {
@@ -497,7 +495,7 @@ const EmberlightProgression = (() => {
 				// Delta time acknowledged
 			}
 
-			const activeCtx = context || hostContext;
+			const activeCtx = /** @type {Record<string, any>} */ (context || hostContext);
 
 			if (activeCtx?.inputs && Array.isArray(activeCtx.inputs)) {
 				for (const element of activeCtx.inputs) {
@@ -509,8 +507,8 @@ const EmberlightProgression = (() => {
 		/**
 		 * Renders progression UI through host renderer.
 		 * [Lifecycle: RENDER]
-		 * @param {any} renderer - Target renderer or party array.
-		 * @param {Object} [_context] - Render context.
+		 * @param {any} [renderer] - Target renderer or party array.
+		 * @param {Record<string, any>} [_context] - Render context.
 		 * @returns {void}
 		 */
 		render(renderer, _context) {
@@ -544,11 +542,11 @@ const EmberlightProgression = (() => {
 		/**
 		 * Retrieves current simulation state clone.
 		 * [Pure Query]
-		 * @returns {ProgressionSimulationState} Simulation state copy.
+		 * @returns {ProgressionSimulationState|null} Simulation state copy.
 		 */
 		getState() {
 			assertLifecycle(State.READY, State.RUNNING);
-			return structuredClone(sim);
+			return sim ? structuredClone(sim) : null;
 		},
 
 		/**
@@ -584,6 +582,15 @@ const EmberlightProgression = (() => {
 		},
 
 		/**
+		 * Backward-compatibility alias for getModuleInfo.
+		 * [Pure Query]
+		 * @returns {ProgressionModuleInfo} Module info dictionary.
+		 */
+		getInfo() {
+			return this.getModuleInfo();
+		},
+
+		/**
 		 * Destroys tenant instance and cleans up references.
 		 * [Lifecycle: DESTROY]
 		 * @returns {void}
@@ -611,30 +618,37 @@ const EmberlightProgression = (() => {
 				? action
 				: { type: /** @type {any} */ (action) };
 
+			/** @type {Record<string, () => void>} */
 			const handlers = {
 				UNLOCK_NODE: () => {
-					if (actionObj.characterId && actionObj.nodeId) {
-						const character = sim?.party.find((c) => c.id === actionObj.characterId);
+					if (actionObj.characterId && actionObj.nodeId && sim) {
+						const character = sim.party.find((c) => c.id === actionObj.characterId);
 						if (character && executeUnlock(character, actionObj.nodeId)) {
 							sim.lastUnlockedNodeId = actionObj.nodeId;
 						}
 					}
 				},
 				RESPEC_CHARACTER: () => {
-					if (actionObj.characterId) {
-						const character = sim?.party.find((c) => c.id === actionObj.characterId);
+					if (actionObj.characterId && sim) {
+						const character = sim.party.find((c) => c.id === actionObj.characterId);
 						if (character) respecCharacter(character);
 					}
 				},
 				SELECT_CHARACTER: () => {
-					sim.selectedCharacterId = actionObj.characterId || null;
-					sim.selectedNodeId = null;
+					if (sim) {
+						sim.selectedCharacterId = actionObj.characterId || null;
+						sim.selectedNodeId = null;
+					}
 				},
 				SELECT_ESSENCE: () => {
-					sim.selectedEssence = actionObj.essence || "ALL";
+					if (sim) {
+						sim.selectedEssence = actionObj.essence || "ALL";
+					}
 				},
 				SELECT_NODE: () => {
-					sim.selectedNodeId = actionObj.nodeId || null;
+					if (sim) {
+						sim.selectedNodeId = actionObj.nodeId || null;
+					}
 				},
 			};
 
@@ -652,7 +666,6 @@ const EmberlightProgression = (() => {
 
 //#region [SEC-06] Global Environment & Window Scope Export
 if (typeof window !== "undefined") {
-	// @ts-ignore
 	window.EmberlightProgression = EmberlightProgression;
 }
 if (typeof module !== "undefined" && module.exports) {

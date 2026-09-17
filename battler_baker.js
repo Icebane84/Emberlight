@@ -21,10 +21,11 @@
 
 const EmberlightBattlerBaker = (() => {
 	// ─── Membrane Ingestion ───────────────────────────────────────────────────
-	const _mem =
+	const _mem = /** @type {any} */ (
 		(typeof window !== "undefined" && window._BattlerBakerInternal) ||
-		(typeof globalThis !== "undefined" && globalThis._BattlerBakerInternal) ||
-		{};
+		(typeof globalThis !== "undefined" && (/** @type {any} */ (globalThis))._BattlerBakerInternal) ||
+		{}
+	);
 
 	const { VERSION, SPRITE_SIZE, RENDER_SCALE, cache, diagnosticLog } =
 		_mem.Primitives || {};
@@ -35,10 +36,10 @@ const EmberlightBattlerBaker = (() => {
 
 	// ─── Faraday Membrane Purge ───────────────────────────────────────────────
 	if (typeof window !== "undefined" && window._BattlerBakerInternal) {
-		delete window._BattlerBakerInternal;
+		delete (/** @type {any} */ (window))._BattlerBakerInternal;
 	}
-	if (typeof globalThis !== "undefined" && globalThis._BattlerBakerInternal) {
-		delete globalThis._BattlerBakerInternal;
+	if (typeof globalThis !== "undefined" && (/** @type {any} */ (globalThis))._BattlerBakerInternal) {
+		delete (/** @type {any} */ (globalThis))._BattlerBakerInternal;
 	}
 
 	// ─── Canonical VSRP-001 9-Method Interface & Module Export ────────────────
@@ -97,7 +98,7 @@ const EmberlightBattlerBaker = (() => {
 		 * Renders a battler sprite through a host renderer.
 		 * State-mutating presentation projection gateway.
 		 * @param {any} renderer - Host rendering engine interface.
-		 * @param {Object} [context={}] - Render context parameters.
+		 * @param {Record<string, any>} [context={}] - Render context parameters.
 		 * @returns {void}
 		 */
 		render(renderer, context = {}) {

@@ -22,23 +22,23 @@ MPFS-001 provides physical filesystem topology for zero-dependency browser-nativ
 
 &nbsp;
 
-┌────────────────────────────────────────────────────────────────────────┐  
-│ 1\. PHYSICAL PLANE (MPFS-001)                                           │  
-│    Root Facades vs. Private Subsystems (Human & AI Navigability)       │  
-├────────────────────────────────────────────────────────────────────────┤  
-│ 2\. LOGICAL PLANE (VSRP-001)                                            │  
-│    Canonical 9-Method Interface & Lifecycle FSM Verification           │  
-├────────────────────────────────────────────────────────────────────────┤  
-│ 3\. AUTHORITY PLANE (SDCP-001)                                          │  
-│    Attenuated Capability Scoping (Zero Ambient Authority)              │  
-├────────────────────────────────────────────────────────────────────────┤  
-│ 4\. STATE PLANE (Faraday & Transaction Model)                           │  
-│    Detached Snapshots In • Ephemeral Working Sim • Delta Envelopes Out │  
+┌────────────────────────────────────────────────────────────────────────┐
+│ 1\. PHYSICAL PLANE (MPFS-001)                                           │
+│    Root Facades vs. Private Subsystems (Human & AI Navigability)       │
+├────────────────────────────────────────────────────────────────────────┤
+│ 2\. LOGICAL PLANE (VSRP-001)                                            │
+│    Canonical 9-Method Interface & Lifecycle FSM Verification           │
+├────────────────────────────────────────────────────────────────────────┤
+│ 3\. AUTHORITY PLANE (SDCP-001)                                          │
+│    Attenuated Capability Scoping (Zero Ambient Authority)              │
+├────────────────────────────────────────────────────────────────────────┤
+│ 4\. STATE PLANE (Faraday & Transaction Model)                           │
+│    Detached Snapshots In • Ephemeral Working Sim • Delta Envelopes Out │
 └────────────────────────────────────────────────────────────────────────┘
 
-* **Physical Plane (MPFS-001):** Defines files, directory locations, sequential script evaluation, and cognitive surface area.  
-* **Logical Plane (VSRP-001):** Mandates lifecycle state transitions, boundary invariance, and terminal garbage-collection guarantees.  
-* **Authority Plane (SDCP-001):** Governs explicit capability attenuation; physical files provide zero ambient authority.  
+* **Physical Plane (MPFS-001):** Defines files, directory locations, sequential script evaluation, and cognitive surface area.
+* **Logical Plane (VSRP-001):** Mandates lifecycle state transitions, boundary invariance, and terminal garbage-collection guarantees.
+* **Authority Plane (SDCP-001):** Governs explicit capability attenuation; physical files provide zero ambient authority.
 * **State Plane:** Defines semantic isolation: detached snapshots for simulation, read-only projections for presentation, and validated delta envelopes for mutation.
 
 ## **2\. Normative Governing Principles**
@@ -53,9 +53,9 @@ The root facade file is the **sole authorized integration point** for an archite
 
 ### **III. Directional Dependency Invariance**
 
-* Public facades MAY depend downward upon their private internal subsystems.  
-* Private subsystems MUST NOT depend horizontally upon sibling facades or sibling subsystems.  
-* Private subsystems MUST NOT reference host runtime internals or ambient globals.  
+* Public facades MAY depend downward upon their private internal subsystems.
+* Private subsystems MUST NOT depend horizontally upon sibling facades or sibling subsystems.
+* Private subsystems MUST NOT reference host runtime internals or ambient globals.
 * Dependencies cross boundaries strictly upward via host-brokered event channels or capability handles injected through the facade.
 
 ### **IV. Flat Surface Principle**
@@ -74,8 +74,8 @@ Physical encapsulation grants zero security. Authority MUST be granted exclusive
 
 A simulation tenant MUST NOT retain or mutate authoritative object references supplied by the host or foreign tenants. State boundary enforcement is semantic:
 
-* Simulation tenants MUST ingest detached snapshots (via structuredClone, serialization, or schema-projected DTOs).  
-* Simulation tenants MUST maintain an isolated working memory closure.  
+* Simulation tenants MUST ingest detached snapshots (via structuredClone, serialization, or schema-projected DTOs).
+* Simulation tenants MUST maintain an isolated working memory closure.
 * Mutations MUST leave the tenant exclusively as validated, schema-conformant delta envelopes committed authoritatively by the host SessionStore.
 
 ### **VIII. Presentation Projection Isolation**
@@ -144,10 +144,12 @@ A codebase conforming to MPFS-001 MUST satisfy the following domain-agnostic arc
 
 To prevent context contamination and hallucinated interfaces, human/AI workflows MUST adhere to the **Minimum-Sufficient-Context Rule**:
 
-> 1. **Context Scope:** The AI collaborator SHOULD receive the minimum sufficient context required for the requested change.  
-   * *Default Baseline:* The Public Facade (e.g., combat.js) \+ the single target subsystem file (e.g., combat/combat\_displacement.js).  
-   * *Permitted Expansion:* Sibling contracts or fixtures MAY be provided exclusively when resolving verified cross-boundary bugs.  
-> 2. **Structural Invariance Verification:** Prior to merging AI modifications, the developer MUST run node tools/verify\_ast.js \<monolith\> \<facade\> \<subsystems...\> to assert bit-for-bit parity across numeric constants, coordinates, and function signatures.  
-> 3. **Emergency Rollback (GUCA:EMERGENCY\_ROLLBACK):** If an AI introduces package managers, ES Module syntax (import/export), or leaks unmanaged globals, the session must be halted immediately.
+> 1. **Context Scope:** The AI collaborator SHOULD receive the minimum sufficient context required for the requested change.
+>
+* *Default Baseline:* The Public Facade (e.g., combat.js) \+ the single target subsystem file (e.g., combat/combat\_displacement.js).
+* *Permitted Expansion:* Sibling contracts or fixtures MAY be provided exclusively when resolving verified cross-boundary bugs.
+>
+> 1. **Structural Invariance Verification:** Prior to merging AI modifications, the developer MUST run node tools/verify\_ast.js \<monolith\> \<facade\> \<subsystems...\> to assert bit-for-bit parity across numeric constants, coordinates, and function signatures.
+> 2. **Emergency Rollback (GUCA:EMERGENCY\_ROLLBACK):** If an AI introduces package managers, ES Module syntax (import/export), or leaks unmanaged globals, the session must be halted immediately.
 
 &nbsp;

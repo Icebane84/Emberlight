@@ -28,8 +28,6 @@
 	 ========================================================================= */
 
 const EmberlightSkillIcons = (() => {
-	'use strict';
-
 	//#region [SEC-01] Domain Type Contracts & JSDoc Schemas
 	/**
 	 * @typedef {Object} SkillNodeRecord
@@ -303,17 +301,22 @@ const EmberlightSkillIcons = (() => {
 		 * @returns {void}
 		 */
 		bakeAll() {
-			if (!canvas?.toDataURL || typeof EmberlightManifest === 'undefined' || !EmberlightManifest?.SkillTrees) return;
-			const trees = EmberlightManifest.SkillTrees;
+			const manifest = (typeof window !== 'undefined' && window.EmberlightManifest) || (typeof globalThis !== 'undefined' && (/** @type {any} */ (globalThis)).EmberlightManifest) || null;
+			if (!canvas?.toDataURL || !manifest?.SkillTrees) return;
+			const trees = manifest.SkillTrees;
 			Object.values(trees).forEach((branches) => {
-				Object.values(branches).forEach((nodes) => {
-					nodes.forEach((node) => {
-						renderGlyph(node);
-						try {
-							cache.set(node.id, canvas.toDataURL('image/png'));
-						} catch (_) { }
+				if (branches && typeof branches === 'object') {
+					Object.values(branches).forEach((nodes) => {
+						if (Array.isArray(nodes)) {
+							nodes.forEach((node) => {
+								renderGlyph(node);
+								try {
+									cache.set(node.id, canvas.toDataURL('image/png'));
+								} catch (_) { }
+							});
+						}
 					});
-				});
+				}
 			});
 			clear();
 		},
@@ -335,8 +338,10 @@ const EmberlightSkillIcons = (() => {
 //#region [SEC-05] Global Environment & Window Scope Export
 // Self-initialize on DOM ready
 if (typeof window !== 'undefined') {
-	// @ts-ignore
 	window.EmberlightSkillIcons = EmberlightSkillIcons;
 	EmberlightSkillIcons.bakeAll();
+}
+if (typeof module !== 'undefined' && module.exports) {
+	module.exports = EmberlightSkillIcons;
 }
 //#endregion

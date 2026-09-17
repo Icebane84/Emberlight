@@ -8,7 +8,6 @@
 if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestInternal || {};
 
 (() => {
-	'use strict';
 
 	const Items = {
 		// Consumables
@@ -79,7 +78,7 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 			desc: '+5 ATK',
 			slot: 'weapon',
 			requirements: { atk: 6 },
-			allowedPhenotypes: ['HERO', 'WARRIOR'],
+			allowedPhenotypes: [ 'HERO', 'WARRIOR' ],
 			statDeltas: { atk: 5 },
 			cost: 30,
 		},
@@ -89,7 +88,7 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 			desc: '+2 ATK, +6 MP',
 			slot: 'weapon',
 			requirements: { mp: 12 },
-			allowedPhenotypes: ['MAGE', 'HEALER'],
+			allowedPhenotypes: [ 'MAGE', 'HEALER' ],
 			statDeltas: { atk: 2, mp: 6 },
 			cost: 25,
 		},
@@ -101,7 +100,7 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 			desc: '+4 DEF, +8 HP',
 			slot: 'armor',
 			requirements: { def: 4, hp: 25 },
-			allowedPhenotypes: ['HERO', 'WARRIOR'],
+			allowedPhenotypes: [ 'HERO', 'WARRIOR' ],
 			statDeltas: { def: 4, hp: 8 },
 			cost: 40,
 		},
@@ -111,7 +110,7 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 			desc: '+5 DEF, +12 HP',
 			slot: 'armor',
 			requirements: { def: 6, hp: 35 },
-			allowedPhenotypes: ['HERO', 'WARRIOR'],
+			allowedPhenotypes: [ 'HERO', 'WARRIOR' ],
 			statDeltas: { def: 5, hp: 12 },
 			cost: 90,
 		},
@@ -121,7 +120,7 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 			desc: '+2 DEF, +10 MP',
 			slot: 'armor',
 			requirements: { mp: 14 },
-			allowedPhenotypes: ['MAGE', 'HEALER'],
+			allowedPhenotypes: [ 'MAGE', 'HEALER' ],
 			statDeltas: { def: 2, mp: 10 },
 			cost: 35,
 		},
@@ -133,7 +132,7 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 			desc: '+3 AGI',
 			slot: 'accessory',
 			requirements: { agi: 4 },
-			allowedPhenotypes: ['HERO', 'WARRIOR', 'MAGE', 'HEALER'],
+			allowedPhenotypes: [ 'HERO', 'WARRIOR', 'MAGE', 'HEALER' ],
 			statDeltas: { agi: 3 },
 			cost: 50,
 		},
@@ -144,7 +143,7 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 			desc: '+8 ATK, +6 DEF, +10 Max HP',
 			slot: 'accessory',
 			requirements: { level: 2 },
-			allowedPhenotypes: ['HERO', 'WARRIOR', 'MAGE', 'HEALER'],
+			allowedPhenotypes: [ 'HERO', 'WARRIOR', 'MAGE', 'HEALER' ],
 			statDeltas: { atk: 8, def: 6, hp: 10 },
 			cost: 250,
 		},

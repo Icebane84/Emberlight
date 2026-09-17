@@ -35,8 +35,8 @@
 
 /**
  * @typedef {Object} SoundtrackEventBus
- * @property {function(string, function(any): void): function(): void} [subscribe] Subscription registration function.
- * @property {function(string, any): void} [publish] Event publishing function.
+ * @property {(event: string, handler: (payload?: any) => void) => (() => void)} subscribe Subscription registration function.
+ * @property {(event: string, payload?: any) => void} [publish] Event publishing function.
  */
 
 const EmberlightSoundtrack = (() => {
@@ -49,7 +49,7 @@ const EmberlightSoundtrack = (() => {
 	let userUnlocked = false;
 	/** @type {SoundtrackEventBus|null} */
 	let eventBus = null;
-	/** @type {Array<function(): void>} */
+	/** @type {Array<() => void>} */
 	let unsubs = [];
 
 	// Active Sequencer State
@@ -138,6 +138,16 @@ const EmberlightSoundtrack = (() => {
 	}
 
 	/**
+	 * Resolves EmberlightPRNG ambient module across browser and headless environments.
+	 * @returns {any}
+	 */
+	function getPRNGModule() {
+		if (typeof window !== "undefined") return window.EmberlightPRNG;
+		if (typeof globalThis !== "undefined") return (/** @type {any} */ (globalThis)).EmberlightPRNG;
+		return null;
+	}
+
+	/**
 	 * Generates white noise buffer cache for percussion synthesis using deterministic PRNG.
 	 * (State-mutating buffer generator)
 	 * @returns {void}
@@ -148,9 +158,10 @@ const EmberlightSoundtrack = (() => {
 			const bufferSize = Math.floor(ctx.sampleRate * 0.1);
 			noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
 			const output = noiseBuffer.getChannelData(0);
+			const prngModule = getPRNGModule();
 			const prng =
-				typeof EmberlightPRNG !== "undefined"
-					? EmberlightPRNG.create(1337)
+				prngModule && typeof prngModule.create === "function"
+					? prngModule.create(1337)
 					: null;
 			for (let i = 0; i < bufferSize; i++) {
 				const val = prng ? prng.nextFloat() : (i % 1000) / 500 - 1;
@@ -446,8 +457,8 @@ const EmberlightSoundtrack = (() => {
 	 * @returns {void}
 	 */
 	function scheduleStep(stepIdx, stepTime, stepDuration) {
-		const scale = SCALES[currentMood] || SCALES.SURFACE;
-		const cfg = MOOD_CONFIG[currentMood] || MOOD_CONFIG.SURFACE;
+		const scale = (/** @type {Record<string, number[]>} */ (SCALES))[currentMood] || SCALES.SURFACE;
+		const cfg = (/** @type {Record<string, any>} */ (MOOD_CONFIG))[currentMood] || MOOD_CONFIG.SURFACE;
 
 		scheduleBass(stepIdx, stepTime, stepDuration, cfg);
 		scheduleArp(stepIdx, stepTime, stepDuration, scale);
@@ -484,12 +495,13 @@ const EmberlightSoundtrack = (() => {
 				unsubs.push(
 					eventBus.subscribe("world:zone_change", (evt = {}) => {
 						const zone = evt?.zone || (evt?.townId ? "TOWN" : "SURFACE");
-						lastAmbientMood =
-							zone === "TOWN"
-								? "TOWN"
-								: zone === "CATACOMBS"
-									? "CATACOMBS"
-									: "SURFACE";
+						let mood = "SURFACE";
+						if (zone === "TOWN") {
+							mood = "TOWN";
+						} else if (zone === "CATACOMBS") {
+							mood = "CATACOMBS";
+						}
+						lastAmbientMood = mood;
 						if (currentMood !== "COMBAT" && currentMood !== "BOSS") {
 							this.setMood(lastAmbientMood);
 						}
@@ -497,13 +509,11 @@ const EmberlightSoundtrack = (() => {
 					eventBus.subscribe("overworld:step", (evt = {}) => {
 						const pos = evt?.pos;
 						if (pos) {
-							let amb = "SURFACE";
-							if (evt.townId || pos.townId || pos.inTown) {
+							let amb;
+							if (evt.townId || pos.townId || pos.inTown || pos.tile === "T" || pos.tile === "D") {
 								amb = "TOWN";
 							} else if (pos.depth && pos.depth > 0) {
 								amb = "CATACOMBS";
-							} else if (pos.tile === "T" || pos.tile === "D") {
-								amb = "TOWN";
 							} else {
 								amb = "SURFACE";
 							}
@@ -648,7 +658,6 @@ const EmberlightSoundtrack = (() => {
 })();
 
 if (typeof window !== "undefined") {
-	// @ts-expect-error
 	window.EmberlightSoundtrack = EmberlightSoundtrack;
 }
 if (typeof module !== "undefined" && module.exports) {

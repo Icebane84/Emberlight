@@ -16,10 +16,10 @@
  */
 
 if (typeof window !== "undefined") window._MapInternal = window._MapInternal || {};
-if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._MapInternal || {};
+if (typeof globalThis !== "undefined") (/** @type {any} */ (globalThis))._MapInternal = (/** @type {any} */ (globalThis))._MapInternal || {};
 
 (() => {
-	"use strict";
+
 
 	//#region [SEC-01] Viewport Defaults & Sprite Atlas Caching
 	const VIEW_WIDTH = 480;
@@ -35,8 +35,8 @@ if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._Map
 	 * @param {string} phenotype - Character class identifier.
 	 * @param {string} facing - Facing direction ('UP' | 'DOWN' | 'LEFT' | 'RIGHT').
 	 * @param {number} frame - Animation frame index.
-	 * @param {string} [weapon] - Equipped weapon identifier.
-	 * @param {string} [armor] - Equipped armor identifier.
+	 * @param {string | null} [weapon] - Equipped weapon identifier.
+	 * @param {string | null} [armor] - Equipped armor identifier.
 	 * @returns {HTMLImageElement | any | null} Cached or newly requested sprite image element.
 	 */
 	function getCachedSprite(phenotype, facing, frame, weapon, armor) {
@@ -72,7 +72,7 @@ if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._Map
 	 * @param {number} [tileSize=32]
 	 */
 	function updateCameraPosition(camera, playerPos, map, w, h, tileSize = 32) {
-		const mapCols = map && map[0] ? map[0].length : 48;
+		const mapCols = map?.[ 0 ] ? map[ 0 ].length : 48;
 		const mapRows = map ? map.length : 32;
 		const worldPixelWidth = mapCols * tileSize;
 		const worldPixelHeight = mapRows * tileSize;
@@ -105,6 +105,14 @@ if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._Map
 		}
 	}
 
+	/**
+	 * @param {CanvasRenderingContext2D | any} renderCtx
+	 * @param {string} tile
+	 * @param {number} screenX
+	 * @param {number} screenY
+	 * @param {number} [globalTime=0]
+	 * @returns {boolean}
+	 */
 	function drawInteractiveSpecialFeatures(renderCtx, tile, screenX, screenY, globalTime = 0) {
 		if (tile === "C") {
 			renderCtx.fillStyle = "#f59e0b";
@@ -196,6 +204,14 @@ if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._Map
 		return false;
 	}
 
+	/**
+	 * @param {CanvasRenderingContext2D | any} renderCtx
+	 * @param {string} tile
+	 * @param {number} screenX
+	 * @param {number} screenY
+	 * @param {number} [globalTime=0]
+	 * @returns {boolean}
+	 */
 	function drawTownSpecialFeatures(renderCtx, tile, screenX, screenY, globalTime = 0) {
 		if (tile === "H") {
 			renderCtx.fillStyle = "rgba(245, 158, 11, 0.25)";
@@ -305,6 +321,14 @@ if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._Map
 		return false;
 	}
 
+	/**
+	 * @param {CanvasRenderingContext2D | any} renderCtx
+	 * @param {string} tile
+	 * @param {number} screenX
+	 * @param {number} screenY
+	 * @param {number} [globalTime=0]
+	 * @returns {void}
+	 */
 	function drawDungeonSpecialFeatures(renderCtx, tile, screenX, screenY, globalTime = 0) {
 		if (tile === "S") {
 			renderCtx.fillStyle = "rgba(168, 85, 247, 0.3)";
@@ -356,6 +380,14 @@ if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._Map
 		}
 	}
 
+	/**
+	 * @param {CanvasRenderingContext2D | any} renderCtx
+	 * @param {string} tile
+	 * @param {number} screenX
+	 * @param {number} screenY
+	 * @param {number} [globalTime=0]
+	 * @returns {void}
+	 */
 	function drawTileSpecialFeatures(renderCtx, tile, screenX, screenY, globalTime = 0) {
 		if (drawInteractiveSpecialFeatures(renderCtx, tile, screenX, screenY, globalTime))
 			return;
@@ -363,6 +395,11 @@ if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._Map
 		drawDungeonSpecialFeatures(renderCtx, tile, screenX, screenY, globalTime);
 	}
 
+	/**
+	 * @param {any} tile
+	 * @param {any} waterFrame
+	 * @param {any} grassFrame
+	 */
 	function resolveTileTextureKey(tile, waterFrame, grassFrame, isTown = false) {
 		switch (tile) {
 			case ".":
@@ -386,29 +423,66 @@ if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._Map
 		}
 	}
 
+	/**
+	 * @typedef {Object} TileRenderOptions
+	 * @property {number} [waterFrame=0]
+	 * @property {number} [grassFrame=0]
+	 * @property {boolean} [isTown=false]
+	 * @property {number} [globalTime=0]
+	 * @property {Map<string, HTMLCanvasElement | any> | any | null} [tileAtlas=null]
+	 * @property {number} [tileSize=32]
+	 */
+
+	/**
+	 * Renders a single map tile with base texture and special feature overlays.
+	 *
+	 * @param {CanvasRenderingContext2D | any} renderCtx - Target 2D canvas context.
+	 * @param {string} tile - Map grid tile character.
+	 * @param {number} screenX - Render screen X pixel position.
+	 * @param {number} screenY - Render screen Y pixel position.
+	 * @param {TileRenderOptions | number} [optionsOrWaterFrame=0] - Tile render options or water frame index.
+	 * @param {number} [grassFrame=0]
+	 * @param {boolean} [isTown=false]
+	 * @returns {void}
+	 */
 	function drawTile(
 		renderCtx,
 		tile,
 		screenX,
 		screenY,
-		waterFrame,
-		grassFrame,
+		optionsOrWaterFrame = 0,
+		grassFrame = 0,
 		isTown = false,
-		globalTime = 0,
-		tileAtlas = null,
-		tileSize = 32,
 	) {
-		const key = resolveTileTextureKey(tile, waterFrame, grassFrame, isTown);
-		const tileImg = tileAtlas ? tileAtlas.get(key) : null;
+		const opts =
+			typeof optionsOrWaterFrame === "object" && optionsOrWaterFrame !== null
+				? optionsOrWaterFrame
+				: {
+					waterFrame: optionsOrWaterFrame,
+					grassFrame,
+					isTown,
+					globalTime: 0,
+					tileAtlas: null,
+					tileSize: 32,
+				};
+		const waterF = opts.waterFrame ?? 0;
+		const grassF = opts.grassFrame ?? 0;
+		const town = Boolean(opts.isTown);
+		const gTime = opts.globalTime ?? 0;
+		const atlas = opts.tileAtlas ?? null;
+		const size = opts.tileSize ?? 32;
+
+		const key = resolveTileTextureKey(tile, waterF, grassF, town);
+		const tileImg = atlas ? atlas.get(key) : null;
 
 		if (tileImg) {
-			renderCtx.drawImage(tileImg, screenX, screenY, tileSize, tileSize);
+			renderCtx.drawImage(tileImg, screenX, screenY, size, size);
 		} else {
 			renderCtx.fillStyle = "#0c0c16";
-			renderCtx.fillRect(screenX, screenY, tileSize, tileSize);
+			renderCtx.fillRect(screenX, screenY, size, size);
 		}
 
-		drawTileSpecialFeatures(renderCtx, tile, screenX, screenY, globalTime);
+		drawTileSpecialFeatures(renderCtx, tile, screenX, screenY, gTime);
 	}
 
 	/**
@@ -428,9 +502,17 @@ if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._Map
 		const { offsetX, offsetY, w, h, time, isTown } = viewport;
 		const waterFrame = Math.floor(time * 6) % 4;
 		const grassFrame = Math.floor(time * 3) % 2;
+		const tileOpts = {
+			waterFrame,
+			grassFrame,
+			isTown: Boolean(isTown),
+			globalTime: time,
+			tileAtlas,
+			tileSize,
+		};
 
 		for (let y = 0; y < map.length; y++) {
-			for (let x = 0; x < map[y].length; x++) {
+			for (let x = 0; x < map[ y ].length; x++) {
 				const screenX = offsetX + x * tileSize;
 				const screenY = offsetY + y * tileSize;
 
@@ -444,18 +526,13 @@ if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._Map
 				}
 
 				const isVisible = visibleTiles ? visibleTiles.has(`${x},${y}`) : true;
-				const tile = map[y][x];
+				const tile = map[ y ][ x ];
 				drawTile(
 					renderCtx,
 					tile,
 					screenX,
 					screenY,
-					waterFrame,
-					grassFrame,
-					Boolean(isTown),
-					time,
-					tileAtlas,
-					tileSize,
+					tileOpts,
 				);
 
 				if (!isVisible) {
@@ -466,15 +543,25 @@ if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._Map
 		}
 	}
 
+	/**
+	 * @param {CanvasRenderingContext2D | any} renderCtx
+	 * @param {any} snapshot
+	 * @param {number} offsetX
+	 * @param {number} offsetY
+	 * @param {number} w
+	 * @param {number} h
+	 * @param {number} [tileSize=32]
+	 * @returns {void}
+	 */
 	function renderQuestTargetLine(renderCtx, snapshot, offsetX, offsetY, w, h, tileSize = 32) {
-		if (!snapshot || !snapshot.activeQuestTarget || !renderCtx) return;
+		if (!snapshot?.activeQuestTarget || !renderCtx) return;
 		const qTarget = snapshot.activeQuestTarget;
 		const qScreenX = offsetX + qTarget.x * tileSize + 16;
 		const qScreenY = offsetY + qTarget.y * tileSize + 16;
 		renderCtx.strokeStyle = "rgba(56, 189, 248, 0.4)";
 		renderCtx.lineWidth = 1.5;
 		if (typeof renderCtx.setLineDash === "function") {
-			renderCtx.setLineDash([4, 4]);
+			renderCtx.setLineDash([ 4, 4 ]);
 		}
 		renderCtx.beginPath();
 		renderCtx.moveTo(w / 2, h / 2);
@@ -485,6 +572,16 @@ if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._Map
 		}
 	}
 
+	/**
+	 * @param {CanvasRenderingContext2D | any} renderCtx
+	 * @param {any} snapshot
+	 * @param {Set<string> | any} visibleTiles
+	 * @param {number} offsetX
+	 * @param {number} offsetY
+	 * @param {number} [tileSize=32]
+	 * @param {((phenotype: string, facing: string, frame: number, weapon?: string | null, armor?: string | null) => any) | null} [spriteGetter=null]
+	 * @returns {{ pScreenX: number, pScreenY: number }}
+	 */
 	function renderEntitiesLayer(
 		renderCtx,
 		snapshot,
@@ -548,7 +645,7 @@ if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._Map
 			},
 		});
 
-		entities.forEach((ent) => {
+		entities.forEach((/** @type {{ x: number; y: number; color: string; }} */ ent) => {
 			if (visibleTiles && !visibleTiles.has(`${ent.x},${ent.y}`)) return;
 			const eScreenX = Math.floor(offsetX + ent.x * tileSize + 2);
 			const eScreenY = Math.floor(offsetY + ent.y * tileSize - 2);
@@ -582,6 +679,12 @@ if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._Map
 		return { pScreenX, pScreenY };
 	}
 
+	/**
+	 * @param {CanvasRenderingContext2D | any} renderCtx
+	 * @param {number} w
+	 * @param {number} h
+	 * @returns {void}
+	 */
 	function renderVignetteOverlay(renderCtx, w, h) {
 		if (!renderCtx || typeof renderCtx.createRadialGradient !== "function") return;
 		const vignette = renderCtx.createRadialGradient(
@@ -620,10 +723,12 @@ if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._Map
 	});
 
 	if (typeof window !== "undefined") {
+		window._MapInternal = window._MapInternal || {};
 		window._MapInternal.Compositor = Compositor;
 	}
 	if (typeof globalThis !== "undefined") {
-		globalThis._MapInternal.Compositor = Compositor;
+		(/** @type {any} */ (globalThis))._MapInternal = (/** @type {any} */ (globalThis))._MapInternal || {};
+		(/** @type {any} */ (globalThis))._MapInternal.Compositor = Compositor;
 	}
 	if (typeof module !== "undefined" && module.exports) {
 		module.exports = Compositor;

@@ -20,8 +20,6 @@
  */
 
 const EmberlightLockpick = (() => {
-	"use strict";
-
 	//#region [SEC-01] Type Definitions & Contract Schemas
 	/**
 	 * @typedef {Object} HarmonicState
@@ -45,7 +43,7 @@ const EmberlightLockpick = (() => {
 
 	/**
 	 * @typedef {Object} LockpickContext
-	 * @property {{ publish?: function(string, any): void, subscribe?: function(string, function(any): void): function(): void }} [eventBus] - Host event bus handle.
+	 * @property {{ publish?: (topic: string, payload?: any) => void, subscribe?: (topic: string, callback: (payload: any) => void) => () => void }} [eventBus] - Host event bus handle.
 	 */
 
 	/**
@@ -87,8 +85,6 @@ const EmberlightLockpick = (() => {
 	//#region [SEC-03] Simulation Vault & Lifecycle Assertion Helpers
 	/** @type {LockpickSimulation | null} */
 	let sim = null;
-	/** @type {number | null} */
-	let animFrameId = null;
 
 	/**
 	 * Asserts that the module is operating within permitted lifecycle states.
@@ -240,7 +236,7 @@ const EmberlightLockpick = (() => {
 	 * State-mutating DOM binding helper.
 	 * @param {Element} panel - Parent DOM panel container.
 	 * @param {string} btnId - Button element identifier selector.
-	 * @param {function(): void} fn - Click execution callback.
+	 * @param {() => void} fn - Click execution callback.
 	 */
 	function bindMod(panel, btnId, fn) {
 		const btn = panel.querySelector(btnId);
@@ -270,7 +266,7 @@ const EmberlightLockpick = (() => {
 	 * Computes parameter presentation styles for UI rendering.
 	 * Pure data transformation helper.
 	 * @param {string} sel - Selected parameter token.
-	 * @returns {Object} Precomputed parameter styles object.
+	 * @returns {Record<string, string>} Precomputed parameter styles object.
 	 */
 	function getParameterStyles(sel) {
 		const isA = sel === 'A';
@@ -303,7 +299,7 @@ const EmberlightLockpick = (() => {
 	 * @param {number} resonance - Resonance percentage.
 	 * @param {string} resonanceColor - CSS color token.
 	 * @param {boolean} isHarmonized - Harmonized status flag.
-	 * @param {Object} styles - Precomputed parameter styles object.
+	 * @param {Record<string, string>} styles - Precomputed parameter styles object.
 	 * @returns {string} Rendered HTML string.
 	 */
 	function buildPanelInnerHtml(resonance, resonanceColor, isHarmonized, styles) {
@@ -494,6 +490,7 @@ const EmberlightLockpick = (() => {
 		}
 	}
 
+	/** @type {Record<string, () => void>} */
 	const ACTION_HANDLERS = Object.freeze({
 		'UP': () => cycleParam(-1),
 		'w': () => cycleParam(-1),
@@ -542,7 +539,7 @@ const EmberlightLockpick = (() => {
 		/**
 		 * Configures tenant driver settings.
 		 * State-mutating configuration gateway.
-		 * @param {Object} cfg - Configuration dictionary object.
+		 * @param {Record<string, any>} [cfg] - Configuration dictionary object.
 		 * @returns {void}
 		 */
 		configure(cfg) {
@@ -557,7 +554,7 @@ const EmberlightLockpick = (() => {
 		/**
 		 * Initializes host context and event bus bindings.
 		 * State-mutating initialization gateway.
-		 * @param {LockpickContext} context - Host context object.
+		 * @param {LockpickContext | any} [context] - Host context object.
 		 * @returns {void}
 		 */
 		init(context) {
@@ -627,7 +624,7 @@ const EmberlightLockpick = (() => {
 		/**
 		 * Projects simulation state onto UI canvas or renderer.
 		 * State-mutating presentation projection gateway.
-		 * @param {function(LockpickSimulation, LockpickContext): void | any} [renderer] - Custom renderer function or null.
+		 * @param {((sim: LockpickSimulation | null, ctx: LockpickContext) => void) | any} [renderer] - Custom renderer function or null.
 		 * @param {any} [_context] - Optional render context.
 		 * @returns {void}
 		 */
@@ -688,15 +685,21 @@ const EmberlightLockpick = (() => {
 		},
 
 		/**
+		 * Backward-compatibility alias for getModuleInfo.
+		 * Pure manifest accessor gateway.
+		 * @returns {LockpickModuleInfo} Constitutional metadata descriptor.
+		 */
+		getInfo() {
+			return this.getModuleInfo();
+		},
+
+		/**
 		 * Tears down simulation resources and sets terminal lifecycle state.
 		 * State-mutating terminal lifecycle gateway.
 		 * @returns {void}
 		 */
 		destroy() {
 			if (lifecycleState === State.DESTROYED) return;
-			if (animFrameId && typeof cancelAnimationFrame !== 'undefined') {
-				cancelAnimationFrame(animFrameId);
-			}
 			sim = null;
 			hostConfig = null;
 			hostContext = null;

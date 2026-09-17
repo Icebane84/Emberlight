@@ -34,7 +34,7 @@
  * @property {string[]} [unlockedNodes] Unlocked constellation node IDs.
  * @property {Object.<string, number>} [spent] Spent point distribution per branch.
  * @property {SaveEquipment} [equipment] Equipped gear mapping.
- * @property {Array<Object>} [ailments] Active status ailments.
+ * @property {Array<unknown>} [ailments] Active status ailments.
  * @property {boolean} [alive] Alive status flag.
  * @property {number} [hp] Current hit points.
  * @property {number} [maxHp] Maximum hit points.
@@ -56,36 +56,54 @@
 
 /**
  * @typedef {Object} SavePayload
- * @property {string} version Schema version string.
+ * @property {string} [version] Schema version string.
  * @property {string} [timestamp] ISO timestamp of serialization.
+ * @property {string} [slotId] Active save slot identifier.
  * @property {SaveCharacter[]} [canonicalParty] Party roster array.
+ * @property {SaveCharacter[]} [party] Legacy un-prefixed party roster.
  * @property {number} [canonicalGold] Player gold currency balance.
+ * @property {number} [gold] Legacy un-prefixed gold currency balance.
  * @property {Object.<string, number>} [canonicalInventory] Item inventory count map.
- * @property {Object} [canonicalWorldPos] Overworld coordinate map position.
+ * @property {Object.<string, number>} [inventory] Legacy un-prefixed inventory.
+ * @property {{ x: number, y: number, mapId?: string }} [canonicalWorldPos] Overworld coordinate map position.
+ * @property {{ x: number, y: number, mapId?: string }} [worldPos] Legacy un-prefixed world coordinate position.
  * @property {Object.<string, boolean>} [canonicalFlags] World narrative flags.
- * @property {Object.<string, Object>} [canonicalQuests] Quest progression states.
+ * @property {Object.<string, boolean>} [flags] Legacy un-prefixed world flags.
+ * @property {Record<string, unknown>} [canonicalQuests] Quest progression states.
+ * @property {Record<string, unknown>} [quests] Legacy un-prefixed quest progression states.
  * @property {number} [canonicalDungeonDepth] Active dungeon depth level.
+ * @property {number} [dungeonDepth] Legacy un-prefixed dungeon depth.
  * @property {SaveDungeonSpec|null} [canonicalDungeonSpec] Dungeon configuration spec.
+ * @property {SaveDungeonSpec|null} [dungeonSpec] Legacy un-prefixed dungeon spec.
  * @property {Object.<string, string>} [canonicalSurfaceMutations] Overworld tile mutations.
+ * @property {Object.<string, string>} [surfaceMutations] Legacy un-prefixed surface mutations.
  * @property {Object.<string, string>} [canonicalTownMutations] Town structure mutations.
+ * @property {Object.<string, string>} [townMutations] Legacy un-prefixed town mutations.
  * @property {string|null} [canonicalTownId] Active town key identifier.
- * @property {Object} [canonicalMacroPos] Macro region coordinate position.
+ * @property {string|null} [townId] Legacy un-prefixed town ID.
+ * @property {{ x: number, y: number }} [canonicalMacroPos] Macro region coordinate position.
+ * @property {{ x: number, y: number }} [macroPos] Legacy un-prefixed macro region coordinate position.
  * @property {number} [canonicalStepCounter] Exploration step count tracker.
+ * @property {number} [stepCounter] Legacy un-prefixed step counter.
  * @property {Array<Array<string>>} [canonicalSurfaceMap] Legacy surface map grid.
  * @property {number} [canonicalDungeonFloor] Legacy dungeon floor index.
  */
 
 /**
  * @typedef {Object} SaveMetadata
+ * @property {string} [slotId] Active save slot identifier.
  * @property {string} version Schema version identifier.
  * @property {string} timestamp Last modified timestamp string.
  * @property {number} partySize Total count of active party members.
  * @property {number} avgLevel Average party level rating.
  * @property {number} gold Active gold balance.
+ * @property {string} [locationName] Semantic location name.
  */
 
 /**
- * @typedef {function(SavePayload): SavePayload} MigrationHandler
+ * @callback MigrationHandler
+ * @param {SavePayload} payload
+ * @returns {SavePayload}
  */
 
 const EmberlightSaveManager = (() => {
@@ -179,6 +197,9 @@ const EmberlightSaveManager = (() => {
 		return true;
 	}
 
+	/**
+	 * @param {string} slotId
+	 */
 	function _resolveStorageKey(slotId) {
 		if (!slotId) return "EMBERLIGHT_SAVE_SLOT_1";
 		const norm = String(slotId).toUpperCase();
@@ -280,10 +301,13 @@ const EmberlightSaveManager = (() => {
 			return raw;
 		},
 		"1.3.0": (raw) => {
-			if (!raw.canonicalSurfaceMutations) raw.canonicalSurfaceMutations = {};
+			if (!raw.canonicalSurfaceMutations) {
+				raw.canonicalSurfaceMutations = {};
+			}
+			const mutations = raw.canonicalSurfaceMutations;
 			if (Array.isArray(raw.canonicalSurfaceMap)) {
 				const manifest =
-					typeof EmberlightManifest !== "undefined" ? EmberlightManifest : {};
+					typeof EmberlightManifest !== "undefined" ? EmberlightManifest : (/** @type {any} */ ({}));
 				const base = manifest.OverworldMap || [];
 				raw.canonicalSurfaceMap.forEach((row, y) => {
 					if (Array.isArray(row)) {
@@ -293,15 +317,16 @@ const EmberlightSaveManager = (() => {
 								tile !== base[y][x] &&
 								tile !== "@"
 							) {
-								raw.canonicalSurfaceMutations[`${x},${y}`] = tile;
+								mutations[`${x},${y}`] = tile;
 							}
 						});
 					}
 				});
 			}
+			const dungeonDepth = raw.canonicalDungeonDepth ?? 0;
 			if (
 				!raw.canonicalDungeonSpec &&
-				(raw.canonicalDungeonDepth > 0 || raw.canonicalDungeonFloor)
+				(dungeonDepth > 0 || raw.canonicalDungeonFloor)
 			) {
 				const dungeonSeed =
 					typeof EmberlightPRNG !== "undefined"
@@ -309,7 +334,7 @@ const EmberlightSaveManager = (() => {
 						: 123456;
 				raw.canonicalDungeonSpec = {
 					seed: dungeonSeed,
-					depth: raw.canonicalDungeonDepth || 1,
+					depth: dungeonDepth || 1,
 					width: 12,
 					height: 10,
 					mutations: {},
@@ -342,7 +367,7 @@ const EmberlightSaveManager = (() => {
 			let currentVer = payload.version || "1.0.0";
 			while (this.MIGRATIONS[currentVer]) {
 				payload = this.MIGRATIONS[currentVer](payload);
-				currentVer = payload.version;
+				currentVer = payload.version || "";
 			}
 			return payload;
 		},
@@ -412,7 +437,7 @@ const EmberlightSaveManager = (() => {
 
 		/**
 		 * Lists descriptors and status for all available save slots.
-		 * @returns {Array<Object>}
+		 * @returns {Array<Record<string, unknown>>}
 		 */
 		listSlots() {
 			_autoMigrateLegacy();
@@ -447,7 +472,7 @@ const EmberlightSaveManager = (() => {
 					const avgLevel =
 						party.length > 0
 							? Math.round(
-								party.reduce((acc, c) => acc + (c.level || 1), 0) /
+								party.reduce((/** @type {any} */ acc, /** @type {{ level: any; }} */ c) => acc + (c.level || 1), 0) /
 								party.length,
 							)
 							: 1;
@@ -461,7 +486,7 @@ const EmberlightSaveManager = (() => {
 						timestamp: formattedTime,
 						isoTimestamp: data.timestamp || null,
 						locationName: this.resolveLocationName(data),
-						party: party.map((c) => ({
+						party: party.map((/** @type {{ name: any; phenotype: any; level: any; hp: any; maxHp: any; }} */ c) => ({
 							name: c.name || "Hero",
 							phenotype: c.phenotype || "HERO",
 							level: c.level || 1,
@@ -500,30 +525,35 @@ const EmberlightSaveManager = (() => {
 				const raw = _getStorageItem(key);
 				if (!raw) return null;
 				const data = JSON.parse(raw);
-				const party = Array.isArray(data.canonicalParty)
-					? data.canonicalParty
-					: Array.isArray(data.party)
-						? data.party
-						: [];
+				let party = [];
+				if (Array.isArray(data.canonicalParty)) {
+					party = data.canonicalParty;
+				} else if (Array.isArray(data.party)) {
+					party = data.party;
+				}
+
 				const avgLevel =
 					party.length > 0
 						? Math.round(
-							party.reduce((acc, c) => acc + (c.level || 1), 0) /
+							party.reduce((/** @type {any} */ acc, /** @type {{ level: any; }} */ c) => acc + (c.level || 1), 0) /
 							party.length,
 						)
 						: 1;
+
+				let gold = 0;
+				if (typeof data.canonicalGold === "number") {
+					gold = data.canonicalGold;
+				} else if (typeof data.gold === "number") {
+					gold = data.gold;
+				}
+
 				return {
 					slotId: targetSlot,
 					version: data.version || "1.0.0",
 					timestamp: data.timestamp || "Unknown",
 					partySize: party.length,
 					avgLevel,
-					gold:
-						typeof data.canonicalGold === "number"
-							? data.canonicalGold
-							: typeof data.gold === "number"
-								? data.gold
-								: 0,
+					gold,
 					locationName: this.resolveLocationName(data),
 				};
 			} catch {
@@ -548,36 +578,49 @@ const EmberlightSaveManager = (() => {
 				}
 
 				const key = _resolveStorageKey(slotId);
+
+				let gold = 100;
+				if (typeof stateSnapshot.canonicalGold === "number") {
+					gold = stateSnapshot.canonicalGold;
+				} else if (typeof stateSnapshot.gold === "number") {
+					gold = stateSnapshot.gold;
+				}
+
+				let dungeonDepth = 0;
+				if (typeof stateSnapshot.canonicalDungeonDepth === "number") {
+					dungeonDepth = stateSnapshot.canonicalDungeonDepth;
+				} else if (typeof stateSnapshot.dungeonDepth === "number") {
+					dungeonDepth = stateSnapshot.dungeonDepth;
+				}
+
+				let stepCounter = 0;
+				if (typeof stateSnapshot.canonicalStepCounter === "number") {
+					stepCounter = stateSnapshot.canonicalStepCounter;
+				} else if (typeof stateSnapshot.stepCounter === "number") {
+					stepCounter = stateSnapshot.stepCounter;
+				}
+
 				const payload = {
 					version: this.CURRENT_VERSION,
 					timestamp: new Date().toISOString(),
-					canonicalParty: stateSnapshot.canonicalParty,
-					canonicalGold:
-						typeof stateSnapshot.canonicalGold === "number"
-							? stateSnapshot.canonicalGold
-							: 100,
-					canonicalInventory: stateSnapshot.canonicalInventory || {
+					canonicalParty: stateSnapshot.canonicalParty || stateSnapshot.party || [],
+					canonicalGold: gold,
+					canonicalInventory: stateSnapshot.canonicalInventory || stateSnapshot.inventory || {
 						POTION: 4,
 						ETHER: 2,
 						PHOENIX_EMBER: 1,
 					},
-					canonicalWorldPos: stateSnapshot.canonicalWorldPos || { x: 1, y: 1 },
-					canonicalFlags: stateSnapshot.canonicalFlags || {},
-					canonicalQuests: stateSnapshot.canonicalQuests || {},
-					canonicalDungeonDepth:
-						typeof stateSnapshot.canonicalDungeonDepth === "number"
-							? stateSnapshot.canonicalDungeonDepth
-							: 0,
-					canonicalDungeonSpec: stateSnapshot.canonicalDungeonSpec || null,
+					canonicalWorldPos: stateSnapshot.canonicalWorldPos || stateSnapshot.worldPos || { x: 1, y: 1 },
+					canonicalFlags: stateSnapshot.canonicalFlags || stateSnapshot.flags || {},
+					canonicalQuests: stateSnapshot.canonicalQuests || stateSnapshot.quests || {},
+					canonicalDungeonDepth: dungeonDepth,
+					canonicalDungeonSpec: stateSnapshot.canonicalDungeonSpec || stateSnapshot.dungeonSpec || null,
 					canonicalSurfaceMutations:
-						stateSnapshot.canonicalSurfaceMutations || {},
-					canonicalTownMutations: stateSnapshot.canonicalTownMutations || {},
-					canonicalTownId: stateSnapshot.canonicalTownId || null,
-					canonicalMacroPos: stateSnapshot.canonicalMacroPos || { x: 1, y: 1 },
-					canonicalStepCounter:
-						typeof stateSnapshot.canonicalStepCounter === "number"
-							? stateSnapshot.canonicalStepCounter
-							: 0,
+						stateSnapshot.canonicalSurfaceMutations || stateSnapshot.surfaceMutations || {},
+					canonicalTownMutations: stateSnapshot.canonicalTownMutations || stateSnapshot.townMutations || {},
+					canonicalTownId: stateSnapshot.canonicalTownId || stateSnapshot.townId || null,
+					canonicalMacroPos: stateSnapshot.canonicalMacroPos || stateSnapshot.macroPos || { x: 1, y: 1 },
+					canonicalStepCounter: stepCounter,
 				};
 
 				const serialized = JSON.stringify(payload);
@@ -618,7 +661,7 @@ const EmberlightSaveManager = (() => {
 					payload.canonicalParty.length < 4
 				) {
 					const manifest =
-						typeof EmberlightManifest !== "undefined" ? EmberlightManifest : {};
+						typeof EmberlightManifest !== "undefined" ? EmberlightManifest : (/** @type {any} */ ({}));
 					const phenotypes = manifest.Phenotypes || {};
 					const templates = [
 						{
@@ -653,7 +696,7 @@ const EmberlightSaveManager = (() => {
 
 					const partyMap = new Map();
 					if (Array.isArray(payload.canonicalParty)) {
-						payload.canonicalParty.forEach((c) => {
+						payload.canonicalParty.forEach((/** @type {{ id: any; name: any; phenotype: any; }} */ c) => {
 							if (c && (c.id || c.name)) {
 								partyMap.set(c.id || c.name, c);
 								partyMap.set(c.phenotype, c);
@@ -738,8 +781,8 @@ const EmberlightSaveManager = (() => {
 				}
 
 				// Revive dead heroes if entire party was defeated upon load
-				if (payload.canonicalParty.every((c) => !c.alive || c.hp <= 0)) {
-					payload.canonicalParty.forEach((c) => {
+				if (payload.canonicalParty.every((/** @type {{ alive: any; hp: number; }} */ c) => !c.alive || c.hp <= 0)) {
+					payload.canonicalParty.forEach((/** @type {{ alive: boolean; hp: any; maxHp: number; mp: any; maxMp: number; ailments: never[]; }} */ c) => {
 						c.alive = true;
 						c.hp = c.maxHp || 30;
 						c.mp = c.maxMp || 10;
@@ -749,7 +792,7 @@ const EmberlightSaveManager = (() => {
 
 				// Ensure party members have proper baseline SP
 				if (Array.isArray(payload.canonicalParty)) {
-					payload.canonicalParty.forEach((c) => {
+					payload.canonicalParty.forEach((/** @type {{ unlockedNodes: any; unlocked: any; skillPoints: number; unspentSP: number; level: any; }} */ c) => {
 						const unlocked = c.unlockedNodes || c.unlocked || [];
 						const currentSP = Math.max(c.skillPoints || 0, c.unspentSP || 0);
 						if (unlocked.length === 0 && currentSP === 0) {
@@ -845,7 +888,7 @@ const EmberlightSaveManager = (() => {
 // Expose on global and module environments
 if (typeof window !== "undefined") {
 	window.EmberlightSaveManager = EmberlightSaveManager;
-	window.StorageManager = EmberlightSaveManager;
+	(/** @type {any} */ (window)).StorageManager = EmberlightSaveManager;
 }
 if (typeof module !== "undefined" && module.exports) {
 	module.exports = EmberlightSaveManager;

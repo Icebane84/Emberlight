@@ -19,8 +19,6 @@
  */
 
 const EmberlightChronicleRendererInstance = (() => {
-	'use strict';
-
 	//#region [SEC-01] Domain Type Contracts & JSDoc Schemas
 	/**
 	 * @typedef {Object} QuestStageDefinition
@@ -70,7 +68,7 @@ const EmberlightChronicleRendererInstance = (() => {
 	/**
 	 * Safely dispatches an action payload to the simulation tenant.
 	 * [State Mutating / Event Emission]
-	 * @param {function(ChronicleActionPayload):void} dispatch - Host action dispatch callback.
+	 * @param {(action: ChronicleActionPayload) => void} dispatch - Host action dispatch callback.
 	 * @param {ChronicleActionPayload} action - Action token or payload dictionary.
 	 * @returns {void}
 	 */
@@ -85,11 +83,16 @@ const EmberlightChronicleRendererInstance = (() => {
 	 * [DOM Presentation Render]
 	 * @param {HTMLElement} panel - Target panel element container.
 	 * @param {ChronicleSimState} state - Current simulation state snapshot.
-	 * @param {function(ChronicleActionPayload):void} dispatch - Action dispatcher callback.
+	 * @param {(action: ChronicleActionPayload) => void} dispatch - Action dispatcher callback.
 	 * @returns {void}
 	 */
 	function buildChronicleContent(panel, state, dispatch) {
-		const manifest = typeof EmberlightManifest !== 'undefined' ? EmberlightManifest : {};
+		let manifest = /** @type {any} */ ({});
+		if (typeof EmberlightManifest !== 'undefined') {
+			manifest = EmberlightManifest;
+		} else if (typeof window !== 'undefined' && window.EmberlightManifest) {
+			manifest = window.EmberlightManifest;
+		}
 		const quests = /** @type {QuestDefinition[]} */ (Object.values(manifest.Quests || {}));
 
 		panel.className = 'panel';
@@ -154,7 +157,7 @@ const EmberlightChronicleRendererInstance = (() => {
 		 * Renders the complete chronicle journal viewport.
 		 * [DOM Presentation Render]
 		 * @param {ChronicleSimState} state - Simulation state snapshot.
-		 * @param {function(ChronicleActionPayload):void} dispatch - Action dispatcher.
+		 * @param {(action: ChronicleActionPayload) => void} dispatch - Action dispatcher.
 		 * @returns {void}
 		 */
 		renderChronicle(state, dispatch) {
@@ -188,7 +191,6 @@ const EmberlightChronicleRendererInstance = (() => {
 
 //#region [SEC-05] Global Environment & Window Module Export
 if (typeof window !== 'undefined') {
-	// @ts-ignore
 	window.EmberlightChronicleRenderer = EmberlightChronicleRendererInstance;
 }
 if (typeof module !== 'undefined' && module.exports) {

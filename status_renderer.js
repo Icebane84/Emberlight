@@ -80,7 +80,7 @@ const EmberlightStatusRenderer = (() => {
 	 * @typedef {CastFieldSpellAction | ToggleRowAction | AdministerPotionAction | CleanseAilmentsAction | NoticeAction | ExitAction} StatusActionObject
 	 * @typedef {StatusActionObject | string} StatusActionToken
 	 *
-	 * @typedef {function(StatusActionToken): void} StatusDispatchFn
+	 * @typedef {(action: StatusActionToken) => void} StatusDispatchFn
 	 *
 	 * @typedef {Object} LearnedHealDescriptor
 	 * @property {string} id - Heal skill identifier.
@@ -99,10 +99,10 @@ const EmberlightStatusRenderer = (() => {
 	 * @property {'status_renderer'} driverId - Registered driver identifier.
 	 *
 	 * @typedef {Object} IEmberlightStatusRenderer
-	 * @property {function(any=): void} init - Initializes presentation peripheral.
-	 * @property {function(StatusStateSnapshot, StatusDispatchFn): void} renderStatus - Mounts status presentation UI.
-	 * @property {function(): RendererDiagnostics} getDiagnostics - Returns driver diagnostic telemetry.
-	 * @property {function(): void} destroy - Tears down presentation elements.
+	 * @property {(config?: any) => void} init - Initializes presentation peripheral.
+	 * @property {(state: StatusStateSnapshot, dispatch: StatusDispatchFn) => void} renderStatus - Mounts status presentation UI.
+	 * @property {() => RendererDiagnostics} getDiagnostics - Returns driver diagnostic telemetry.
+	 * @property {() => void} destroy - Tears down presentation elements.
 	 */
 
 	/** @type {string | null} */
@@ -139,7 +139,9 @@ const EmberlightStatusRenderer = (() => {
 	 * @returns {any} Authoritative game data manifest dictionary.
 	 */
 	function getManifest() {
-		return typeof EmberlightManifest !== "undefined" ? EmberlightManifest : {};
+		if (typeof window !== "undefined" && window.EmberlightManifest) return window.EmberlightManifest;
+		if (typeof globalThis !== "undefined" && (/** @type {any} */ (globalThis)).EmberlightManifest) return (/** @type {any} */ (globalThis)).EmberlightManifest;
+		return {};
 	}
 
 	/**

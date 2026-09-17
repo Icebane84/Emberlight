@@ -18,8 +18,6 @@
 if (typeof window !== 'undefined') window._BattlerBakerInternal = window._BattlerBakerInternal || {};
 
 (() => {
-	'use strict';
-
 	//#region [SEC-01] Module Constants, Palettes & Canvas Context Helpers
 	const VERSION = '4.0.0';
 	const SPRITE_SIZE = 64;
@@ -131,7 +129,7 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 	//#endregion
 
 	//#region [SEC-02] Drawing Primitives & Supersampling Scale Math
-	const S = (n) => n * RENDER_SCALE;
+	const S = (/** @type {number} */ n) => n * RENDER_SCALE;
 
 	/**
 	 * Renders a solid color rectangle scaled for supersampling.

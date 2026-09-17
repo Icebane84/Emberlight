@@ -10,22 +10,22 @@
 /**
  * Pure projection synthesizer transforming combat state snapshots into frozen 4-quadrant DTOs.
  * [Pure Query / Zero Simulation Mutation]
- * @param {Object} snapshot - Immutable combat state snapshot.
- * @returns {Readonly<Object>} Frozen 4-quadrant projection bundle.
+ * @param {any} snapshot - Immutable combat state snapshot.
+ * @returns {Readonly<CombatWarTableProjection>} Frozen 4-quadrant projection bundle.
  */
 function createProjection(snapshot) {
-	if (!snapshot) return Object.freeze({});
+	if (!snapshot) return /** @type {Readonly<CombatWarTableProjection>} */ (Object.freeze({}));
 
 	const activeCharId =
 		snapshot.turnQueue?.[snapshot.activeTurnIndex]?.entity?.id ||
 		snapshot.party?.[0]?.id ||
 		null;
 	const activeHeroIdx = (snapshot.party || []).findIndex(
-		(c) => c.id === activeCharId,
+		(/** @type {{ id: any; }} */ c) => c.id === activeCharId,
 	);
 
 	// Compute dynamic Q1 grid coordinates & trajectory vectors
-	const q1PartyNodes = (snapshot.party || []).map((p, idx) => {
+	const q1PartyNodes = (snapshot.party || []).map((/** @type {{ row: any; id: any; name: any; phenotype: any; hp: any; maxHp: any; alive: any; }} */ p, /** @type {number} */ idx) => {
 		const isFront = (p.row || "FRONT") === "FRONT";
 		return {
 			id: p.id,
@@ -41,7 +41,7 @@ function createProjection(snapshot) {
 		};
 	});
 
-	const q1EnemyNodes = (snapshot.enemies || []).map((e, idx) => {
+	const q1EnemyNodes = (snapshot.enemies || []).map((/** @type {{ row: any; id: any; name: any; key: any; hp: any; maxHp: any; alive: any; isBoss: any; }} */ e, /** @type {number} */ idx) => {
 		const isFront = (e.row || "FRONT") === "FRONT";
 		return {
 			id: e.id,
@@ -59,10 +59,13 @@ function createProjection(snapshot) {
 	});
 
 	// Calculate displacement trajectory vectors if pending skill has knockback/pull
+	/**
+	 * @type {any[]}
+	 */
 	const activeDisplacementVectors = [];
 	if (snapshot.pendingSkill?.displacement) {
 		const disp = snapshot.pendingSkill.displacement;
-		q1EnemyNodes.forEach((node) => {
+		q1EnemyNodes.forEach((/** @type {{ alive: any; gridX: number; gridY: any; }} */ node) => {
 			if (node.alive) {
 				const toX =
 					disp.type === "KNOCKBACK"
@@ -82,9 +85,9 @@ function createProjection(snapshot) {
 
 	// Generate intent vectors linking enemies to party targets
 	const threatVectors = (snapshot.enemies || [])
-		.filter((e) => e.alive)
-		.map((e, eIdx) => {
-			const livingHeroes = (snapshot.party || []).filter((p) => p.alive);
+		.filter((/** @type {{ alive: any; }} */ e) => e.alive)
+		.map((/** @type {{ id: any; name: any; isBoss: any; phaseTwoActive: any; }} */ e, /** @type {any} */ eIdx) => {
+			const livingHeroes = (snapshot.party || []).filter((/** @type {{ alive: any; }} */ p) => p.alive);
 			const targetIdx =
 				(eIdx + (snapshot.roundCount || 0)) % Math.max(1, livingHeroes.length);
 			const targetHero = livingHeroes[targetIdx] || snapshot.party?.[0] || null;
@@ -124,7 +127,7 @@ function createProjection(snapshot) {
 		biome: snapshot.biome || snapshot.terrain || "MEADOW",
 		activeTurnIndex: snapshot.activeTurnIndex || 0,
 		phase: snapshot.phase || "PLAYER_INPUT",
-		enrageFactor: snapshot.enemies?.some((e) => e.isBoss && e.phaseTwoActive)
+		enrageFactor: snapshot.enemies?.some((/** @type {{ isBoss: any; phaseTwoActive: any; }} */ e) => e.isBoss && e.phaseTwoActive)
 			? 1.5
 			: 1.0,
 		allies: Object.freeze(q1PartyNodes),
@@ -138,7 +141,7 @@ function createProjection(snapshot) {
 		log: snapshot.log ? [...snapshot.log] : [],
 		threatVectors: Object.freeze(threatVectors),
 		enemies: Object.freeze(
-			(snapshot.enemies || []).map((e) => ({
+			(snapshot.enemies || []).map((/** @type {{ id: any; name: any; weaknesses: any; resistances: any; immunities: any; alive: any; hp: any; maxHp: any; }} */ e) => ({
 				id: e.id,
 				name: e.name,
 				weaknesses: e.weaknesses ? [...e.weaknesses] : [],
@@ -160,7 +163,7 @@ function createProjection(snapshot) {
 			: null,
 		pendingItem: snapshot.pendingItem || null,
 		partyVitals: Object.freeze(
-			(snapshot.party || []).map((c, idx) => ({
+			(snapshot.party || []).map((/** @type {{ id: any; name: any; phenotype: any; hp: any; maxHp: any; mp: any; maxMp: any; row: any; alive: any; ailments: any; }} */ c, /** @type {any} */ idx) => ({
 				id: c.id,
 				name: c.name,
 				phenotype: c.phenotype || "HERO",
@@ -193,15 +196,20 @@ const CombatProjection = Object.freeze({
 	createProjection,
 });
 
-const _root =
-	typeof window !== "undefined"
-		? window
-		: typeof globalThis !== "undefined"
-			? globalThis
-			: {};
+/**
+ * @returns {any}
+ */
+function getRoot() {
+	if (typeof window !== "undefined") return window;
+	if (typeof globalThis !== "undefined") return globalThis;
+	return {};
+}
+
+const _root = getRoot();
 _root._CombatInternal = _root._CombatInternal || {};
 _root._CombatInternal.Projection = CombatProjection;
 
 if (typeof module !== "undefined" && module.exports) {
 	module.exports = CombatProjection;
 }
+

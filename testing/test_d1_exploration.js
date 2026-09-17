@@ -241,6 +241,6 @@ currentFacing = runtime.getFlags().facingDirection;
 if (currentFacing !== 'RIGHT') {
 	throw new Error(`runtime.pivotFacing('RIGHT') failed! Got ${currentFacing}`);
 }
-console.log('  -> runtime.pivotFacing API verified.');
-
 console.log('\n=== ALL DISTRICT 1 EXPLORATION VERIFICATION CHECKS PASSED (100%) ===');
+process.exit(0);
+

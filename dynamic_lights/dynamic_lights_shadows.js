@@ -15,15 +15,22 @@
  */
 
 if (typeof window !== 'undefined') window._DynamicLightsInternal = window._DynamicLightsInternal || {};
-if (typeof globalThis !== 'undefined') globalThis._DynamicLightsInternal = globalThis._DynamicLightsInternal || {};
+if (typeof globalThis !== 'undefined') (/** @type {any} */ (globalThis))._DynamicLightsInternal = (/** @type {any} */ (globalThis))._DynamicLightsInternal || {};
 
 (() => {
-	'use strict';
+	/**
+	 * @typedef {Object} DynamicLightSource
+	 * @property {number} x - Light emitter screen X pixel coordinate.
+	 * @property {number} y - Light emitter screen Y pixel coordinate.
+	 * @property {number} radius - Illumination and shadow radius in pixels.
+	 * @property {string} [color] - RGB light color channel string (e.g. '255, 180, 70').
+	 * @property {number} [intensity] - Light intensity multiplier.
+	 */
 
 	/**
 	 * Casts projected shadow volumes from an occluding wall tile.
 	 * @param {CanvasRenderingContext2D} ctx - Target 2D rendering context.
-	 * @param {Object} light - Target light emitter source.
+	 * @param {DynamicLightSource} light - Target light emitter source.
 	 * @param {number} ox - Occluder X screen pixel coordinate.
 	 * @param {number} oy - Occluder Y screen pixel coordinate.
 	 * @param {number} ow - Occluder width in pixels.
@@ -103,7 +110,7 @@ if (typeof globalThis !== 'undefined') globalThis._DynamicLightsInternal = globa
 	/**
 	 * Renders normal-mapped edge bevel highlights on visible wall tiles.
 	 * @param {CanvasRenderingContext2D} ctx - Target 2D rendering context.
-	 * @param {Object} light - Target light source emitter.
+	 * @param {DynamicLightSource} light - Target light source emitter.
 	 * @param {number} ox - Wall tile screen X pixel coordinate.
 	 * @param {number} oy - Wall tile screen Y pixel coordinate.
 	 * @param {number} ow - Tile width in pixels.
@@ -165,10 +172,12 @@ if (typeof globalThis !== 'undefined') globalThis._DynamicLightsInternal = globa
 	});
 
 	if (typeof window !== 'undefined') {
+		window._DynamicLightsInternal = window._DynamicLightsInternal || {};
 		window._DynamicLightsInternal.Shadows = Shadows;
 	}
 	if (typeof globalThis !== 'undefined') {
-		globalThis._DynamicLightsInternal.Shadows = Shadows;
+		(/** @type {any} */ (globalThis))._DynamicLightsInternal = (/** @type {any} */ (globalThis))._DynamicLightsInternal || {};
+		(/** @type {any} */ (globalThis))._DynamicLightsInternal.Shadows = Shadows;
 	}
 	if (typeof module !== 'undefined' && module.exports) {
 		module.exports = Shadows;

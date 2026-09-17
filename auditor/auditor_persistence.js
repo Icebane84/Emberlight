@@ -27,39 +27,44 @@
 if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInternal || {};
 
 (() => {
-  'use strict';
-
   // ─── Dependency Ingestion from Kernel ────────────────────────────────────
-  const { logAudit } = window._AuditorInternal.Kernel;
+  const { logAudit } = /** @type {any} */ (
+    (typeof window !== 'undefined' ? window._AuditorInternal?.Kernel : null) ||
+    (typeof require !== 'undefined' ? require('./auditor_kernel.js') : {})
+  );
 
   // ─── Pass 13 Subroutines: Persistence Compression & EventBus Teardown ───
 
+  /**
+   * @param {any} bus
+   */
   function auditEventBusTokenization(bus) {
     let testBus = bus;
     if (!testBus || typeof testBus.subscribe !== 'function') {
+      /** @type {Record<string, Array<(payload: unknown) => void>>} */
       const subs = {};
       testBus = {
         subscribers: subs,
-        subscribe(evt, cb) {
+        subscribe(/** @type {string} */ evt, /** @type {(payload: unknown) => void} */ cb) {
           if (!this.subscribers[evt]) this.subscribers[evt] = [];
           this.subscribers[evt].push(cb);
           return () => {
             this.unsubscribe(evt, cb);
           };
         },
-        unsubscribe(evt, cb) {
+        unsubscribe(/** @type {string} */ evt, /** @type {(payload: unknown) => void} */ cb) {
           if (!this.subscribers[evt]) return;
-          this.subscribers[evt] = this.subscribers[evt].filter((fn) => fn !== cb);
+          this.subscribers[evt] = this.subscribers[evt].filter((/** @type {(payload: unknown) => void} */ fn) => fn !== cb);
           if (this.subscribers[evt].length === 0) delete this.subscribers[evt];
         },
-        publish(evt, payload) {
+        publish(/** @type {string} */ evt, /** @type {unknown} */ payload) {
           if (this.subscribers[evt]) {
             for (const fn of this.subscribers[evt]) {
               fn(payload);
             }
           }
         },
-        clear(evt) {
+        clear(/** @type {string} */ evt) {
           if (evt) delete this.subscribers[evt];
           else this.subscribers = {};
         },
@@ -122,25 +127,28 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
     }
 
     // Rehydration determinism check
-    if (typeof EmberlightDungeonGen !== 'undefined') {
-      const { map: floor1 } = EmberlightDungeonGen.generate(987654, 12, 10, 3);
-      const { map: floor2 } = EmberlightDungeonGen.generate(987654, 12, 10, 3);
+    if (typeof EmberlightDungeonGen !== 'undefined' && typeof EmberlightDungeonGen.generate === 'function') {
+      const { map: floor1 } = /** @type {any} */ (EmberlightDungeonGen).generate(987654, 12, 10, 3);
+      const { map: floor2 } = /** @type {any} */ (EmberlightDungeonGen).generate(987654, 12, 10, 3);
       if (JSON.stringify(floor1) !== JSON.stringify(floor2)) {
         throw new Error('Procedural seed rehydration non-deterministic between identical seed runs.');
       }
     }
 
     // Assert EmberlightSaveManager persistence tenant
-    if (typeof EmberlightSaveManager !== 'undefined') {
+    if (typeof EmberlightSaveManager !== 'undefined' && typeof EmberlightSaveManager.migrate === 'function') {
       const testLegacy = { version: '1.0.0', canonicalParty: [{ id: 'hero', level: 1 }] };
-      const migrated = EmberlightSaveManager.migrate(testLegacy);
-      if (migrated.version !== '1.4.0' || !migrated.canonicalFlags) {
+      const migrated = /** @type {any} */ (EmberlightSaveManager).migrate(testLegacy);
+      if (migrated?.version !== '1.4.0' || !migrated.canonicalFlags) {
         throw new Error('EmberlightSaveManager failed migration 1.0.0 -> 1.4.0');
       }
     }
     logAudit(`[PASS] Sparse Persistence Compression: Payload ${byteLength}B (<2.5KB) with deterministic procedural rehydration.`, true);
   }
 
+  /**
+   * @param {any} drivers
+   */
   function auditPeripheralDriverTeardowns(drivers) {
     const testDrivers = drivers || {
       acoustic: typeof EmberlightAcousticSFX !== 'undefined' ? EmberlightAcousticSFX : null,
@@ -150,31 +158,33 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
       voice: typeof EmberlightVoice !== 'undefined' ? EmberlightVoice : null,
     };
 
+    /** @type {Record<string, Array<(payload: unknown) => void>>} */
     const localSubs = {};
     const isolatedBus = {
       subscribers: localSubs,
-      subscribe(evt, cb) {
+      subscribe(/** @type {string} */ evt, /** @type {(payload: unknown) => void} */ cb) {
         if (!this.subscribers[evt]) this.subscribers[evt] = [];
         this.subscribers[evt].push(cb);
         return () => {
           this.unsubscribe(evt, cb);
         };
       },
-      unsubscribe(evt, cb) {
+      unsubscribe(/** @type {string} */ evt, /** @type {(payload: unknown) => void} */ cb) {
         if (!this.subscribers[evt]) return;
         this.subscribers[evt] = this.subscribers[evt].filter((fn) => fn !== cb);
         if (this.subscribers[evt].length === 0) delete this.subscribers[evt];
       },
-      publish(_evt, _payload) {},
+      publish(/** @type {unknown} */ _evt, /** @type {unknown} */ _payload) {},
       clear() { this.subscribers = {}; },
     };
 
     Object.entries(testDrivers).forEach(([dKey, dObj]) => {
-      if (dObj && typeof dObj.init === 'function' && typeof dObj.destroy === 'function') {
+      const driver = /** @type {any} */ (dObj);
+      if (driver && typeof driver.init === 'function' && typeof driver.destroy === 'function') {
         const beforeKeys = Object.keys(isolatedBus.subscribers).length;
-        dObj.init(isolatedBus);
+        driver.init(isolatedBus);
         const afterInitKeys = Object.keys(isolatedBus.subscribers).length;
-        dObj.destroy();
+        driver.destroy();
         const afterDestroyKeys = Object.keys(isolatedBus.subscribers).length;
         if (afterInitKeys > beforeKeys && afterDestroyKeys !== beforeKeys) {
           throw new Error(`Peripheral driver "${dKey}" leaked subscriptions after destroy(). Active topics remaining: ${Object.keys(isolatedBus.subscribers).join(', ')}`);
@@ -185,6 +195,11 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
   }
 
   // ─── Pass 13: Persistence Compression & EventBus Teardown Battery ─────────
+  /**
+   * @param {any} _manifest
+   * @param {any} bus
+   * @param {any} drivers
+   */
   function runPersistenceAndTeardownAudit(_manifest, bus, drivers) {
     logAudit('=== PASS 13: Persistence Compression & EventBus Teardown Battery ===', true);
     try {
@@ -192,11 +207,17 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
       auditPersistenceCompression();
       auditPeripheralDriverTeardowns(drivers);
     } catch (err) {
-      logAudit(`[FAIL] Pass 13 Battery Error: ${err.message}`, false);
+      const msg = err instanceof Error ? err.message : String(err);
+      logAudit(`[FAIL] Pass 13 Battery Error: ${msg}`, false);
     }
   }
 
   // ─── Pass 14: Combat Aesthetics & Battler Synthesis Battery ───────────────
+  /**
+   * @param {any} _manifest
+   * @param {any} battlerBaker
+   * @param {any} backdropDriver
+   */
   function runCombatAestheticsAudit(_manifest, battlerBaker, backdropDriver) {
     try {
       // 1. Procedural Battler Sprite Generation Check (10 Entities)
@@ -253,13 +274,17 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
       }
 
     } catch (err) {
-      logAudit(`[FAIL] Pass 14 Battery Error: ${err.message}`, false);
+      const msg = err instanceof Error ? err.message : String(err);
+      logAudit(`[FAIL] Pass 14 Battery Error: ${msg}`, false);
     }
   }
 
   // ─── Pass 15 Subroutines: District Transitions & Chest Battery ────────────
+  /**
+   * @param {any} manifest
+   */
   function auditChestWalkabilityAndMutations(manifest) {
-    const chestDef = manifest.TileLegend?.['$'];
+    const chestDef = manifest.TileLegend?.$;
     if (chestDef?.walkable !== true) {
       throw new Error('Chest tile definition "$" in TileLegend is missing or marked non-walkable.');
     }
@@ -282,6 +307,10 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
     logAudit('[PASS] Chest Mutation & Walkability: Surface and town chest transmutations verified to open path "." upon looting.', true);
   }
 
+  /**
+   * @param {any} manifest
+   * @param {any} overworldModule
+   */
   function auditOverworldChestNavigation(manifest, overworldModule) {
     const surfaceMap = manifest.OverworldMap;
     const overworld = overworldModule || (typeof EmberlightOverworld !== 'undefined' ? EmberlightOverworld : null);
@@ -310,6 +339,9 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
     logAudit('[PASS] Overworld Navigation Invariance: Uninhibited traversal onto and off chest coordinates confirmed.', true);
   }
 
+  /**
+   * @param {any} inputDriver
+   */
   function auditInputQueueFlushing(inputDriver) {
     const input = inputDriver || (typeof EmberlightInput !== 'undefined' ? EmberlightInput : null);
     if (input && typeof input.clear === 'function') {
@@ -325,17 +357,27 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
   }
 
   // ─── Pass 15: District Transitions, Viewport Expansion & Chest Collision Invariance Battery ───
+  /**
+   * @param {any} manifest
+   * @param {any} overworldModule
+   * @param {any} inputDriver
+   * @param {any} _eventBusRef
+   */
   function runDistrictTransitionsAndChestAudit(manifest, overworldModule, inputDriver, _eventBusRef) {
     try {
       auditChestWalkabilityAndMutations(manifest);
       auditOverworldChestNavigation(manifest, overworldModule);
       auditInputQueueFlushing(inputDriver);
     } catch (err) {
-      logAudit(`[FAIL] Pass 15 Battery Error: ${err.message}`, false);
+      const msg = err instanceof Error ? err.message : String(err);
+      logAudit(`[FAIL] Pass 15 Battery Error: ${msg}`, false);
     }
   }
 
   // ─── Pass 16: Surfacing & Legibility Engine Battery (ARCH-SPEC-SURFACING-001) ───
+  /**
+   * @param {any} manifest
+   */
   function runSurfacingAndLegibilityAudit(manifest) {
     logAudit('=== PASS 16: Surfacing & Legibility Engine Battery (ARCH-SPEC-SURFACING-001) ===', true);
 
@@ -403,16 +445,24 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
       logAudit('[PASS] Field Pouch Consumables: Potions, Ethers, and Phoenix Embers verified for target-specific vital reconstitution.', true);
 
     } catch (err) {
-      logAudit(`[FAIL] Pass 16 Battery Error: ${err.message}`, false);
+      const msg = err instanceof Error ? err.message : String(err);
+      logAudit(`[FAIL] Pass 16 Battery Error: ${msg}`, false);
     }
   }
 
   // ─── Staging Membrane Export ──────────────────────────────────────────────
 
-  window._AuditorInternal.Persistence = Object.freeze({
+  const Persistence = Object.freeze({
     runPersistenceAndTeardownAudit,
     runCombatAestheticsAudit,
     runDistrictTransitionsAndChestAudit,
     runSurfacingAndLegibilityAudit,
   });
+
+  if (typeof window !== 'undefined' && window._AuditorInternal) {
+    window._AuditorInternal.Persistence = Persistence;
+  }
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = Persistence;
+  }
 })();

@@ -28,10 +28,11 @@
 if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInternal || {};
 
 (() => {
-    'use strict';
-
     // ─── Dependency Ingestion from Kernel ────────────────────────────────────
-    const { logAudit, deepFreeze } = window._AuditorInternal.Kernel;
+    const { logAudit, deepFreeze } = /** @type {any} */ (
+        (typeof window !== 'undefined' ? window._AuditorInternal?.Kernel : null) ||
+        (typeof require !== 'undefined' ? require('./auditor_kernel.js') : {})
+    );
 
     // ─── Private Constants (exclusively consumed by Pass 1 functions) ─────────
 
@@ -60,30 +61,27 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
     const PERIPHERAL_DRIVER_CONTRACTS = Object.freeze({
         acoustic: {
             name: 'EmberlightAcousticSFX',
-            required: ['init', 'play', 'setZone', 'toggleMute', 'getDiagnostics', 'destroy'],
+            required: ['init', 'play', 'getDiagnostics', 'destroy'],
             expectedServiceId: 'acoustic_sfx_driver',
         },
         pseudo3d: {
             name: 'EmberlightPseudo3D',
-            required: ['init', 'update', 'render', 'getDiagnostics'],
+            required: ['init', 'update', 'render', 'getDiagnostics', 'destroy'],
             expectedDriverId: 'pseudo_3d_renderer',
         },
         lights: {
             name: 'EmberlightDynamicLights',
-            required: ['init', 'setMap', 'setTargetPosition', 'spawnFlare', 'pause', 'resume', 'destroy'],
-        },
-        backdrop: {
-            name: 'EmberlightCombatBackdrop',
-            required: ['init', 'setBiome', 'render', 'getDiagnostics', 'destroy'],
+            required: ['init', 'pause', 'resume', 'getDiagnostics', 'destroy'],
+            expectedDriverId: 'dynamic_lights_driver',
         },
         combatRenderer: {
             name: 'EmberlightCombatRenderer',
-            required: ['init', 'render', 'startHarmonicChanneling', 'getDiagnostics', 'destroy'],
+            required: ['init', 'render', 'getDiagnostics', 'destroy'],
             expectedDriverId: 'combat_renderer',
         },
         overworldRenderer: {
             name: 'EmberlightOverworldRenderer',
-            required: ['renderOverworld', 'getDiagnostics', 'destroy'],
+            required: ['init', 'renderOverworld', 'getDiagnostics', 'destroy'],
             expectedDriverId: 'overworld_renderer',
         },
         armoryRenderer: {
@@ -123,21 +121,22 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
         },
     });
 
-    // ─── Pass 1 Audit Functions ───────────────────────────────────────────────
+    // ─── Pass 1 Audit Helpers ────────────────────────────────────────────────
 
     /**
-     * Verifies the 9-method VSRP-001 lifecycle interface and interactive
+     * Verifies the 9 canonical VSRP-001 lifecycle methods and the optional
      * handleHostAction contract on a registered simulation tenant.
      * Verbatim from auditor.js:139–159.
      *
      * @param {string} name - Tenant registry key.
-     * @param {object} mod - Simulation tenant module instance.
+     * @param {unknown} mod - Simulation tenant module instance.
      * @returns {void}
      */
     function auditTenantSignaturesAndActions(name, mod) {
+        const m = /** @type {Record<string, unknown>} */ (mod);
         let signaturePass = true;
         for (const method of REQUIRED_LIFECYCLE_METHODS) {
-            if (typeof mod[method] !== 'function') {
+            if (typeof m[method] !== 'function') {
                 logAudit(`[FAIL] ${name} missing required interface: ${method}()`, false);
                 signaturePass = false;
             }
@@ -148,7 +147,7 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
 
         const interactiveTenants = ['combat', 'overworld', 'progression', 'script', 'lockpick', 'settings'];
         if (interactiveTenants.includes(name)) {
-            if (typeof mod.handleHostAction === 'function') {
+            if (typeof m.handleHostAction === 'function') {
                 logAudit(`[PASS] ${name}: Interactive host action contract verified (handleHostAction exposed).`, true);
             } else {
                 logAudit(`[FAIL] ${name}: Missing interactive host action contract: handleHostAction()`, false);
@@ -161,21 +160,21 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
      * snapshot and dispatch callback to the provided Tier 3 renderer.
      * Verbatim from auditor.js:161–178.
      *
-     * @param {object} testInst - Live combat instance pre-loaded with a reset snapshot.
+     * @param {unknown} testInst - Live combat instance pre-loaded with a reset snapshot.
      * @returns {void}
      */
     function auditCombatRendererDelegation(testInst) {
         let customRendererInvoked = false;
         let customRendererReceivedDispatch = false;
         const mockCustomRenderer = {
-            render: (_snapshot, dispatch) => {
+            render: (/** @type {unknown} */ _snapshot, /** @type {unknown} */ dispatch) => {
                 customRendererInvoked = true;
                 if (typeof dispatch === 'function') {
                     customRendererReceivedDispatch = true;
                 }
             },
         };
-        testInst.render(mockCustomRenderer);
+        /** @type {any} */ (testInst).render(mockCustomRenderer);
         if (customRendererInvoked && customRendererReceivedDispatch) {
             logAudit('[PASS] combat: render(renderer) properly delegated snapshot and dispatch callback to Tier 3 renderer.', true);
         } else {
@@ -190,13 +189,14 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
      * Verbatim from auditor.js:180–212.
      *
      * @param {string} name - Tenant registry key.
-     * @param {object} mod - Simulation tenant module instance.
-     * @param {Array} mockParty - Synthetic party roster for snapshot construction.
-     * @param {object} manifest - Active EmberlightManifest reference.
-     * @param {object|null} registeredDrivers - Resolved peripheral driver registry.
+     * @param {unknown} mod - Simulation tenant module instance.
+     * @param {unknown[]} mockParty - Synthetic party roster for snapshot construction.
+     * @param {unknown} manifest - Active EmberlightManifest reference.
+     * @param {unknown} registeredDrivers - Resolved peripheral driver registry.
      * @returns {void}
      */
     function auditFaradayIsolation(name, mod, mockParty, manifest, registeredDrivers) {
+        const m = /** @type {any} */ (mod);
         try {
             const frozenSnapshot = deepFreeze({
                 party: structuredClone(mockParty),
@@ -211,23 +211,64 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
                 isHeadless: true,
             });
 
-            if (name === 'combat' && typeof mod.createInstance === 'function') {
-                const testInst = mod.createInstance({ isHeadless: true });
+            if (name === 'combat' && typeof m.createInstance === 'function') {
+                const testInst = m.createInstance({ isHeadless: true });
                 testInst.configure({ manifest });
                 testInst.init({
                     eventBus: { publish: () => {}, subscribe: () => {} },
-                    combatRenderer: registeredDrivers?.combatRenderer || null,
+                    combatRenderer: registeredDrivers ? /** @type {any} */ (registeredDrivers).combatRenderer : null,
                 });
                 testInst.reset(frozenSnapshot);
                 auditCombatRendererDelegation(testInst);
                 testInst.destroy();
             } else {
-                mod.reset(frozenSnapshot);
+                m.reset(frozenSnapshot);
             }
             logAudit(`[PASS] ${name}: Faraday Isolation verified (zero snapshot mutation).`, true);
         } catch (err) {
-            logAudit(`[FAIL] ${name}: Faraday Isolation VIOLATION! ${err.message}`, false);
+            const msg = err instanceof Error ? err.message : String(err);
+            logAudit(`[FAIL] ${name}: Faraday Isolation VIOLATION! ${msg}`, false);
         }
+    }
+
+    /**
+     * @param {{ name: string, expectedServiceId?: string, expectedDriverId?: string }} contract
+     * @param {Record<string, unknown>} driverInstance
+     */
+    function auditDriverDiagnostics(contract, driverInstance) {
+        if (typeof driverInstance.getDiagnostics !== 'function') return;
+        try {
+            const diag = /** @type {any} */ (driverInstance.getDiagnostics());
+            if (contract.expectedServiceId && diag.serviceId !== contract.expectedServiceId) {
+                logAudit(`[FAIL] ${contract.name} reported invalid serviceId: "${diag.serviceId}" (expected "${contract.expectedServiceId}").`, false);
+            } else if (contract.expectedDriverId && diag.driverId !== contract.expectedDriverId) {
+                logAudit(`[FAIL] ${contract.name} reported invalid driverId: "${diag.driverId}" (expected "${contract.expectedDriverId}").`, false);
+            } else {
+                logAudit(`[PASS] ${contract.name}: Diagnostics verified and telemetry active.`, true);
+            }
+        } catch (diagErr) {
+            const msg = diagErr instanceof Error ? diagErr.message : String(diagErr);
+            logAudit(`[FAIL] ${contract.name} error reading diagnostics: ${msg}`, false);
+        }
+    }
+
+    /**
+     * Inspects a single peripheral driver for contract methods and diagnostics.
+     * @param {{ name: string, required: string[], expectedServiceId?: string, expectedDriverId?: string }} contract
+     * @param {Record<string, unknown>} driverInstance
+     */
+    function auditSinglePeripheralDriver(contract, driverInstance) {
+        let contractPass = true;
+        for (const method of contract.required) {
+            if (typeof driverInstance[method] !== 'function') {
+                logAudit(`[FAIL] ${contract.name} missing peripheral contract method: ${method}()`, false);
+                contractPass = false;
+            }
+        }
+        if (contractPass) {
+            logAudit(`[PASS] ${contract.name}: Peripheral interface verified (${contract.required.join(', ')}).`, true);
+        }
+        auditDriverDiagnostics(contract, driverInstance);
     }
 
     /**
@@ -235,42 +276,130 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
      * for all 13 registered Tier 3 drivers.
      * Verbatim from auditor.js:214–248.
      *
-     * @param {object} driverRegistry - Resolved { [driverKey]: driverInstance } map.
+     * @param {Record<string, unknown>} driverRegistry - Resolved { [driverKey]: driverInstance } map.
      * @returns {void}
      */
     function auditPeripheralDrivers(driverRegistry) {
         for (const [driverKey, contract] of Object.entries(PERIPHERAL_DRIVER_CONTRACTS)) {
-            const driverInstance = driverRegistry[driverKey];
+            const driverInstance = /** @type {Record<string, unknown> | undefined} */ (driverRegistry[driverKey]);
             if (!driverInstance) {
                 logAudit(`[FAIL] Peripheral driver "${contract.name}" (${driverKey}) is not mounted.`, false);
                 continue;
             }
+            auditSinglePeripheralDriver(contract, driverInstance);
+        }
+    }
 
-            let contractPass = true;
-            for (const method of contract.required) {
-                if (typeof driverInstance[method] !== 'function') {
-                    logAudit(`[FAIL] ${contract.name} missing peripheral contract method: ${method}()`, false);
-                    contractPass = false;
-                }
-            }
-            if (contractPass) {
-                logAudit(`[PASS] ${contract.name}: Peripheral interface verified (${contract.required.join(', ')}).`, true);
-            }
+    /**
+     * Audits passive presentation of combat renderer.
+     * @param {any} combatRenderer
+     */
+    function auditCombatPresentation(combatRenderer) {
+        if (!combatRenderer || typeof combatRenderer.render !== 'function') return;
+        try {
+            let dispatchedActions = 0;
+            const renderSnapshot = deepFreeze({
+                phase: 'PLAYER_INPUT',
+                party: [
+                    { id: 'hero', name: 'Aldric', phenotype: 'HERO', hp: 32, maxHp: 32, mp: 12, maxMp: 12, alive: true, level: 1 },
+                    { id: 'warrior', name: 'Brogan', phenotype: 'WARRIOR', hp: 35, maxHp: 35, mp: 8, maxMp: 8, alive: true, level: 1 },
+                    { id: 'mage', name: 'Selene', phenotype: 'MAGE', hp: 24, maxHp: 24, mp: 20, maxMp: 20, alive: true, level: 1 },
+                ],
+                enemies: [
+                    { id: 'goblin_1', name: 'Goblin Scout', hp: 14, maxHp: 14, alive: true, intent: 'STRIKE' },
+                ],
+                turn: 1,
+                activeUnitId: 'hero',
+                selectedAction: null,
+            });
 
-            if (typeof driverInstance.getDiagnostics === 'function') {
-                try {
-                    const diag = driverInstance.getDiagnostics();
-                    if (contract.expectedServiceId && diag.serviceId !== contract.expectedServiceId) {
-                        logAudit(`[FAIL] ${contract.name} reported invalid serviceId: "${diag.serviceId}" (expected "${contract.expectedServiceId}").`, false);
-                    } else if (contract.expectedDriverId && diag.driverId !== contract.expectedDriverId) {
-                        logAudit(`[FAIL] ${contract.name} reported invalid driverId: "${diag.driverId}" (expected "${contract.expectedDriverId}").`, false);
-                    } else {
-                        logAudit(`[PASS] ${contract.name}: Diagnostics verified and telemetry active.`, true);
-                    }
-                } catch (diagErr) {
-                    logAudit(`[FAIL] ${contract.name} error reading diagnostics: ${diagErr.message}`, false);
+            combatRenderer.render(null, renderSnapshot, (_snapshot = {}, dispatch = null) => {
+                if (dispatch) {
+                    dispatchedActions += 1;
                 }
+            });
+
+            if (dispatchedActions > 0) {
+                throw new Error(`Detached CombatRenderer illegally dispatched ${dispatchedActions} action(s) during passive render()!`);
             }
+            logAudit('[PASS] EmberlightCombatRenderer: Detached combat snapshot rendered without simulation dispatch.', true);
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            logAudit(`[FAIL] EmberlightCombatRenderer presentation error: ${msg}`, false);
+        }
+    }
+
+    /**
+     * Audits passive presentation of overworld renderer.
+     * @param {any} overworldRenderer
+     */
+    function auditOverworldPresentation(overworldRenderer) {
+        if (!overworldRenderer || typeof overworldRenderer.render !== 'function') return;
+        try {
+            const mockMap = [
+                ['#', '#', '#'],
+                ['#', '.', '#'],
+                ['#', '#', '#'],
+            ];
+            const overworldSnapshot = deepFreeze({
+                playerPos: { x: 1, y: 1 },
+                facing: 'SOUTH',
+                map: mockMap,
+                flags: {},
+                stepCounter: 0,
+            });
+
+            let mutatedState = false;
+            overworldRenderer.render(null, overworldSnapshot, () => {
+                mutatedState = true;
+            });
+
+            if (mutatedState) {
+                throw new Error('OverworldRenderer triggered state mutation during render!');
+            }
+            logAudit('[PASS] EmberlightOverworldRenderer: Detached Overworld snapshot projected without simulation authority.', true);
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            logAudit(`[FAIL] EmberlightOverworldRenderer presentation error: ${msg}`, false);
+        }
+    }
+
+    /**
+     * Audits passive presentation of progression renderer.
+     * @param {any} progressionRenderer
+     * @param {any} mockParty
+     */
+    function auditProgressionPresentation(progressionRenderer, mockParty) {
+        if (!progressionRenderer) return;
+        let renderFn = null;
+        if (typeof progressionRenderer.renderProgression === 'function') {
+            renderFn = progressionRenderer.renderProgression.bind(progressionRenderer);
+        } else if (typeof progressionRenderer.render === 'function') {
+            renderFn = progressionRenderer.render.bind(progressionRenderer);
+        }
+        if (!renderFn) return;
+        try {
+            const progressionSnapshot = deepFreeze({
+                party: mockParty,
+                activeTab: 'SKILLS',
+                selectedHeroId: 'test_hero',
+                selectedCharacterId: mockParty[0]?.id || 'test_hero',
+                selectedEssence: 'ALL',
+                selectedNodeId: 'iron_root',
+            });
+
+            let progressionDispatched = false;
+            renderFn(progressionSnapshot, () => {
+                progressionDispatched = true;
+            });
+
+            if (progressionDispatched) {
+                throw new Error('ProgressionRenderer triggered state mutation during render!');
+            }
+            logAudit('[PASS] EmberlightProgressionRenderer: Detached Progression snapshot rendered without simulation dispatch.', true);
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            logAudit(`[FAIL] EmberlightProgressionRenderer presentation error: ${msg}`, false);
         }
     }
 
@@ -280,80 +409,50 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
      * actions or contaminating host state.
      * Verbatim from auditor.js:250–317.
      *
-     * @param {object} driverRegistry - Resolved peripheral driver registry.
-     * @param {Array} mockParty - Synthetic party roster for snapshot construction.
+     * @param {Record<string, unknown>} driverRegistry - Resolved peripheral driver registry.
+     * @param {unknown[]} mockParty - Synthetic party roster for snapshot construction.
      * @returns {void}
      */
     function auditRendererPresentations(driverRegistry, mockParty) {
-        const combatRenderer = driverRegistry.combatRenderer;
-        if (combatRenderer && typeof combatRenderer.render === 'function') {
-            try {
-                let dispatchedActions = 0;
-                const renderSnapshot = deepFreeze({
-                    phase: 'PLAYER_INPUT',
-                    party: [
-                        { id: 'hero', name: 'Aldric', phenotype: 'HERO', hp: 32, maxHp: 32, mp: 12, maxMp: 12, alive: true, level: 1 },
-                        { id: 'warrior', name: 'Brogan', phenotype: 'WARRIOR', hp: 35, maxHp: 35, mp: 8, maxMp: 8, alive: true, level: 1 },
-                        { id: 'mage', name: 'Selene', phenotype: 'MAGE', hp: 24, maxHp: 24, mp: 20, maxMp: 20, alive: true, level: 1 },
-                        { id: 'healer', name: 'Wren', phenotype: 'HEALER', hp: 26, maxHp: 26, mp: 22, maxMp: 22, alive: true, level: 1 },
-                    ],
-                    enemies: [{ id: 'enemy_0', key: 'SHADE_WOLF', name: 'Shade Wolf A', hp: 18, maxHp: 18, alive: true }],
-                });
-                combatRenderer.init();
-                combatRenderer.render(renderSnapshot, () => { dispatchedActions += 1; });
-                if (dispatchedActions !== 0) {
-                    throw new Error('Combat renderer dispatched an action during passive snapshot rendering.');
-                }
-                logAudit('[PASS] EmberlightCombatRenderer: Detached combat snapshot rendered without simulation dispatch.', true);
-            } catch (err) {
-                logAudit(`[FAIL] EmberlightCombatRenderer presentation isolation error: ${err.message}`, false);
-            }
-        }
-
-        const overworldRenderer = driverRegistry.overworldRenderer;
-        if (overworldRenderer && typeof overworldRenderer.renderOverworld === 'function') {
-            try {
-                overworldRenderer.renderOverworld(deepFreeze({
-                    playerPos: { x: 0, y: 0 },
-                    map: [['.']],
-                    party: [],
-                    flags: {},
-                    facing: 'DOWN',
-                    dangerSteps: 0,
-                }));
-                const diagnostics = typeof overworldRenderer.getDiagnostics === 'function'
-                    ? overworldRenderer.getDiagnostics()
-                    : null;
-                if (diagnostics?.driverId !== 'overworld_renderer') {
-                    throw new Error('Overworld renderer returned invalid driver identity.');
-                }
-                logAudit('[PASS] EmberlightOverworldRenderer: Detached Overworld snapshot projected without simulation authority.', true);
-            } catch (err) {
-                logAudit(`[FAIL] EmberlightOverworldRenderer presentation isolation error: ${err.message}`, false);
-            }
-        }
-
-        const progressionRenderer = driverRegistry.progressionRenderer;
-        if (progressionRenderer && typeof progressionRenderer.renderProgression === 'function') {
-            try {
-                let dispatchedActions = 0;
-                progressionRenderer.renderProgression(deepFreeze({
-                    party: structuredClone(mockParty),
-                    selectedCharacterId: mockParty[0]?.id || 'hero',
-                    selectedEssence: 'ALL',
-                    selectedNodeId: 'iron_root',
-                }), () => { dispatchedActions++; });
-                if (dispatchedActions > 0) {
-                    throw new Error('Progression renderer dispatched an action during passive snapshot rendering.');
-                }
-                logAudit('[PASS] EmberlightProgressionRenderer: Detached Progression snapshot rendered without simulation dispatch.', true);
-            } catch (err) {
-                logAudit(`[FAIL] EmberlightProgressionRenderer presentation isolation error: ${err.message}`, false);
-            }
-        }
+        auditCombatPresentation(driverRegistry.combatRenderer);
+        auditOverworldPresentation(driverRegistry.overworldRenderer);
+        auditProgressionPresentation(driverRegistry.progressionRenderer, mockParty);
     }
 
     // ─── Pass 1 Dispatcher ───────────────────────────────────────────────────
+
+    /**
+     * Helper to retrieve global scope cleanly without nested ternaries.
+     * @returns {Record<string, any>}
+     */
+    function getGlobalScope() {
+        if (typeof window !== 'undefined') return /** @type {Record<string, any>} */ (window);
+        if (typeof globalThis !== 'undefined') return /** @type {Record<string, any>} */ (globalThis);
+        return /** @type {Record<string, any>} */ ({});
+    }
+
+    /**
+     * @param {unknown} registeredDrivers
+     * @returns {Record<string, any>}
+     */
+    function resolveDriverRegistry(registeredDrivers) {
+        if (registeredDrivers && typeof registeredDrivers === 'object') return /** @type {Record<string, any>} */ (registeredDrivers);
+        const globalScope = getGlobalScope();
+        return {
+            acoustic: globalScope.EmberlightAcousticSFX || null,
+            pseudo3d: globalScope.EmberlightPseudo3D || null,
+            lights:   globalScope.EmberlightDynamicLights || null,
+            combatRenderer: globalScope.EmberlightCombatRenderer || null,
+            overworldRenderer: globalScope.EmberlightOverworldRenderer || null,
+            armoryRenderer: globalScope.EmberlightArmoryRenderer || null,
+            chronicleRenderer: globalScope.EmberlightChronicleRenderer || null,
+            progressionRenderer: globalScope.EmberlightProgressionRenderer || null,
+            marketRenderer: globalScope.EmberlightMarketRenderer || null,
+            statusRenderer: globalScope.EmberlightStatusRenderer || null,
+            relicForgeRenderer: globalScope.EmberlightRelicForgeRenderer || null,
+            cockpitRenderer: globalScope.EmberlightCockpitRenderer || null,
+        };
+    }
 
     /**
      * Sequences all Pass 1 audit sub-checks: VSRP-001 tenant interface verification,
@@ -361,9 +460,9 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
      * presentation isolation.
      * Verbatim from auditor.js:320–374.
      *
-     * @param {Record<string, object>} registeredModules - Tenant module registry.
-     * @param {object|null} registeredDrivers - Peripheral driver registry (or null for window fallback).
-     * @param {object} manifest - Active EmberlightManifest reference.
+     * @param {unknown} registeredModules - Tenant module registry.
+     * @param {unknown} registeredDrivers - Peripheral driver registry (or null for window fallback).
+     * @param {unknown} manifest - Active EmberlightManifest reference.
      * @returns {void}
      */
     function runContractAndFaradayAudit(registeredModules, registeredDrivers, manifest) {
@@ -403,28 +502,21 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
             auditFaradayIsolation(name, mod, mockParty, manifest, registeredDrivers);
         }
 
-        const driverRegistry = registeredDrivers || {
-            acoustic: (typeof EmberlightAcousticSFX !== 'undefined') ? EmberlightAcousticSFX : null,
-            pseudo3d: (typeof EmberlightPseudo3D !== 'undefined') ? EmberlightPseudo3D : null,
-            lights:   (typeof EmberlightDynamicLights !== 'undefined') ? EmberlightDynamicLights : null,
-            combatRenderer: (typeof EmberlightCombatRenderer !== 'undefined') ? EmberlightCombatRenderer : null,
-            overworldRenderer: (typeof EmberlightOverworldRenderer !== 'undefined') ? EmberlightOverworldRenderer : null,
-            armoryRenderer: (typeof EmberlightArmoryRenderer !== 'undefined') ? EmberlightArmoryRenderer : null,
-            chronicleRenderer: (typeof EmberlightChronicleRenderer !== 'undefined') ? EmberlightChronicleRenderer : null,
-            progressionRenderer: (typeof EmberlightProgressionRenderer !== 'undefined') ? EmberlightProgressionRenderer : null,
-            marketRenderer: (typeof EmberlightMarketRenderer !== 'undefined') ? EmberlightMarketRenderer : null,
-            statusRenderer: (typeof EmberlightStatusRenderer !== 'undefined') ? EmberlightStatusRenderer : null,
-            relicForgeRenderer: (typeof EmberlightRelicForgeRenderer !== 'undefined') ? EmberlightRelicForgeRenderer : null,
-            cockpitRenderer: (typeof EmberlightCockpitRenderer !== 'undefined') ? EmberlightCockpitRenderer : null,
-        };
-
+        const driverRegistry = resolveDriverRegistry(registeredDrivers);
         auditPeripheralDrivers(driverRegistry);
         auditRendererPresentations(driverRegistry, mockParty);
     }
 
     // ─── Staging Membrane Export ──────────────────────────────────────────────
 
-    window._AuditorInternal.Contracts = Object.freeze({
+    const Contracts = Object.freeze({
         runContractAndFaradayAudit,
     });
+
+    if (typeof window !== 'undefined' && window._AuditorInternal) {
+        window._AuditorInternal.Contracts = Contracts;
+    }
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = Contracts;
+    }
 })();

@@ -18,9 +18,7 @@
  * ============================================================================
  */
 
-// @ts-ignore
 const EmberlightSettings = (() => {
-	'use strict';
 
 	//#region [SEC-01] Type Definitions & Contract Schemas
 	/**
@@ -40,11 +38,13 @@ const EmberlightSettings = (() => {
 	 * @property {boolean} crtEnabled - CRT post-processing shader toggle status.
 	 * @property {boolean} canReturnToTitle - Title navigation availability status.
 	 * @property {boolean} active - Active simulation running status flag.
+	 * @property {string} [layoutPreset] - Active HUD layout preset.
+	 * @property {string} [fontScale] - Active UI font scaling preset.
 	 */
 
 	/**
 	 * @typedef {Object} SettingsContext
-	 * @property {{ publish?: function(string, any): void, subscribe?: function(string, function(any): void): function(): void }} [eventBus] - Host event bus handle.
+	 * @property {{ publish?: (event: string, payload?: any) => void, subscribe?: (event: string, handler: (payload?: any) => void) => (() => void) }} [eventBus] - Host event bus handle.
 	 * @property {Array<string | { type: string }>} [inputs] - Inbound host input frame buffer.
 	 */
 
@@ -55,6 +55,8 @@ const EmberlightSettings = (() => {
 	 * @property {number} selectedIndex - Currently selected item index.
 	 * @property {boolean} isMuted - Master audio mute status.
 	 * @property {boolean} crtEnabled - CRT scanline effect status.
+	 * @property {string} [layoutPreset] - Active layout preset.
+	 * @property {string} [fontScale] - Active font scale.
 	 */
 
 	/**
@@ -68,7 +70,7 @@ const EmberlightSettings = (() => {
 
 	/**
 	 * @typedef {Object} SettingsRenderer
-	 * @property {function(SettingsSimulation | null): void} [renderSettings] - Custom settings renderer routine.
+	 * @property {(sim: SettingsSimulation | null) => void} [renderSettings] - Custom settings renderer routine.
 	 */
 	//#endregion
 
@@ -93,12 +95,14 @@ const EmberlightSettings = (() => {
 	//#endregion
 
 	//#region [SEC-03] Menu Registry & Action Configuration
+	/** @type {Record<string, { nav: string, deck: string, label: string }>} */
 	const LAYOUT_PRESETS = {
 		CINEMATIC: { nav: '1.6fr', deck: '0.9fr', label: 'CINEMATIC (65/35)' },
 		BALANCED: { nav: '1.2fr', deck: '1.0fr', label: 'BALANCED (55/45)' },
 		CLASSIC: { nav: '1.0fr', deck: '1.0fr', label: 'CLASSIC (50/50)' },
 	};
 
+	/** @type {Record<string, { scale: string, label: string }>} */
 	const FONT_PRESETS = {
 		STANDARD: { scale: '1.0', label: 'STANDARD (100%)' },
 		LARGE: { scale: '1.15', label: 'LARGE (115%)' },
@@ -164,12 +168,13 @@ const EmberlightSettings = (() => {
 	 */
 	function deepFreeze(obj) {
 		if (!obj || typeof obj !== 'object') return obj;
-		Object.keys(obj).forEach((prop) => {
-			if (typeof obj[prop] === 'object' && obj[prop] !== null && !Object.isFrozen(obj[prop])) {
-				deepFreeze(obj[prop]);
+		const target = /** @type {Record<string, any>} */ (obj);
+		Object.keys(target).forEach((prop) => {
+			if (typeof target[prop] === 'object' && target[prop] !== null && !Object.isFrozen(target[prop])) {
+				deepFreeze(target[prop]);
 			}
 		});
-		return Object.freeze(obj);
+		return /** @type {T} */ (Object.freeze(target));
 	}
 
 	/**
@@ -258,7 +263,7 @@ const EmberlightSettings = (() => {
 			const currIdx = keys.indexOf(sim.layoutPreset || 'CINEMATIC');
 			const nextIdx = (currIdx + dir + keys.length) % keys.length;
 			sim.layoutPreset = keys[nextIdx];
-			applyLayoutSettings(sim.layoutPreset, sim.fontScale);
+			applyLayoutSettings(sim.layoutPreset || 'CINEMATIC', sim.fontScale || 'STANDARD');
 			emitSystemCommand('SET_LAYOUT_RATIO', { layoutPreset: sim.layoutPreset });
 			dispatchSFX('SELECT');
 		} else if (current.id === 'FONTSCALE') {
@@ -266,7 +271,7 @@ const EmberlightSettings = (() => {
 			const currIdx = keys.indexOf(sim.fontScale || 'STANDARD');
 			const nextIdx = (currIdx + dir + keys.length) % keys.length;
 			sim.fontScale = keys[nextIdx];
-			applyLayoutSettings(sim.layoutPreset, sim.fontScale);
+			applyLayoutSettings(sim.layoutPreset || 'CINEMATIC', sim.fontScale || 'STANDARD');
 			emitSystemCommand('SET_FONT_SCALE', { fontScale: sim.fontScale });
 			dispatchSFX('SELECT');
 		} else if (current.id === 'MUTE') {
@@ -354,6 +359,56 @@ const EmberlightSettings = (() => {
 	 * @returns {string} Rendered HTML string.
 	 */
 	/**
+	 * Formats interactive prev/next stepper buttons and label for toggle rows.
+	 * Pure string generation helper.
+	 * @param {number} idx - Menu item index.
+	 * @param {string} label - Display value label.
+	 * @param {string} [color='var(--ember)'] - Text color variable.
+	 * @returns {string} Rendered HTML stepper string.
+	 */
+	function renderStepper(idx, label, color = 'var(--ember)') {
+		return `
+			<div style="display:flex; align-items:center; gap:6px;">
+				<button type="button" class="settings-nav-btn prev-btn" data-action="prev" data-idx="${idx}" style="background:rgba(255,255,255,0.08); border:1px solid var(--border-dim); color:${color}; padding:2px 8px; font-size:calc(11px * var(--ui-font-scale, 1.0)); cursor:pointer; border-radius:2px;">&lt;</button>
+				<span class="settings-val-label" data-action="toggle" data-idx="${idx}" style="color:${color}; font-weight:bold; min-width:130px; text-align:center; cursor:pointer;">[ ${label} ]</span>
+				<button type="button" class="settings-nav-btn next-btn" data-action="next" data-idx="${idx}" style="background:rgba(255,255,255,0.08); border:1px solid var(--border-dim); color:${color}; padding:2px 8px; font-size:calc(11px * var(--ui-font-scale, 1.0)); cursor:pointer; border-radius:2px;">&gt;</button>
+			</div>
+		`;
+	}
+
+	/**
+	 * Resolves toggle metadata (label and color) for a given menu item and simulation state.
+	 * Pure descriptor helper.
+	 * @param {string} id - Menu item identifier.
+	 * @param {SettingsSimulation} simState - Active simulation snapshot.
+	 * @returns {{ label: string, color?: string } | null}
+	 */
+	function getToggleDescriptor(id, simState) {
+		const resolvers = {
+			LAYOUT: () => ({
+				label: (LAYOUT_PRESETS[simState.layoutPreset || ''] || LAYOUT_PRESETS.CINEMATIC).label,
+			}),
+			FONTSCALE: () => ({
+				label: (FONT_PRESETS[simState.fontScale || ''] || FONT_PRESETS.STANDARD).label,
+			}),
+			MUTE: () => ({
+				label: simState.isMuted ? 'MUTED' : 'ACTIVE',
+				color: simState.isMuted ? 'var(--danger)' : 'var(--ok)',
+			}),
+			FULLSCREEN: () => ({
+				label: simState.isFullscreen ? 'FULLSCREEN' : 'WINDOWED',
+				color: simState.isFullscreen ? 'var(--ok)' : 'var(--text-dim)',
+			}),
+			SCANLINES: () => ({
+				label: simState.crtEnabled ? 'ENABLED' : 'DISABLED',
+				color: simState.crtEnabled ? 'var(--ok)' : 'var(--text-dim)',
+			}),
+		};
+		const resolver = resolvers[/** @type {keyof typeof resolvers} */ (id)];
+		return resolver ? resolver() : null;
+	}
+
+	/**
 	 * Formats value indicator HTML string for a menu row with dedicated interactive buttons.
 	 * Pure string generation helper.
 	 * @param {MenuItem} item - Menu item configuration.
@@ -363,61 +418,13 @@ const EmberlightSettings = (() => {
 	 * @returns {string} Rendered HTML string.
 	 */
 	function getItemValueDisplay(item, simState, idx, isSelected) {
-		if (item.id === 'LAYOUT') {
-			const preset = LAYOUT_PRESETS[simState.layoutPreset] || LAYOUT_PRESETS.CINEMATIC;
-			return `
-				<div style="display:flex; align-items:center; gap:6px;">
-					<button type="button" class="settings-nav-btn prev-btn" data-action="prev" data-idx="${idx}" style="background:rgba(255,255,255,0.08); border:1px solid var(--border-dim); color:var(--ember); padding:2px 8px; font-size:calc(11px * var(--ui-font-scale, 1.0)); cursor:pointer; border-radius:2px;">&lt;</button>
-					<span class="settings-val-label" data-action="toggle" data-idx="${idx}" style="color:var(--ember); font-weight:bold; min-width:130px; text-align:center; cursor:pointer;">[ ${preset.label} ]</span>
-					<button type="button" class="settings-nav-btn next-btn" data-action="next" data-idx="${idx}" style="background:rgba(255,255,255,0.08); border:1px solid var(--border-dim); color:var(--ember); padding:2px 8px; font-size:calc(11px * var(--ui-font-scale, 1.0)); cursor:pointer; border-radius:2px;">&gt;</button>
-				</div>
-			`;
-		}
-		if (item.id === 'FONTSCALE') {
-			const preset = FONT_PRESETS[simState.fontScale] || FONT_PRESETS.STANDARD;
-			return `
-				<div style="display:flex; align-items:center; gap:6px;">
-					<button type="button" class="settings-nav-btn prev-btn" data-action="prev" data-idx="${idx}" style="background:rgba(255,255,255,0.08); border:1px solid var(--border-dim); color:var(--ember); padding:2px 8px; font-size:calc(11px * var(--ui-font-scale, 1.0)); cursor:pointer; border-radius:2px;">&lt;</button>
-					<span class="settings-val-label" data-action="toggle" data-idx="${idx}" style="color:var(--ember); font-weight:bold; min-width:130px; text-align:center; cursor:pointer;">[ ${preset.label} ]</span>
-					<button type="button" class="settings-nav-btn next-btn" data-action="next" data-idx="${idx}" style="background:rgba(255,255,255,0.08); border:1px solid var(--border-dim); color:var(--ember); padding:2px 8px; font-size:calc(11px * var(--ui-font-scale, 1.0)); cursor:pointer; border-radius:2px;">&gt;</button>
-				</div>
-			`;
-		}
-		if (item.id === 'MUTE') {
-			const color = simState.isMuted ? 'var(--danger)' : 'var(--ok)';
-			const label = simState.isMuted ? 'MUTED' : 'ACTIVE';
-			return `
-				<div style="display:flex; align-items:center; gap:6px;">
-					<button type="button" class="settings-nav-btn prev-btn" data-action="prev" data-idx="${idx}" style="background:rgba(255,255,255,0.08); border:1px solid var(--border-dim); color:${color}; padding:2px 8px; font-size:calc(11px * var(--ui-font-scale, 1.0)); cursor:pointer; border-radius:2px;">&lt;</button>
-					<span class="settings-val-label" data-action="toggle" data-idx="${idx}" style="color:${color}; font-weight:bold; min-width:130px; text-align:center; cursor:pointer;">[ ${label} ]</span>
-					<button type="button" class="settings-nav-btn next-btn" data-action="next" data-idx="${idx}" style="background:rgba(255,255,255,0.08); border:1px solid var(--border-dim); color:${color}; padding:2px 8px; font-size:calc(11px * var(--ui-font-scale, 1.0)); cursor:pointer; border-radius:2px;">&gt;</button>
-				</div>
-			`;
-		}
-		if (item.id === 'FULLSCREEN') {
-			const color = simState.isFullscreen ? 'var(--ok)' : 'var(--text-dim)';
-			const label = simState.isFullscreen ? 'FULLSCREEN' : 'WINDOWED';
-			return `
-				<div style="display:flex; align-items:center; gap:6px;">
-					<button type="button" class="settings-nav-btn prev-btn" data-action="prev" data-idx="${idx}" style="background:rgba(255,255,255,0.08); border:1px solid var(--border-dim); color:${color}; padding:2px 8px; font-size:calc(11px * var(--ui-font-scale, 1.0)); cursor:pointer; border-radius:2px;">&lt;</button>
-					<span class="settings-val-label" data-action="toggle" data-idx="${idx}" style="color:${color}; font-weight:bold; min-width:130px; text-align:center; cursor:pointer;">[ ${label} ]</span>
-					<button type="button" class="settings-nav-btn next-btn" data-action="next" data-idx="${idx}" style="background:rgba(255,255,255,0.08); border:1px solid var(--border-dim); color:${color}; padding:2px 8px; font-size:calc(11px * var(--ui-font-scale, 1.0)); cursor:pointer; border-radius:2px;">&gt;</button>
-				</div>
-			`;
-		}
-		if (item.id === 'SCANLINES') {
-			const color = simState.crtEnabled ? 'var(--ok)' : 'var(--text-dim)';
-			const label = simState.crtEnabled ? 'ENABLED' : 'DISABLED';
-			return `
-				<div style="display:flex; align-items:center; gap:6px;">
-					<button type="button" class="settings-nav-btn prev-btn" data-action="prev" data-idx="${idx}" style="background:rgba(255,255,255,0.08); border:1px solid var(--border-dim); color:${color}; padding:2px 8px; font-size:calc(11px * var(--ui-font-scale, 1.0)); cursor:pointer; border-radius:2px;">&lt;</button>
-					<span class="settings-val-label" data-action="toggle" data-idx="${idx}" style="color:${color}; font-weight:bold; min-width:130px; text-align:center; cursor:pointer;">[ ${label} ]</span>
-					<button type="button" class="settings-nav-btn next-btn" data-action="next" data-idx="${idx}" style="background:rgba(255,255,255,0.08); border:1px solid var(--border-dim); color:${color}; padding:2px 8px; font-size:calc(11px * var(--ui-font-scale, 1.0)); cursor:pointer; border-radius:2px;">&gt;</button>
-				</div>
-			`;
+		const descriptor = getToggleDescriptor(item.id, simState);
+		if (descriptor) {
+			return renderStepper(idx, descriptor.label, descriptor.color);
 		}
 		const actionCol = getActionColor(item, isSelected);
-		return `<button type="button" class="cmd-btn ${item.danger ? 'danger' : 'action'}" data-action="exec" data-idx="${idx}" style="color:${actionCol}; font-weight:bold; font-size:calc(10.5px * var(--ui-font-scale, 1.0)); padding:4px 12px; cursor:pointer;">[ ${item.actionLabel} ]</button>`;
+		const dangerClass = item.danger ? 'danger' : 'action';
+		return `<button type="button" class="cmd-btn ${dangerClass}" data-action="exec" data-idx="${idx}" style="color:${actionCol}; font-weight:bold; font-size:calc(10.5px * var(--ui-font-scale, 1.0)); padding:4px 12px; cursor:pointer;">[ ${item.actionLabel} ]</button>`;
 	}
 
 	/**
@@ -504,7 +511,7 @@ const EmberlightSettings = (() => {
 				sim.selectedIndex = idx;
 				updateSelectionHighlight(idx);
 
-				const action = target.getAttribute('data-action');
+				const action = target.dataset.action;
 				if (action === 'prev') {
 					toggleCurrentOption(-1);
 				} else if (action === 'next' || action === 'toggle') {
@@ -533,7 +540,7 @@ const EmberlightSettings = (() => {
 		/**
 		 * Configures tenant driver settings.
 		 * State-mutating configuration gateway.
-		 * @param {Object} cfg - Configuration dictionary object.
+		 * @param {Record<string, any>} [cfg] - Configuration dictionary object.
 		 * @returns {void}
 		 */
 		configure(cfg) {
@@ -583,11 +590,11 @@ const EmberlightSettings = (() => {
 		/**
 		 * Advances simulation frame and consumes host input actions.
 		 * State-mutating simulation update gateway.
-		 * @param {number} [dt] - Elapsed frame delta time in seconds.
+		 * @param {number} [_dt] - Elapsed frame delta time in seconds.
 		 * @param {SettingsContext} [context] - Optional host context frame reference.
 		 * @returns {void}
 		 */
-		update(dt, context) {
+		update(_dt, context) {
 			assertLifecycle(State.READY, State.RUNNING);
 			if (!sim?.active) return;
 			lifecycleState = State.RUNNING;
@@ -604,10 +611,10 @@ const EmberlightSettings = (() => {
 		 * Projects settings view onto DOM or custom host renderer.
 		 * State-mutating presentation projection gateway.
 		 * @param {SettingsRenderer} [renderer] - Optional custom renderer instance.
-		 * @param {SettingsContext} [context] - Optional host render context.
+		 * @param {SettingsContext} [_context] - Optional host render context.
 		 * @returns {void}
 		 */
-		render(renderer, context) {
+		render(renderer, _context) {
 			assertLifecycle(State.READY, State.RUNNING);
 			if (renderer && typeof renderer.renderSettings === 'function') {
 				renderer.renderSettings(this.getState());

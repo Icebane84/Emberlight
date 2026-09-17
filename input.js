@@ -27,8 +27,6 @@
 	 ========================================================================= */
 
 const EmberlightInput = (() => {
-	"use strict";
-
 	//#region [SEC-01] Domain Type Contracts & JSDoc Schemas
 	/**
 	 * @typedef {Record<string, string|string[]>} KeymapDictionary
@@ -52,6 +50,7 @@ const EmberlightInput = (() => {
 	//#endregion
 
 	//#region [SEC-02] Default Keymap Specifications & State Trackers
+	/** @type {EventBusBroker | any} */
 	let eventBus = null;
 	let isEnabled = true;
 
@@ -217,6 +216,21 @@ const EmberlightInput = (() => {
 	}
 
 	/**
+	/**
+	 * Resolves the active GameRuntime host instance across browser/headless environments.
+	 * @returns {any} GameRuntime instance or null.
+	 */
+	function getActiveRuntime() {
+		if (typeof window !== 'undefined' && window.GameRuntime) {
+			return window.GameRuntime;
+		}
+		if (typeof globalThis !== 'undefined' && (/** @type {any} */ (globalThis)).GameRuntime) {
+			return (/** @type {any} */ (globalThis)).GameRuntime;
+		}
+		return null;
+	}
+
+	/**
 	 * Suppresses native browser context menu for absolute immersion.
 	 * @param {MouseEvent} e - Pointer event.
 	 * @returns {void}
@@ -235,7 +249,7 @@ const EmberlightInput = (() => {
 	function handlePointerDown(e) {
 		if (!isEnabled) return;
 		if (e.button === 2) {
-			const runtime = typeof window !== 'undefined' && window.GameRuntime ? window.GameRuntime : (typeof GameRuntime !== 'undefined' ? GameRuntime : null);
+			const runtime = getActiveRuntime();
 			if (runtime && typeof runtime.handlePointerContextDown === 'function') {
 				runtime.handlePointerContextDown(e);
 			}
@@ -249,7 +263,7 @@ const EmberlightInput = (() => {
 	 */
 	function handlePointerMove(e) {
 		if (!isEnabled) return;
-		const runtime = typeof window !== 'undefined' && window.GameRuntime ? window.GameRuntime : (typeof GameRuntime !== 'undefined' ? GameRuntime : null);
+		const runtime = getActiveRuntime();
 		if (runtime && typeof runtime.handlePointerContextMove === 'function') {
 			runtime.handlePointerContextMove(e);
 		}
@@ -263,7 +277,7 @@ const EmberlightInput = (() => {
 	function handlePointerUp(e) {
 		if (!isEnabled) return;
 		if (e.button === 2) {
-			const runtime = typeof window !== 'undefined' && window.GameRuntime ? window.GameRuntime : (typeof GameRuntime !== 'undefined' ? GameRuntime : null);
+			const runtime = getActiveRuntime();
 			if (runtime && typeof runtime.handlePointerContextUp === 'function') {
 				runtime.handlePointerContextUp(e);
 			}
@@ -481,7 +495,6 @@ const EmberlightInput = (() => {
 
 //#region [SEC-05] Global Environment & CommonJS Module Export
 if (typeof window !== 'undefined') {
-	// @ts-ignore
 	window.EmberlightInput = EmberlightInput;
 }
 if (typeof module !== 'undefined' && module.exports) {

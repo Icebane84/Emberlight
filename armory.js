@@ -29,8 +29,6 @@
 	 Index Anchor:        PRS-001
 	 ========================================================================= */
 const EmberlightArmoryInstance = (() => {
-	"use strict";
-
 	//#region [SEC-01] Formal Lifecycle States & Immutability Utilities
 	const State = {
 		UNCONFIGURED: 'UNCONFIGURED',
@@ -78,8 +76,17 @@ const EmberlightArmoryInstance = (() => {
 	//#endregion
 
 	//#region [SEC-02] Host Context & Authoritative Working Memory
+	/**
+	 * @type {Readonly<any> | null}
+	 */
 	let hostConfig = null;
+	/**
+	 * @type {{ eventBus: { publish: (arg0: string, arg1: { sfx?: string; partyEquipDelta?: any; inventoryDelta?: any; }) => void; }; } | null}
+	 */
 	let hostContext = null;
+	/**
+	 * @type {{ inventory: { [x: string]: any; }; deltas: { inventoryDelta: { [x: string]: any; }; partyEquipDelta: { characterId: any; slot: string; previousItem: any; newItem: string | null; }[]; }; party: any[]; selectedCharIndex: number; selectedSlot: any; } | null}
+	 */
 	let sim = null;
 
 	/**
@@ -108,7 +115,10 @@ const EmberlightArmoryInstance = (() => {
 	 * @returns {any}
 	 */
 	function getActiveManifest() {
-		return hostConfig?.manifest || (typeof EmberlightManifest !== 'undefined' ? EmberlightManifest : {});
+		if (hostConfig?.manifest) return hostConfig.manifest;
+		if (typeof window !== 'undefined' && window.EmberlightManifest) return window.EmberlightManifest;
+		if (typeof globalThis !== 'undefined' && (/** @type {any} */ (globalThis)).EmberlightManifest) return (/** @type {any} */ (globalThis)).EmberlightManifest;
+		return {};
 	}
 
 	/**
@@ -262,6 +272,9 @@ const EmberlightArmoryInstance = (() => {
 
 	//#region [SEC-06] Canonical 9-Method Interface & Host Action Router
 	const api = {
+		/**
+		 * @param {any} cfg
+		 */
 		configure(cfg) {
 			assertLifecycle(State.UNCONFIGURED);
 			if (!cfg || typeof cfg !== 'object') {
@@ -271,6 +284,9 @@ const EmberlightArmoryInstance = (() => {
 			lifecycleState = State.CONFIGURED;
 		},
 
+		/**
+		 * @param {{ eventBus: { publish: any; }; }} context
+		 */
 		init(context) {
 			assertLifecycle(State.CONFIGURED);
 			if (!context?.eventBus || typeof context.eventBus.publish !== 'function') {
@@ -280,6 +296,9 @@ const EmberlightArmoryInstance = (() => {
 			lifecycleState = State.INITIALIZED;
 		},
 
+		/**
+		 * @param {any} snapshot
+		 */
 		reset(snapshot) {
 			assertLifecycle(State.INITIALIZED, State.READY, State.RUNNING);
 			const baseline = createDefaultState();
@@ -294,14 +313,20 @@ const EmberlightArmoryInstance = (() => {
 					inventoryDelta: {},
 				},
 			};
-			sim.party.forEach((/** @type {any} */ c) => {
-				if (!c.equipment) {
-					c.equipment = { weapon: null, armor: null, accessory: null };
-				}
-			});
+			if (sim?.party) {
+				sim.party.forEach((/** @type {any} */ c) => {
+					if (!c.equipment) {
+						c.equipment = { weapon: null, armor: null, accessory: null };
+					}
+				});
+			}
 			lifecycleState = State.READY;
 		},
 
+		/**
+		 * @param {any} _dt
+		 * @param {any} context
+		 */
 		update(_dt, context) {
 			assertLifecycle(State.READY, State.RUNNING);
 			lifecycleState = State.RUNNING;
@@ -313,6 +338,9 @@ const EmberlightArmoryInstance = (() => {
 			}
 		},
 
+		/**
+		 * @param {{ renderArmory: (arg0: any, arg1: (action: any) => void) => void; }} renderer
+		 */
 		render(renderer) {
 			assertLifecycle(State.READY, State.RUNNING);
 			if (renderer && typeof renderer.renderArmory === 'function') {
@@ -329,10 +357,11 @@ const EmberlightArmoryInstance = (() => {
 			if (lifecycleState === State.DESTROYED) {
 				throw new Error('[VSRP-001:armory_core] Cannot read diagnostics on a DESTROYED instance.');
 			}
+			const charIdx = typeof sim?.selectedCharIndex === 'number' ? sim.selectedCharIndex : 0;
 			return {
 				moduleId: 'armory_core',
 				lifecycleState,
-				selectedChar: sim?.party?.[sim?.selectedCharIndex]?.id || null,
+				selectedChar: sim?.party?.[charIdx]?.id || null,
 				selectedSlot: sim?.selectedSlot || null,
 				pendingEquipDeltas: sim?.deltas?.partyEquipDelta?.length || 0,
 			};
@@ -361,6 +390,9 @@ const EmberlightArmoryInstance = (() => {
 			lifecycleState = State.DESTROYED;
 		},
 
+		/**
+		 * @param {{ type: any; characterId: string; slot: string; itemId: string; index: number; }} action
+		 */
 		handleHostAction(action) {
 			if (!action || !sim) return;
 			const type = typeof action === 'string' ? action : action.type;
@@ -384,7 +416,6 @@ const EmberlightArmoryInstance = (() => {
 
 //#region [SEC-07] Global Environment & Window Module Export
 if (typeof window !== 'undefined') {
-	// @ts-ignore
 	window.EmberlightArmory = EmberlightArmoryInstance;
 }
 if (typeof module !== 'undefined' && module.exports) {

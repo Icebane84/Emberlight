@@ -124,9 +124,21 @@ if (typeof globalThis !== 'undefined') globalThis._DungeonGenInternal = globalTh
 	});
 
 	/**
+	 * @typedef {Object} HazardContext
+	 * @property {number} floorLevel - Floor index level.
+	 * @property {number} w - Grid width.
+	 * @property {number} h - Grid height.
+	 * @property {() => number} rng - Random number generator.
+	 * @property {{ x: number, y: number }} spawn - Spawn position.
+	 * @property {{ x: number, y: number }} exitPt - Exit position.
+	 * @property {{ x: number, y: number }} chestPt - Chest position.
+	 * @property {Array<{ x: number, y: number }>} sortedByDist - Coordinates sorted by distance.
+	 */
+
+	/**
 	 * Applies abyssal chasm hazard for deep floors.
 	 * @param {string[][]} map - Tile grid.
-	 * @param {Object} ctx - Hazard context.
+	 * @param {HazardContext} ctx - Hazard context.
 	 * @returns {void}
 	 */
 	function applyChasmHazard(map, ctx) {
@@ -148,7 +160,7 @@ if (typeof globalThis !== 'undefined') globalThis._DungeonGenInternal = globalTh
 	/**
 	 * Applies portcullis and pressure plate puzzle mechanisms.
 	 * @param {string[][]} map - Tile grid.
-	 * @param {Object} ctx - Hazard context.
+	 * @param {HazardContext} ctx - Hazard context.
 	 * @returns {void}
 	 */
 	function applyPortcullisHazard(map, ctx) {
@@ -186,7 +198,7 @@ if (typeof globalThis !== 'undefined') globalThis._DungeonGenInternal = globalTh
 	/**
 	 * Applies toxic miasma pocket hazards.
 	 * @param {string[][]} map - Tile grid.
-	 * @param {Object} ctx - Hazard context.
+	 * @param {HazardContext} ctx - Hazard context.
 	 * @returns {void}
 	 */
 	function applyMiasmaHazard(map, ctx) {
@@ -219,7 +231,7 @@ if (typeof globalThis !== 'undefined') globalThis._DungeonGenInternal = globalTh
 	 * Places floor hazards and puzzle elements based on depth.
 	 * @param {string[][]} map - Tile grid.
 	 * @param {Array<{x:number, y:number}>} sortedByDist - Sorted coordinates.
-	 * @param {Object} ctx - Hazard context.
+	 * @param {any} ctx - Hazard context.
 	 * @returns {void}
 	 */
 	function applyFloorHazards(map, sortedByDist, ctx) {

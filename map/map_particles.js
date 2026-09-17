@@ -18,7 +18,6 @@ if (typeof window !== "undefined") window._MapInternal = window._MapInternal || 
 if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._MapInternal || {};
 
 (() => {
-	"use strict";
 
 	//#region [SEC-03] Atmosphere Particle Pool & Kinematics
 	const PARTICLE_COUNT = 64;

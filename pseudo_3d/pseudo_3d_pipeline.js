@@ -7,8 +7,6 @@
  * ============================================================================
  */
 
-'use strict';
-
 if (typeof window !== 'undefined') {
 	window._Pseudo3DInternal = window._Pseudo3DInternal || {};
 }
@@ -19,7 +17,7 @@ const Pseudo3DPipeline = (() => {
 	 * Pure calculation helper.
 	 * @param {number} y - Row Y coordinate.
 	 * @param {number} H - Viewport height.
-	 * @param {function(number, number, number): number} packColor - Color packer.
+	 * @param {(r: number, g: number, b: number) => number} packColor - Color packer.
 	 * @returns {number} Packed color integer.
 	 */
 	function getSkyColor(y, H, packColor) {
@@ -57,7 +55,14 @@ const Pseudo3DPipeline = (() => {
 		const rowOffsetFloor = y * W;
 		const rowOffsetCeil = ceilY * W;
 		const size = config.textureSize;
-		const floorTex = isDungeon ? textures.FLOOR : (isTown ? (textures.COBBLE || textures.TIMBER) : (textures.GRASS || textures.FLOOR));
+		let floorTex;
+		if (isDungeon) {
+			floorTex = textures.FLOOR;
+		} else if (isTown) {
+			floorTex = textures.COBBLE || textures.TIMBER;
+		} else {
+			floorTex = textures.GRASS || textures.FLOOR;
+		}
 		const ceilTex = textures.CEILING;
 		const stride = config.columnStride;
 
@@ -206,24 +211,21 @@ const Pseudo3DPipeline = (() => {
 	/**
 	 * Renders a single sprite billboard onto the canvas context.
 	 * @param {any} sp - Visible sprite descriptor.
-	 * @param {number} planeX - Projection plane X.
-	 * @param {number} planeY - Projection plane Y.
-	 * @param {number} cosA - Cosine of angle.
-	 * @param {number} sinA - Sine of angle.
+	 * @param {{ planeX: number, planeY: number, cosA: number, sinA: number }} plane - Projection plane vectors.
 	 * @param {number} torchFlicker - Torch flicker factor.
 	 * @param {any} state - Pipeline state container.
 	 * @param {any} math - RaycastMath operations container.
 	 */
-	function drawSpriteBillboard(sp, planeX, planeY, cosA, sinA, torchFlicker, state, math) {
+	function drawSpriteBillboard(sp, plane, torchFlicker, state, math) {
 		const glyph = math.BILLBOARD_GLYPHS[sp.tile];
 		if (!glyph) return;
 		const proj = math.projectSprite(
 			state.camera,
 			sp,
-			planeX,
-			planeY,
-			cosA,
-			sinA,
+			plane.planeX,
+			plane.planeY,
+			plane.cosA,
+			plane.sinA,
 			state.dims,
 		);
 		if (!proj) return;
@@ -274,9 +276,10 @@ const Pseudo3DPipeline = (() => {
 			cosA,
 			sinA,
 		);
+		const plane = { planeX, planeY, cosA, sinA };
 
 		for (const sp of sprites) {
-			drawSpriteBillboard(sp, planeX, planeY, cosA, sinA, torchFlicker, state, math);
+			drawSpriteBillboard(sp, plane, torchFlicker, state, math);
 		}
 	}
 
@@ -300,16 +303,31 @@ const Pseudo3DPipeline = (() => {
 	}
 
 	/**
-	 * Renders a single cell on the minimap radar.
+	 * @typedef {Object} MinimapCellParams
+	 * @property {string[][]} map
+	 * @property {{ x: number, y: number }} playerPos
+	 * @property {number} radius
+	 * @property {number} cellW
+	 * @property {number} cellH
+	 * @property {CanvasRenderingContext2D} minimapCtx
+	 * @property {any} math
 	 */
-	function drawMinimapCell(map, playerPos, radius, cellW, cellH, dx, dy, minimapCtx, math) {
+
+	/**
+	 * Renders a single cell on the minimap radar.
+	 * @param {MinimapCellParams} params - Minimap context parameters.
+	 * @param {number} dx - Relative grid X offset.
+	 * @param {number} dy - Relative grid Y offset.
+	 */
+	function drawMinimapCell(params, dx, dy) {
+		const { map, playerPos, radius, cellW, cellH, minimapCtx, math } = params;
 		if (!minimapCtx) return;
 		const gx = playerPos.x + dx;
 		const gy = playerPos.y + dy;
 		const rx = (dx + radius) * cellW;
 		const ry = (dy + radius) * cellH;
-		const oob = !map || !map[0] || gy < 0 || gy >= map.length || gx < 0 || gx >= map[0].length;
-		const tile = oob ? "" : map[gy][gx];
+		const oob = !map?.[0] || gy < 0 || gy >= map.length || gx < 0 || gx >= map[0].length;
+		const tile = oob ? "" : (map[gy]?.[gx] || "");
 		minimapCtx.fillStyle = math.getMinimapTileColor(tile, oob);
 		minimapCtx.fillRect(rx, ry, cellW - 1, cellH - 1);
 	}
@@ -333,9 +351,10 @@ const Pseudo3DPipeline = (() => {
 		minimapCtx.fillStyle = "rgba(5, 8, 18, 0.95)";
 		minimapCtx.fillRect(0, 0, mw, mh);
 
+		const cellParams = { map, playerPos, radius, cellW, cellH, minimapCtx, math };
 		for (let dy = -radius; dy <= radius; dy++) {
 			for (let dx = -radius; dx <= radius; dx++) {
-				drawMinimapCell(map, playerPos, radius, cellW, cellH, dx, dy, minimapCtx, math);
+				drawMinimapCell(cellParams, dx, dy);
 			}
 		}
 
@@ -398,7 +417,7 @@ const Pseudo3DPipeline = (() => {
 	 * Renders debug HUD text overlay.
 	 * @param {CanvasRenderingContext2D} ctx - Canvas context.
 	 * @param {string[][]} map - 2D map matrix.
-	 * @param {string} [facing] - Player facing token.
+	 * @param {string} facing - Player facing token.
 	 * @param {any} camera - Camera state.
 	 * @param {boolean} isExpandedMode - Expanded viewport mode flag.
 	 */
@@ -420,11 +439,24 @@ const Pseudo3DPipeline = (() => {
 	}
 
 	/**
-	 * Renders lighting vignette and debug HUD information overlay.
+	 * @typedef {Object} VignetteAndHudParams
+	 * @property {CanvasRenderingContext2D} ctx - Canvas 2D context.
+	 * @property {number} W - Viewport width.
+	 * @property {number} H - Viewport height.
+	 * @property {boolean} isDungeon - Dungeon environment flag.
+	 * @property {string[][]} map - 2D grid map matrix.
+	 * @property {string} facing - Facing orientation string.
+	 * @property {any} camera - Camera state descriptor.
+	 * @property {boolean} isExpandedMode - Expanded view flag.
 	 */
-	function renderVignetteAndDebugHud(ctx, W, H, isDungeon, map, facing, camera, isExpandedMode) {
-		renderVignette(ctx, W, H, isDungeon);
-		renderDebugHud(ctx, map, facing, camera, isExpandedMode);
+
+	/**
+	 * Renders lighting vignette and debug HUD information overlay.
+	 * @param {VignetteAndHudParams} params - Render parameters container.
+	 */
+	function renderVignetteAndDebugHud(params) {
+		renderVignette(params.ctx, params.W, params.H, params.isDungeon);
+		renderDebugHud(params.ctx, params.map, params.facing, params.camera, params.isExpandedMode);
 	}
 
 	/**

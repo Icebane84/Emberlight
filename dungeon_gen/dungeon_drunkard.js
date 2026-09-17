@@ -24,7 +24,7 @@ if (typeof globalThis !== 'undefined') globalThis._DungeonGenInternal = globalTh
 	 * @param {number} w - Width.
 	 * @param {number} h - Height.
 	 * @param {Array<{x:number, y:number}>} carvedCoords - Coordinates accumulator.
-	 * @param {function():number} rng - PRNG float supplier.
+	 * @param {() => number} rng - PRNG float supplier.
 	 * @returns {void}
 	 */
 	function applyDrunkardsWalk(map, w, h, carvedCoords, rng) {

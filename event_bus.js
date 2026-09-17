@@ -39,7 +39,7 @@ const EmberlightEventBus = (() => {
 	/**
 	 * @callback CapabilityEvaluate
 	 * @param {any} payload - Action or event payload.
-	 * @param {Object} readOnlySnapshot - Faraday-protected session snapshot.
+	 * @param {Record<string, any>} readOnlySnapshot - Faraday-protected session snapshot.
 	 * @returns {CapabilityAttestation} Capability evaluation attestation.
 	 */
 
@@ -53,7 +53,7 @@ const EmberlightEventBus = (() => {
 	 * @param {string} token - Capability token.
 	 * @param {any} payload - Action payload.
 	 * @param {CapabilityAttestation} attestation - Evaluation attestation.
-	 * @returns {Object} Settlement result envelope.
+	 * @returns {CapabilityExecutionResult} Settlement result envelope.
 	 */
 
 	/**
@@ -80,15 +80,17 @@ const EmberlightEventBus = (() => {
 		/**
 		 * Subscribes a callback function to an event channel.
 		 * [State Mutating]
-		 * @param {string} event - Target event name token.
-		 * @param {EventCallback} callback - Event handler function.
+		 * @template {string & keyof EmberlightEventMap} T
+		 * @param {T} event - Target event name token.
+		 * @param {(payload: EmberlightEventMap[T]) => void} callback - Event handler function.
 		 * @returns {UnsubscribeHandle} Unsubscribe cleanup handle.
 		 */
 		subscribe(event, callback) {
-			if (!subscribers[event]) subscribers[event] = [];
-			subscribers[event].push(callback);
+			const channel = String(event);
+			if (!subscribers[channel]) subscribers[channel] = [];
+			subscribers[channel].push(callback);
 			return () => {
-				EventBus.unsubscribe(event, callback);
+				EventBus.unsubscribe(channel, callback);
 			};
 		},
 
@@ -124,11 +126,28 @@ const EmberlightEventBus = (() => {
 		},
 
 		/**
+		 * Returns active listener count for a specific event or total count across all channels.
+		 * [Pure Query]
+		 * @param {string} [event] - Optional specific event channel.
+		 * @returns {number} Active listener count.
+		 */
+		getListenerCount(event) {
+			if (event) {
+				return subscribers[event]?.length || 0;
+			}
+			return Object.values(subscribers).reduce(
+				(total, arr) => total + (arr?.length || 0),
+				0,
+			);
+		},
+
+		/**
 		 * Publishes an event payload to all registered subscribers.
 		 * Supports re-entrant dispatch queuing and error boundary protection.
 		 * [State Mutating / Execution Dispatch]
-		 * @param {string} event - Target event name token.
-		 * @param {any} [payload] - Event payload.
+		 * @template {string & keyof EmberlightEventMap} T
+		 * @param {T} event - Target event name token.
+		 * @param {EmberlightEventMap[T]} [payload] - Event payload matching topic schema.
 		 * @returns {void}
 		 */
 		publish(event, payload) {
@@ -263,7 +282,7 @@ const EmberlightEventBus = (() => {
 		 * [State Mutating / Evaluation Gateway]
 		 * @param {string} token - Capability identifier token.
 		 * @param {any} payload - Action payload.
-		 * @param {Object} [contextSnapshot] - Optional explicit session snapshot.
+		 * @param {Record<string, any>} [contextSnapshot] - Optional explicit session snapshot.
 		 * @param {CapabilitySettlement} [settleCallback] - Optional settlement callback.
 		 * @returns {CapabilityExecutionResult} Execution result envelope.
 		 */
@@ -274,14 +293,22 @@ const EmberlightEventBus = (() => {
 			}
 
 			// 1. EVALUATION (Faraday-Protected Snapshot - Read Only)
+			let sessionStore;
+			if (typeof window !== "undefined" && window.EmberlightSessionStore) {
+				sessionStore = window.EmberlightSessionStore;
+			} else if (typeof globalThis !== "undefined" && (/** @type {any} */ (globalThis)).EmberlightSessionStore) {
+				sessionStore = (/** @type {any} */ (globalThis)).EmberlightSessionStore;
+			}
+
+			/** @type {Record<string, any>} */
 			const snapshot =
 				contextSnapshot ||
-				(typeof EmberlightSessionStore !== "undefined"
-					? EmberlightSessionStore.getSnapshot()
+				(sessionStore && typeof sessionStore.getSnapshot === "function"
+					? sessionStore.getSnapshot()
 					: {});
 
 			const readOnlySnapshot = {
-				party: (snapshot.party || []).map((c) => ({
+				party: (snapshot.party || []).map((/** @type {{ id: any; name: any; alive: any; mp: any; unlocked: any; unlockedNodes: any; }} */ c) => ({
 					id: c.id,
 					name: c.name,
 					alive: c.alive,

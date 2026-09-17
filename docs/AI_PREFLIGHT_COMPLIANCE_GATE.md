@@ -1,9 +1,9 @@
 # 🏛️ Emberlight AI Pre-Flight Compliance Gate & Acceptance Rubric
 
-**Document Identifier:** VSRP-001-AI-GATE  
-**Protocol Version:** VSRP-001 / PMIP-001 / ARCH-001-EMBERLIGHT / PRS-001  
-**Classification:** Authoritative AI Pre-Flight Standard & Architectural Governance Rubric  
-**Verification Target:** 100% Genuine Sentinel Pass (127/127 Checks • 19 Passes)  
+**Document Identifier:** VSRP-001-AI-GATE
+**Protocol Version:** VSRP-001 / PMIP-001 / ARCH-001-EMBERLIGHT / PRS-001
+**Classification:** Authoritative AI Pre-Flight Standard & Architectural Governance Rubric
+**Verification Target:** 100% Genuine Sentinel Pass (134/134 Checks • 21 Passes)
 
 ---
 
@@ -19,7 +19,7 @@ Every single change must strictly adhere to the **4-Tier Sovereign Architecture*
 
 Before writing any line of code, **classify your target file into its exact tier**. You must **NEVER** mix responsibilities across tiers.
 
-``` plain text
+```plain text
 ┌────────────────────────────────────────────────────────────────────────┐
 │                        TIER 1: THE HOST HARNESS                        │
 │                     runtime.js & session_store.js                      │
@@ -90,14 +90,14 @@ Under **VSRP-001 Section 8**, a module or modification is declared **VSRP-001 CO
 
 Before committing any file, verify you have **NOT** introduced any of the following:
 
-| Anti-Pattern | Why It Breaks the Architecture | Correct Approach |
-|:---|:---|:---|
-| **Direct State Mutation** (`canonicalParty[0].hp = 50`) | Bypasses host SSOT, causes desync, breaks save system. | Emit sealed delta envelope (`hostContext.eventBus.publish('<district>:resolved', delta)`). |
-| **DOM in Simulation** (`document.getElementById` inside `combat.js`) | Destroys headless testability; breaks Node test runners. | Move DOM logic to Tier-3 presentation driver (`combat_renderer.js`). |
-| **Autonomous Clock** (`setTimeout(() => nextTurn(), 500)`) | Breaks deterministic replay, causes race conditions. | Queue task in `scheduledTasks` and advance via `update(dt)`. |
-| **Bypassing District Router** (`switchDistrict` inside a child component) | Causes rogue transitions, skips cleanup, leaks active state. | Route through `district_router.js` or emit `district:switch_request`. |
-| **Global `Math.random()` in Combat/Dungeons** | Non-deterministic; breaks replay verification (AC-04). | Use `EmberlightPRNG.create(seed).nextFloat()`. |
-| **Blocking Browser Primitives** (`alert()`, `prompt()`) | Freezes engine ticker, ruins player immersion. | Use non-blocking status toasts (`notifyStatus()`) or semantic modals. |
+| Anti-Pattern                                                              | Why It Breaks the Architecture                               | Correct Approach                                                                           |
+| :------------------------------------------------------------------------ | :----------------------------------------------------------- | :----------------------------------------------------------------------------------------- |
+| **Direct State Mutation** (`canonicalParty[0].hp = 50`)                   | Bypasses host SSOT, causes desync, breaks save system.       | Emit sealed delta envelope (`hostContext.eventBus.publish('<district>:resolved', delta)`). |
+| **DOM in Simulation** (`document.getElementById` inside `combat.js`)      | Destroys headless testability; breaks Node test runners.     | Move DOM logic to Tier-3 presentation driver (`combat_renderer.js`).                       |
+| **Autonomous Clock** (`setTimeout(() => nextTurn(), 500)`)                | Breaks deterministic replay, causes race conditions.         | Queue task in `scheduledTasks` and advance via `update(dt)`.                               |
+| **Bypassing District Router** (`switchDistrict` inside a child component) | Causes rogue transitions, skips cleanup, leaks active state. | Route through `district_router.js` or emit `district:switch_request`.                      |
+| **Global `Math.random()` in Combat/Dungeons**                             | Non-deterministic; breaks replay verification (AC-04).       | Use `EmberlightPRNG.create(seed).nextFloat()`.                                             |
+| **Blocking Browser Primitives** (`alert()`, `prompt()`)                   | Freezes engine ticker, ruins player immersion.               | Use non-blocking status toasts (`notifyStatus()`) or semantic modals.                      |
 
 ---
 
@@ -105,12 +105,12 @@ Before committing any file, verify you have **NOT** introduced any of the follow
 
 Follow this exact workflow for every task:
 
-``` plain text
+```plain text
 1. CLASSIFY ──► Determine component tier (Host, Ephemeral District, Driver, or Math Kernel).
 2. BOUND    ──► Enforce Faraday isolation: no DOM in simulation, no state mutation in renderers.
 3. CODE     ──► Implement feature using canonical 9-method interface and action inversion tokens.
-4. TEST     ──► Run deterministic Node test suites (test_sentinel.js, test_combat_input.js).
-5. ATTEST   ──► Confirm all 127 Sentinel checks pass with 100% genuine compliance.
+4. TEST     ──► Run deterministic Node test suites (test_sentinel.js, test_combat_input.js, test_types.js).
+5. ATTEST   ──► Confirm all 134 Sentinel checks pass across 21 passes with 100% genuine compliance.
 ```
 
 ---
@@ -120,15 +120,18 @@ Follow this exact workflow for every task:
 Run these terminal commands after every edit to verify zero entropy:
 
 ```bash
-# 1. Master Sentinel 19-Pass Verification Battery (127 Checks)
+# 1. Master Sentinel 21-Pass Verification Battery (134 Checks)
 node testing/test_sentinel.js
 
-# 2. Combat Input & Hotkey Verification Suite
+# 2. Combat Input & War Table Verification Suite (18 Tests)
 node testing/test_combat_input.js
 
-# 3. Combat Victory & State Transition Suite
+# 3. Repository-Wide Static Type & Diagnostic Gate (Zero Errors)
+node testing/test_types.js
+
+# 4. Combat Victory & State Transition Suite
 node testing/test_combat_victory_transition.js
 
-# 4. Save Manager & Persistence Wiring Battery
+# 5. Save Manager & Persistence Wiring Battery
 node testing/test_persistence_wiring.js
 ```

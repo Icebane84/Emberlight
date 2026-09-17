@@ -6,12 +6,12 @@
  * Subsystem:           Turn Stepping, CTB Simulation, Queue Drainage & AI Triggers
  * ============================================================================
  */
-'use strict';
+(() => {
 
 /**
  * Advances elapsed clock time for all active scheduled tasks.
  * [State Mutating]
- * @param {Array<{ fn: function():void, remainingMs: number }>} scheduledTasks - Active task list.
+ * @param {Array<{ fn: () => void, remainingMs: number }>} scheduledTasks - Active task list.
  * @param {number} dt - Frame delta time in seconds.
  * @returns {void}
  */
@@ -20,7 +20,7 @@ function advanceScheduledTasks(scheduledTasks, dt) {
 		return;
 	}
 
-	/** @type {Array<function():void>} */
+	/** @type {Array<() => void>} */
 	const readyTasks = [];
 	const unreadyTasks = [];
 	while (scheduledTasks.length > 0) {
@@ -56,11 +56,11 @@ function stepTurn(sim, helpers) {
 
 	const allLiving = [
 		...sim.party
-			.filter((c) => c.alive)
-			.map((c) => ({ type: 'party', entity: c })),
+			.filter((/** @type {any} */ c) => c.alive)
+			.map((/** @type {any} */ c) => ({ type: 'party', entity: c })),
 		...sim.enemies
-			.filter((e) => e.alive)
-			.map((e) => ({ type: 'enemy', entity: e })),
+			.filter((/** @type {any} */ e) => e.alive)
+			.map((/** @type {any} */ e) => ({ type: 'enemy', entity: e })),
 	];
 
 	if (allLiving.length === 0) return;
@@ -150,20 +150,18 @@ function stepTurn(sim, helpers) {
 				dispatchSFX: helpers.dispatchSFX,
 				getRandomFloat: helpers.getRandomFloat,
 				hostContext: helpers.hostContext,
-				applyAilment: (t, id, d) => helpers.Queue.applyAilment(t, id, d, helpers.appendLog),
-				executeDisplacement: (actor, target, disp, isAlly) =>
+				applyAilment: (/** @type {any} */ t, /** @type {string} */ id, /** @type {number} */ d) => helpers.Queue.applyAilment(t, id, d, helpers.appendLog),
+				executeDisplacement: (/** @type {any} */ _actor, /** @type {any} */ target, /** @type {any} */ disp, /** @type {boolean} */ isAlly) =>
 					helpers.Displacement.executeDisplacement(
 						sim,
-						actor,
 						target,
 						disp,
 						isAlly,
 						helpers.appendLog,
 						helpers.dispatchSFX,
 						helpers.triggerDisplacementVisual,
-						helpers.isHeadless,
 					),
-				checkUnitDefeat: (t) => helpers.checkUnitDefeat(t),
+				checkUnitDefeat: (/** @type {any} */ t) => helpers.checkUnitDefeat(t),
 			});
 		}, 700);
 	} else {
@@ -185,15 +183,15 @@ function stepTurn(sim, helpers) {
 function autoExecutePlayerAction(sim, helpers) {
 	if (!sim) return;
 	const livingEnemies = sim.enemies
-		.map((e, idx) => ({ e, idx }))
-		.filter(({ e }) => e.alive);
+		.map((/** @type {any} */ e, /** @type {number} */ idx) => ({ e, idx }))
+		.filter((/** @type {{ e: any, idx: number }} */ { e }) => e.alive);
 	if (livingEnemies.length === 0) {
 		stepTurn(sim, helpers);
 		return;
 	}
 	const validTarget =
 		livingEnemies.find(
-			({ e }) => !helpers.Displacement.isTargetShielded(sim, e, 'enemy', 'PHYSICAL'),
+			(/** @type {{ e: any, idx: number }} */ { e }) => !helpers.Displacement.isTargetShielded(sim, e, 'enemy', 'PHYSICAL'),
 		) || livingEnemies[0];
 	helpers.playerExecuteAttack(validTarget.idx);
 }
@@ -202,7 +200,7 @@ function autoExecutePlayerAction(sim, helpers) {
  * Runs synchronized headless combat execution loop to completion.
  * [State Mutating]
  * @param {any} sim - Active simulation state.
- * @param {Array<function():void>} headlessEventQueue - Headless task queue.
+ * @param {Array<() => void>} headlessEventQueue - Headless task queue.
  * @param {any} helpers - Helper kernel functions bundle.
  * @returns {void}
  */
@@ -230,10 +228,11 @@ const CombatOrchestrator = Object.freeze({
 	runHeadlessLoop,
 });
 
-const _rootOrch = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : {});
-_rootOrch._CombatInternal = _rootOrch._CombatInternal || {};
-_rootOrch._CombatInternal.Orchestrator = CombatOrchestrator;
-
+if (typeof window !== 'undefined') {
+	window._CombatInternal = window._CombatInternal || {};
+	window._CombatInternal.Orchestrator = CombatOrchestrator;
+}
 if (typeof module !== 'undefined' && module.exports) {
 	module.exports = CombatOrchestrator;
 }
+})();

@@ -30,6 +30,8 @@ const EmberlightOverworld = (() => {
 	 * @typedef {Object} OverworldPosition
 	 * @property {number} x - Horizontal grid coordinate.
 	 * @property {number} y - Vertical grid coordinate.
+	 * @property {boolean} [inTown] - Whether player is in a town.
+	 * @property {string | null} [townId] - Active town identifier.
 	 */
 
 	/**
@@ -43,6 +45,8 @@ const EmberlightOverworld = (() => {
 	 * @property {number} dangerSteps - Consecutive steps taken in hostile territory.
 	 * @property {number} stepAnimFrame - Step cycle animation tick counter.
 	 * @property {number} seed - Deterministic PRNG seed.
+	 * @property {string | null} [townId] - Active town identifier.
+	 * @property {boolean} [inTown] - Whether player is currently in a town.
 	 */
 
 	/**
@@ -53,8 +57,8 @@ const EmberlightOverworld = (() => {
 	/**
 	 * @typedef {Object} OverworldContext
 	 * @property {Object} [eventBus] - Host pub/sub event bus.
-	 * @property {function(string, any=): void} [eventBus.publish]
-	 * @property {function(string, function(any): void): void} [eventBus.subscribe]
+	 * @property {(event: string, payload?: any) => void} [eventBus.publish]
+	 * @property {(event: string, handler: (payload: any) => void) => void} [eventBus.subscribe]
 	 * @property {Array<string | { type: string, [key: string]: any }>} [inputs] - Host input event queue.
 	 */
 
@@ -135,13 +139,14 @@ const EmberlightOverworld = (() => {
 	 */
 	function deepFreeze(obj) {
 		if (!obj || typeof obj !== "object") return obj;
-		Object.keys(obj).forEach((prop) => {
+		const record = /** @type {Record<string, any>} */ (obj);
+		Object.keys(record).forEach((prop) => {
 			if (
-				typeof obj[prop] === "object" &&
-				obj[prop] !== null &&
-				!Object.isFrozen(obj[prop])
+				typeof record[prop] === "object" &&
+				record[prop] !== null &&
+				!Object.isFrozen(record[prop])
 			) {
-				deepFreeze(obj[prop]);
+				deepFreeze(record[prop]);
 			}
 		});
 		return Object.freeze(obj);
@@ -584,9 +589,10 @@ const EmberlightOverworld = (() => {
 				stepAnimFrame: 0,
 				seed: typeof incoming.seed === "number" ? incoming.seed : 1337,
 			};
+			const activeSeed = typeof incoming.seed === "number" ? incoming.seed : 1337;
 			prngInstance =
 				typeof EmberlightPRNG !== "undefined"
-					? EmberlightPRNG.create(sim.seed)
+					? EmberlightPRNG.create(activeSeed)
 					: null;
 			lifecycleState = State.READY;
 		},
@@ -615,7 +621,7 @@ const EmberlightOverworld = (() => {
 		 * Projects simulation state to peripheral overworld renderer without side effects.
 		 * Pure peripheral projection gateway.
 		 *
-		 * @param {{ renderOverworld?: function(OverworldSimState): void }} renderer - Target peripheral renderer.
+		 * @param {{ renderOverworld?: (state: any) => void }} renderer - Target peripheral renderer.
 		 * @param {any} [_context] - Host rendering context.
 		 * @returns {void}
 		 */
@@ -634,6 +640,7 @@ const EmberlightOverworld = (() => {
 		 */
 		getState() {
 			assertLifecycle(State.READY, State.RUNNING);
+			if (!sim) throw new Error("Simulation state uninitialized");
 			return structuredClone(sim);
 		},
 
@@ -670,6 +677,15 @@ const EmberlightOverworld = (() => {
 				protocolVersion: "VSRP-001",
 				capabilities: ["cartography", "sliding_viewport", "autotile"],
 			};
+		},
+
+		/**
+		 * Backwards-compatible metadata gateway alias.
+		 *
+		 * @returns {OverworldModuleInfo}
+		 */
+		getInfo() {
+			return this.getModuleInfo();
 		},
 
 		/**

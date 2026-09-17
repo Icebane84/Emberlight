@@ -76,8 +76,6 @@
  */
 
 const EmberlightProgressionRenderer = (() => {
-	'use strict';
-
 	//#region [SEC-01] Type Definitions, Module State & DOM/Emission Helpers
 	/**
 	 * Safely retrieves the skill trees view container element.
@@ -91,7 +89,7 @@ const EmberlightProgressionRenderer = (() => {
 	/**
 	 * Dispatches an action token via the provided dispatch callback.
 	 * (Action inversion dispatcher)
-	 * @param {function(ProgressionActionToken): void} dispatch Dispatch handler function.
+	 * @param {(action: ProgressionActionToken) => void} dispatch Dispatch handler function.
 	 * @param {ProgressionActionToken} action Action payload object.
 	 * @returns {void}
 	 */
@@ -102,7 +100,7 @@ const EmberlightProgressionRenderer = (() => {
 	/**
 	 * Retrieves the active game manifest definition.
 	 * (Pure state-accessor utility)
-	 * @returns {Object} Manifest object.
+	 * @returns {Record<string, any>} Manifest object.
 	 */
 	function getManifest() {
 		return typeof EmberlightManifest !== 'undefined' ? EmberlightManifest : {};
@@ -113,7 +111,7 @@ const EmberlightProgressionRenderer = (() => {
 	/**
 	 * Compiles and gathers all registry nodes for inspection view rendering.
 	 * (Pure calculation utility)
-	 * @param {Object} manifest Game manifest object.
+	 * @param {Record<string, any>} manifest Game manifest object.
 	 * @returns {Object.<string, ProgressionNode>} Compiled node registry map.
 	 */
 	function compileRegistry(manifest) {
@@ -121,13 +119,13 @@ const EmberlightProgressionRenderer = (() => {
 		const compiled = {};
 		if (manifest.AetherNodes) {
 			Object.entries(manifest.AetherNodes).forEach(([nodeId, rawNode]) => {
-				compiled[nodeId] = { ...rawNode };
+				compiled[nodeId] = { ...(/** @type {any} */ (rawNode)) };
 			});
 		}
 		if (manifest.SkillTrees) {
 			Object.entries(manifest.SkillTrees).forEach(([classKey, branches]) => {
 				Object.entries(branches).forEach(([branchKey, nodes]) => {
-					nodes.forEach((rawNode) => {
+					(/** @type {any[]} */ (nodes)).forEach((rawNode) => {
 						if (!compiled[rawNode.id]) {
 							compiled[rawNode.id] = { ...rawNode, branch: branchKey, classKey, spCost: rawNode.spCost || 1 };
 						}
@@ -143,11 +141,11 @@ const EmberlightProgressionRenderer = (() => {
 	 * (Pure evaluation utility)
 	 * @param {ProgressionCharacter} character Character battler object.
 	 * @param {ProgressionNode} node Skill or aether node definition.
-	 * @param {Object.<string, ProgressionNode>} registry Compiled node registry.
-	 * @param {Object} manifest Game manifest object.
+	 * @param {Object.<string, ProgressionNode>} [_registry] Compiled node registry.
+	 * @param {Record<string, any>} [_manifest] Game manifest object.
 	 * @returns {boolean} True if the node can be unlocked.
 	 */
-	function evaluateCanUnlock(character, node, registry, manifest) {
+	function evaluateCanUnlock(character, node, _registry, _manifest) {
 		if (!character || !node) return false;
 		const unlockedList = character.unlockedNodes || character.unlocked || [];
 		if (unlockedList.includes(node.id)) return false;
@@ -190,6 +188,7 @@ const EmberlightProgressionRenderer = (() => {
 		{ key: 'UMBRA', label: 'UMBRA (Shadow)', icon: '🌑' },
 	];
 
+	/** @type {Record<string, string>} */
 	const CAPABILITY_DESCRIPTIONS = {
 		'cap:elemental.scorch': '🔥 Field Skill: Scorch (Dispels dry brush & grass for 3 MP)',
 		'cap:elemental.freeze': '❄️ Field Skill: Freeze (Freezes water chasms into ice for 4 MP)',
@@ -199,7 +198,7 @@ const EmberlightProgressionRenderer = (() => {
 
 	/**
 	 * Resolves party icons or fallback provider safely.
-	 * @param {string} phenotype Character phenotype key.
+	 * @param {string} [phenotype] Character phenotype key.
 	 * @returns {string|null} Icon data URL or null.
 	 */
 	function resolvePartyCrestUrl(phenotype) {
@@ -216,7 +215,7 @@ const EmberlightProgressionRenderer = (() => {
 	 * (State-mutating DOM presenter)
 	 * @param {ProgressionCharacter[]} targetParty Party character array.
 	 * @param {ProgressionCharacter} activeChar Currently selected active character.
-	 * @param {function(ProgressionActionToken): void} dispatch Action dispatch handler.
+	 * @param {(action: ProgressionActionToken) => void} dispatch Action dispatch handler.
 	 * @returns {HTMLElement} Roster bar container element.
 	 */
 	function renderRosterBar(targetParty, activeChar, dispatch) {
@@ -226,7 +225,7 @@ const EmberlightProgressionRenderer = (() => {
 		targetParty.forEach((c) => {
 			const isSelected = c.id === activeChar.id;
 			const cSP = c.skillPoints ?? c.unspentSP ?? 0;
-			const crestUrl = resolvePartyCrestUrl(c.phenotype);
+			const crestUrl = resolvePartyCrestUrl(c.phenotype || c.class || 'HERO');
 
 			const heroTab = document.createElement('button');
 			heroTab.type = 'button';
@@ -251,7 +250,7 @@ const EmberlightProgressionRenderer = (() => {
 	 * Renders the essence filter bar for constellation category tabs.
 	 * (State-mutating DOM presenter)
 	 * @param {string} selectedEssence Currently selected essence tab key.
-	 * @param {function(ProgressionActionToken): void} dispatch Action dispatch handler.
+	 * @param {(action: ProgressionActionToken) => void} dispatch Action dispatch handler.
 	 * @returns {HTMLElement} Filter bar container element.
 	 */
 	function renderFilterBar(selectedEssence, dispatch) {
@@ -314,7 +313,7 @@ const EmberlightProgressionRenderer = (() => {
 	 * @param {ProgressionCharacter} activeChar Active character object.
 	 * @param {ProgressionNode|null} selectedNode Currently selected node object.
 	 * @param {EvaluationContext} ctx Evaluation context container.
-	 * @param {function(ProgressionActionToken): void} dispatch Action dispatch handler.
+	 * @param {(action: ProgressionActionToken) => void} dispatch Action dispatch handler.
 	 * @returns {HTMLButtonElement} Node card button element.
 	 */
 	function renderNodeCard(node, activeChar, selectedNode, ctx, dispatch) {
@@ -323,7 +322,8 @@ const EmberlightProgressionRenderer = (() => {
 		const isAvailable = !isUnlocked && evaluateCanUnlock(activeChar, node, registry, manifest);
 		const isSelected = selectedNode?.id === node.id;
 		const essKey = resolveNodeEssence(node);
-		const glyphUrl = typeof EmberlightSkillIcons !== 'undefined' ? EmberlightSkillIcons.get(node.id) : null;
+		const skillIcons = /** @type {any} */ (typeof EmberlightSkillIcons !== 'undefined' ? EmberlightSkillIcons : null);
+		const glyphUrl = skillIcons && typeof skillIcons.get === 'function' ? skillIcons.get(node.id) : null;
 
 		const statusClass = getNodeCardStatusClass(isUnlocked, isAvailable);
 		const selectedClass = isSelected ? 'selected' : '';
@@ -336,13 +336,14 @@ const EmberlightProgressionRenderer = (() => {
 		const costText = node.spCost ? `[${node.spCost} SP]` : '[1 SP]';
 		const mpText = node.type === 'active' && node.mpCost ? `(${node.mpCost} MP)` : '';
 		const capTag = node.capabilityTag ? '<span class="node-cap-tag">⚡ FIELD</span>' : '';
+		const nodeType = (node.type || 'passive').toUpperCase();
 
 		nodeCard.innerHTML = `
       <div class="node-card-top">
         ${glyphUrl ? `<img src="${glyphUrl}" class="node-glyph" alt="${node.label}" />` : '<div class="node-glyph-placeholder">✨</div>'}
         <div class="node-card-titles">
           <div class="node-card-name">${node.label} ${mpText}</div>
-          <div class="node-card-sub">${node.type.toUpperCase()} · ${costText} ${capTag}</div>
+          <div class="node-card-sub">${nodeType} · ${costText} ${capTag}</div>
         </div>
       </div>
       <div class="node-card-desc">${node.desc || ''}</div>
@@ -362,7 +363,7 @@ const EmberlightProgressionRenderer = (() => {
 	 * @param {ProgressionCharacter} activeChar Active character object.
 	 * @param {ProgressionNode|null} selectedNode Currently selected node object.
 	 * @param {EvaluationContext} ctx Evaluation context container.
-	 * @param {function(ProgressionActionToken): void} dispatch Action dispatch handler.
+	 * @param {(action: ProgressionActionToken) => void} dispatch Action dispatch handler.
 	 * @returns {HTMLElement} Grid pane container element.
 	 */
 	function renderGridPane(filteredNodes, activeChar, selectedNode, ctx, dispatch) {
@@ -483,7 +484,7 @@ const EmberlightProgressionRenderer = (() => {
 	 * @param {ProgressionNode} selectedNode Selected node object.
 	 * @param {ProgressionCharacter} activeChar Active character object.
 	 * @param {EvaluationContext} ctx Evaluation context container.
-	 * @param {function(ProgressionActionToken): void} dispatch Action dispatch handler.
+	 * @param {(action: ProgressionActionToken) => void} dispatch Action dispatch handler.
 	 * @returns {HTMLElement} Inspector card element.
 	 */
 	function renderInspectorCard(selectedNode, activeChar, ctx, dispatch) {
@@ -494,7 +495,9 @@ const EmberlightProgressionRenderer = (() => {
 		const essInfo = essences[essKey] || { label: essKey, role: '' };
 		const reqSP = selectedNode.spCost || 1;
 
-		const glyphUrl = typeof EmberlightSkillIcons !== 'undefined' ? EmberlightSkillIcons.get(selectedNode.id) : null;
+		const glyphUrl = (typeof EmberlightSkillIcons !== 'undefined' && typeof /** @type {any} */ (EmberlightSkillIcons).get === 'function')
+			? /** @type {any} */ (EmberlightSkillIcons).get(selectedNode.id)
+			: null;
 		const inspectorCard = document.createElement('div');
 		inspectorCard.className = `aether-inspector-card essence-${essKey.toLowerCase()}`;
 
@@ -507,13 +510,14 @@ const EmberlightProgressionRenderer = (() => {
 		const capabilityNotice = buildInspectorCapabilityNotice(selectedNode);
 		const prereqNotice = buildInspectorPrereqNotice(isUnlocked, isAvailable, selectedNode, activeChar, registry, reqSP);
 		const attuneBtnHtml = buildInspectorAttuneButton(isAvailable, isUnlocked, reqSP);
+		const selectedNodeType = (selectedNode.type || 'passive').toUpperCase();
 
 		inspectorCard.innerHTML = `
       <div class="inspector-header">
         ${glyphUrl ? `<img src="${glyphUrl}" class="inspector-glyph" alt="${selectedNode.label}" />` : '<div class="inspector-glyph-placeholder">✨</div>'}
         <div class="inspector-titles">
           <div class="inspector-name">${selectedNode.label}</div>
-          <div class="inspector-essence-tag ${essKey.toLowerCase()}">${essKey} · ${selectedNode.type.toUpperCase()}</div>
+          <div class="inspector-essence-tag ${essKey.toLowerCase()}">${essKey} · ${selectedNodeType}</div>
         </div>
       </div>
 
@@ -605,7 +609,7 @@ const EmberlightProgressionRenderer = (() => {
 		 * Renders the skill tree progression matrix and inspection UI.
 		 * (State-mutating DOM presenter)
 		 * @param {ProgressionState} state Active progression state snapshot.
-		 * @param {function(ProgressionActionToken): void} dispatch Action dispatch handler.
+		 * @param {(action: ProgressionActionToken) => void} dispatch Action dispatch handler.
 		 * @returns {void}
 		 */
 		renderProgression(state, dispatch) {

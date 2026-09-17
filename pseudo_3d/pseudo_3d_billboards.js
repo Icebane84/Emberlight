@@ -7,13 +7,12 @@
  * ============================================================================
  */
 
-'use strict';
-
 if (typeof window !== 'undefined') {
 	window._Pseudo3DInternal = window._Pseudo3DInternal || {};
 }
 
 const Pseudo3DBillboards = (() => {
+	/** @type {Record<string, string>} */
 	const BILLBOARD_GLYPHS = Object.freeze({
 		$: "\u{1F4B0}",
 		C: "\u{1F525}",
@@ -42,6 +41,7 @@ const Pseudo3DBillboards = (() => {
 	 * @returns {Array<any>} Sorted array of visible sprites.
 	 */
 	function computeVisibleSprites(camera, map, config) {
+		/** @type {Array<{ x: number, y: number, dist: number, tile: string }>} */
 		const sprites = [];
 		if (!map || !Array.isArray(map) || map.length === 0 || !map[0]) return sprites;
 		const minX = Math.max(0, Math.trunc(camera.x - config.maxDepth));
@@ -157,7 +157,7 @@ const Pseudo3DBillboards = (() => {
 	 * @param {string[][]} map - Map matrix.
 	 */
 	function evaluateTriggerRow(trigger, y, rangeX, ctx, map) {
-		if (!map || !map[y]) return;
+		if (!map?.[y]) return;
 		for (let x = rangeX.minX; x <= rangeX.maxX; x++) {
 			if (map[y][x] === trigger.tile) {
 				evaluateTriggerCell(trigger, { x, y }, ctx);
@@ -182,6 +182,7 @@ const Pseudo3DBillboards = (() => {
 		gameState,
 		prevLatches,
 	) {
+		/** @type {Array<{ eventName: string, payload: any }>} */
 		const events = [];
 		const nextLatches = new Map(prevLatches);
 		if (!map || !Array.isArray(map) || map.length === 0 || !map[0]) return { events, nextLatches };

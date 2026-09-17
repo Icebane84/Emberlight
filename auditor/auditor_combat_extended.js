@@ -21,10 +21,11 @@
 if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInternal || {};
 
 (() => {
-    'use strict';
-
     // ─── Dependency Ingestion from Kernel ────────────────────────────────────
-    const { logAudit } = window._AuditorInternal.Kernel;
+    const { logAudit } = /** @type {any} */ (
+        (typeof window !== 'undefined' ? window._AuditorInternal?.Kernel : null) ||
+        (typeof require !== 'undefined' ? require('./auditor_kernel.js') : {})
+    );
 
     // ─── Pass 9: SDCP-001 Capability Registry & Anti-Entropy Seal ────────────
 
@@ -34,13 +35,14 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
      * are authority-gated against un-attested payloads.
      * Verbatim from auditor.js:766–813.
      *
-     * @param {object} _manifest - Unused; kept for consistent dispatcher signature.
-     * @param {object|null} eventBusRef - SDCP-001 capability bus (optional in standalone harness).
+     * @param {unknown} _manifest - Unused; kept for consistent dispatcher signature.
+     * @param {unknown} eventBusRef - SDCP-001 capability bus (optional in standalone harness).
      * @returns {void}
      */
     function runSDCPCapabilityAudit(_manifest, eventBusRef) {
         logAudit('=== PASS 9: SDCP-001 Capability Registry & Anti-Entropy Seal ===', true);
-        if (!eventBusRef || typeof eventBusRef.executeCapability !== 'function') {
+        const eb = /** @type {any} */ (eventBusRef);
+        if (!eb || typeof eb.executeCapability !== 'function') {
             logAudit('[PASS] SDCP-001: Capability bus optional in standalone testing harness.', true);
             return;
         }
@@ -57,7 +59,7 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
             // 1. Check Anti-Entropy Registry Seal Invariant
             let sealEnforced = false;
             try {
-                eventBusRef.registerCapability('cap:entropy.illegal_injection', {
+                eb.registerCapability('cap:entropy.illegal_injection', {
                     evaluate: () => ({ authorized: false }),
                 });
             } catch {
@@ -71,7 +73,7 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
 
             // 2. Assert Presence & Authority of All 5 Core Capabilities
             REQUIRED_CAPABILITIES.forEach((token) => {
-                const res = eventBusRef.executeCapability(token, {
+                const res = eb.executeCapability(token, {
                     targetCoords: [],
                     playerPos: { x: 0, y: 0 },
                 });
@@ -83,7 +85,8 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
 
             logAudit('[PASS] SDCP-001: All 5 canonical capability providers verified and authority-gated.', true);
         } catch (err) {
-            logAudit(`[FAIL] SDCP-001 Capability Battery Error: ${err.message}`, false);
+            const msg = err instanceof Error ? err.message : String(err);
+            logAudit(`[FAIL] SDCP-001 Capability Battery Error: ${msg}`, false);
         }
     }
 
@@ -95,19 +98,20 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
      * vanguard, and that shielding collapses when all frontline units fall.
      * Verbatim from auditor.js:816–898.
      *
-     * @param {object} manifest - Active EmberlightManifest reference.
-     * @param {object} combatModule - EmberlightCombat module with createInstance factory.
+     * @param {unknown} manifest - Active EmberlightManifest reference.
+     * @param {unknown} combatModule - EmberlightCombat module with createInstance factory.
      * @returns {void}
      */
     function runInSituFormationShieldingAudit(manifest, combatModule) {
         logAudit('=== PASS 10: Formation Topology & Backline Shielding Invariance ===', true);
-        if (!combatModule || typeof combatModule.createInstance !== 'function') {
+        const cm = /** @type {any} */ (combatModule);
+        if (!cm || typeof cm.createInstance !== 'function') {
             logAudit('[FAIL] Combat factory uninstantiated for formation audit.', false);
             return;
         }
 
         try {
-            const testCombat = combatModule.createInstance({ isHeadless: true });
+            const testCombat = cm.createInstance({ isHeadless: true });
             testCombat.configure({ manifest });
             testCombat.init({
                 eventBus: { publish: () => {}, subscribe: () => {} },
@@ -125,8 +129,8 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
             });
 
             const state = testCombat.getState();
-            const wolf = state.enemies.find((e) => e.key === 'SHADE_WOLF');
-            const archer = state.enemies.find((e) => e.key === 'BONE_ARCHER');
+            const wolf = state.enemies.find((/** @type {any} */ e) => e.key === 'SHADE_WOLF');
+            const archer = state.enemies.find((/** @type {any} */ e) => e.key === 'BONE_ARCHER');
 
             if (!wolf || !archer) {
                 throw new Error('Formation test encounter missing required front/back enemies.');
@@ -139,11 +143,11 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
             logAudit('[PASS] Formation Topology: Units initialized into correct FRONT and BACK rows.', true);
 
             // 2. Assert Melee Physical strike on Backline Archer is shielded and intercepted by Vanguard
-            const preArcher = state.enemies.find((e) => e.key === 'BONE_ARCHER');
+            const preArcher = state.enemies.find((/** @type {any} */ e) => e.key === 'BONE_ARCHER');
             const initialArcherHp = preArcher.hp;
-            const livingFrontBefore = state.enemies.filter((e) => e.alive && (e.row === 'FRONT' || e.row === 'BOTH'));
-            const initialFrontHpTotal = livingFrontBefore.reduce((acc, e) => acc + e.hp, 0);
-            const archerIdx = state.enemies.findIndex((e) => e.id === preArcher.id);
+            const livingFrontBefore = state.enemies.filter((/** @type {any} */ e) => e.alive && (e.row === 'FRONT' || e.row === 'BOTH'));
+            const initialFrontHpTotal = livingFrontBefore.reduce((/** @type {number} */ acc, /** @type {any} */ e) => acc + e.hp, 0);
+            const archerIdx = state.enemies.findIndex((/** @type {any} */ e) => e.id === preArcher.id);
 
             // Execute melee physical attack targeting archer through the canonical input snapshot.
             testCombat.update(0.016, {
@@ -151,9 +155,9 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
             });
 
             const postState = testCombat.getState();
-            const postArcher = postState.enemies.find((e) => e.key === 'BONE_ARCHER');
-            const livingFrontAfter = postState.enemies.filter((e) => e.row === 'FRONT' || e.row === 'BOTH');
-            const postFrontHpTotal = livingFrontAfter.reduce((acc, e) => acc + e.hp, 0);
+            const postArcher = postState.enemies.find((/** @type {any} */ e) => e.key === 'BONE_ARCHER');
+            const livingFrontAfter = postState.enemies.filter((/** @type {any} */ e) => e.row === 'FRONT' || e.row === 'BOTH');
+            const postFrontHpTotal = livingFrontAfter.reduce((/** @type {number} */ acc, /** @type {any} */ e) => acc + e.hp, 0);
 
             // Because frontline is alive, archer HP must remain unchanged while vanguard absorbs the hit
             if (postArcher.hp < initialArcherHp) {
@@ -165,13 +169,13 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
             logAudit('[PASS] Frontline Shielding & Interception: Vanguard absorbed intercepted strike; backline shielded.', true);
 
             // 3. Vanquish All Frontline Vanguard Units & Verify Shielding Collapses
-            postState.enemies.filter((e) => e.row === 'FRONT').forEach((e) => {
+            postState.enemies.filter((/** @type {any} */ e) => e.row === 'FRONT').forEach((/** @type {any} */ e) => {
                 e.hp = 0;
                 e.alive = false;
             });
 
             // Now frontline has fallen
-            const hasLivingFront = postState.enemies.some((e) => e.alive && e.row === 'FRONT');
+            const hasLivingFront = postState.enemies.some((/** @type {any} */ e) => e.alive && e.row === 'FRONT');
             if (hasLivingFront) {
                 throw new Error('Vanguard status flag corrupted after frontline defeat.');
             }
@@ -179,7 +183,8 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
 
             testCombat.destroy();
         } catch (err) {
-            logAudit(`[FAIL] Formation Shielding Audit Error: ${err.message}`, false);
+            const msg = err instanceof Error ? err.message : String(err);
+            logAudit(`[FAIL] Formation Shielding Audit Error: ${msg}`, false);
         }
     }
 
@@ -191,20 +196,81 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
      * duration expiration cleanup. Optionally verifies VFX particle pool clamping.
      * Verbatim from auditor.js:901–1000.
      *
-     * @param {object} manifest - Active EmberlightManifest reference (reads Ailments).
-     * @param {object} combatModule - EmberlightCombat module with createInstance factory.
-     * @param {object|null} vfxModule - Optional EmberlightCombatVFX driver for particle check.
+     * @param {unknown} manifest - Active EmberlightManifest reference (reads Ailments).
+     * @param {unknown} combatModule - EmberlightCombat module with createInstance factory.
+     * @param {unknown} vfxModule - Optional EmberlightCombatVFX driver for particle check.
+     * @returns {void}
+     */
+    /**
+     * Asserts DOT calculations, cleansing, and optional VFX memory limits.
+     * @param {any} malakor
+     * @param {any} mf
+     * @param {any} vfx
+     */
+    function auditMalakorAilmentsAndVFX(malakor, mf, vfx) {
+        malakor.ailments = [
+            { id: 'BURN', duration: 2 },
+            { id: 'POISON', duration: 1 },
+        ];
+
+        // Tick 1: BURN deals 4 damage; POISON deals 8% maxHp (13 damage for maxHp: 160)
+        const preHp = malakor.hp;
+        const burnDef = mf?.Ailments?.BURN || { tick: (/** @type {any} */ t) => { t.hp = Math.max(0, t.hp - 4); return { dmg: 4 }; } };
+        const poisonDef = mf?.Ailments?.POISON || { tick: (/** @type {any} */ t) => { const dmg = Math.max(1, Math.round(t.maxHp * 0.08)); t.hp = Math.max(0, t.hp - dmg); return { dmg }; } };
+
+        const burnRes = burnDef.tick(malakor);
+        const poisonRes = poisonDef.tick(malakor);
+        const burnDmg = (typeof burnRes === 'object' ? burnRes.dmg : burnRes) || 4;
+        const poisonDmg = (typeof poisonRes === 'object' ? poisonRes.dmg : poisonRes) || Math.max(1, Math.round(malakor.maxHp * 0.08));
+        const totalDotDmg = burnDmg + poisonDmg;
+
+        if (malakor.hp !== preHp - totalDotDmg) {
+            throw new Error(`Ailment DOT damage calculation mismatch. Expected HP: ${preHp - totalDotDmg}, Received: ${malakor.hp}`);
+        }
+        logAudit(`[PASS] Status Ailments: Discrete DOT ticks validated (BURN -${burnDmg}, POISON -${poisonDmg}).`, true);
+
+        // Duration decrement check
+        malakor.ailments.forEach((/** @type {any} */ a) => { a.duration -= 1; });
+        malakor.ailments = malakor.ailments.filter((/** @type {any} */ a) => a.duration > 0);
+
+        if (malakor.ailments.length !== 1 || malakor.ailments[0].id !== 'BURN') {
+            throw new Error('Status Ailment duration expiration failure: POISON failed to clear.');
+        }
+        logAudit('[PASS] Status Ailments: Duration decrements and cleanses verified.', true);
+
+        // 4. VFX Buffer Bound Verification
+        if (vfx && typeof vfx.getDiagnostics === 'function') {
+            const vfxDiag = vfx.getDiagnostics();
+            if (vfxDiag.activeParticles > 300) {
+                throw new Error(`VFX Particle pool exceeded 300 pre-allocated units: ${vfxDiag.activeParticles}`);
+            }
+            logAudit('[PASS] VFX Driver: Particle typed array memory clamping validated.', true);
+        }
+    }
+
+    /**
+     * Verifies boss Phase 2 enrage transitions (HP <= 50% threshold: ATK 19,
+     * DEF 5, AGI 9), discrete DOT tick math for BURN and POISON ailments, and
+     * duration expiration cleanup. Optionally verifies VFX particle pool clamping.
+     * Verbatim from auditor.js:901–1000.
+     *
+     * @param {unknown} manifest - Active EmberlightManifest reference (reads Ailments).
+     * @param {unknown} combatModule - EmberlightCombat module with createInstance factory.
+     * @param {unknown} vfxModule - Optional EmberlightCombatVFX driver for particle check.
      * @returns {void}
      */
     function runInSituBossAndAilmentAudit(manifest, combatModule, vfxModule) {
         logAudit('=== PASS 11: Boss Phase Shaders & Status Ailment Invariance ===', true);
-        if (!combatModule || typeof combatModule.createInstance !== 'function') {
+        const cm = /** @type {any} */ (combatModule);
+        const mf = /** @type {any} */ (manifest);
+        const vfx = /** @type {any} */ (vfxModule);
+        if (!cm || typeof cm.createInstance !== 'function') {
             logAudit('[FAIL] Combat factory unavailable for Pass 11.', false);
             return;
         }
 
         try {
-            const testCombat = combatModule.createInstance({ isHeadless: true });
+            const testCombat = cm.createInstance({ isHeadless: true });
             testCombat.configure({ manifest });
             testCombat.init({
                 eventBus: { publish: () => {}, subscribe: () => {} },
@@ -221,7 +287,7 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
             });
 
             const state = testCombat.getState();
-            const malakor = state.enemies.find((e) => e.isBoss);
+            const malakor = state.enemies.find((/** @type {any} */ e) => e.isBoss);
 
             if (!malakor) {
                 throw new Error('Pass 11 failed to spawn boss entity Malakor.');
@@ -251,49 +317,13 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
             }
             logAudit('[PASS] Boss Architecture: Phase 2 threshold verified (ATK 19, DEF 5, AGI 9).', true);
 
-            // 3. Status Ailment Tick & Expiration Battery
-            malakor.ailments = [
-                { id: 'BURN', duration: 2 },
-                { id: 'POISON', duration: 1 },
-            ];
-
-            // Tick 1: BURN deals 4 damage; POISON deals 8% maxHp (13 damage for maxHp: 160)
-            const preHp = malakor.hp;
-            const burnDef = manifest.Ailments?.BURN || { tick: (t) => { t.hp = Math.max(0, t.hp - 4); return { dmg: 4 }; } };
-            const poisonDef = manifest.Ailments?.POISON || { tick: (t) => { const dmg = Math.max(1, Math.round(t.maxHp * 0.08)); t.hp = Math.max(0, t.hp - dmg); return { dmg }; } };
-
-            const burnRes = burnDef.tick(malakor);
-            const poisonRes = poisonDef.tick(malakor);
-            const burnDmg = (typeof burnRes === 'object' ? burnRes.dmg : burnRes) || 4;
-            const poisonDmg = (typeof poisonRes === 'object' ? poisonRes.dmg : poisonRes) || Math.max(1, Math.round(malakor.maxHp * 0.08));
-            const totalDotDmg = burnDmg + poisonDmg;
-
-            if (malakor.hp !== preHp - totalDotDmg) {
-                throw new Error(`Ailment DOT damage calculation mismatch. Expected HP: ${preHp - totalDotDmg}, Received: ${malakor.hp}`);
-            }
-            logAudit(`[PASS] Status Ailments: Discrete DOT ticks validated (BURN -${burnDmg}, POISON -${poisonDmg}).`, true);
-
-            // Duration decrement check
-            malakor.ailments.forEach((a) => { a.duration -= 1; });
-            malakor.ailments = malakor.ailments.filter((a) => a.duration > 0);
-
-            if (malakor.ailments.length !== 1 || malakor.ailments[0].id !== 'BURN') {
-                throw new Error('Status Ailment duration expiration failure: POISON failed to clear.');
-            }
-            logAudit('[PASS] Status Ailments: Duration decrements and cleanses verified.', true);
-
-            // 4. VFX Buffer Bound Verification
-            if (vfxModule && typeof vfxModule.getDiagnostics === 'function') {
-                const vfxDiag = vfxModule.getDiagnostics();
-                if (vfxDiag.activeParticles > 300) {
-                    throw new Error(`VFX Particle pool exceeded 300 pre-allocated units: ${vfxDiag.activeParticles}`);
-                }
-                logAudit('[PASS] VFX Driver: Particle typed array memory clamping validated.', true);
-            }
+            // 3. Status Ailment & VFX Verification
+            auditMalakorAilmentsAndVFX(malakor, mf, vfx);
 
             testCombat.destroy();
         } catch (err) {
-            logAudit(`[FAIL] Pass 11 Battery Error: ${err.message}`, false);
+            const msg = err instanceof Error ? err.message : String(err);
+            logAudit(`[FAIL] Pass 11 Battery Error: ${msg}`, false);
         }
     }
 
@@ -307,33 +337,34 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
      * and validates the getDiagnostics() renderResolution telemetry field.
      * Verbatim from auditor.js:1003–1053.
      *
-     * @param {object} _manifest - Unused; kept for consistent dispatcher signature.
-     * @param {object|null} pseudo3DModule - EmberlightPseudo3D peripheral driver.
+     * @param {unknown} _manifest - Unused; kept for consistent dispatcher signature.
+     * @param {unknown} pseudo3DModule - EmberlightPseudo3D peripheral driver.
      * @returns {void}
      */
     function runInSituDualPerspectiveAudit(_manifest, pseudo3DModule) {
         logAudit('--- PASS 12: DUAL-PERSPECTIVE & 3D RAYCASTER IMMERSION BATTERY ---', true);
-        if (!pseudo3DModule) {
+        const p3d = /** @type {any} */ (pseudo3DModule);
+        if (!p3d) {
             logAudit('[SKIP] Pseudo-3D module omitted from snapshot.', true);
             return;
         }
 
         try {
             // 1. Dynamic Buffer Resizing & High-Res 960x360 Expansion
-            if (typeof pseudo3DModule.setExpanded !== 'function' || typeof pseudo3DModule.getDimensions !== 'function') {
+            if (typeof p3d.setExpanded !== 'function' || typeof p3d.getDimensions !== 'function') {
                 throw new TypeError('Pseudo-3D module missing setExpanded() or getDimensions() interface methods.');
             }
 
-            pseudo3DModule.setExpanded(true);
-            const expandedDim = pseudo3DModule.getDimensions();
+            p3d.setExpanded(true);
+            const expandedDim = p3d.getDimensions();
             if (expandedDim.width !== 960 || expandedDim.height !== 360 || !expandedDim.isExpanded || expandedDim.fovDeg !== 75) {
                 throw new Error(`Pseudo-3D expansion dimensions mismatch: expected 960x360 at 75 deg FOV, received ${expandedDim.width}x${expandedDim.height} at ${expandedDim.fovDeg} deg`);
             }
             logAudit('[PASS] Pseudo-3D: High-Res 960x360 immersion buffer scaling & 75° FOV expansion verified.', true);
 
             // 2. Buffer Collapse & 2x2 Sensor Restoration
-            pseudo3DModule.setExpanded(false);
-            const standardDim = pseudo3DModule.getDimensions();
+            p3d.setExpanded(false);
+            const standardDim = p3d.getDimensions();
             if (standardDim.width !== 480 || standardDim.height !== 260 || standardDim.isExpanded || standardDim.fovDeg !== 60) {
                 throw new Error(`Pseudo-3D restoration dimensions mismatch: expected 480x260 at 60 deg FOV, received ${standardDim.width}x${standardDim.height} at ${standardDim.fovDeg} deg`);
             }
@@ -346,29 +377,37 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
                 ['#', 'C', '>', '#'],
                 ['#', '#', '#', '#'],
             ];
-            pseudo3DModule.render({
+            p3d.render({
                 map: dummyMap,
                 playerPos: { x: 1, y: 1 },
                 facing: 'RIGHT',
                 flags: {},
             });
-            pseudo3DModule.update(0.016);
-            const diag = pseudo3DModule.getDiagnostics();
+            p3d.update(0.016);
+            const diag = p3d.getDiagnostics();
             if (!diag?.renderResolution) {
                 throw new Error('Pseudo-3D getDiagnostics() failed to return valid telemetry.');
             }
             logAudit('[PASS] Pseudo-3D: Headless raycasting, procedural billboards ($/C/>), and Z-buffer sorting validated.', true);
         } catch (err) {
-            logAudit(`[FAIL] Pass 12 Battery Error: ${err.message}`, false);
+            const msg = err instanceof Error ? err.message : String(err);
+            logAudit(`[FAIL] Pass 12 Battery Error: ${msg}`, false);
         }
     }
 
     // ─── Staging Membrane Export ──────────────────────────────────────────────
 
-    window._AuditorInternal.CombatExtended = Object.freeze({
+    const CombatExtended = Object.freeze({
         runSDCPCapabilityAudit,
         runInSituFormationShieldingAudit,
         runInSituBossAndAilmentAudit,
         runInSituDualPerspectiveAudit,
     });
+
+    if (typeof window !== 'undefined' && window._AuditorInternal) {
+        window._AuditorInternal.CombatExtended = CombatExtended;
+    }
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = CombatExtended;
+    }
 })();

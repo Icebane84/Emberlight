@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "es2022",
+    "lib": ["es2022", "dom"],
+    "checkJs": true,
+    "strict": true,
+    "strictNullChecks": true,
+    "allowJs": true
+  },
+  "exclude": ["node_modules", "tools", "testing", "watch_engine.js", "data/boilerplatetenant.js"]
+}
+
+

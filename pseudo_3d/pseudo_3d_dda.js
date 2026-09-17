@@ -7,8 +7,6 @@
  * ============================================================================
  */
 
-'use strict';
-
 if (typeof window !== 'undefined') {
 	window._Pseudo3DInternal = window._Pseudo3DInternal || {};
 }
@@ -31,13 +29,13 @@ const Pseudo3DDDA = (() => {
 	/**
 	 * Computes camera projection plane vectors for given field of view.
 	 * Pure mathematical calculation.
-	 * @param {any} camera - Camera state object.
+	 * @param {any} _camera - Camera state object.
 	 * @param {number} fovRad - Field of view angle in radians.
 	 * @param {number} cosA - Cosine of camera angle.
 	 * @param {number} sinA - Sine of camera angle.
 	 * @returns {{ planeX: number, planeY: number }} Projection plane vector components.
 	 */
-	function computeFov(camera, fovRad, cosA, sinA) {
+	function computeFov(_camera, fovRad, cosA, sinA) {
 		const fovScale = Math.tan(fovRad / 2);
 		return { planeX: -sinA * fovScale, planeY: cosA * fovScale };
 	}

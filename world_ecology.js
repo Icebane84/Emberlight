@@ -20,9 +20,7 @@
 
 /* cspell:words scorchable lockpicking */
 
-// @ts-ignore
 const EmberlightWorldEcology = (() => {
-	'use strict';
 
 	//#region [SEC-01] Type Definitions & Contract Schemas
 	/**
@@ -45,12 +43,12 @@ const EmberlightWorldEcology = (() => {
 	 * @typedef {Object} WorldManifest
 	 * @property {string[][]} [OverworldMap] - Master overworld map grid.
 	 * @property {Record<string, TownMapDescriptor>} [TownMaps] - Municipal map registry.
-	 * @property {function(string[][], Record<string, any>): string[][]} [getResolvedMap] - Resolver routine for dynamic map features.
+	 * @property {((rawMap: string[][], flags: Record<string, any>) => string[][])} [getResolvedMap] - Resolver routine for dynamic map features.
 	 */
 
 	/**
 	 * @typedef {Object} DungeonGenerator
-	 * @property {function(number, number, number, number): { map: string[][], spawn: GridCoord }} generate - Floor procedural generation routine.
+	 * @property {((seed: number, width: number, height: number, depth: number) => { map: string[][], spawn: GridCoord })} generate - Floor procedural generation routine.
 	 */
 
 	/**
@@ -59,12 +57,13 @@ const EmberlightWorldEcology = (() => {
 	 * @property {string} name - Entity display name.
 	 * @property {number} mp - Current magic points.
 	 * @property {boolean} alive - Life state flag.
+	 * @property {string} [phenotype] - Class archetype.
 	 * @property {string[]} [unlocked] - Unlocked skill and capability tokens.
 	 */
 
 	/**
 	 * @typedef {Object} PRNGService
-	 * @property {function(number, number): number} nextInt - Generates pseudo-random integers within range.
+	 * @property {((min: number, max: number) => number)} nextInt - Generates pseudo-random integers within range.
 	 */
 
 	/**
@@ -77,11 +76,11 @@ const EmberlightWorldEcology = (() => {
 	 * @property {string | null} [townId=null] - Active town identifier.
 	 * @property {number} [dungeonDepth=0] - Subterranean dungeon depth level.
 	 * @property {Record<string, any>} [flags={}] - Session state flags dictionary.
-	 * @property {PartyMember[]} [party=[]] - Active player party roster.
-	 * @property {WorldManifest} [manifest={}] - World data manifest.
-	 * @property {GridCoord | null} [lastInteractedChestPos=null] - Debounce position for chests.
-	 * @property {DungeonGenerator | null} [dungeonGen=null] - Procedural dungeon generator service.
-	 * @property {PRNGService | null} [prng=null] - Pseudo-random number generator service.
+	 * @property {PartyMember[]} [party] - Active player party roster.
+	 * @property {WorldManifest} [manifest] - World data manifest.
+	 * @property {GridCoord | null} [lastInteractedChestPos] - Debounce position for chests.
+	 * @property {DungeonGenerator | null} [dungeonGen] - Procedural dungeon generator service.
+	 * @property {PRNGService | null} [prng] - Pseudo-random number generator service.
 	 * @property {GridCoord} [macroPos] - Saved overworld entry position.
 	 */
 
@@ -93,6 +92,7 @@ const EmberlightWorldEcology = (() => {
 	 * @property {GridCoord} [spawnCoord] - Destination spawn coordinates.
 	 * @property {GridCoord} [targetPos] - Destination target position.
 	 * @property {GridCoord} [chestPos] - Target chest coordinate.
+	 * @property {string} [rewardItem] - Loot item identifier.
 	 * @property {string} [message] - HUD notification message.
 	 * @property {string} [scriptKey] - Dialogue script key.
 	 * @property {string} [shopId] - Shopkeeper inventory identifier.
@@ -131,17 +131,18 @@ const EmberlightWorldEcology = (() => {
 
 	/**
 	 * @typedef {Object} SettlementContext
-	 * @property {function(): PartyMember[]} getParty - Party roster retrieval routine.
-	 * @property {function(PartyMember[]): void} setParty - Party roster mutation routine.
-	 * @property {function(): Record<string, number>} getInventory - Item inventory retrieval routine.
-	 * @property {function(string, number): void} modifyItem - Item quantity adjustment routine.
-	 * @property {function(string): void} notifyStatus - HUD message dispatch routine.
-	 * @property {function(): string[][]} getActiveWorldMap - Active world map matrix retrieval routine.
-	 * @property {function(number, number, string): void} recordTileMutation - Tile mutation logging routine.
-	 * @property {function(string[][]): void} commitWorldUpdate - Map matrix commit routine.
-	 * @property {function(string): void} publishSfx - Audio SFX publication routine.
-	 * @property {function(string): void} triggerVfx - Visual VFX trigger routine.
-	 * @property {function(string): void} enterMarketDistrict - Market UI transition routine.
+	 * @property {() => any[]} getParty - Party roster retrieval routine.
+	 * @property {(party: any[]) => void} setParty - Party roster mutation routine.
+	 * @property {() => Record<string, number>} getInventory - Item inventory retrieval routine.
+	 * @property {(item: string, qty: number) => void} modifyItem - Item quantity adjustment routine.
+	 * @property {(msg: string) => void} notifyStatus - HUD message dispatch routine.
+	 * @property {() => string[][]} getActiveWorldMap - Active world map matrix retrieval routine.
+	 * @property {() => { x: number, y: number }} [getWorldPos] - World position retrieval routine.
+	 * @property {(x: number, y: number, tile: string) => void} recordTileMutation - Tile mutation logging routine.
+	 * @property {(map: string[][]) => void} commitWorldUpdate - Map matrix commit routine.
+	 * @property {(sfx: string) => void} publishSfx - Audio SFX publication routine.
+	 * @property {(vfx: string) => void} triggerVfx - Visual VFX trigger routine.
+	 * @property {(district: string) => void} enterMarketDistrict - Market UI transition routine.
 	 */
 
 	/**
@@ -168,7 +169,7 @@ const EmberlightWorldEcology = (() => {
 
 	/**
 	 * @typedef {Object} EcologyContext
-	 * @property {{ publish?: function(string, any): void }} [eventBus] - Host event bus handle.
+	 * @property {{ publish?: (event: string, payload?: any) => void }} [eventBus] - Host event bus handle.
 	 */
 	//#endregion
 
@@ -778,16 +779,10 @@ const EmberlightWorldEcology = (() => {
 	 * @returns {CapabilitySettlementResult} Capability outcome descriptor.
 	 */
 	function settleCapability(token, payload, attestation, context) {
-		let resolvedContext = context;
-		let resolvedPayload = payload;
-		let resolvedAttestation = attestation;
-
-		// Dual signature normalization: settleCapability(token, context) vs settleCapability(token, payload, attestation, context)
-		if (!resolvedContext && resolvedPayload && typeof resolvedPayload.getActiveWorldMap === 'function') {
-			resolvedContext = resolvedPayload;
-			resolvedPayload = {};
-			resolvedAttestation = {};
-		}
+		const isContextAsPayload = !context && payload && typeof (/** @type {any} */ (payload)).getActiveWorldMap === 'function';
+		const resolvedContext = /** @type {SettlementContext} */ (context || (isContextAsPayload ? payload : null));
+		const resolvedPayload = /** @type {CapabilityPayload} */ (isContextAsPayload ? {} : (payload || {}));
+		const resolvedAttestation = isContextAsPayload ? {} : (attestation || {});
 
 		if (!resolvedContext || typeof resolvedContext.getActiveWorldMap !== 'function') {
 			return { success: false, reason: 'MISSING_CONTEXT' };

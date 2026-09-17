@@ -103,7 +103,7 @@ function executeTargetedValidation(filename) {
 
 //#region [SEC-05] File-System Watcher & Debounce Event Loop
 // Instantiate native recursive directory monitor
-fs.watch(ROOT_DIR, (eventType, filename) => {
+fs.watch(ROOT_DIR, (_eventType, filename) => {
 	if (!filename?.endsWith('.js')) return;
 
 	// Exclude test suite mirrors to prevent cyclic execution feedback loops

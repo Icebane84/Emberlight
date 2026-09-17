@@ -8,7 +8,7 @@
 if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestInternal || {};
 
 (() => {
-	'use strict';
+
 
 	const Curves = {
 		/**
@@ -140,12 +140,12 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 	};
 
 	const Encounters = {
-		DEFAULT: ['SHADE_WOLF', 'BONE_ARCHER', 'IRON_BRUTE'],
-		WOLF_PACK: ['SHADE_WOLF', 'SHADE_WOLF'],
-		CRYPT_SANCTUM: ['DREAD_ACOLYTE', 'CRYPT_SKELETON'],
-		SPIDER_NEST: ['BLIGHT_SPIDER', 'BLIGHT_SPIDER'],
-		CATACOMBS_DEEP: ['CRYPT_SKELETON', 'BLIGHT_SPIDER', 'DREAD_ACOLYTE'],
-		BOSS_MALAKOR: ['CINDER_REVENANT'],
+		DEFAULT: [ 'SHADE_WOLF', 'BONE_ARCHER', 'IRON_BRUTE' ],
+		WOLF_PACK: [ 'SHADE_WOLF', 'SHADE_WOLF' ],
+		CRYPT_SANCTUM: [ 'DREAD_ACOLYTE', 'CRYPT_SKELETON' ],
+		SPIDER_NEST: [ 'BLIGHT_SPIDER', 'BLIGHT_SPIDER' ],
+		CATACOMBS_DEEP: [ 'CRYPT_SKELETON', 'BLIGHT_SPIDER', 'DREAD_ACOLYTE' ],
+		BOSS_MALAKOR: [ 'CINDER_REVENANT' ],
 	};
 
 	const Actors = {

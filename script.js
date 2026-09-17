@@ -123,14 +123,14 @@
 
 /**
  * @typedef {Object} ScriptContext
- * @property {{publish?: function(string, any): void}} [eventBus] Host event bus handle.
+ * @property {{publish?: (topic: string, payload?: any) => void}} [eventBus] Host event bus handle.
  * @property {Array<string|ScriptActionToken>} [inputs] Array of inbound host action tokens.
  */
 
 /**
  * @typedef {Object} ScriptConfig
  * @property {Object.<string, ScriptScript>} [dialogues] Dialogue dictionary.
- * @property {Object} [manifest] Game manifest reference.
+ * @property {Record<string, any>} [manifest] Game manifest reference.
  */
 
 /**
@@ -155,8 +155,6 @@
  */
 
 const EmberlightScript = (() => {
-	'use strict';
-
 	//#region [SEC-01] Lifecycle State Management, Utilities & Configuration Helpers
 	const State = {
 		UNCONFIGURED: 'UNCONFIGURED',
@@ -172,7 +170,7 @@ const EmberlightScript = (() => {
 	let hostConfig = null;
 	/** @type {ScriptContext|null} */
 	let hostContext = null;
-	/** @type {function(Object): void|null} */
+	/** @type {((payload: any) => void) | null} */
 	let _onScriptEndCallback = null;
 
 	/** @type {ScriptSimulationState|null} */
@@ -196,38 +194,42 @@ const EmberlightScript = (() => {
 	/**
 	 * Recursively freezes configuration objects to enforce immutability.
 	 * (Pure calculation utility)
-	 * @param {Object} obj Target configuration object.
-	 * @returns {Object} Deeply frozen object.
+	 * @param {Record<string, any>} obj Target configuration object.
+	 * @returns {Record<string, any>} Deeply frozen object.
 	 */
 	function deepFreeze(obj) {
 		if (!obj || typeof obj !== 'object') return obj;
-		Object.keys(obj).forEach((prop) => {
-			if (typeof obj[prop] === 'object' && obj[prop] !== null && !Object.isFrozen(obj[prop])) {
-				deepFreeze(obj[prop]);
+		const target = /** @type {Record<string, any>} */ (obj);
+		Object.keys(target).forEach((prop) => {
+			if (typeof target[prop] === 'object' && target[prop] !== null && !Object.isFrozen(target[prop])) {
+				deepFreeze(target[prop]);
 			}
 		});
-		return Object.freeze(obj);
+		return Object.freeze(target);
 	}
 
 	/**
 	 * Retrieves active dialogue definitions from host configuration or global manifest.
 	 * (Pure state-accessor utility)
-	 * @returns {Object.<string, ScriptScript>} Dialogue dictionary object.
+	 * @returns {Record<string, ScriptScript>} Dialogue dictionary object.
 	 */
 	function getActiveDialogues() {
-		return hostConfig?.dialogues ||
-			hostConfig?.manifest?.Dialogues ||
-			(typeof EmberlightManifest !== 'undefined' ? EmberlightManifest.Dialogues : {});
+		const cfg = /** @type {any} */ (hostConfig);
+		const m = /** @type {any} */ (getActiveManifest());
+		return cfg?.dialogues ||
+			cfg?.manifest?.Dialogues ||
+			m?.Dialogues ||
+			(typeof EmberlightManifest !== 'undefined' ? (/** @type {any} */ (EmberlightManifest)).Dialogues : {});
 	}
 
 	/**
 	 * Retrieves the active game manifest from host configuration or global scope.
 	 * (Pure state-accessor utility)
-	 * @returns {Object} Manifest object.
+	 * @returns {Record<string, any>} Manifest object.
 	 */
 	function getActiveManifest() {
-		return hostConfig?.manifest ||
-			(typeof EmberlightManifest !== 'undefined' ? EmberlightManifest : {});
+		return (/** @type {any} */ (hostConfig))?.manifest ||
+			(typeof EmberlightManifest !== 'undefined' ? (/** @type {any} */ (EmberlightManifest)) : {});
 	}
 
 	/**
@@ -310,7 +312,7 @@ const EmberlightScript = (() => {
 
 			if (key.startsWith('item:')) {
 				const itemId = key.slice(5).trim();
-				const itemDef = manifest?.Items?.[itemId];
+				const itemDef = (/** @type {Record<string, any>} */ (manifest))?.Items?.[itemId];
 				return itemDef ? (itemDef.label || itemDef.name || itemId) : itemId;
 			}
 
@@ -324,6 +326,7 @@ const EmberlightScript = (() => {
 	}
 
 	// --- Prerequisite & Condition Evaluator Helpers ---
+	/** @param {ScriptCondition | any} cond */
 	function checkFlagCondition(cond) {
 		if (!cond || !sim) return true;
 		if (cond.requireFlag && !sim.flags[cond.requireFlag]) return false;
@@ -331,16 +334,18 @@ const EmberlightScript = (() => {
 		return true;
 	}
 
+	/** @param {ScriptCondition | any} cond */
 	function checkQuestCondition(cond) {
 		if (!cond || !sim || !cond.requireQuestStage) return true;
 		const { questId, minStage, maxStage, completed } = cond.requireQuestStage;
-		const qState = sim.quests[questId] || { stage: 0, completed: false };
+		const qState = /** @type {any} */ (sim.quests[questId] || { stage: 0, completed: false });
 		if (typeof minStage === 'number' && qState.stage < minStage) return false;
 		if (typeof maxStage === 'number' && qState.stage > maxStage) return false;
 		if (completed !== undefined && qState.completed !== completed) return false;
 		return true;
 	}
 
+	/** @param {ScriptCondition | any} cond */
 	function checkResourceCondition(cond) {
 		if (!cond || !sim) return true;
 		if (cond.requireItem) {
@@ -390,6 +395,7 @@ const EmberlightScript = (() => {
 		return node;
 	}
 
+	/** @param {ScriptNode | any} node */
 	function processNodeRewards(node) {
 		if (!sim || !node) return;
 		if (node.setFlag) {
@@ -420,7 +426,7 @@ const EmberlightScript = (() => {
 		}
 		if (node.completeQuest && typeof node.completeQuest === 'string') {
 			const questId = node.completeQuest;
-			const current = sim.quests[questId] || { stage: 1 };
+			const current = /** @type {any} */ (sim.quests[questId] || { stage: 1 });
 			const qUpdate = { stage: current.stage, completed: true };
 			sim.quests[questId] = qUpdate;
 			sim.pendingDeltas.questDeltas[questId] = qUpdate;
@@ -428,10 +434,11 @@ const EmberlightScript = (() => {
 		}
 	}
 
+	/** @param {ScriptChoice[] | any[]} rawChoices */
 	function buildNodeChoices(rawChoices) {
 		/** @type {ScriptChoice[]} */
 		const validChoices = [];
-		rawChoices.forEach((c) => {
+		rawChoices.forEach((/** @type {any} */ c) => {
 			const isEligible = evaluateCondition(c);
 			if (isEligible || !c.hideIfLocked) {
 				validChoices.push({
@@ -525,24 +532,25 @@ const EmberlightScript = (() => {
 	 * @returns {void}
 	 */
 	function stepAdvance() {
-		if (!sim?.active || sim.resolved) return;
+		const s = sim;
+		if (!s?.active || s.resolved) return;
 
-		if (sim.isTyping) {
-			sim.visibleCharCount = sim.fullText.length;
-			sim.isTyping = false;
+		if (s.isTyping) {
+			s.visibleCharCount = s.fullText.length;
+			s.isTyping = false;
 			renderDefaultPresentation();
 			return;
 		}
 
-		if (sim.choices && sim.choices.length > 0) {
-			selectChoice(sim.selectedChoiceIndex);
+		if (s.choices && s.choices.length > 0) {
+			selectChoice(s.selectedChoiceIndex);
 			return;
 		}
 
 		const dialogues = getActiveDialogues();
-		const script = dialogues[sim.scriptId || ''] || dialogues.VILLAGE_ELDER || dialogues.ELDER_GREETING;
+		const script = dialogues[s.scriptId || ''] || dialogues.VILLAGE_ELDER || dialogues.ELDER_GREETING;
 		const nodes = Array.isArray(script?.nodes) ? script.nodes : Object.values(script?.nodes || {});
-		const currentNode = nodes.find((n) => n.id === sim.currentNodeId);
+		const currentNode = nodes.find((n) => n.id === s.currentNodeId);
 		const nextNodeId = currentNode?.next || currentNode?.nextNode;
 
 		if (currentNode && nextNodeId) {
@@ -559,14 +567,15 @@ const EmberlightScript = (() => {
 	 * @returns {void}
 	 */
 	function moveChoiceCursor(delta) {
-		if (!sim?.active || sim.isTyping || !sim.choices || sim.choices.length === 0) return;
-		const total = sim.choices.length;
-		let nextIndex = sim.selectedChoiceIndex;
+		const s = sim;
+		if (!s?.active || s.isTyping || !s.choices || s.choices.length === 0) return;
+		const total = s.choices.length;
+		let nextIndex = s.selectedChoiceIndex;
 
 		for (let i = 0; i < total; i++) {
 			nextIndex = (nextIndex + delta + total) % total;
-			if (!sim.choices[nextIndex].locked) {
-				sim.selectedChoiceIndex = nextIndex;
+			if (!s.choices[nextIndex].locked) {
+				s.selectedChoiceIndex = nextIndex;
 				dispatchSFX('SELECT');
 				renderDefaultPresentation();
 				return;
@@ -580,20 +589,21 @@ const EmberlightScript = (() => {
 	 * @returns {void}
 	 */
 	function finalizeDialogue() {
-		if (!sim) return;
-		sim.active = false;
-		sim.isTyping = false;
-		sim.resolved = true;
+		const s = sim;
+		if (!s) return;
+		s.active = false;
+		s.isTyping = false;
+		s.resolved = true;
 
 		// Vector E: Assemble complete delta envelope
 		const resultDeltas = {
-			flags: { ...(sim.pendingDeltas.flags) },
-			flagsDelta: { ...(sim.pendingDeltas.flags) },
-			questDeltas: { ...(sim.pendingDeltas.questDeltas) },
-			questsDelta: { ...(sim.pendingDeltas.questDeltas) },
-			goldDelta: sim.pendingDeltas.goldDelta || 0,
-			itemsGiven: Array.isArray(sim.pendingDeltas.itemsGiven) ? [...sim.pendingDeltas.itemsGiven] : [],
-			itemsTaken: Array.isArray(sim.pendingDeltas.itemsTaken) ? [...sim.pendingDeltas.itemsTaken] : [],
+			flags: { ...(s.pendingDeltas.flags) },
+			flagsDelta: { ...(s.pendingDeltas.flags) },
+			questDeltas: { ...(s.pendingDeltas.questDeltas) },
+			questsDelta: { ...(s.pendingDeltas.questDeltas) },
+			goldDelta: s.pendingDeltas.goldDelta || 0,
+			itemsGiven: Array.isArray(s.pendingDeltas.itemsGiven) ? [...s.pendingDeltas.itemsGiven] : [],
+			itemsTaken: Array.isArray(s.pendingDeltas.itemsTaken) ? [...s.pendingDeltas.itemsTaken] : [],
 		};
 
 		if (typeof document !== 'undefined') {
@@ -615,7 +625,8 @@ const EmberlightScript = (() => {
 	 * @returns {void}
 	 */
 	function renderDefaultPresentation() {
-		if (typeof document === 'undefined' || !sim?.active || sim?.isHeadless) return;
+		const s = sim;
+		if (typeof document === 'undefined' || !s?.active || s?.isHeadless) return;
 
 		const box = document.getElementById('dialogue-view');
 		const speakerEl = document.getElementById('dialogue-speaker');
@@ -625,14 +636,14 @@ const EmberlightScript = (() => {
 		if (!box || !speakerEl || !textEl || !choicesEl) return;
 
 		box.classList.remove('hidden');
-		speakerEl.textContent = sim.speaker || '???';
-		textEl.textContent = sim.fullText.slice(0, sim.visibleCharCount);
+		speakerEl.textContent = s.speaker || '???';
+		textEl.textContent = s.fullText.slice(0, s.visibleCharCount);
 
 		choicesEl.innerHTML = '';
-		if (!sim.isTyping && sim.choices.length > 0) {
+		if (!s.isTyping && s.choices.length > 0) {
 			choicesEl.classList.remove('hidden');
-			sim.choices.forEach((c, index) => {
-				const isSelected = index === sim.selectedChoiceIndex;
+			s.choices.forEach((c, index) => {
+				const isSelected = index === s.selectedChoiceIndex;
 				const btn = document.createElement('button');
 				btn.type = 'button';
 				btn.className = `cmd-btn ${isSelected ? 'action' : ''}`;
@@ -648,14 +659,10 @@ const EmberlightScript = (() => {
 					btn.innerHTML = `<span style="color:var(--danger); margin-right:4px;">[🔒]</span>${c.text} <span style="font-size:6px; color:var(--text-dim);">(${c.lockReason})</span>`;
 				} else {
 					btn.innerHTML = `<span style="color:var(--text-dim); margin-right:4px;">[${index + 1}]</span>${c.text}`;
-					btn.onmouseenter = () => {
-						if (sim) {
-							sim.selectedChoiceIndex = index;
-							renderDefaultPresentation();
-						}
-					};
-					btn.onclick = (e) => {
-						e.stopPropagation();
+				}
+
+				if (!c.locked) {
+					btn.onclick = () => {
 						selectChoice(index);
 					};
 				}
@@ -669,6 +676,7 @@ const EmberlightScript = (() => {
 	//#endregion
 
 	//#region [SEC-04] Canonical 9-Method Lifecycle Gateway & Host Action Router
+	/** @param {ScriptContext | any} activeCtx */
 	function processInputs(activeCtx) {
 		if (activeCtx?.inputs && Array.isArray(activeCtx.inputs)) {
 			for (const element of activeCtx.inputs) {
@@ -677,22 +685,24 @@ const EmberlightScript = (() => {
 		}
 	}
 
+	/** @param {number} dt */
 	function updateTypewriter(dt) {
-		if (!sim?.active || !sim.isTyping) return;
-		sim.charTimer += dt;
+		const s = sim;
+		if (!s?.active || !s.isTyping) return;
+		s.charTimer += dt;
 		let advanced = false;
 
-		while (sim.charTimer >= sim.charInterval && sim.visibleCharCount < sim.fullText.length) {
-			sim.charTimer -= sim.charInterval;
-			sim.visibleCharCount++;
+		while (s.charTimer >= s.charInterval && s.visibleCharCount < s.fullText.length) {
+			s.charTimer -= s.charInterval;
+			s.visibleCharCount++;
 			advanced = true;
 
-			if (sim.visibleCharCount % 2 === 0 && sim.fullText[sim.visibleCharCount - 1] !== ' ') {
-				const currentChar = sim.fullText[sim.visibleCharCount - 1];
+			if (s.visibleCharCount % 2 === 0 && s.fullText[s.visibleCharCount - 1] !== ' ') {
+				const currentChar = s.fullText[s.visibleCharCount - 1];
 				if (hostContext?.eventBus?.publish) {
 					hostContext.eventBus.publish('dialogue:char', {
 						char: currentChar,
-						speaker: sim.speaker,
+						speaker: s.speaker,
 					});
 				} else {
 					dispatchSFX('SELECT');
@@ -700,8 +710,8 @@ const EmberlightScript = (() => {
 			}
 		}
 
-		if (sim.visibleCharCount >= sim.fullText.length) {
-			sim.isTyping = false;
+		if (s.visibleCharCount >= s.fullText.length) {
+			s.isTyping = false;
 			renderDefaultPresentation();
 		} else if (advanced) {
 			renderDefaultPresentation();
@@ -747,7 +757,7 @@ const EmberlightScript = (() => {
 			assertLifecycle(State.INITIALIZED, State.READY, State.RUNNING);
 
 			const baseline = createDefaultState();
-			const incoming = stateSnapshot ? structuredClone(stateSnapshot) : {};
+			const incoming = stateSnapshot ? (/** @type {Record<string, any>} */ (structuredClone(stateSnapshot))) : {};
 			const scriptId = incoming.scriptId || incoming.scriptKey || null;
 			const isHeadless = Boolean(incoming.isHeadless);
 			const isActive = incoming.active !== undefined ? Boolean(incoming.active) : Boolean(scriptId);
@@ -809,8 +819,9 @@ const EmberlightScript = (() => {
 		 */
 		render(renderer) {
 			assertLifecycle(State.READY, State.RUNNING);
-			if (renderer && typeof renderer.renderScript === 'function') {
-				renderer.renderScript(this.getState());
+			const r = /** @type {any} */ (renderer);
+			if (r && typeof r.renderScript === 'function') {
+				r.renderScript(this.getState());
 			} else {
 				renderDefaultPresentation();
 			}
@@ -866,6 +877,14 @@ const EmberlightScript = (() => {
 					'events.dialogue_resolved',
 				],
 			};
+		},
+
+		/**
+		 * Canonical getInfo alias for VSRP compliance.
+		 * @returns {ScriptModuleInfo}
+		 */
+		getInfo() {
+			return this.getModuleInfo();
 		},
 
 		/**
@@ -926,4 +945,7 @@ const EmberlightScript = (() => {
 
 if (typeof window !== 'undefined') {
 	window.EmberlightScript = EmberlightScript;
+}
+if (typeof module !== 'undefined' && module.exports) {
+	module.exports = EmberlightScript;
 }

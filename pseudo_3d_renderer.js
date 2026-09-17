@@ -7,15 +7,18 @@
  * ============================================================================
  */
 
-'use strict';
-
 const EmberlightPseudo3D = (() => {
-	// ── Ingest Faraday Staging Membrane or Node.js Fallbacks ───────────
-	const _staging = (typeof window !== 'undefined' && window._Pseudo3DInternal) ? window._Pseudo3DInternal : {};
-	const Textures = _staging.Textures || (typeof require === 'function' ? require('./pseudo_3d/pseudo_3d_textures.js') : {});
-	const DDA = _staging.DDA || (typeof require === 'function' ? require('./pseudo_3d/pseudo_3d_dda.js') : {});
-	const Billboards = _staging.Billboards || (typeof require === 'function' ? require('./pseudo_3d/pseudo_3d_billboards.js') : {});
-	const Pipeline = _staging.Pipeline || (typeof require === 'function' ? require('./pseudo_3d/pseudo_3d_pipeline.js') : {});
+	let root = {};
+	if (typeof window !== 'undefined') {
+		root = window;
+	} else if (typeof globalThis !== 'undefined') {
+		root = globalThis;
+	}
+	const _staging = (/** @type {any} */ (root))._Pseudo3DInternal || {};
+	const Textures = /** @type {any} */ (_staging.Textures || (typeof require === 'function' ? require('./pseudo_3d/pseudo_3d_textures.js') : {}));
+	const DDA = /** @type {any} */ (_staging.DDA || (typeof require === 'function' ? require('./pseudo_3d/pseudo_3d_dda.js') : {}));
+	const Billboards = /** @type {any} */ (_staging.Billboards || (typeof require === 'function' ? require('./pseudo_3d/pseudo_3d_billboards.js') : {}));
+	const Pipeline = /** @type {any} */ (_staging.Pipeline || (typeof require === 'function' ? require('./pseudo_3d/pseudo_3d_pipeline.js') : {}));
 
 	const DEFAULT_CONFIG = Textures.DEFAULT_CONFIG;
 	const deepMerge = Textures.deepMerge;
@@ -52,7 +55,7 @@ const EmberlightPseudo3D = (() => {
 	/**
 	 * Creates an isolated pseudo-3D viewport instance.
 	 * State-initializing factory procedure.
-	 * @param {Object} [options={}] - Instance creation options dictionary.
+	 * @param {Record<string, any>} [options={}] - Instance creation options dictionary.
 	 * @returns {any} Configured pseudo-3D viewport instance.
 	 */
 	function createInstance(options = {}) {
@@ -99,7 +102,9 @@ const EmberlightPseudo3D = (() => {
 			targetAngle: Math.PI / 2,
 			t: 0,
 		};
+		/** @type {any} */
 		let triggerLatches = new Map();
+		/** @type {any} */
 		let lastFrameDescriptor = null;
 		let dirtyOverride = true;
 
@@ -152,6 +157,11 @@ const EmberlightPseudo3D = (() => {
 			}
 		}
 
+		/**
+		 * @param {number} targetW
+		 * @param {number} targetH
+		 * @param {number} targetFovRad
+		 */
 		function resizeBuffers(targetW, targetH, targetFovRad) {
 			W = targetW;
 			H = targetH;
@@ -174,6 +184,10 @@ const EmberlightPseudo3D = (() => {
 			}
 		}
 
+		/**
+		 * @param {any} map
+		 * @param {any} state
+		 */
 		function evaluateAndPublishTriggers(map, state) {
 			const { events, nextLatches } = RaycastMath.evaluateProximityTriggers(
 				camera,
@@ -189,6 +203,13 @@ const EmberlightPseudo3D = (() => {
 			return events;
 		}
 
+		/**
+		 * @param {any} map
+		 * @param {any} events
+		 * @param {boolean} isDungeon
+		 * @param {boolean} isTown
+		 * @param {number} torchFlicker
+		 */
 		function executeHeadlessRender(map, events, isDungeon, isTown, torchFlicker) {
 			const { cosA, sinA } = RaycastMath.computeCameraPlane(camera);
 			const { planeX, planeY } = RaycastMath.computeFov(
@@ -218,6 +239,12 @@ const EmberlightPseudo3D = (() => {
 			};
 		}
 
+		/**
+		 * @param {any} map
+		 * @param {boolean} isTown
+		 * @param {boolean} isDungeon
+		 * @param {number} torchFlicker
+		 */
 		function evaluateDirtyState(map, isTown, isDungeon, torchFlicker) {
 			const descriptor = {
 				x: camera.x,
@@ -236,6 +263,9 @@ const EmberlightPseudo3D = (() => {
 			return dirty;
 		}
 
+		/**
+		 * @param {any} [busOrOpts]
+		 */
 		function init(busOrOpts) {
 			if (busOrOpts) {
 				if (typeof busOrOpts.publish === "function") {
@@ -254,6 +284,9 @@ const EmberlightPseudo3D = (() => {
 			return api;
 		}
 
+		/**
+		 * @param {boolean} expanded
+		 */
 		function setExpanded(expanded) {
 			isExpandedMode = Boolean(expanded);
 			const src = isExpandedMode ? config.expanded : config.standard;
@@ -277,6 +310,10 @@ const EmberlightPseudo3D = (() => {
 			};
 		}
 
+		/**
+		 * @param {any} [context]
+		 * @param {number} [dt]
+		 */
 		function update(context, dt) {
 			let safeDt = 0.016;
 			if (typeof dt === 'number') {
@@ -293,6 +330,9 @@ const EmberlightPseudo3D = (() => {
 			dirtyOverride = true;
 		}
 
+		/**
+		 * @param {any} state
+		 */
 		function render(state) {
 			if (isPaused || !state) return null;
 			const { map, playerPos, facing } = state;
@@ -329,7 +369,16 @@ const EmberlightPseudo3D = (() => {
 				Pipeline.updateCompassRibbon(camera.angle, compassRibbonId);
 				Pipeline.renderMinimapRadar(map, playerPos, pipeState, RaycastMath);
 			}
-			Pipeline.renderVignetteAndDebugHud(ctx, W, H, env.isDungeon, map, state.facing, camera, isExpandedMode);
+			Pipeline.renderVignetteAndDebugHud({
+				ctx,
+				W,
+				H,
+				isDungeon: env.isDungeon,
+				map,
+				facing: state.facing,
+				camera,
+				isExpandedMode,
+			});
 			return { skipped: false, events };
 		}
 
@@ -426,8 +475,13 @@ const EmberlightPseudo3D = (() => {
 		return api;
 	}
 
+	/** @type {any} */
 	let _defaultInstance = null;
 
+	/**
+	 * @param {Record<string, any>} [opts={}]
+	 * @returns {any}
+	 */
 	function _getDefaultInstance(opts = {}) {
 		if (!_defaultInstance) {
 			_defaultInstance = createInstance(opts);
@@ -442,14 +496,14 @@ const EmberlightPseudo3D = (() => {
 		BILLBOARD_GLYPHS,
 		DEFAULT_CONFIG,
 
-		configure: (cfg) => _getDefaultInstance().configure(cfg),
-		init: (busOrOpts) => {
+		configure: (/** @type {any} */ cfg) => _getDefaultInstance().configure(cfg),
+		init: (/** @type {any} */ busOrOpts) => {
 			const opts = (typeof busOrOpts === "object" && busOrOpts !== null) ? busOrOpts : {};
 			return _getDefaultInstance(opts).init(busOrOpts);
 		},
 		reset: () => _getDefaultInstance().reset(),
-		update: (context, dt) => _getDefaultInstance().update(context, dt),
-		render: (state) => _getDefaultInstance().render(state),
+		update: (/** @type {any} */ context, /** @type {any} */ dt) => _getDefaultInstance().update(context, dt),
+		render: (/** @type {any} */ state) => _getDefaultInstance().render(state),
 		getState: () => _getDefaultInstance().getState(),
 		getDiagnostics: () => _getDefaultInstance().getDiagnostics(),
 		getModuleInfo: () => _getDefaultInstance().getModuleInfo(),
@@ -461,7 +515,7 @@ const EmberlightPseudo3D = (() => {
 		},
 		pause: () => _getDefaultInstance().pause(),
 		resume: () => _getDefaultInstance().resume(),
-		setExpanded: (expanded) => _getDefaultInstance().setExpanded(expanded),
+		setExpanded: (/** @type {any} */ expanded) => _getDefaultInstance().setExpanded(expanded),
 		getDimensions: () => _getDefaultInstance().getDimensions(),
 		markDirty: () => _getDefaultInstance().markDirty(),
 	});

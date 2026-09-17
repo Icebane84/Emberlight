@@ -19,8 +19,6 @@ if (typeof window !== "undefined") window._MapInternal = window._MapInternal || 
 if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._MapInternal || {};
 
 (() => {
-	"use strict";
-
 	//#region [SEC-01] Atlas Caching & Canvas Initializers
 	const TILE_SIZE = 32;
 
@@ -45,6 +43,12 @@ if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._Map
 	//#endregion
 
 	//#region [SEC-02] Procedural Terrain Texture Baking
+	/**
+	 * Renders a single stone block into the canvas context.
+	 * @param {CanvasRenderingContext2D | any} renderCtx - 2D rendering context.
+	 * @param {{ x: number, y: number, w: number, h: number, col: string, hi: string, sh: string }} s - Stone descriptor.
+	 * @returns {void}
+	 */
 	function drawStoneBlock(renderCtx, s) {
 		renderCtx.fillStyle = s.col;
 		renderCtx.fillRect(s.x, s.y, s.w, s.h);
@@ -56,6 +60,10 @@ if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._Map
 		renderCtx.fillRect(s.x + s.w - 1, s.y, 1, s.h);
 	}
 
+	/**
+	 * Bakes cobblestone path texture into tileAtlas.
+	 * @returns {void}
+	 */
 	function bakeCobblestonePath() {
 		const cobbleCanvas = createOffscreenCanvas();
 		if (!cobbleCanvas) return;
@@ -117,6 +125,10 @@ if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._Map
 		tileAtlas.set("PATH", cobbleCanvas);
 	}
 
+	/**
+	 * Bakes bedrock wall texture into tileAtlas.
+	 * @returns {void}
+	 */
 	function bakeBedrockWall() {
 		const wallCanvas = createOffscreenCanvas();
 		if (!wallCanvas) return;
@@ -145,6 +157,14 @@ if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._Map
 		tileAtlas.set("WALL", wallCanvas);
 	}
 
+	/**
+	 * Draws a procedural water wave line across the tile.
+	 * @param {CanvasRenderingContext2D | any} renderCtx - 2D rendering context.
+	 * @param {number} shift - Phase shift offset in radians.
+	 * @param {number} baseY - Base vertical line position.
+	 * @param {(x: number, s: number) => number} waveFn - Wave height generator function.
+	 * @returns {void}
+	 */
 	function drawWaterWave(renderCtx, shift, baseY, waveFn) {
 		renderCtx.beginPath();
 		for (let x = 0; x < TILE_SIZE; x++) {
@@ -158,6 +178,11 @@ if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._Map
 		renderCtx.stroke();
 	}
 
+	/**
+	 * Bakes a single animation frame for water tile.
+	 * @param {number} f - Frame index.
+	 * @returns {void}
+	 */
 	function bakeSingleWaterFrame(f) {
 		const waterCanvas = createOffscreenCanvas();
 		if (!waterCanvas) return;
@@ -178,6 +203,10 @@ if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._Map
 		tileAtlas.set(`WATER_${f}`, waterCanvas);
 	}
 
+	/**
+	 * Bakes multi-frame animated water textures into tileAtlas.
+	 * @returns {void}
+	 */
 	function bakeWaterFrames() {
 		if (typeof document === "undefined") return;
 		for (let f = 0; f < 4; f++) {
@@ -185,6 +214,10 @@ if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._Map
 		}
 	}
 
+	/**
+	 * Bakes animated grass textures into tileAtlas.
+	 * @returns {void}
+	 */
 	function bakeGrassFrames() {
 		for (let f = 0; f < 2; f++) {
 			const grassCanvas = createOffscreenCanvas();
@@ -217,6 +250,10 @@ if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._Map
 		}
 	}
 
+	/**
+	 * Bakes ice and miasma terrain tiles into tileAtlas.
+	 * @returns {void}
+	 */
 	function bakeIceAndMiasma() {
 		const iceCanvas = createOffscreenCanvas();
 		if (iceCanvas) {
@@ -253,6 +290,10 @@ if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._Map
 		}
 	}
 
+	/**
+	 * Bakes town timber/plank wall texture into tileAtlas.
+	 * @returns {void}
+	 */
 	function bakeTownWall() {
 		const wallCanvas = createOffscreenCanvas();
 		if (!wallCanvas) return;
@@ -306,6 +347,10 @@ if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._Map
 		tileAtlas.set("TOWN_WALL", wallCanvas);
 	}
 
+	/**
+	 * Bakes town cobblestone path texture into tileAtlas.
+	 * @returns {void}
+	 */
 	function bakeTownPath() {
 		const cobbleCanvas = createOffscreenCanvas();
 		if (!cobbleCanvas) return;
@@ -367,6 +412,10 @@ if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._Map
 		tileAtlas.set("TOWN_PATH", cobbleCanvas);
 	}
 
+	/**
+	 * Bakes town gate texture into tileAtlas.
+	 * @returns {void}
+	 */
 	function bakeTownGate() {
 		const gateCanvas = createOffscreenCanvas();
 		if (!gateCanvas) return;

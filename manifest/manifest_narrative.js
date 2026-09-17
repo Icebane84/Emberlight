@@ -8,7 +8,7 @@
 if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestInternal || {};
 
 (() => {
-	'use strict';
+
 
 	const Ailments = {
 		POISON: {
@@ -176,27 +176,27 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 		{
 			id: 'BRIDGE_REPAIR',
 			requiresFlags: { QUEST_WOLVES_ACCEPTED: true },
-			overrides: [{ x: 4, y: 1, tile: '.' }],
+			overrides: [ { x: 4, y: 1, tile: '.' } ],
 		},
 		{
 			id: 'GATE_UNLOCK',
 			requiresFlags: { unlocked_crypt_gate: true },
-			overrides: [{ x: 9, y: 4, tile: '.' }],
+			overrides: [ { x: 9, y: 4, tile: '.' } ],
 		},
 		{
 			id: 'LOOT_CHEST',
 			requiresFlags: { looted_crypt_chest: true },
-			overrides: [{ x: 9, y: 8, tile: '.' }],
+			overrides: [ { x: 9, y: 8, tile: '.' } ],
 		},
 		{
 			id: 'LOOT_OAKHAVEN_CHEST',
 			requiresFlags: { looted_oakhaven_iron: true },
-			overrides: [{ x: 7, y: 1, tile: '.' }],
+			overrides: [ { x: 7, y: 1, tile: '.' } ],
 		},
 		{
 			id: 'SOUTH_GATE_UNLOCK',
 			requiresFlags: { unlocked_south_portcullis: true },
-			overrides: [{ x: 23, y: 24, tile: '/' }],
+			overrides: [ { x: 23, y: 24, tile: '/' } ],
 		},
 	];
 
@@ -378,7 +378,7 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 				{
 					id: 'start',
 					text: 'Ugh... the catacomb spiders... their venom burns like liquid ash...',
-					redirects: [{ requireFlag: 'scout_healed', target: 'cured' }],
+					redirects: [ { requireFlag: 'scout_healed', target: 'cured' } ],
 					choices: [
 						{
 							text: 'Administer 1 {item:ETHER} to cleanse the venom.',

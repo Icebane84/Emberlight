@@ -21,9 +21,8 @@
  */
 
 const EmberlightArmoryRendererInstance = (() => {
-	'use strict';
-
 	//#region [SEC-01] DOM View Access & Dispatch Helpers
+	/** @type {string|null} */
 	let selectedInventoryItemId = null;
 
 	/**
@@ -38,7 +37,7 @@ const EmberlightArmoryRendererInstance = (() => {
 	/**
 	 * Safely dispatches an action payload to the simulation tenant.
 	 * [State Mutating / Event Emission]
-	 * @param {function(any):void} dispatch - Host dispatch callback.
+	 * @param {((action: any) => void)|any} dispatch - Host dispatch callback.
 	 * @param {any} action - Action token or payload.
 	 * @returns {void}
 	 */
@@ -150,7 +149,7 @@ const EmberlightArmoryRendererInstance = (() => {
 	 * [DOM Presentation Render]
 	 * @param {HTMLElement} panel - Target container element.
 	 * @param {any} state - Current armory simulation snapshot.
-	 * @param {function(any):void} dispatch - Action dispatcher.
+	 * @param {((action: any) => void)|any} dispatch - Action dispatcher.
 	 * @param {any} manifest - Active manifest.
 	 * @returns {void}
 	 */
@@ -186,8 +185,8 @@ const EmberlightArmoryRendererInstance = (() => {
 		const actionDelay = Math.round(1000 / Math.max(1, agi));
 
 		// Inventory items for this slot
-		const slotItems = Object.entries(state.inventory || {})
-			.filter(([id, count]) => count > 0)
+		const slotItems = Object.entries(/** @type {Record<string, number>} */ (state.inventory || {}))
+			.filter(([, count]) => count > 0)
 			.map(([id, count]) => ({ id, count, def: manifest.Items?.[id] }))
 			.filter((entry) => entry.def && entry.def.slot === selectedSlot);
 
@@ -310,7 +309,7 @@ const EmberlightArmoryRendererInstance = (() => {
           </div>
 
           <div class="party-loadout-comparator">
-            ${party.map((pChar) => {
+            ${party.map((/** @type {any} */ pChar) => {
 					const currentEq = pChar.equipment?.[selectedSlot];
 					const isCurrent = pChar.id === character.id;
 					const actionHtml = renderLoadoutComparatorAction(highlightedItem, pChar, manifest);
@@ -334,7 +333,7 @@ const EmberlightArmoryRendererInstance = (() => {
 		// Populate Roster Ribbon
 		const rosterRibbon = /** @type {HTMLElement|null} */ (panel.querySelector('#armory-roster-ribbon'));
 		if (rosterRibbon) {
-			party.forEach((pChar, idx) => {
+			party.forEach((/** @type {any} */ pChar, /** @type {number} */ idx) => {
 				const btn = document.createElement('button');
 				btn.type = 'button';
 				btn.className = `deep-roster-btn ${idx === selectedIdx ? 'active' : ''}`;
@@ -409,7 +408,7 @@ const EmberlightArmoryRendererInstance = (() => {
 	 * [DOM Presentation Render]
 	 * @param {HTMLElement} panel - Target container element.
 	 * @param {any} state - Current armory simulation snapshot.
-	 * @param {function(any):void} dispatch - Action dispatcher.
+	 * @param {((action: any) => void)|any} dispatch - Action dispatcher.
 	 * @returns {void}
 	 */
 	function renderCompactArmory(panel, state, dispatch) {
@@ -421,7 +420,7 @@ const EmberlightArmoryRendererInstance = (() => {
 		const characterRow = document.createElement('div');
 		characterRow.style.display = 'flex';
 		characterRow.style.gap = '4px';
-		(state.party || []).forEach((entry, index) => {
+		(state.party || []).forEach((/** @type {any} */ entry, /** @type {number} */ index) => {
 			const button = document.createElement('button');
 			button.type = 'button';
 			button.className = `cmd-btn${index === state.selectedCharIndex ? ' run' : ''}`;
@@ -451,9 +450,9 @@ const EmberlightArmoryRendererInstance = (() => {
 		inventory.style.flexDirection = 'column';
 		inventory.style.gap = '4px';
 
-		Object.entries(state.inventory || {}).forEach(([itemId, count]) => {
+		Object.entries(/** @type {Record<string, number>} */ (state.inventory || {})).forEach(([itemId, count]) => {
 			if (count <= 0) return;
-			const item = typeof EmberlightManifest !== 'undefined' ? EmberlightManifest.Items?.[itemId] : null;
+			const item = typeof EmberlightManifest !== 'undefined' ? /** @type {any} */ (EmberlightManifest.Items?.[itemId]) : null;
 			if (!item || item.slot !== state.selectedSlot) return;
 			const button = document.createElement('button');
 			button.type = 'button';
@@ -482,8 +481,15 @@ const EmberlightArmoryRendererInstance = (() => {
 
 	//#region [SEC-06] Canonical Peripheral Driver Interface Gateway
 	return {
+		/**
+		 * @param {any} [_context]
+		 */
 		init(_context) { },
 
+		/**
+		 * @param {any} state
+		 * @param {((action: any) => void)|any} [dispatch]
+		 */
 		renderArmory(state, dispatch) {
 			const view = getView();
 			if (!view || !state) return;
@@ -513,7 +519,6 @@ const EmberlightArmoryRendererInstance = (() => {
 
 //#region [SEC-07] Global Environment & Window Module Export
 if (typeof window !== 'undefined') {
-	// @ts-ignore
 	window.EmberlightArmoryRenderer = EmberlightArmoryRendererInstance;
 }
 if (typeof module !== 'undefined' && module.exports) {

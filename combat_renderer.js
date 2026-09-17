@@ -1,3 +1,4 @@
+/* cSpell:words EMPT chrono pheno */
 /**
  * ============================================================================
  * EMBERLIGHT SOVEREIGN ENGINE: COMBAT PRESENTATION DRIVER (TIER 3)
@@ -24,9 +25,21 @@
  * @property {SkillNode} [skill] Associated skill node object.
  * @property {number} [targetIndex] Target slot index in party or enemy array.
  * @property {boolean} [isAlly] Flag indicating target is an ally.
- * @property {string} [itemId] Item identifier key.
+ * @property {string} [item] Item identifier key.
+ * @property {string} [itemId] Item identifier key alias.
  * @property {string} [tab] Command hub tab key.
  * @property {string} [nodeId] Aether skill node identifier.
+ * @property {string} [targetId] Target identifier.
+ * @property {string} [targetEntityId] Target entity identifier.
+ * @property {string} [targetHeroId] Target hero identifier.
+ * @property {string} [row] Placement row.
+ * @property {string|{x: number, y: number}} [targetTile] Target tile token or coordinates.
+ * @property {number} [tileX] Target tile grid column X.
+ * @property {number} [tileY] Target tile grid row Y.
+ * @property {string} [action] Contextual action.
+ * @property {number} [frequency] Frequency factor.
+ * @property {string} [eventId] Event identifier.
+ * @property {string} [intentId] Intent identifier.
  */
 
 /**
@@ -46,9 +59,10 @@
  * @property {number} [def] Defense rating.
  * @property {number} [agi] Agility rating.
  * @property {boolean} [alive] Alive status flag.
+ * @property {boolean} [isCurrentTurn] Flag indicating if battler holds active turn.
  * @property {string} [row] Placement row ('FRONT' | 'BACK' | 'BOTH').
  * @property {string} [phenotype] Character phenotype class.
- * @property {Object} [equipment] Equipped weapons and armor.
+ * @property {{ weapon?: string, armor?: string }} [equipment] Equipped weapons and armor.
  * @property {string[]} [unlockedNodes] Unlocked progression nodes.
  * @property {string[]} [unlocked] Alternate unlocked nodes array.
  * @property {AilmentEntry[]} [ailments] Active status ailments.
@@ -76,6 +90,9 @@
  * @property {number} [power] Base power rating.
  * @property {number} [accuracy] Hit rate accuracy percentage.
  * @property {string} [targetType] Target scope ('ally' | 'enemy').
+ * @property {number} [delayCost] CTB delay cost.
+ * @property {number} [cost] Resource cost.
+ * @property {any} [displacement] Displacement vectors or effects.
  */
 
 /**
@@ -99,11 +116,17 @@
  * @property {Battler[]} [enemies] Hostile combatant array.
  * @property {TurnQueueEntry[]} [turnQueue] Active CTB initiative turn queue.
  * @property {number} [activeTurnIndex] Index of currently acting entity in turn queue.
+ * @property {number} [activeHeroIndex] Index of active hero.
  * @property {Object.<string, number>} [inventory] Item inventory counts keyed by ID.
  * @property {CombatRewards} [rewards] Battle reward spoils.
  * @property {number} [lastGainedGold] Finalized gold reward.
  * @property {number} [lastGainedExp] Finalized EXP reward.
  * @property {Array<Object>} [forecastQueue] CTB threat timeline forecast.
+ * @property {Array<any>} [log] Combat log chronicle events.
+ * @property {any} [q1Spatial] Quadrant 1 spatial projection.
+ * @property {any} [q2Clash] Quadrant 2 clash projection.
+ * @property {any} [q3Oracle] Quadrant 3 threat oracle projection.
+ * @property {any} [q4Deck] Quadrant 4 squad deck projection.
  */
 
 /**
@@ -115,32 +138,46 @@
 
 /**
  * @typedef {Object} CombatContext
- * @property {Object} [eventBus] Host event bus reference.
+ * @property {{ publish: (topic: string, payload: any) => void }} [eventBus] Host event bus reference.
  */
 
 const EmberlightCombatRenderer = (() => {
 	//#region [SEC-01] Type Definitions, Module State & DOM/Emission Helpers
 	let mounted = false;
-	/** @type {function(CombatActionToken): void|null} */
+	/** @type {((token: CombatActionToken) => void) | null} */
 	let actionHandler = null;
 	/** @type {CombatContext|null} */
 	let hostContext = null;
 
+	/** @type {CombatState|null} */
 	let lastCombatState = null;
+	/** @type {Readonly<Q1SpatialProjection>|null} */
 	let lastQ1Spatial = null;
+	/** @type {Readonly<Q2ClashProjection>|null} */
 	let lastQ2Clash = null;
+	/** @type {Readonly<Q3OracleProjection>|null} */
 	let lastQ3Oracle = null;
+	/** @type {Readonly<Q4DeckProjection>|null} */
 	let lastQ4Deck = null;
 
+	/** @type {any} */
 	let ephemeralHover = null;
+	/** @type {any} */
 	let ephemeralPreviewSkill = null;
 	let lastHoveredKey = "";
 	let rafRedrawScheduled = false;
+	/** @type {any[]} */
 	let renderedEnemyBounds = [];
 	let q1EventsBound = false;
 	let q2EventsBound = false;
+	/** @type {any} */
 	let focusFireTargetId = null;
 	let suppressContextMenuUntil = 0;
+	/** @type {any} */
+	let activeRadialConfig = null;
+	let radialOrigin = { x: 0, y: 0 };
+	/** @type {any} */
+	let activeFlickDirection = null;
 
 	/**
 	 * Safely retrieves a DOM element by ID if available.
@@ -164,9 +201,9 @@ const EmberlightCombatRenderer = (() => {
 		) {
 			return ephemeralHover.index;
 		}
-		const party = lastCombatState?.party || [];
+		const party = /** @type {Battler[]} */ (lastCombatState?.party || []);
 		const activeCharId =
-			lastCombatState?.turnQueue?.[lastCombatState?.activeTurnIndex]?.entity
+			lastCombatState?.turnQueue?.[lastCombatState?.activeTurnIndex ?? 0]?.entity
 				?.id;
 		const activeIdx = party.findIndex((p) => p.id === activeCharId && p.alive);
 		if (activeIdx !== -1) return activeIdx;
@@ -186,13 +223,13 @@ const EmberlightCombatRenderer = (() => {
 			const foe = (lastCombatState?.enemies || [])[ephemeralHover.index];
 			if (foe?.alive) return ephemeralHover.index;
 		}
+		const enemies = /** @type {Battler[]} */ (lastCombatState?.enemies || []);
 		if (focusFireTargetId) {
-			const ffIdx = (lastCombatState?.enemies || []).findIndex(
+			const ffIdx = enemies.findIndex(
 				(e) => e.id === focusFireTargetId && e.alive,
 			);
 			if (ffIdx !== -1) return ffIdx;
 		}
-		const enemies = lastCombatState?.enemies || [];
 		const firstLiving = enemies.findIndex((e) => e.alive);
 		return firstLiving !== -1 ? firstLiving : 0;
 	}
@@ -232,10 +269,10 @@ const EmberlightCombatRenderer = (() => {
 	 * Computes pixel-accurate normalized coordinates across CSS bounding box and internal canvas resolution.
 	 * @param {HTMLCanvasElement} canvas Canvas element reference.
 	 * @param {MouseEvent|PointerEvent|TouchEvent} event Mouse or pointer event.
-	 * @returns {{ x: number, y: number, normX: number, normY: number }}
+	 * @returns {{ x: number, y: number, cssX: number, cssY: number, bufferX: number, bufferY: number, normX: number, normY: number }}
 	 */
 	function getNormalizedCanvasCoords(canvas, event) {
-		if (!canvas || !event) return { x: 0, y: 0, cssX: 0, cssY: 0, normX: 0, normY: 0 };
+		if (!canvas || !event) return { x: 0, y: 0, cssX: 0, cssY: 0, bufferX: 0, bufferY: 0, normX: 0, normY: 0 };
 		const rect = canvas.getBoundingClientRect();
 		const scaleX = canvas.width / Math.max(1, rect.width);
 		const scaleY = canvas.height / Math.max(1, rect.height);
@@ -317,17 +354,13 @@ const EmberlightCombatRenderer = (() => {
 
 	/**
 	 * Sets the ephemeral preview skill for real-time trajectory and CTB forecasting.
-	 * @param {SkillNode|null} skill Skill node preview object or null.
+	 * @param {any} skill Skill node preview object or null.
 	 * @returns {void}
 	 */
 	function setEphemeralPreviewSkill(skill) {
 		ephemeralPreviewSkill = skill;
 		scheduleSynchronizedRedraw();
 	}
-
-	let activeRadialConfig = null;
-	let radialOrigin = { x: 0, y: 0 };
-	let activeFlickDirection = null;
 
 	/**
 	 * Closes the contextual radial menu and unbinds gesture listeners.
@@ -375,11 +408,12 @@ const EmberlightCombatRenderer = (() => {
 		});
 		setEphemeralPreviewSkill(null);
 		const activeChar =
-			lastCombatState?.turnQueue?.[lastCombatState?.activeTurnIndex]?.entity ||
+			lastCombatState?.turnQueue?.[lastCombatState?.activeTurnIndex ?? 0]?.entity ||
 			lastCombatState?.party?.[0];
+		const enemies = /** @type {Battler[]} */ (lastCombatState?.enemies || []);
 		const defaultEnemy =
-			(lastCombatState?.enemies || []).find((e) => e.alive) ||
-			lastCombatState?.enemies?.[0];
+			enemies.find((e) => e.alive) ||
+			enemies[0];
 		if (activeChar && defaultEnemy && lastCombatState) {
 			renderTelemetryStats(activeChar, defaultEnemy, lastCombatState);
 		}
@@ -453,7 +487,7 @@ const EmberlightCombatRenderer = (() => {
 			closeContextualRadial();
 			return;
 		}
-		const keyMap = { 1: "north", 2: "east", 3: "south", 4: "west" };
+		const keyMap = /** @type {Record<string, string>} */ ({ "1": "north", "2": "east", "3": "south", "4": "west" });
 		const dirKey = keyMap[ev.key];
 		if (dirKey && activeRadialConfig[dirKey]) {
 			ev.preventDefault();
@@ -469,7 +503,7 @@ const EmberlightCombatRenderer = (() => {
 	 * Opens a contextual 4-leaf radial at the designated screen coordinates.
 	 * @param {number} clientX Screen X coordinate.
 	 * @param {number} clientY Screen Y coordinate.
-	 * @param {Object} config Quadrant radial descriptor configuration.
+	 * @param {any} config Quadrant radial descriptor configuration.
 	 */
 	function openContextualRadial(clientX, clientY, config) {
 		const radial = getElement("combat-hero-radial");
@@ -707,9 +741,9 @@ const EmberlightCombatRenderer = (() => {
 	 * @param {Battler} activeChar Active battler.
 	 * @param {Battler} targetEnemy Target enemy battler.
 	 * @param {SkillNode} skill Active skill node.
-	 * @param {HTMLElement} telemetryDmg Damage range element.
-	 * @param {HTMLElement|null} telemetryHit Hit rate element.
-	 * @param {HTMLElement|null} telemetryAffinity Affinity tag element.
+	 * @param {HTMLElement|null} [telemetryDmg] Damage range element.
+	 * @param {HTMLElement|null} [telemetryHit] Hit rate element.
+	 * @param {HTMLElement|null} [telemetryAffinity] Affinity tag element.
 	 * @returns {void}
 	 */
 	function renderSkillTelemetry(
@@ -731,6 +765,13 @@ const EmberlightCombatRenderer = (() => {
 		const estMin = Math.max(1, Math.round(finalDmg * 0.85));
 		const estMax = Math.max(1, Math.round(finalDmg * 1.15));
 		const hitRate = skill.accuracy || 95;
+
+		if (telemetryDmg) {
+			telemetryDmg.textContent = `DMG: ${estMin}-${estMax}`;
+		}
+		if (telemetryHit) {
+			telemetryHit.textContent = `HIT: ${hitRate}%`;
+		}
 
 		if (telemetryAffinity) {
 			telemetryAffinity.innerHTML = getTelemetryAffinityMarkup(
@@ -904,16 +945,19 @@ const EmberlightCombatRenderer = (() => {
 	}
 
 	/**
-	 * Renders the complete action theater view and telemetry panel.
-	 * @param {Battler} activeChar Active character battler.
-	 * @param {Battler} targetEnemy Target enemy battler.
-	 * @param {CombatState} state Active combat state snapshot.
+	 * Renders live action telemetry panels and telemetry preview chips.
+	 * @param {Battler|null} [activeChar] Active character battler.
+	 * @param {Battler|null} [targetEnemy] Target enemy battler.
+	 * @param {CombatState} [state] Active combat state snapshot.
 	 * @returns {void}
 	 */
 	function renderActionTheater(activeChar, targetEnemy, state) {
+		if (!state) return;
 		renderClashHeader(state);
-		renderTelemetryStats(activeChar, targetEnemy, state);
-		renderTelemetryChips(activeChar, targetEnemy, state);
+		if (activeChar && targetEnemy) {
+			renderTelemetryStats(activeChar, targetEnemy, state);
+			renderTelemetryChips(activeChar, targetEnemy, state);
+		}
 	}
 	//#endregion
 
@@ -1010,9 +1054,9 @@ const EmberlightCombatRenderer = (() => {
 	function renderEnemyCard({ e, idx }, activeElement) {
 		const { isBossEnraged, heatPulse, bossCls, bossBattlerClass } =
 			resolveBossDetails(e);
-		const hpPct =
-			e.maxHp > 0 ? Math.max(0, Math.min(100, (e.hp / e.maxHp) * 100)) : 0;
-		const isExhausted = e.alive && e.hp / e.maxHp <= 0.3;
+		const maxHp = e.maxHp || 1;
+		const hpPct = Math.max(0, Math.min(100, ((e.hp || 0) / maxHp) * 100));
+		const isExhausted = Boolean(e.alive && (e.hp || 0) / maxHp <= 0.3);
 		const { ailmentList, ailmentClasses, ailmentTags } = formatAilments(e);
 
 		const battlerUrl = resolveEnemyBattlerUrl(e, isBossEnraged, heatPulse);
@@ -1045,19 +1089,19 @@ const EmberlightCombatRenderer = (() => {
         <div class="bar-row" style="margin-top:2px; width:90%;">
           <span class="bar-track"><span class="bar-fill hp" style="width:${hpPct}%"></span></span>
         </div>
-        <div class="hp-label" style="font-size:6px;">${e.hp}/${e.maxHp} HP ${ailmentTags}</div>
+        <div class="hp-label" style="font-size:6px;">${e.hp || 0}/${e.maxHp || 1} HP ${ailmentTags}</div>
       </div>
     `;
 	}
 
 	/**
-	 * Renders the complete enemy formation wing container and attaches interaction listeners.
+	 * Renders the enemy wing container and attaches hover, focus, and attack targeting listeners.
 	 * @param {HTMLElement|null} container Enemy wing container element.
 	 * @param {CombatState} state Active combat state snapshot.
-	 * @param {Battler} activeChar Active character battler.
+	 * @param {Battler|null} [activeChar] Active character battler.
 	 * @returns {void}
 	 */
-	function renderEnemyWing(container, state, activeChar) {
+	function renderEnemyWing(container, state, activeChar = null) {
 		if (!container) return;
 		container.className = "formation-grid enemy-wing";
 
@@ -1068,7 +1112,7 @@ const EmberlightCombatRenderer = (() => {
 		const backEnemies = enemies
 			.map((e, idx) => ({ e, idx }))
 			.filter(({ e }) => e.row === "BACK");
-		const activeElement = getActiveSkillElement(state.pendingSkill);
+		const activeElement = getActiveSkillElement(state.pendingSkill || null);
 
 		container.innerHTML = `
       <div class="formation-row">
@@ -1099,7 +1143,7 @@ const EmberlightCombatRenderer = (() => {
 			});
 			htmlEl.addEventListener("mouseleave", () => {
 				const defaultEnemy = enemies.find((e) => e.alive);
-				renderActionTheater(activeChar, defaultEnemy, state);
+				renderActionTheater(activeChar, defaultEnemy || null, state);
 			});
 
 			if (target?.alive) {
@@ -1219,7 +1263,7 @@ const EmberlightCombatRenderer = (() => {
 
 		const party = state.party || [];
 		const currentTurnEntity =
-			state.turnQueue?.[state.activeTurnIndex]?.entity || party[0];
+			state.turnQueue?.[state.activeTurnIndex ?? 0]?.entity || party[0];
 		const frontParty = party
 			.map((c, idx) => ({ c, idx }))
 			.filter(({ c }) => c.row === "FRONT" || c.row === "BOTH" || !c.row);
@@ -1276,12 +1320,13 @@ const EmberlightCombatRenderer = (() => {
 
 	/**
 	 * Resolves CSS class modifier and text descriptor for affinity coefficient.
-	 * @param {number} affinity Multiplier value.
+	 * @param {{label: string, multiplier: number} | number} affinity Multiplier value or descriptor.
 	 * @returns {{ cls: string, label: string }}
 	 */
 	function resolveAffinityDescriptor(affinity) {
-		if (affinity > 1.0) return { cls: "weak", label: "WEAK (1.5x)" };
-		if (affinity < 1.0) return { cls: "resist", label: "RESIST (0.5x)" };
+		const mult = typeof affinity === "number" ? affinity : (affinity?.multiplier ?? 1.0);
+		if (mult > 1.0) return { cls: "weak", label: "WEAK (1.5x)" };
+		if (mult < 1.0) return { cls: "resist", label: "RESIST (0.5x)" };
 		return { cls: "", label: "NEUTRAL (1.0x)" };
 	}
 
@@ -1289,25 +1334,38 @@ const EmberlightCombatRenderer = (() => {
 	 * Builds HTML template for live targeted enemy telemetry forecast.
 	 * @param {Battler} targetEnemy Selected foe battler.
 	 * @param {SkillNode|null} activeSkill Pending or hovered skill.
-	 * @param {Battler|null} activeChar Active character battler.
-	 * @param {number} affinity Evaluated affinity coefficient.
-	 * @param {string} cancelBtnHtml Optional cancel button HTML.
+	 * @param {Battler|null} [activeChar] Active character battler.
+	 * @param {{label: string, multiplier: number} | number} [affinity=1.0] Evaluated affinity coefficient.
+	 * @param {string} [cancelBtnHtml=""] Optional cancel button HTML.
 	 * @returns {string} Markup template string.
 	 */
 	function buildTargetTelemetryHtml(
 		targetEnemy,
 		activeSkill,
-		activeChar,
-		affinity,
-		cancelBtnHtml,
+		activeChar = null,
+		affinity = 1.0,
+		cancelBtnHtml = "",
 	) {
-		const affTag = renderAffinityTag(affinity);
-		const affDesc = resolveAffinityDescriptor(affinity);
+		let affObj = { label: "NEUTRAL", multiplier: 1.0 };
+		if (typeof affinity === "number") {
+			if (affinity > 1.0) {
+				affObj = { label: "WEAK", multiplier: affinity };
+			} else if (affinity < 1.0) {
+				affObj = { label: "RESIST", multiplier: affinity };
+			} else {
+				affObj = { label: "NEUTRAL", multiplier: 1.0 };
+			}
+		} else if (affinity) {
+			affObj = affinity;
+		}
+		const affTag = renderAffinityTag(affObj);
+		const affDesc = resolveAffinityDescriptor(affObj);
+		const affMult = typeof affinity === "number" ? affinity : (affinity?.multiplier ?? 1.0);
 		const atkPower = activeSkill?.power || 1.0;
 		const heroAtk = activeChar?.atk || 12;
 		const estDmg = Math.max(
 			1,
-			Math.round(heroAtk * atkPower * affinity - (targetEnemy.def || 0) * 0.4),
+			Math.round(heroAtk * atkPower * affMult - (targetEnemy.def || 0) * 0.4),
 		);
 		const hitChance = Math.min(
 			100,
@@ -1320,8 +1378,8 @@ const EmberlightCombatRenderer = (() => {
 			<div class="telemetry-ribbon-card">
 				<div class="telemetry-ribbon-header">
 					<span class="telemetry-target-title">🎯 TARGET: <strong>${targetEnemy.name}</strong> ${affTag}</span>
-					${activeSkill ? `<div class="telemetry-skill-badge">✨ ${activeSkill.name}</div>` : ""}
-					${activeSkill?.cost ? `<div class="telemetry-cost-badge">⚡ ${activeSkill.cost} MP</div>` : ""}
+					${activeSkill ? `<div class="telemetry-skill-badge">✨ ${activeSkill.name || activeSkill.label}</div>` : ""}
+					${activeSkill?.cost || activeSkill?.mpCost ? `<div class="telemetry-cost-badge">⚡ ${activeSkill.cost || activeSkill.mpCost} MP</div>` : ""}
 					${cancelBtnHtml}
 				</div>
 				<div class="telemetry-ribbon-metrics">
@@ -1411,9 +1469,10 @@ const EmberlightCombatRenderer = (() => {
 	 * @returns {SkillNode[]} Array of skill node objects.
 	 */
 	function collectHeroSkills(activeChar) {
-		const manifest =
+		const manifest = /** @type {any} */ (
 			(typeof EmberlightManifest !== "undefined" ? EmberlightManifest : {}) ||
-			{};
+			{}
+		);
 		const unlockedIds = activeChar?.unlockedNodes || activeChar?.unlocked || [];
 		/** @type {SkillNode[]} */
 		const activeSkills = [];
@@ -1492,10 +1551,10 @@ const EmberlightCombatRenderer = (() => {
 	 * Renders the skill deck subview or ally target selection when casting supportive spells.
 	 * @param {HTMLElement|null} subDeck Subdeck container element.
 	 * @param {CombatState} state Active combat state snapshot.
-	 * @param {Battler} activeChar Active character object.
+	 * @param {Battler|null} [activeChar] Active character object.
 	 * @returns {void}
 	 */
-	function renderSubdeckSkills(subDeck, state, activeChar) {
+	function renderSubdeckSkills(subDeck, state, activeChar = null) {
 		if (!subDeck) return;
 		if (state.phase === "TARGETING_ALLY" && state.pendingSkill) {
 			subDeck.innerHTML = `
@@ -1507,14 +1566,14 @@ const EmberlightCombatRenderer = (() => {
           <div class="target-selector-grid">
             ${(state.party || [])
 					.map((hero, idx) => {
-						const hpPct =
-							hero.maxHp > 0 ? Math.round((hero.hp / hero.maxHp) * 100) : 0;
+						const maxHp = hero.maxHp || 1;
+						const hpPct = Math.max(0, Math.min(100, Math.round(((hero.hp || 0) / maxHp) * 100)));
 						return `
                 <button type="button" class="target-select-btn" data-ally-idx="${idx}" ${hero.alive ? "" : "disabled"}>
                   <div class="target-name">[${idx + 1}] ${hero.name} (Lv${hero.level || 1})</div>
                   <div class="target-hp-bar">
                     <span class="bar-track"><span class="hud-bar-fill hp" style="width:${hpPct}%"></span></span>
-                    <span class="target-hp-num">${hero.hp}/${hero.maxHp} HP</span>
+                    <span class="target-hp-num">${hero.hp || 0}/${maxHp} HP</span>
                   </div>
                 </button>
               `;
@@ -1603,7 +1662,7 @@ const EmberlightCombatRenderer = (() => {
 								delay,
 								12,
 							);
-							EmberlightThreatOracle.render(
+							EmberlightThreatOracle.render?.(
 								"combat-ctb-ribbon-bar",
 								{
 									party: state.party || [],
@@ -1620,7 +1679,7 @@ const EmberlightCombatRenderer = (() => {
 					});
 					htmlCard.addEventListener("mouseleave", () => {
 						if (typeof EmberlightThreatOracle !== "undefined") {
-							EmberlightThreatOracle.render(
+							EmberlightThreatOracle.render?.(
 								"combat-ctb-ribbon-bar",
 								{
 									party: state.party || [],
@@ -1662,14 +1721,14 @@ const EmberlightCombatRenderer = (() => {
 					.map((hero, idx) => {
 						const isPhoenix = state.pendingItem === "PHOENIX_EMBER";
 						const canUse = isPhoenix ? !hero.alive : hero.alive;
-						const hpPct =
-							hero.maxHp > 0 ? Math.round((hero.hp / hero.maxHp) * 100) : 0;
+						const maxHp = hero.maxHp || 1;
+						const hpPct = Math.max(0, Math.min(100, Math.round(((hero.hp || 0) / maxHp) * 100)));
 						return `
                 <button type="button" class="target-select-btn" data-item-target-idx="${idx}" ${canUse ? "" : "disabled"}>
                   <div class="target-name">[${idx + 1}] ${hero.name} ${hero.alive ? "" : "(COLLAPSED)"}</div>
                   <div class="target-hp-bar">
                     <span class="bar-track"><span class="hud-bar-fill hp" style="width:${hpPct}%"></span></span>
-                    <span class="target-hp-num">${hero.hp}/${hero.maxHp} HP</span>
+                    <span class="target-hp-num">${hero.hp || 0}/${maxHp} HP</span>
                   </div>
                 </button>
               `;
@@ -1764,35 +1823,31 @@ const EmberlightCombatRenderer = (() => {
 	}
 
 	/**
-	 * Renders the guard action confirmation subdeck pane.
+	 * Renders guard action confirm subdeck.
 	 * @param {HTMLElement|null} subDeck Subdeck container element.
 	 * @returns {void}
 	 */
 	function renderSubdeckGuard(subDeck) {
 		if (!subDeck) return;
 		subDeck.innerHTML = `
-      <div class="guard-confirm-pane">
-        <div class="guard-icon">🛡️</div>
-        <div class="guard-desc">
-          <b>Tactical Defensive Stance:</b><br/>
-          Reduces all incoming damage by <b>50%</b> until next turn.<br/>
-          Restores <b>2 MP</b> through tactical focus.
-        </div>
-        <button type="button" class="cmd-btn action guard-act-btn" id="confirm-guard-btn">CONFIRM GUARD STANCE</button>
+      <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:12px; text-align:center;">
+        <div style="font-size:13px; font-weight:700; color:var(--text); margin-bottom:4px;">🛡️ DEFENSIVE STANCE</div>
+        <div style="font-size:11px; color:var(--text-dim); margin-bottom:12px;">Take defensive posture. Reduces incoming physical/magic damage by 50% until next turn.</div>
+        <button type="button" class="cmd-btn" id="confirm-guard-btn" style="padding:6px 20px; font-size:10px; font-weight:700;">EXECUTE GUARD [SPACE]</button>
       </div>
     `;
-		const gBtn = subDeck.querySelector("#confirm-guard-btn");
-		if (gBtn) {
+		const guardBtn = subDeck.querySelector("#confirm-guard-btn");
+		if (guardBtn) {
 			/** @type {HTMLElement} */
-			const htmlBtn = /** @type {HTMLElement} */ (gBtn);
-			htmlBtn.addEventListener("click", () => emit({ type: "GUARD" }));
+			const htmlGuardBtn = /** @type {HTMLElement} */ (guardBtn);
+			htmlGuardBtn.addEventListener("click", () => emit({ type: "GUARD" }));
 		}
 	}
 	//#endregion
 
 	//#region [SEC-07] Action & Command Hub Renderers
 	/**
-	 * Renders the battle victory spoils panel.
+	 * Renders the expedition victory panel.
 	 * @param {HTMLElement} subDeck Subdeck container element.
 	 * @param {HTMLElement|null} title Title element.
 	 * @param {HTMLElement|null} tag Tag element.
@@ -1801,24 +1856,17 @@ const EmberlightCombatRenderer = (() => {
 	 * @returns {void}
 	 */
 	function renderVictoryView(subDeck, title, tag, ribbon, state) {
-		if (title) title.textContent = "🏆 BATTLE VICTORY — SPOILS SECURED";
-		if (tag) tag.textContent = "Victory!";
+		if (title) title.textContent = "🏆 EXPEDITION VICTORY";
+		if (tag) tag.textContent = "Cleared";
 		ribbon.innerHTML = "";
-		const gainedGold =
-			state.lastGainedGold !== undefined
-				? state.lastGainedGold
-				: state.rewards?.gold || 0;
-		const gainedExp =
-			state.lastGainedExp !== undefined
-				? state.lastGainedExp
-				: state.rewards?.exp || 0;
-		const survivors = (state.party || []).filter((c) => c.alive).length;
-
+		const gainedExp = state.rewards?.exp || 0;
+		const gainedGold = state.rewards?.gold || 0;
+		const survivors = (state.party || []).filter((h) => h.alive).length;
 		subDeck.innerHTML = `
-      <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:14px 16px; text-align:center; background:rgba(12,18,32,0.95); border:1.5px solid var(--ember); border-radius:6px; box-shadow:0 0 20px rgba(255,157,77,0.35);">
-        <div style="font-size:15px; font-weight:800; color:var(--ember); margin-bottom:4px; text-shadow:0 0 12px var(--shadow-ember); letter-spacing:1px;">⚔️ VICTORY ACHIEVED ⚔️</div>
-        <div style="font-size:11.5px; color:var(--ok); margin-bottom:8px; font-weight:600;">All hostile threats vanquished. Spoils credited to squad inventory.</div>
-        <div style="display:flex; gap:16px; font-size:12px; color:var(--text); margin-bottom:12px; background:rgba(0,0,0,0.6); padding:6px 16px; border-radius:4px; border:1px solid var(--border-dim);">
+      <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:14px 16px; text-align:center; background:rgba(8,16,24,0.95); border:1.5px solid var(--ok); border-radius:6px; box-shadow:0 0 20px rgba(34,197,94,0.35);">
+        <div style="font-size:15px; font-weight:800; color:var(--ok); margin-bottom:4px; letter-spacing:1px;">✨ COMBAT ENCOUNTER CLEARED ✨</div>
+        <div style="font-size:11.5px; color:#cbd5e1; margin-bottom:10px;">The hostile forces have been eradicated.</div>
+        <div style="display:flex; gap:16px; font-size:12px; margin-bottom:14px; background:rgba(0,0,0,0.4); padding:6px 14px; border-radius:4px; border:1px solid rgba(255,255,255,0.08);">
           <span>💰 Gold: <b style="color:var(--ember)">+${gainedGold}G</b></span>
           <span>⭐ EXP: <b style="color:#38bdf8">+${gainedExp}</b></span>
           <span>🛡️ Squad: <b style="color:var(--ok)">${survivors}/${(state.party || []).length} Standing</b></span>
@@ -1843,7 +1891,7 @@ const EmberlightCombatRenderer = (() => {
 	 * @param {HTMLElement|null} title Title element.
 	 * @param {HTMLElement|null} tag Tag element.
 	 * @param {HTMLElement} ribbon Primary ribbon container.
-	 * @param {CombatState} state Active state snapshot.
+	 * @param {CombatState} [_state] Active state snapshot.
 	 * @returns {void}
 	 */
 	function renderDefeatView(subDeck, title, tag, ribbon, _state) {
@@ -2023,23 +2071,31 @@ const EmberlightCombatRenderer = (() => {
 	 * @param {number} w Total width.
 	 * @param {number} h Total height.
 	 */
+	/**
+	 * Draws high-contrast radar grid lines on Q1 canvas.
+	 * @param {CanvasRenderingContext2D} ctx 2D context.
+	 * @param {number} cellW Cell width.
+	 * @param {number} cellH Cell height.
+	 * @param {number} cols Number of columns.
+	 * @param {number} rows Number of rows.
+	 * @param {number} w Total width.
+	 * @param {number} h Total height.
+	 */
 	function drawQ1GridLines(ctx, cellW, cellH, cols, rows, w, h) {
 		if (!ctx.beginPath || !ctx.stroke) return;
 		ctx.save();
 		ctx.strokeStyle = "rgba(56, 189, 248, 0.12)";
 		ctx.lineWidth = 1;
+		ctx.beginPath();
 		for (let c = 0; c <= cols; c++) {
-			ctx.beginPath();
 			ctx.moveTo(c * cellW, 0);
 			ctx.lineTo(c * cellW, h);
-			ctx.stroke();
 		}
 		for (let r = 0; r <= rows; r++) {
-			ctx.beginPath();
 			ctx.moveTo(0, r * cellH);
 			ctx.lineTo(w, r * cellH);
-			ctx.stroke();
 		}
+		ctx.stroke();
 		ctx.restore();
 	}
 
@@ -2066,50 +2122,66 @@ const EmberlightCombatRenderer = (() => {
 	}
 
 	/**
-	 * Draws tactical hazard wall tiles on Q1 canvas.
+	 * Draws tactical hazard wall tiles on Q1 canvas with batched path geometry.
 	 * @param {CanvasRenderingContext2D} ctx 2D context.
-	 * @param {Array<{x:number, y:number}>} hazardTiles Wall tile coordinates.
+	 * @param {readonly HazardTile[] | Array<{x:number, y:number}>} hazardTiles Wall tile coordinates.
 	 * @param {number} cellW Cell width.
 	 * @param {number} cellH Cell height.
 	 */
 	function drawQ1HazardWalls(ctx, hazardTiles, cellW, cellH) {
-		(hazardTiles || []).forEach((haz) => {
-			const hx = haz.x * cellW;
-			const hy = haz.y * cellH;
-			if (ctx.fillRect && ctx.strokeRect) {
-				ctx.save();
-				ctx.fillStyle = "rgba(239, 68, 68, 0.25)";
+		if (!hazardTiles || hazardTiles.length === 0) return;
+		if (ctx.fillRect && ctx.strokeRect) {
+			ctx.save();
+			// Pass 1: Batched backgrounds & borders
+			ctx.fillStyle = "rgba(239, 68, 68, 0.25)";
+			ctx.strokeStyle = "rgba(239, 68, 68, 0.7)";
+			ctx.lineWidth = 1.5;
+			hazardTiles.forEach((haz) => {
+				const hx = haz.x * cellW;
+				const hy = haz.y * cellH;
 				ctx.fillRect(hx, hy, cellW, cellH);
-				ctx.strokeStyle = "rgba(239, 68, 68, 0.7)";
-				ctx.lineWidth = 1.5;
 				ctx.strokeRect(hx + 1, hy + 1, cellW - 2, cellH - 2);
+			});
 
-				if (ctx.beginPath && ctx.stroke) {
-					ctx.strokeStyle = "rgba(239, 68, 68, 0.4)";
-					ctx.lineWidth = 1;
-					ctx.beginPath();
+			// Pass 2: Batched cross hatches (single stroke)
+			if (ctx.beginPath && ctx.stroke) {
+				ctx.strokeStyle = "rgba(239, 68, 68, 0.4)";
+				ctx.lineWidth = 1;
+				ctx.beginPath();
+				hazardTiles.forEach((haz) => {
+					const hx = haz.x * cellW;
+					const hy = haz.y * cellH;
 					ctx.moveTo(hx, hy);
 					ctx.lineTo(hx + cellW, hy + cellH);
 					ctx.moveTo(hx + cellW, hy);
 					ctx.lineTo(hx, hy + cellH);
-					ctx.stroke();
-				}
-				ctx.restore();
+				});
+				ctx.stroke();
 			}
-			if (ctx.fillText) {
-				ctx.fillStyle = "#fca5a5";
-				ctx.font = "bold 9.5px monospace";
+			ctx.restore();
+		}
+
+		// Pass 3: Batched text labels
+		if (ctx.fillText) {
+			ctx.save();
+			ctx.fillStyle = "#fca5a5";
+			ctx.font = "bold 9.5px monospace";
+			hazardTiles.forEach((haz) => {
+				const hx = haz.x * cellW;
+				const hy = haz.y * cellH;
 				ctx.fillText("▲ WALL", hx + 4, hy + cellH / 2 + 3.5);
-			}
-		});
+			});
+			ctx.restore();
+		}
 	}
 
 	/**
-	 * Draws glowing neon laser threat vectors linking enemies to party targets.
+	 * Draws glowing neon laser threat vectors linking enemies to party targets via style-group batching.
+	 * Polarized: Inbound crimson dashed hostile lines vs Outbound solid gold targeting beam.
 	 * @param {CanvasRenderingContext2D} ctx 2D context.
-	 * @param {Array<any>} threatVectors Intent vector items.
-	 * @param {Array<any>} allies Allies array.
-	 * @param {Array<any>} enemies Enemies array.
+	 * @param {readonly ThreatVector[] | Array<any>} threatVectors Intent vector items.
+	 * @param {readonly SpatialNode[] | Array<any>} allies Allies array.
+	 * @param {readonly SpatialNode[] | Array<any>} enemies Enemies array.
 	 * @param {number} cellW Cell width.
 	 * @param {number} cellH Cell height.
 	 */
@@ -2122,91 +2194,120 @@ const EmberlightCombatRenderer = (() => {
 		cellH,
 	) {
 		const targetEnemyIdx = resolveContextualEnemyIndex();
-		const targetedEnemy = (enemies || [])[targetEnemyIdx];
-		const hasActiveFocus = Boolean(
-			ephemeralHover || (targetedEnemy?.alive),
-		);
+		const targetEnemy = (enemies || [])[targetEnemyIdx];
 
-		threatVectors.forEach((vec) => {
+		// 1. Group inbound vectors by style tier for batched drawing
+		/** @type {Array<{ vec: any, fromCx: number, fromCy: number, toCx: number, toCy: number, angle: number }>} */
+		const hoveredGroup = [];
+		/** @type {Array<{ vec: any, fromCx: number, fromCy: number, toCx: number, toCy: number, angle: number }>} */
+		const targetedGroup = [];
+		/** @type {Array<{ vec: any, fromCx: number, fromCy: number, toCx: number, toCy: number, angle: number }>} */
+		const neutralGroup = [];
+
+		(threatVectors || []).forEach((vec) => {
 			const enemyNode = (enemies || []).find((e) => e.id === vec.enemyId);
 			const heroNode =
 				(allies || []).find((h) => h.id === vec.targetHeroId) ||
 				(allies || [])[vec.heroIndex];
-			if (enemyNode && heroNode && enemyNode.alive && heroNode.alive) {
-				const fromCx = enemyNode.gridX * cellW + cellW / 2;
-				const fromCy = enemyNode.gridY * cellH + cellH / 2;
-				const toCx = heroNode.gridX * cellW + cellW / 2;
-				const toCy = heroNode.gridY * cellH + cellH / 2;
-				const isHovered =
-					ephemeralHover &&
-					(ephemeralHover.id === enemyNode.id ||
-						ephemeralHover.id === heroNode.id);
+			if (!enemyNode?.alive || !heroNode?.alive) return;
 
-				ctx.save();
-				let strokeColor = "rgba(239, 68, 68, 0.7)";
-				let strokeW = 1.8;
-				let blurVal = 6;
-				if (isHovered) {
-					strokeColor = "#ff9d4d";
-					strokeW = 3.0;
-					blurVal = 14;
-				} else if (
-					hasActiveFocus &&
-					(!targetedEnemy || targetedEnemy.id !== enemyNode.id)
-				) {
-					// Dim untargeted lines to 0.2 opacity
-					strokeColor = "rgba(239, 68, 68, 0.2)";
-					strokeW = 1.2;
-					blurVal = 0;
-				} else if (vec.isCharged) {
-					strokeColor = "#ef4444";
-					strokeW = 2.4;
-					blurVal = 10;
-				}
+			const fromCx = enemyNode.gridX * cellW + cellW / 2;
+			const fromCy = enemyNode.gridY * cellH + cellH / 2;
+			const toCx = heroNode.gridX * cellW + cellW / 2;
+			const toCy = heroNode.gridY * cellH + cellH / 2;
+			const angle = Math.atan2(toCy - fromCy, toCx - fromCx);
 
-				ctx.shadowColor = strokeColor;
-				ctx.shadowBlur = blurVal;
-				ctx.strokeStyle = strokeColor;
-				ctx.lineWidth = strokeW;
+			const isTargeted = Boolean(targetEnemy && targetEnemy.id === enemyNode.id);
+			const isHovered = Boolean(
+				ephemeralHover &&
+				(ephemeralHover.id === enemyNode.id ||
+					ephemeralHover.id === heroNode.id),
+			);
 
-				ctx.beginPath();
-				ctx.moveTo(fromCx, fromCy);
-				ctx.lineTo(toCx, toCy);
-				ctx.stroke();
-
-				// Laser Arrowhead
-				const angle = Math.atan2(toCy - fromCy, toCx - fromCx);
-				const arrowLen = 8;
-				ctx.beginPath();
-				ctx.moveTo(
-					toCx - Math.cos(angle - 0.45) * arrowLen,
-					toCy - Math.sin(angle - 0.45) * arrowLen,
-				);
-				ctx.lineTo(toCx, toCy);
-				ctx.lineTo(
-					toCx - Math.cos(angle + 0.45) * arrowLen,
-					toCy - Math.sin(angle + 0.45) * arrowLen,
-				);
-				ctx.fillStyle = strokeColor;
-				ctx.fill();
-				ctx.restore();
+			const item = { vec, fromCx, fromCy, toCx, toCy, angle };
+			if (isHovered) {
+				hoveredGroup.push(item);
+			} else if (isTargeted) {
+				targetedGroup.push(item);
+			} else {
+				neutralGroup.push(item);
 			}
 		});
 
-		// Neon Gold Hero-to-Target Direct Beam
-		const activeHero = (allies || []).find((a) => a.isCurrentTurn || a.alive);
-		if (activeHero && targetedEnemy?.alive && activeHero.alive) {
+		const renderLaserGroup = (
+			/** @type {any[]} */ items,
+			/** @type {string | CanvasGradient | CanvasPattern} */ strokeStyle,
+			/** @type {number} */ lineWidth,
+			/** @type {string} */ shadowColor,
+			/** @type {number} */ shadowBlur,
+		) => {
+			if (items.length === 0) return;
+			ctx.save();
+			ctx.strokeStyle = strokeStyle;
+			ctx.lineWidth = lineWidth;
+			ctx.shadowColor = shadowColor;
+			ctx.shadowBlur = shadowBlur;
+			if (typeof ctx.setLineDash === "function") {
+				ctx.setLineDash([6, 4]);
+			}
+			if (typeof ctx.lineDashOffset === "number") {
+				ctx.lineDashOffset = -Date.now() * 0.015;
+			}
+
+			// Batch all dashed laser paths in this tier
+			ctx.beginPath();
+			items.forEach((item) => {
+				ctx.moveTo(item.fromCx, item.fromCy);
+				ctx.lineTo(item.toCx, item.toCy);
+			});
+			ctx.stroke();
+
+			// Batch all arrowheads in this tier
+			const arrowLen = 8;
+			if (typeof ctx.setLineDash === "function") {
+				ctx.setLineDash([]);
+			}
+			ctx.fillStyle = strokeStyle;
+			ctx.beginPath();
+			items.forEach((item) => {
+				ctx.moveTo(
+					item.toCx - Math.cos(item.angle - 0.45) * arrowLen,
+					item.toCy - Math.sin(item.angle - 0.45) * arrowLen,
+				);
+				ctx.lineTo(item.toCx, item.toCy);
+				ctx.lineTo(
+					item.toCx - Math.cos(item.angle + 0.45) * arrowLen,
+					item.toCy - Math.sin(item.angle + 0.45) * arrowLen,
+				);
+			});
+			ctx.fill();
+			ctx.restore();
+		};
+
+		// Render batched tiers
+		renderLaserGroup(neutralGroup, "rgba(239, 68, 68, 0.25)", 1.2, "rgba(239, 68, 68, 0.8)", 0);
+		renderLaserGroup(targetedGroup, "#f87171", 2.4, "rgba(239, 68, 68, 0.8)", 12);
+		renderLaserGroup(hoveredGroup, "#ff9d4d", 3.0, "rgba(255, 157, 77, 0.9)", 14);
+
+		// 2. Outbound Active Targeting Beam (Solid High-Voltage Gold)
+		const activeHero =
+			(allies || []).find((a) => a.isCurrentTurn && a.alive) ||
+			(allies || []).find((a) => a.alive);
+
+		if (activeHero && targetEnemy?.alive) {
 			const fromCx = activeHero.gridX * cellW + cellW / 2;
 			const fromCy = activeHero.gridY * cellH + cellH / 2;
-			const toCx = targetedEnemy.gridX * cellW + cellW / 2;
-			const toCy = targetedEnemy.gridY * cellH + cellH / 2;
+			const toCx = targetEnemy.gridX * cellW + cellW / 2;
+			const toCy = targetEnemy.gridY * cellH + cellH / 2;
 
 			ctx.save();
-			const pulse = 1.0 + Math.sin(Date.now() * 0.009) * 0.2;
 			ctx.strokeStyle = "#fbbf24";
-			ctx.lineWidth = 2.8 * pulse;
+			ctx.lineWidth = 2.8 + Math.sin(Date.now() * 0.01) * 0.6;
 			ctx.shadowColor = "rgba(251, 191, 36, 0.95)";
 			ctx.shadowBlur = 16;
+			if (typeof ctx.setLineDash === "function") {
+				ctx.setLineDash([]);
+			}
 			ctx.beginPath();
 			ctx.moveTo(fromCx, fromCy);
 			ctx.lineTo(toCx, toCy);
@@ -2432,8 +2533,8 @@ const EmberlightCombatRenderer = (() => {
 	//#region [SEC-08] Public VSRP-001 Tier-3 Interface Gateway
 	/**
 	 * Renders Quadrant 1: Spatial 8x6 battle room canvas with unit tokens & displacement vectors.
-	 * @param {Object} q1Spatial Spatial projection slice.
-	 * @param {CombatState} state Active combat state.
+	 * @param {Q1SpatialProjection} q1Spatial Spatial projection slice.
+	 * @param {CombatState} [_state] Active combat state.
 	 * @returns {void}
 	 */
 	function renderQ1SpatialCanvas(q1Spatial, _state) {
@@ -2494,7 +2595,7 @@ const EmberlightCombatRenderer = (() => {
 		const displacementVectors = [];
 		if (ephemeralPreviewSkill?.displacement) {
 			const disp = ephemeralPreviewSkill.displacement;
-			(q1Spatial?.enemies || []).forEach((node) => {
+			(/** @type {any[]} */ (q1Spatial?.enemies || [])).forEach((node) => {
 				if (node.alive) {
 					const toX =
 						disp.type === "KNOCKBACK"
@@ -2516,10 +2617,10 @@ const EmberlightCombatRenderer = (() => {
 		drawQ1DisplacementVectors(ctx, displacementVectors, cellW, cellH);
 
 		// Party & Enemy Tokens
-		(q1Spatial?.allies || q1Spatial?.partyFormation || []).forEach((ally) => {
+		(/** @type {any[]} */ (q1Spatial?.allies || q1Spatial?.partyFormation || [])).forEach((ally) => {
 			drawQ1AllyToken(ctx, ally, cellW, cellH);
 		});
-		(q1Spatial?.enemies || q1Spatial?.enemyFormation || []).forEach((enemy) => {
+		(/** @type {any[]} */ (q1Spatial?.enemies || q1Spatial?.enemyFormation || [])).forEach((enemy) => {
 			drawQ1EnemyToken(ctx, enemy, cellW, cellH);
 		});
 
@@ -2530,8 +2631,8 @@ const EmberlightCombatRenderer = (() => {
 				const coords = getNormalizedCanvasCoords(canvas, ev);
 				const gx = Math.floor(coords.normX * cols);
 				const gy = Math.floor(coords.normY * rows);
-				const enemies = lastQ1Spatial?.enemies || [];
-				const allies = lastQ1Spatial?.allies || [];
+				const enemies = /** @type {any[]} */ (lastQ1Spatial?.enemies || []);
+				const allies = /** @type {any[]} */ (lastQ1Spatial?.allies || []);
 
 				const hitEnemyIdx = enemies.findIndex(
 					(e) => e.gridX === gx && e.gridY === gy && e.alive,
@@ -2562,8 +2663,8 @@ const EmberlightCombatRenderer = (() => {
 				const coords = getNormalizedCanvasCoords(canvas, ev);
 				const gx = Math.floor(coords.normX * cols);
 				const gy = Math.floor(coords.normY * rows);
-				const enemies = lastQ1Spatial?.enemies || [];
-				const allies = lastQ1Spatial?.allies || [];
+				const enemies = /** @type {any[]} */ (lastQ1Spatial?.enemies || []);
+				const allies = /** @type {any[]} */ (lastQ1Spatial?.allies || []);
 
 				const hitEnemyIdx = enemies.findIndex(
 					(e) => e.gridX === gx && e.gridY === gy && e.alive,
@@ -2593,50 +2694,36 @@ const EmberlightCombatRenderer = (() => {
 				}
 			});
 
-			const openQ1Radial = (clientX, clientY, gx, gy) => {
-				openContextualRadial(clientX, clientY, {
-					centerIcon: "🛰️",
-					north: {
-						icon: "▲",
-						label: "ADVANCE",
-						onCommit: () => emit({ type: "SET_ROW", row: "FRONT" }),
-						onHover: () => { },
-					},
-					east: {
-						icon: "💥",
-						label: "TRIGGER",
-						onCommit: () =>
-							emit({
-								type: "FIELD_ACTION",
-								action: "TRIGGER_HAZARD",
-								tileX: gx,
-								tileY: gy,
-							}),
-						onHover: () => { },
-					},
-					south: {
-						icon: "▼",
-						label: "COVER",
-						onCommit: () => emit({ type: "SET_ROW", row: "BACK" }),
-						onHover: () => { },
-					},
-					west: {
-						icon: "🧱",
-						label: "BARRIER",
-						onCommit: () =>
-							emit({
-								type: "FIELD_ACTION",
-								action: "PLACE_BARRICADE",
-								tileX: gx,
-								tileY: gy,
-							}),
-						onHover: () => { },
-					},
-				});
+			const openQ1Radial = (
+				/** @type {number} */ clientX,
+				/** @type {number} */ clientY,
+				/** @type {number} */ gx,
+				/** @type {number} */ gy,
+			) => {
+				const allies = /** @type {any[]} */ (
+					lastQ1Spatial?.allies || lastCombatState?.party || []
+				);
+				const enemies = /** @type {any[]} */ (
+					lastQ1Spatial?.enemies || lastCombatState?.enemies || []
+				);
+				const targetAlly =
+					allies.find((a) => a.gridX === gx && a.gridY === gy && a.alive) ||
+					allies.find((a) => a.alive) ||
+					null;
+				const targetEnemy =
+					enemies.find((e) => e.gridX === gx && e.gridY === gy && e.alive) ||
+					null;
+				openContextualRadial(
+					clientX,
+					clientY,
+					buildQ1RadialConfig(gx, gy, targetAlly, targetEnemy),
+				);
 			};
 
 			canvas.addEventListener("contextmenu", (ev) => {
 				ev?.preventDefault?.();
+				ev?.stopPropagation?.();
+				if (Date.now() < suppressContextMenuUntil) return;
 				const coords = getNormalizedCanvasCoords(canvas, ev);
 				const gx = Math.floor(coords.normX * cols);
 				const gy = Math.floor(coords.normY * rows);
@@ -2646,6 +2733,8 @@ const EmberlightCombatRenderer = (() => {
 			canvas.addEventListener("pointerdown", (ev) => {
 				if (ev.button === 2) {
 					ev.preventDefault();
+					ev.stopPropagation();
+					if (Date.now() < suppressContextMenuUntil) return;
 					const coords = getNormalizedCanvasCoords(canvas, ev);
 					const gx = Math.floor(coords.normX * cols);
 					const gy = Math.floor(coords.normY * rows);
@@ -2653,6 +2742,141 @@ const EmberlightCombatRenderer = (() => {
 				}
 			});
 		}
+	}
+
+	/**
+	 * Builds Q1 radial spatial kinematics descriptor (AOP-WAR-TABLE-CONTROLS-002).
+	 * @param {number} gx Grid column X.
+	 * @param {number} gy Grid row Y.
+	 * @param {any} [targetAlly] Target ally or active hero.
+	 * @param {any} [_targetEnemy] Target enemy.
+	 * @returns {Object}
+	 */
+	function buildQ1RadialConfig(gx, gy, targetAlly, _targetEnemy) {
+		const resolvedAlly =
+			targetAlly ||
+			(lastCombatState?.party || []).find((a) => a.isCurrentTurn && a.alive) ||
+			(lastCombatState?.party || []).find((a) => a.alive) ||
+			null;
+		return {
+			centerIcon: "🌐",
+			north: {
+				icon: "🛡️",
+				label: "ROW SHIFT",
+				onCommit: () =>
+					emit({
+						type: "SET_ROW",
+						row: resolvedAlly?.row === "FRONT" ? "BACK" : "FRONT",
+					}),
+				onHover: () =>
+					setEphemeralPreviewSkill({ label: "ROW SHIFT", delayCost: 400 }),
+			},
+			east: {
+				icon: "↗️",
+				label: "STEER KNOCKBACK",
+				onCommit: () =>
+					emit({
+						type: "SET_DISPLACEMENT_VECTOR",
+						targetTile: { x: gx, y: gy },
+					}),
+				onHover: () =>
+					setEphemeralPreviewSkill({
+						displacement: { type: "KNOCKBACK", tiles: 2 },
+					}),
+			},
+			south: {
+				icon: "🧱",
+				label: "BARRICADE",
+				onCommit: () =>
+					emit({
+						type: "FIELD_ACTION",
+						action: "PLACE_BARRICADE",
+						tileX: gx,
+						tileY: gy,
+					}),
+				onHover: () =>
+					setEphemeralPreviewSkill({
+						label: "DEPLOY BARRICADE",
+						delayCost: 500,
+					}),
+			},
+			west: {
+				icon: "🔥",
+				label: "DETONATE",
+				onCommit: () =>
+					emit({
+						type: "FIELD_ACTION",
+						action: "TRIGGER_HAZARD",
+						tileX: gx,
+						tileY: gy,
+					}),
+				onHover: () =>
+					setEphemeralPreviewSkill({
+						label: "DETONATE HAZARD",
+						delayCost: 800,
+					}),
+			},
+		};
+	}
+
+	/**
+	 * Builds Q3 radial chrono-acoustic timeline interception descriptor (AOP-WAR-TABLE-CONTROLS-002).
+	 * @param {any} slotData Turn slot descriptor data.
+	 * @param {CombatState} [_state] Active combat state.
+	 * @returns {Object}
+	 */
+	function buildQ3RadialConfig(slotData, _state) {
+		return {
+			centerIcon: "⏱️",
+			north: {
+				icon: "⏳",
+				label: "DELAY STRIKE",
+				onCommit: () =>
+					emit({
+						type: "PREPARE_DELAY_STRIKE",
+						targetEntityId: slotData?.entityId || slotData?.id,
+					}),
+				onHover: () =>
+					setEphemeralPreviewSkill({
+						label: "TEMPORAL BASH",
+						delayCost: 1200,
+					}),
+			},
+			east: {
+				icon: "🔮",
+				label: "PHASE TUNE",
+				onCommit: () => emit({ type: "TUNE_HARMONICS", frequency: 440 }),
+				onHover: () =>
+					setEphemeralPreviewSkill({
+						label: "HARMONIC TUNING",
+						delayCost: 600,
+					}),
+			},
+			south: {
+				icon: "🛡️",
+				label: "PRE-EMPT BRACE",
+				onCommit: () =>
+					emit({
+						type: "PREPARE_REACTIVE_GUARD",
+						targetHeroId: slotData?.targetHeroId || slotData?.id,
+					}),
+				onHover: () =>
+					setEphemeralPreviewSkill({
+						label: "REACTIVE PARRY",
+						delayCost: 500,
+					}),
+			},
+			west: {
+				icon: "📜",
+				label: "CHRONICLE AUDIT",
+				onCommit: () =>
+					emit({
+						type: "EXPAND_CHRONICLE_LOG",
+						eventId: slotData?.eventId,
+					}),
+				onHover: () => { },
+			},
+		};
 	}
 
 	const battlerImageMap = new Map();
@@ -2766,34 +2990,11 @@ const EmberlightCombatRenderer = (() => {
 	/**
 	 * Draws battler sprite image or fallback icon.
 	 * @param {CanvasRenderingContext2D} ctx
-	 * @param {any} enemy
-	 * @param {number} x
-	 * @param {number} y
-	 * @param {number} spriteSize
-	 * @param {number} effectiveScale
-	 * @param {boolean} isBoss
+	 * @param {Battler} enemy
+	 * @param {{ x: number, y: number, spriteSize: number, effectiveScale: number, isBoss: boolean, isHighlighted?: boolean }} opts
 	 */
-	/**
-	 * Draws battler sprite image or fallback icon.
-	 * @param {CanvasRenderingContext2D} ctx
-	 * @param {any} enemy
-	 * @param {number} x
-	 * @param {number} y
-	 * @param {number} spriteSize
-	 * @param {number} effectiveScale
-	 * @param {boolean} isBoss
-	 * @param {boolean} [isHighlighted=false]
-	 */
-	function drawBattlerSpriteImage(
-		ctx,
-		enemy,
-		x,
-		y,
-		spriteSize,
-		effectiveScale,
-		isBoss,
-		isHighlighted = false,
-	) {
+	function drawBattlerSpriteImage(ctx, enemy, opts) {
+		const { x, y, spriteSize, effectiveScale, isBoss, isHighlighted = false } = opts;
 		const { isBossEnraged, heatPulse } = resolveBossDetails(enemy);
 		const url = resolveEnemyBattlerUrl(enemy, isBossEnraged, heatPulse);
 		const img = url ? getCachedBattlerImage(url) : null;
@@ -2961,7 +3162,7 @@ const EmberlightCombatRenderer = (() => {
 
 	/**
 	 * Finds closest enemy hit at coordinates.
-	 * @param {{ x: number, y: number }} coords
+	 * @param {{ x: number, y: number, cssX?: number, cssY?: number }} coords
 	 * @param {Array<{ x: number, y: number, w: number, h: number, enemy: any, index: number }>} bounds
 	 * @returns {any|null}
 	 */
@@ -2986,23 +3187,23 @@ const EmberlightCombatRenderer = (() => {
 	}
 
 	/**
-	 * Builds Q2 Radial Menu Configuration for enemy interaction.
+	 * Builds Q2 Radial Menu Configuration for enemy interaction (AOP-WAR-TABLE-CONTROLS-002).
 	 * @param {any} hit Hit enemy node descriptor.
-	 * @param {CombatState} state Combat state.
-	 * @returns {RadialMenuDescriptor}
+	 * @param {CombatState} [state] Combat state.
+	 * @returns {any}
 	 */
 	function buildQ2RadialConfig(hit, state) {
 		const activeChar =
-			state?.turnQueue?.[state?.activeTurnIndex]?.entity ||
+			state?.turnQueue?.[state?.activeTurnIndex ?? 0]?.entity ||
 			state?.party?.[state?.activeHeroIndex || 0] ||
 			state?.party?.[0];
-		const heroName = activeChar?.name || "Hero";
+		const heroName = activeChar?.name || "HERO";
 
 		return {
-			centerIcon: "🎯",
+			centerIcon: "⚔️",
 			north: {
-				icon: "⚔️",
-				label: `ATTACK (${heroName})`,
+				icon: "⚡",
+				label: `STRIKE (${heroName})`,
 				onCommit: () => {
 					emit({
 						type: "ATTACK",
@@ -3018,38 +3219,24 @@ const EmberlightCombatRenderer = (() => {
 					}),
 			},
 			east: {
-				icon: "⚡",
-				label: "SKILL",
+				icon: "💥",
+				label: "POSTURE BREAK",
 				onCommit: () => {
-					const skills = collectHeroSkills(activeChar);
-					const bestSkill =
-						skills.find((s) => s.displacement || s.subType === "strike") ||
-						skills[0];
-					if (bestSkill) {
-						emit({
-							type: "SKILL",
-							skill: bestSkill,
-							targetIndex: hit.index,
-							isAlly: false,
-						});
-					} else {
-						emit({
-							type: "ATTACK",
-							targetIndex: hit.index,
-							targetId: hit.enemy.id,
-						});
-					}
+					emit({
+						type: "STAGGER_STRIKE",
+						targetIndex: hit.index,
+						targetId: hit.enemy.id,
+					});
 				},
 				onHover: () =>
-					setEphemeralHover({
-						id: hit.enemy.id,
-						type: "ENEMY",
-						index: hit.index,
+					setEphemeralPreviewSkill({
+						label: "STAGGER STRIKE",
+						delayCost: 1100,
 					}),
 			},
 			south: {
 				icon: "🎯",
-				label: "FOCUS TARGET",
+				label: "FOCUS BEACON",
 				onCommit: () => {
 					focusFireTargetId =
 						focusFireTargetId === hit.enemy.id ? null : hit.enemy.id;
@@ -3070,12 +3257,10 @@ const EmberlightCombatRenderer = (() => {
 			},
 			west: {
 				icon: "🔍",
-				label: "INSPECT",
+				label: "VULN SCAN",
 				onCommit: () => {
 					emit({
-						type: "SELECT_TARGET",
-						targetIndex: hit.index,
-						isAlly: false,
+						type: "SCAN_AFFINITY",
 						targetId: hit.enemy.id,
 					});
 					setEphemeralHover({
@@ -3096,7 +3281,7 @@ const EmberlightCombatRenderer = (() => {
 
 	/**
 	 * Renders Quadrant 2: 3D Eye-Level Arena Battlers on Canvas (AOP-COMBAT-STATION-002).
-	 * @param {Object} q2Clash Clash theater projection slice.
+	 * @param {Q2ClashProjection} q2Clash Clash theater projection slice.
 	 * @param {CombatState} state Active combat state.
 	 * @returns {void}
 	 */
@@ -3140,7 +3325,14 @@ const EmberlightCombatRenderer = (() => {
 			.map((e, idx) => ({ e, idx }))
 			.filter(({ e }) => e.row === "BACK");
 
-		const drawEnemyBattler = (enemy, idx, zScale, yPosBase, count, slotIdx) => {
+		const drawEnemyBattler = (
+			/** @type {Battler} */ enemy,
+			/** @type {number} */ idx,
+			/** @type {number} */ zScale,
+			/** @type {number} */ yPosBase,
+			/** @type {number} */ count,
+			/** @type {number} */ slotIdx,
+		) => {
 			const spacing = W / (count + 1);
 			const x = spacing * (slotIdx + 1);
 			const isBoss = Boolean(
@@ -3150,7 +3342,7 @@ const EmberlightCombatRenderer = (() => {
 			const targetEnemyIdx = resolveContextualEnemyIndex();
 			const isSelected = idx === targetEnemyIdx;
 			const isHovered =
-				Boolean(ephemeralHover && ephemeralHover.id === enemy.id) ||
+				Boolean(ephemeralHover?.id === enemy.id) ||
 				isSelected;
 			const isFocusTarget = enemy.id === focusFireTargetId;
 			const isHighlighted = (isHovered || isFocusTarget) && enemy.alive;
@@ -3178,16 +3370,14 @@ const EmberlightCombatRenderer = (() => {
 			if (isBoss && enemy.alive) {
 				drawBossAuraRing(ctx, x, drawY, spriteSize, enemy);
 			}
-			drawBattlerSpriteImage(
-				ctx,
-				enemy,
+			drawBattlerSpriteImage(ctx, enemy, {
 				x,
-				drawY,
+				y: drawY,
 				spriteSize,
 				effectiveScale,
 				isBoss,
 				isHighlighted,
-			);
+			});
 
 			if (isHighlighted) {
 				drawHudTargetingBracket(ctx, x, drawY, spriteSize, isFocusTarget);
@@ -3247,7 +3437,11 @@ const EmberlightCombatRenderer = (() => {
 				}
 			});
 
-			const openQ2Radial = (clientX, clientY, hit) => {
+			const openQ2Radial = (
+				/** @type {number} */ clientX,
+				/** @type {number} */ clientY,
+				/** @type {any} */ hit,
+			) => {
 				openContextualRadial(clientX, clientY, buildQ2RadialConfig(hit, state));
 			};
 
@@ -3280,7 +3474,7 @@ const EmberlightCombatRenderer = (() => {
 	/**
 	 * Renders live combat chronicle log stream into Q3 chronicle container.
 	 * @param {HTMLElement|null} streamEl Container element.
-	 * @param {Array<string>} logEntries Combat log strings.
+	 * @param {Array<any>} [logEntries=[]] Combat log entries.
 	 */
 	function renderQ3ChronicleStream(streamEl, logEntries = []) {
 		if (!streamEl) return;
@@ -3325,7 +3519,7 @@ const EmberlightCombatRenderer = (() => {
 
 	/**
 	 * Renders Quadrant 3: Threat Oracle 3-tier console (CTB, Intent Vectors, Elemental Affinity, Chronicle Feed).
-	 * @param {Object} q3Oracle Oracle projection slice.
+	 * @param {Q3OracleProjection} q3Oracle Oracle projection slice.
 	 * @param {CombatState} state Active combat state.
 	 * @returns {void}
 	 */
@@ -3337,7 +3531,7 @@ const EmberlightCombatRenderer = (() => {
 				intentFeedEl.innerHTML =
 					'<div style="color:var(--text-dim); font-size:6.5px">No hostile threats detected.</div>';
 			} else {
-				intentFeedEl.innerHTML = q3Oracle.threatVectors
+				intentFeedEl.innerHTML = (/** @type {any[]} */ (q3Oracle.threatVectors))
 					.map(
 						(vec) => `
 					<div class="intent-beacon-item ${vec.isCharged ? "charged" : ""}" data-enemy-id="${vec.enemyId}" data-hero-id="${vec.targetHeroId || ""}">
@@ -3367,9 +3561,12 @@ const EmberlightCombatRenderer = (() => {
 
 		const affinityContainer = getElement("oracle-affinity-badges");
 		if (affinityContainer && q3Oracle?.enemies) {
-			const livingFoes = (q3Oracle.enemies || []).filter((e) => e.alive);
+			const livingFoes = /** @type {Battler[]} */ (
+				(q3Oracle.enemies || []).filter((e) => e.alive)
+			);
 			if (livingFoes.length > 0) {
 				const activeFoe = livingFoes[0];
+				/** @type {string[]} */
 				const badges = [];
 				(activeFoe.weaknesses || []).forEach((w) => {
 					badges.push(
@@ -3405,7 +3602,7 @@ const EmberlightCombatRenderer = (() => {
 	 * @param {any} activeChar
 	 * @param {any} defaultEnemy
 	 * @param {Array<any>} skills
-	 * @returns {RadialMenuDescriptor}
+	 * @returns {any}
 	 */
 	function buildQ4RadialConfig(activeChar, defaultEnemy, skills) {
 		return {
@@ -3413,7 +3610,7 @@ const EmberlightCombatRenderer = (() => {
 			north: {
 				icon: "⚔️",
 				label: "STRIKE",
-				onCommit: (meta) => {
+				onCommit: (/** @type {any} */ meta) => {
 					emit({ type: "ATTACK", ...meta });
 				},
 				onHover: () => {
@@ -3426,7 +3623,7 @@ const EmberlightCombatRenderer = (() => {
 							getElement("telemetry-affinity-tag"),
 						);
 						renderTelemetryChips(activeChar, defaultEnemy, {
-							pendingSkill: null,
+							pendingSkill: undefined,
 						});
 					}
 				},
@@ -3434,7 +3631,7 @@ const EmberlightCombatRenderer = (() => {
 			east: {
 				icon: "✨",
 				label: "SKILLS",
-				onCommit: (meta) => {
+				onCommit: (/** @type {any} */ meta) => {
 					if (skills.length > 0) {
 						emit({ type: "SKILL", skill: skills[0], ...meta });
 					} else {
@@ -3461,7 +3658,7 @@ const EmberlightCombatRenderer = (() => {
 			south: {
 				icon: "🛡️",
 				label: "GUARD",
-				onCommit: (meta) => {
+				onCommit: (/** @type {any} */ meta) => {
 					emit({ type: "GUARD", ...meta });
 				},
 				onHover: () => {
@@ -3476,7 +3673,7 @@ const EmberlightCombatRenderer = (() => {
 			west: {
 				icon: "🎒",
 				label: "POUCH",
-				onCommit: (meta) => {
+				onCommit: (/** @type {any} */ meta) => {
 					emit({ type: "SELECT_TAB", tab: "POUCH", ...meta });
 				},
 				onHover: () => { },
@@ -3570,12 +3767,16 @@ const EmberlightCombatRenderer = (() => {
 		);
 
 		if (hero.isCurrentTurn) {
-			const openQ4Radial = (clientX, clientY) => {
+			const openQ4Radial = (
+				/** @type {number} */ clientX,
+				/** @type {number} */ clientY,
+			) => {
 				const activeChar =
-					state.turnQueue?.[state.activeTurnIndex]?.entity ||
-					state.party?.[idx];
+					state.turnQueue?.[state.activeTurnIndex ?? 0]?.entity ||
+					state.party?.[idx] ||
+					null;
 				const defaultEnemy =
-					(state.enemies || []).find((e) => e.alive) || state.enemies?.[0];
+					(state.enemies || []).find((e) => e.alive) || state.enemies?.[0] || null;
 				const skills = collectHeroSkills(activeChar);
 				openContextualRadial(
 					clientX,
@@ -3640,7 +3841,7 @@ const EmberlightCombatRenderer = (() => {
 
 	/**
 	 * Renders Quadrant 4: Physical Hero Battler Pedestal Stage & Arched Vitals (AOP-COMBAT-STATION-002).
-	 * @param {Object} q4Deck Deck projection slice.
+	 * @param {Q4DeckProjection} q4Deck Deck projection slice.
 	 * @param {CombatState} state Active combat state.
 	 * @returns {void}
 	 */
@@ -3652,7 +3853,7 @@ const EmberlightCombatRenderer = (() => {
 		chassisGrid.innerHTML = "";
 		const isFlareActive = Boolean(ephemeralHover);
 
-		q4Deck.partyVitals.forEach((hero, idx) => {
+		(/** @type {any[]} */ (q4Deck.partyVitals)).forEach((hero, idx) => {
 			const stage = renderHeroPedestalStage(hero, idx, isFlareActive, state);
 			if (chassisGrid.appendChild) chassisGrid.appendChild(stage);
 		});
@@ -3683,7 +3884,7 @@ const EmberlightCombatRenderer = (() => {
 
 		/**
 		 * Sets the ephemeral preview skill for real-time trajectory and CTB forecasting.
-		 * @param {SkillNode|null} skill Skill node preview object or null.
+		 * @param {any} skill Skill node preview object or null.
 		 * @returns {void}
 		 */
 		setEphemeralPreviewSkill(skill) {
@@ -3712,7 +3913,7 @@ const EmberlightCombatRenderer = (() => {
 		/**
 		 * Renders the combat viewport state to the DOM presentation layer.
 		 * @param {CombatState} state Active combat state snapshot.
-		 * @param {function(CombatActionToken): void} [dispatch] Action dispatch handler.
+		 * @param {(arg0: CombatActionToken) => void} [dispatch] Action dispatch handler.
 		 * @returns {void}
 		 */
 		render(state, dispatch) {
@@ -3725,9 +3926,9 @@ const EmberlightCombatRenderer = (() => {
 			}
 
 			const activeChar =
-				state.turnQueue?.[state.activeTurnIndex]?.entity || state.party?.[0];
+				state.turnQueue?.[state.activeTurnIndex ?? 0]?.entity || state.party?.[0] || null;
 			const defaultEnemy =
-				(state.enemies || []).find((e) => e.alive) || state.enemies?.[0];
+				(state.enemies || []).find((e) => e.alive) || state.enemies?.[0] || null;
 
 			const cmdView = getElement("combat-command-view");
 			if (cmdView) cmdView.classList.remove("hidden");
@@ -3740,13 +3941,15 @@ const EmberlightCombatRenderer = (() => {
 			) {
 				if (typeof EmberlightCombatBackdrop.setOverlayRenderer === "function") {
 					EmberlightCombatBackdrop.setOverlayRenderer(() => {
-						if (lastCombatState) {
+						if (lastCombatState && lastQ2Clash) {
 							renderQ2ClashCanvas(lastQ2Clash, lastCombatState);
 						}
 					});
 				}
 				EmberlightCombatBackdrop.render("combat-backdrop-canvas");
-				renderQ2ClashCanvas(lastQ2Clash, state);
+				if (lastQ2Clash) {
+					renderQ2ClashCanvas(lastQ2Clash, state);
+				}
 			}
 
 			const targetEnemyIdx = resolveContextualEnemyIndex();
@@ -3787,8 +3990,8 @@ const EmberlightCombatRenderer = (() => {
 
 		/**
 		 * Renders the 4-Quadrant War Table projection DTO (AOP-COMBAT-STATION-002).
-		 * @param {Object} projection Frozen 4-quadrant projection object.
-		 * @param {function(CombatActionToken): void} [dispatch] Action dispatch handler.
+		 * @param {any} projection Frozen 4-quadrant projection object.
+		 * @param {(arg0: CombatActionToken) => void} [dispatch] Action dispatch handler.
 		 * @returns {void}
 		 */
 		renderWarTable(projection, dispatch) {
@@ -3828,14 +4031,75 @@ const EmberlightCombatRenderer = (() => {
 		/**
 		 * Starts harmonic channeling visual effects.
 		 * @param {SkillNode|null} node Skill node being channeled.
-		 * @param {function(number): void} [onComplete] Completion callback.
+		 * @param {(arg0: number) => void} [onComplete] Completion callback.
 		 * @returns {void}
 		 */
 		startHarmonicChanneling(node, onComplete) {
-			emit({ type: "CHANNELING_STARTED", nodeId: node?.id || null });
+			emit({ type: "CHANNELING_STARTED", nodeId: node?.id || undefined });
 			if (typeof onComplete === "function") {
 				onComplete(100);
 			}
+		},
+
+		/**
+		 * Builds Q1 radial spatial kinematics descriptor.
+		 * @param {number} gx
+		 * @param {number} gy
+		 * @param {any} [targetAlly]
+		 * @param {any} [targetEnemy]
+		 * @returns {Object}
+		 */
+		buildQ1RadialConfig(gx, gy, targetAlly, targetEnemy) {
+			return buildQ1RadialConfig(gx, gy, targetAlly, targetEnemy);
+		},
+
+		/**
+		 * Builds Q2 radial direct confrontation descriptor.
+		 * @param {any} hit
+		 * @param {CombatState} [state]
+		 * @returns {Object}
+		 */
+		buildQ2RadialConfig(hit, state) {
+			const resolvedState = state || (lastCombatState ?? undefined);
+			return buildQ2RadialConfig(hit, resolvedState);
+		},
+
+		/**
+		 * Builds Q3 radial chrono-acoustic timeline interception descriptor.
+		 * @param {any} slotData
+		 * @param {CombatState} [state]
+		 * @returns {Object}
+		 */
+		buildQ3RadialConfig(slotData, state) {
+			const resolvedState = state || (lastCombatState ?? undefined);
+			return buildQ3RadialConfig(slotData, resolvedState);
+		},
+
+		/**
+		 * Builds Q4 radial hero stance & subdeck descriptor.
+		 * @param {any} activeChar
+		 * @param {any} defaultEnemy
+		 * @param {Array<any>} skills
+		 * @returns {Object}
+		 */
+		buildQ4RadialConfig(activeChar, defaultEnemy, skills) {
+			return buildQ4RadialConfig(activeChar, defaultEnemy, skills);
+		},
+
+		/**
+		 * Returns timestamp until which contextmenu events are suppressed.
+		 * @returns {number}
+		 */
+		getSuppressContextMenuUntil() {
+			return suppressContextMenuUntil;
+		},
+
+		/**
+		 * Returns snapshot of last combat state.
+		 * @returns {CombatState|null}
+		 */
+		getLastCombatState() {
+			return lastCombatState;
 		},
 
 		/**

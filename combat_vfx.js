@@ -102,8 +102,8 @@
 
 /**
  * @typedef {Object} EventBusSubscriber
- * @property {function(string, function(any):void): function():void} subscribe - Event subscription registrar returning unbind callback.
- * @property {function(string, any): void} [publish] - Event dispatcher callback.
+ * @property {(event: string, handler: (payload: any) => void) => () => void} subscribe - Event subscription registrar returning unbind callback.
+ * @property {(event: string, payload?: any) => void} [publish] - Event dispatcher callback.
  */
 
 /**
@@ -144,7 +144,7 @@ const EmberlightCombatVFX = (() => {
 	/** @type {number|null} */
 	let animFrameId = null;
 
-	/** @type {Array<function():void>} */
+	/** @type {Array<() => void>} */
 	let unsubs = [];
 
 	// Deterministic 32-bit PRNG state to eliminate SonarLint S2245
@@ -582,18 +582,19 @@ const EmberlightCombatVFX = (() => {
 	 */
 	function renderSlashes() {
 		if (!ctx) return;
+		const targetCtx = ctx;
 		slashes.forEach((s) => {
-			ctx.save();
-			ctx.globalAlpha = s.alpha;
-			ctx.strokeStyle = s.color;
-			ctx.lineWidth = 3;
-			ctx.shadowColor = s.color;
-			ctx.shadowBlur = 10;
-			ctx.beginPath();
-			ctx.moveTo(s.startX, s.startY);
-			ctx.quadraticCurveTo(s.ctrlX, s.ctrlY, s.endX, s.endY);
-			ctx.stroke();
-			ctx.restore();
+			targetCtx.save();
+			targetCtx.globalAlpha = s.alpha;
+			targetCtx.strokeStyle = s.color;
+			targetCtx.lineWidth = 3;
+			targetCtx.shadowColor = s.color;
+			targetCtx.shadowBlur = 10;
+			targetCtx.beginPath();
+			targetCtx.moveTo(s.startX, s.startY);
+			targetCtx.quadraticCurveTo(s.ctrlX, s.ctrlY, s.endX, s.endY);
+			targetCtx.stroke();
+			targetCtx.restore();
 		});
 	}
 
@@ -604,16 +605,17 @@ const EmberlightCombatVFX = (() => {
 	 */
 	function renderFloatingTexts() {
 		if (!ctx) return;
+		const targetCtx = ctx;
 		floatingTexts.forEach((ft) => {
-			ctx.save();
-			ctx.globalAlpha = ft.alpha;
-			ctx.fillStyle = ft.color;
-			ctx.font = ft.isLarge ? "bold 13px monospace" : "bold 9px monospace";
-			ctx.textAlign = "center";
-			ctx.shadowColor = "#000000";
-			ctx.shadowBlur = 4;
-			ctx.fillText(ft.text, ft.x, ft.y);
-			ctx.restore();
+			targetCtx.save();
+			targetCtx.globalAlpha = ft.alpha;
+			targetCtx.fillStyle = ft.color;
+			targetCtx.font = ft.isLarge ? "bold 13px monospace" : "bold 9px monospace";
+			targetCtx.textAlign = "center";
+			targetCtx.shadowColor = "#000000";
+			targetCtx.shadowBlur = 4;
+			targetCtx.fillText(ft.text, ft.x, ft.y);
+			targetCtx.restore();
 		});
 	}
 

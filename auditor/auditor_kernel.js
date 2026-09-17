@@ -19,13 +19,11 @@
 if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInternal || {};
 
 (() => {
-    'use strict';
-
     /**
      * Live sim accumulator reference — bound by the facade via _bindLog(simRef)
      * immediately after createDefaultState() is called in reset().
      * All sub-modules call logAudit() through this module; none hold a direct sim ref.
-     * @type {{ auditLog: Array, complianceScore: number, totalChecks: number, combatSimResults: any, passed: boolean } | null}
+     * @type {{ auditLog: Array<{ message: string, passed: boolean, timestamp: string }>, complianceScore: number, totalChecks: number, combatSimResults: unknown, passed: boolean } | null}
      */
     let _boundSim = null;
 
@@ -38,9 +36,11 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
      */
     function deepFreeze(obj) {
         if (!obj || typeof obj !== 'object') return obj;
-        Object.keys(obj).forEach((prop) => {
-            if (typeof obj[prop] === 'object' && obj[prop] !== null && !Object.isFrozen(obj[prop])) {
-                deepFreeze(obj[prop]);
+        const target = /** @type {Record<string, unknown>} */ (obj);
+        Object.keys(target).forEach((prop) => {
+            const val = target[prop];
+            if (typeof val === 'object' && val !== null && !Object.isFrozen(val)) {
+                deepFreeze(val);
             }
         });
         return Object.freeze(obj);
@@ -49,7 +49,7 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
     /**
      * Returns a fresh, zeroed AuditState accumulator object.
      * Verbatim extraction from auditor.js:123–131.
-     * @returns {{ auditLog: Array, complianceScore: number, totalChecks: number, combatSimResults: null, passed: boolean }}
+     * @returns {{ auditLog: Array<{ message: string, passed: boolean, timestamp: string }>, complianceScore: number, totalChecks: number, combatSimResults: null, passed: boolean }}
      */
     function createDefaultState() {
         return {
@@ -83,9 +83,10 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
      * depending on the production EmberlightEventBus global.
      * Verbatim extraction from auditor.js:2024–2042.
      *
-     * @returns {{ publish(event: string, payload: any): void, subscribe(event: string, cb: Function): Function }}
+     * @returns {{ publish(event: string, payload: unknown): void, subscribe(event: string, cb: (payload: unknown) => void): () => void }}
      */
     function createIsolatedEventBus() {
+        /** @type {Record<string, Array<(payload: unknown) => void>>} */
         const subscribers = {};
         return {
             publish(event, payload) {
@@ -105,22 +106,22 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
         };
     }
 
-    window._AuditorInternal.Kernel = Object.freeze({
+    const Kernel = Object.freeze({
         /**
          * Binds the live sim accumulator for the current audit run.
          * The facade calls this once per reset() immediately after createDefaultState().
          * Sub-modules MUST NOT store simRef directly — they call logAudit() through this module.
-         * @param {{ auditLog: Array, complianceScore: number, totalChecks: number } | null} simRef
+         * @param {unknown} simRef
          */
         _bindLog(simRef) {
-            _boundSim = simRef;
+            _boundSim = /** @type {any} */ (simRef);
         },
 
         /**
          * Returns the currently bound sim accumulator reference.
          * Only used by sub-modules that need to write non-log fields directly
          * (e.g., combatSimResults in auditor_district_sims.js).
-         * @returns {{ combatSimResults: any } | null}
+         * @returns {{ combatSimResults: unknown } | null}
          */
         getBoundSim() {
             return _boundSim;
@@ -131,4 +132,11 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
         logAudit,
         createIsolatedEventBus,
     });
+
+    if (typeof window !== 'undefined' && window._AuditorInternal) {
+        window._AuditorInternal.Kernel = Kernel;
+    }
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = Kernel;
+    }
 })();

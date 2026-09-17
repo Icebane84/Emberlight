@@ -5,7 +5,7 @@
  * Governing Protocol:  VSRP-001 / PMIP-001 / ARCH-001-EMBERLIGHT[cite: 1, 2]
  * Authority:           Peripheral Presentation
  * ============================================================================
- * 
+ *
  * TABLE OF CONTENTS & NAVIGATION ANCHORS:
  *   [SEC-01] Type Definitions, Constants & Canvas Initialization
  *   [SEC-02] Cinematic Item Procedural Renderers
@@ -49,10 +49,12 @@
 /**
  * @typedef {Object} IconSnapshot
  * @property {boolean} [clearCache] Optional flag indicating whether to purge cached rasters.
+ * @property {number} [cacheSize] Current count of cached icons.
+ * @property {string[]} [cachedKeys] Cached recipe keys.
  */
 
 const EmberlightIcons = (() => {
-	'use strict';
+
 
 	//#region [SEC-01] Type Definitions, Constants & Canvas Initialization
 	const SIZE = 48;
@@ -60,11 +62,21 @@ const EmberlightIcons = (() => {
 
 	// Lifecycle & Configuration State
 	let configured = false;
-	let config; // Resolved useless assignment by ensuring utilization in diagnostics
+	/** @type {any} */
+	let config = null; // Resolved useless assignment by ensuring utilization in diagnostics
 	let initialized = false;
+	/**
+	 * @type {Object | null}
+	 */
 	let eventBusRef = null; // Resolved useless assignment by utilizing in diagnostics
 
+	/**
+	 * @type {HTMLCanvasElement | null}
+	 */
 	let canvas = null;
+	/**
+	 * @type {CanvasRenderingContext2D | null}
+	 */
 	let ctx = null;
 
 	/**
@@ -619,7 +631,7 @@ const EmberlightIcons = (() => {
 
 		ctx.strokeStyle = '#86efac';
 		ctx.lineWidth = 1.8;
-		[-1, 1].forEach((dir) => {
+		for (const dir of [ -1, 1 ]) {
 			for (let i = -1; i <= 2; i++) {
 				ctx.beginPath();
 				ctx.moveTo(dir * 4, i * 3);
@@ -627,7 +639,7 @@ const EmberlightIcons = (() => {
 				ctx.lineTo(dir * 18, i * 4);
 				ctx.stroke();
 			}
-		});
+		}
 
 		ctx.fillStyle = '#bbf7d0';
 		ctx.shadowColor = '#22c55e';
@@ -820,7 +832,7 @@ const EmberlightIcons = (() => {
 	//#endregion
 
 	//#region [SEC-05] Recipe Registry Mapping
-	/** @type {Object.<string, function(): void>} */
+	/** @type {Record<string, () => void>} */
 	const RECIPES = Object.freeze({
 		PLAYER_UP: () => drawHeroSprite('UP'),
 		PLAYER_DOWN: () => drawHeroSprite('DOWN'),
@@ -885,7 +897,7 @@ const EmberlightIcons = (() => {
 		/**
 		 * Resets the module state or purges the icon cache based on snapshot directives.
 		 * (State-mutating lifecycle gateway)
-		 * @param {IconSnapshot} [snapshot=null] Optional reset snapshot containing cache control instructions.
+		 * @param {IconSnapshot | null} [snapshot=null] Optional reset snapshot containing cache control instructions.
 		 * @returns {void}
 		 */
 		reset(snapshot = null) {
@@ -905,29 +917,30 @@ const EmberlightIcons = (() => {
 		},
 
 		/**
-		 * Renders visual output (handled via reactive data URL retrieval rather than direct view pacing).
-		 * (Pure presentation render projection)
-		 * @param {Object} _snapshot Active state snapshot.
-		 * @param {function(Object): void} _dispatch Host action dispatch handler.
+		 * Renders the state or forces a bake cycle.
+		 * (State-mutating presentation tick)
 		 * @returns {void}
 		 */
-		render(_snapshot, _dispatch) {
-			// Peripheral asset provider does not render direct frames to main viewport
+		render() {
+			if (cache.size === 0) {
+				this.bakeAll();
+			}
 		},
 
 		/**
-		 * Returns a detached serializable projection of internal baker state.
+		 * Captures a serializable snapshot of the icon cache state.
 		 * (Pure state projection)
-		 * @returns {{cachedIconsCount: number}} State projection object.
+		 * @returns {IconSnapshot} Serialized module state object.
 		 */
 		getState() {
 			return {
-				cachedIconsCount: cache.size,
+				cacheSize: cache.size,
+				cachedKeys: Array.from(cache.keys()),
 			};
 		},
 
 		/**
-		 * Produces telemetry and diagnostic metrics for inspection.
+		 * Returns diagnostic telemetry for system health audits.
 		 * (Pure telemetry collection)
 		 * @returns {IconDiagnostics} Diagnostic metrics object.
 		 */
@@ -954,7 +967,7 @@ const EmberlightIcons = (() => {
 				moduleId: 'EmberlightIcons',
 				version: '3.0.0',
 				protocolVersion: 'VSRP-001',
-				capabilities: ['cinematic_procedural_icons', 'raster_engine', 'glow_shaders'],
+				capabilities: [ 'cinematic_procedural_icons', 'raster_engine', 'glow_shaders' ],
 			};
 		},
 
@@ -980,12 +993,13 @@ const EmberlightIcons = (() => {
 		bakeAll() {
 			ensureCanvas();
 			if (!canvas?.toDataURL) return; // Resolved S6582 optional chaining
-			Object.entries(RECIPES).forEach(([id, renderFn]) => {
+			const cvs = canvas;
+			for (const [ id, renderFn ] of Object.entries(RECIPES)) {
 				renderFn();
 				try {
-					cache.set(id, canvas.toDataURL('image/png'));
+					cache.set(id, cvs.toDataURL('image/png'));
 				} catch (_) { }
-			});
+			}
 			clear();
 		},
 

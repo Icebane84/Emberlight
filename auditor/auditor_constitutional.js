@@ -32,10 +32,11 @@
 if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInternal || {};
 
 (() => {
-  'use strict';
-
   // ─── Dependency Ingestion from Kernel ────────────────────────────────────
-  const { logAudit } = window._AuditorInternal.Kernel;
+  const { logAudit } = /** @type {any} */ (
+    (typeof window !== 'undefined' ? window._AuditorInternal?.Kernel : null) ||
+    (typeof require !== 'undefined' ? require('./auditor_kernel.js') : {})
+  );
 
   // ─── Private Constant (verbatim from auditor.js:25–35) ───────────────────
   // Re-declared locally so this module has zero coupling to Contracts internals.
@@ -53,12 +54,16 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
 
   // ─── Pass 17 Subroutines: VSRP-001 Constitutional Compliance Criteria ────
 
+  /**
+   * @param {any} targetList
+   */
   function auditAC01Lifecycle(targetList) {
     try {
       let lifecyclePassCount = 0;
       Object.entries(targetList).forEach(([name, mod]) => {
-        if (!mod || name === 'pseudo3d' || name === 'pseudo3D') return;
-        const missing = REQUIRED_LIFECYCLE_METHODS.filter((m) => typeof mod[m] !== 'function');
+        const m = /** @type {any} */ (mod);
+        if (!m || name === 'pseudo3d' || name === 'pseudo3D') return;
+        const missing = REQUIRED_LIFECYCLE_METHODS.filter((method) => typeof m[method] !== 'function');
         if (missing.length > 0) {
           throw new Error(`${name} missing lifecycle methods: ${missing.join(', ')}`);
         }
@@ -66,15 +71,21 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
       });
       logAudit(`[PASS] AC-01 (Lifecycle): All ${lifecyclePassCount} simulation tenants expose canonical 9-method interface.`, true);
     } catch (err) {
-      logAudit(`[FAIL] AC-01 (Lifecycle) Error: ${err.message}`, false);
+      const msg = err instanceof Error ? err.message : String(err);
+      logAudit(`[FAIL] AC-01 (Lifecycle) Error: ${msg}`, false);
     }
   }
 
+  /**
+   * @param {any} targetList
+   * @param {any} manifest
+   */
   function auditAC02SnapshotIsolation(targetList, manifest) {
     try {
       let isolationBreaches = 0;
       Object.entries(targetList).forEach(([name, mod]) => {
-        if (!mod || name === 'pseudo3d' || name === 'pseudo3D' || name === 'auditor') return;
+        const m = /** @type {any} */ (mod);
+        if (!m || name === 'pseudo3d' || name === 'pseudo3D' || name === 'auditor') return;
         const testHostParty = [{ id: 'hero', phenotype: 'HERO', hp: 30, maxHp: 30, alive: true }];
         const testHostInventory = { POTION: 3 };
         const testHostFlags = { test_flag: true };
@@ -90,8 +101,8 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
           isHeadless: true,
         };
 
-        if (name === 'combat' && typeof mod.createInstance === 'function') {
-          const inst = mod.createInstance({ isHeadless: true });
+        if (name === 'combat' && typeof m.createInstance === 'function') {
+          const inst = m.createInstance({ isHeadless: true });
           inst.configure({ manifest });
           inst.init({
             eventBus: { publish: () => {}, subscribe: () => {} },
@@ -106,10 +117,10 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
           }
           inst.destroy();
         } else {
-          mod.reset(snap);
+          m.reset(snap);
           testHostParty[0].hp = -999;
           testHostInventory.POTION = -999;
-          const st = mod.getState();
+          const st = m.getState();
           if (st?.party?.[0]?.hp === -999 || st?.inventory?.POTION === -999) {
             isolationBreaches++;
           }
@@ -121,10 +132,14 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
       }
       logAudit('[PASS] AC-02 (Snapshot Isolation): Post-reset host object mutations verified to not contaminate tenant state.', true);
     } catch (err) {
-      logAudit(`[FAIL] AC-02 (Snapshot Isolation) Error: ${err.message}`, false);
+      const msg = err instanceof Error ? err.message : String(err);
+      logAudit(`[FAIL] AC-02 (Snapshot Isolation) Error: ${msg}`, false);
     }
   }
 
+  /**
+   * @param {any} targetList
+   */
   function auditAC03StateRoundTrip(targetList) {
     try {
       const progression = targetList.progression;
@@ -142,22 +157,27 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
       }
       logAudit('[PASS] AC-03 (State Round-Trip): reset(getState()) verified idempotent across tenants.', true);
     } catch (err) {
-      logAudit(`[FAIL] AC-03 (State Round-Trip) Error: ${err.message}`, false);
+      const msg = err instanceof Error ? err.message : String(err);
+      logAudit(`[FAIL] AC-03 (State Round-Trip) Error: ${msg}`, false);
     }
   }
 
+  /**
+   * @param {any} targetList
+   * @param {any} manifest
+   */
   function auditAC04DeterministicReplay(targetList, manifest) {
     try {
       const combat = targetList.combat;
       if (combat && typeof combat.createInstance === 'function') {
-        const runSimulation = (seed) => {
+        const runSimulation = (/** @type {number} */ seed) => {
           const inst = combat.createInstance({ isHeadless: true });
           inst.configure({ manifest });
           inst.init({
             eventBus: { publish: () => {}, subscribe: () => {} },
             combatRenderer: typeof EmberlightCombatRenderer !== 'undefined' ? EmberlightCombatRenderer : null,
           });
-          const prng = (typeof EmberlightPRNG !== 'undefined') ? EmberlightPRNG.create(seed) : null;
+          const prng = (typeof EmberlightPRNG !== 'undefined') ? /** @type {any} */ (EmberlightPRNG).create(seed) : null;
           inst.reset({
             party: [{ id: 'hero', name: 'Hero', phenotype: 'HERO', hp: 50, maxHp: 50, mp: 20, maxMp: 20, atk: 12, def: 8, agi: 10, alive: true, row: 'FRONT' }],
             encounterKey: 'DEFAULT',
@@ -182,14 +202,14 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
         const hashA = JSON.stringify({
           phase: stateA.phase,
           turn: stateA.turn,
-          partyHp: stateA.party.map((c) => c.hp),
-          enemyHp: stateA.enemies.map((e) => e.hp),
+          partyHp: stateA.party.map((/** @type {any} */ c) => c.hp),
+          enemyHp: stateA.enemies.map((/** @type {any} */ e) => e.hp),
         });
         const hashB = JSON.stringify({
           phase: stateB.phase,
           turn: stateB.turn,
-          partyHp: stateB.party.map((c) => c.hp),
-          enemyHp: stateB.enemies.map((e) => e.hp),
+          partyHp: stateB.party.map((/** @type {any} */ c) => c.hp),
+          enemyHp: stateB.enemies.map((/** @type {any} */ e) => e.hp),
         });
 
         if (hashA !== hashB) {
@@ -200,17 +220,21 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
         logAudit('[PASS] AC-04 (Deterministic Replay): Verified in headless harness.', true);
       }
     } catch (err) {
-      logAudit(`[FAIL] AC-04 (Deterministic Replay) Error: ${err.message}`, false);
+      const msg = err instanceof Error ? err.message : String(err);
+      logAudit(`[FAIL] AC-04 (Deterministic Replay) Error: ${msg}`, false);
     }
   }
 
+  /**
+   * @param {any} targetList
+   */
   function auditAC05PrngAuthority(targetList) {
     try {
       let mathRandomCallCount = 0;
       const originalRandom = Math.random;
       Math.random = () => {
         mathRandomCallCount++;
-        return originalRandom();
+        return originalRandom(); // NOSONAR
       };
 
       try {
@@ -230,10 +254,14 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
       }
       logAudit('[PASS] AC-05 (PRNG Authority): Zero global Math.random() invocations detected in authoritative simulation.', true);
     } catch (err) {
-      logAudit(`[FAIL] AC-05 (PRNG Authority) Error: ${err.message}`, false);
+      const msg = err instanceof Error ? err.message : String(err);
+      logAudit(`[FAIL] AC-05 (PRNG Authority) Error: ${msg}`, false);
     }
   }
 
+  /**
+   * @param {any} targetList
+   */
   function auditAC06UpdatePurity(targetList) {
     try {
       let mutationCount = 0;
@@ -266,21 +294,26 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
         logAudit('[PASS] AC-06 (Update Purity): Tenant update() operations verified to never mutate host context input queues.', true);
       }
     } catch (err) {
-      logAudit(`[FAIL] AC-06 (Update Purity) Error: ${err.message}`, false);
+      const msg = err instanceof Error ? err.message : String(err);
+      logAudit(`[FAIL] AC-06 (Update Purity) Error: ${msg}`, false);
     }
   }
 
+  /**
+   * @param {any} targetList
+   */
   function auditAC07RenderIdempotency(targetList) {
     try {
       let renderDriftCount = 0;
       Object.entries(targetList).forEach(([name, mod]) => {
-        if (!mod || name === 'pseudo3d' || name === 'pseudo3D') return;
-        if (typeof mod.getState !== 'function' || typeof mod.render !== 'function') return;
+        const m = /** @type {any} */ (mod);
+        if (!m || name === 'pseudo3d' || name === 'pseudo3D') return;
+        if (typeof m.getState !== 'function' || typeof m.render !== 'function') return;
 
         try {
-          const stateBefore = JSON.stringify(mod.getState());
-          mod.render(null, {});
-          const stateAfter = JSON.stringify(mod.getState());
+          const stateBefore = JSON.stringify(m.getState());
+          m.render(null, {});
+          const stateAfter = JSON.stringify(m.getState());
           if (stateBefore !== stateAfter) {
             renderDriftCount++;
             logAudit(`[FAIL] AC-07: ${name}.render() mutated authoritative state!`, false);
@@ -294,18 +327,23 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
         logAudit('[PASS] AC-07 (Render Idempotency): render() verified 100% side-effect-free across all simulation states.', true);
       }
     } catch (err) {
-      logAudit(`[FAIL] AC-07 (Render Idempotency) Error: ${err.message}`, false);
+      const msg = err instanceof Error ? err.message : String(err);
+      logAudit(`[FAIL] AC-07 (Render Idempotency) Error: ${msg}`, false);
     }
   }
 
+  /**
+   * @param {any} targetList
+   */
   function auditAC08MetadataSchema(targetList) {
     try {
       let schemaViolations = 0;
       Object.entries(targetList).forEach(([name, mod]) => {
-        if (!mod || name === 'pseudo3d' || name === 'pseudo3D') return;
-        if (typeof mod.getModuleInfo !== 'function') return;
+        const m = /** @type {any} */ (mod);
+        if (!m || name === 'pseudo3d' || name === 'pseudo3D') return;
+        if (typeof m.getModuleInfo !== 'function') return;
 
-        const info = mod.getModuleInfo();
+        const info = m.getModuleInfo();
         if (!info || typeof info.moduleId !== 'string' || typeof info.version !== 'string' || typeof info.protocolVersion !== 'string' || !Array.isArray(info.capabilities)) {
           schemaViolations++;
           logAudit(`[FAIL] AC-08: ${name}.getModuleInfo() failed canonical schema check (found keys: ${Object.keys(info || {}).join(', ')})`, false);
@@ -316,10 +354,15 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
         logAudit('[PASS] AC-08 (Metadata Schema): All tenants strictly conform to canonical { moduleId, version, protocolVersion, capabilities } metadata schema.', true);
       }
     } catch (err) {
-      logAudit(`[FAIL] AC-08 (Metadata Schema) Error: ${err.message}`, false);
+      const msg = err instanceof Error ? err.message : String(err);
+      logAudit(`[FAIL] AC-08 (Metadata Schema) Error: ${msg}`, false);
     }
   }
 
+  /**
+   * @param {any} targetList
+   * @param {any} manifest
+   */
   function auditAC09Destruction(targetList, manifest) {
     try {
       const combat = targetList.combat;
@@ -348,11 +391,18 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
         logAudit('[PASS] AC-09 (Destruction): Verified in headless harness.', true);
       }
     } catch (err) {
-      logAudit(`[FAIL] AC-09 (Destruction) Error: ${err.message}`, false);
+      const msg = err instanceof Error ? err.message : String(err);
+      logAudit(`[FAIL] AC-09 (Destruction) Error: ${msg}`, false);
     }
   }
 
   // ─── Pass 17: VSRP-001 Constitutional Compliance Battery (AC-01 through AC-10) ───
+  /**
+   * @param {any} manifest
+   * @param {any} registeredModules
+   * @param {any} _registeredDrivers
+   * @param {any} _bus
+   */
   function runConstitutionalComplianceAudit(manifest, registeredModules, _registeredDrivers, _bus) {
     logAudit('=== PASS 17: VSRP-001 Constitutional Compliance Battery (AC-01 to AC-10) ===', true);
     const targetList = registeredModules || {};
@@ -370,7 +420,14 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
 
   // ─── Staging Membrane Export ──────────────────────────────────────────────
 
-  window._AuditorInternal.Constitutional = Object.freeze({
+  const Constitutional = Object.freeze({
     runConstitutionalComplianceAudit,
   });
+
+  if (typeof window !== 'undefined' && window._AuditorInternal) {
+    window._AuditorInternal.Constitutional = Constitutional;
+  }
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = Constitutional;
+  }
 })();

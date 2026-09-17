@@ -21,7 +21,7 @@ function playerExecuteAttack(sim, targetEnemyIndex, helpers) {
 	const target = sim.enemies[targetEnemyIndex];
 	if (!activeChar || !target?.alive) return;
 
-	const heroIdx = sim.party.findIndex((c) => c.id === activeChar.id);
+	const heroIdx = sim.party.findIndex((/** @type {any} */ c) => c.id === activeChar.id);
 	helpers.triggerAttackerLunge(true, heroIdx !== -1 ? heroIdx : 0);
 
 	const Displacement = helpers.Displacement;
@@ -37,7 +37,6 @@ function playerExecuteAttack(sim, targetEnemyIndex, helpers) {
 			helpers.appendLog,
 			helpers.dispatchSFX,
 			helpers.triggerDisplacementVisual,
-			helpers.isHeadless,
 		);
 
 	const rawDmg = Math.max(1, activeChar.atk * 2 - actualTarget.def);
@@ -102,7 +101,7 @@ function playerExecuteGuard(sim, helpers) {
 	);
 	helpers.dispatchSFX("BUFF");
 
-	const heroIdx = sim.party.findIndex((c) => c.id === activeChar.id);
+	const heroIdx = sim.party.findIndex((/** @type {any} */ c) => c.id === activeChar.id);
 	helpers.publish("combat:text", {
 		text: "GUARD",
 		targetType: "party",
@@ -268,7 +267,6 @@ function executeEnemySkill(
 			helpers.appendLog,
 			helpers.dispatchSFX,
 			helpers.triggerDisplacementVisual,
-			helpers.isHeadless,
 		);
 
 	if (
@@ -324,14 +322,12 @@ function executeEnemySkill(
 	if (node.displacement && actualTarget.alive) {
 		Displacement.executeDisplacement(
 			sim,
-			activeChar,
 			actualTarget,
 			node.displacement,
 			false,
 			helpers.appendLog,
 			helpers.dispatchSFX,
 			helpers.triggerDisplacementVisual,
-			helpers.isHeadless,
 		);
 	}
 	helpers.checkUnitDefeat(actualTarget);
@@ -360,7 +356,7 @@ function finalizeSkillExecution(
 	const activeChar = sim.turnQueue[sim.activeTurnIndex]?.entity;
 	if (!activeChar) return;
 
-	const heroIdx = sim.party.findIndex((c) => c.id === activeChar.id);
+	const heroIdx = sim.party.findIndex((/** @type {any} */ c) => c.id === activeChar.id);
 	if (node.subType === "strike") {
 		helpers.triggerAttackerLunge(true, heroIdx !== -1 ? heroIdx : 0);
 	} else {
@@ -412,7 +408,7 @@ function playerExecuteSkill(sim, node, targetIndex, isAllyTarget, helpers) {
 
 	if (node.tier === 3 || node.id?.endsWith("_3")) {
 		sim.phase = "HARMONIC_CHANNELING";
-		helpers.renderHarmonicChannelingStage(node, (resonanceScore) => {
+		helpers.renderHarmonicChannelingStage(node, (/** @type {any} */ resonanceScore) => {
 			activeChar.mp -= node.mpCost;
 			const isGuaranteedCrit = resonanceScore >= 90;
 			finalizeSkillExecution(
@@ -438,6 +434,109 @@ function playerExecuteSkill(sim, node, targetIndex, isAllyTarget, helpers) {
  * @param {any} helpers - Helper kernel functions bundle.
  * @returns {void}
  */
+/**
+ * Handles confirmation dispatch when targeting an ally.
+ * @param {any} sim - Simulation state.
+ * @param {any} helpers - Helpers kernel.
+ * @returns {void}
+ */
+function handleConfirmTargetingAlly(sim, helpers) {
+	const isEmber = sim.pendingItem === "PHOENIX_EMBER";
+	const targetAllyIdx = sim.party.findIndex((/** @type {any} */ c) =>
+		isEmber ? !c.alive : c.alive,
+	);
+	if (targetAllyIdx === -1) return;
+	if (sim.pendingItem) {
+		handleViewAction(
+			sim,
+			{ type: "ITEM", itemId: sim.pendingItem, targetIndex: targetAllyIdx },
+			helpers,
+		);
+	} else if (sim.pendingSkill) {
+		handleViewAction(
+			sim,
+			{
+				type: "SKILL",
+				skill: sim.pendingSkill,
+				targetIndex: targetAllyIdx,
+				isAlly: true,
+			},
+			helpers,
+		);
+	}
+}
+
+/**
+ * Handles confirmation dispatch when targeting an enemy.
+ * @param {any} sim - Simulation state.
+ * @param {any} helpers - Helpers kernel.
+ * @returns {void}
+ */
+function handleConfirmTargetingEnemy(sim, helpers) {
+	const livingEnemyIdx = sim.enemies.findIndex((/** @type {any} */ e) => e.alive);
+	if (livingEnemyIdx === -1) return;
+	if (sim.pendingSkill) {
+		handleViewAction(
+			sim,
+			{
+				type: "SKILL",
+				skill: sim.pendingSkill,
+				targetIndex: livingEnemyIdx,
+				isAlly: false,
+			},
+			helpers,
+		);
+	} else {
+		handleViewAction(
+			sim,
+			{ type: "ATTACK", targetIndex: livingEnemyIdx },
+			helpers,
+		);
+	}
+}
+
+/**
+ * Handles confirmation dispatch for tab selection shortcuts.
+ * @param {any} sim - Simulation state.
+ * @param {any} helpers - Helpers kernel.
+ * @returns {void}
+ */
+function handleConfirmTabSelection(sim, helpers) {
+	if (sim.selectedTab === "SKILLS") {
+		const activeChar = sim.turnQueue[sim.activeTurnIndex]?.entity;
+		const skills = helpers.Calc.getAvailableSkills(
+			activeChar,
+			helpers.getActiveManifest(),
+		);
+		if (skills.length > 0) {
+			handleViewAction(
+				sim,
+				{ type: "SELECT_SKILL", skill: skills[0] },
+				helpers,
+			);
+		}
+	} else if (sim.selectedTab === "POUCH") {
+		const inv = sim.inventory || {};
+		const availableItem = ["POTION", "ETHER", "PHOENIX_EMBER"].find(
+			(id) => (inv[id] || 0) > 0,
+		);
+		if (availableItem) {
+			handleViewAction(
+				sim,
+				{ type: "SELECT_ITEM", itemId: availableItem },
+				helpers,
+			);
+		}
+	}
+}
+
+/**
+ * Resolves confirmation key input based on active menu phase.
+ * [State Mutating]
+ * @param {any} sim - Active simulation state.
+ * @param {any} helpers - Helper kernel functions bundle.
+ * @returns {void}
+ */
 function handleConfirmChoice(sim, helpers) {
 	if (!sim) return;
 
@@ -454,84 +553,14 @@ function handleConfirmChoice(sim, helpers) {
 		return;
 	}
 	if (sim.phase === "TARGETING_ALLY" || sim.phase === "TARGET_ALLY") {
-		const isEmber = sim.pendingItem === "PHOENIX_EMBER";
-		const targetAllyIdx = sim.party.findIndex((c) =>
-			isEmber ? !c.alive : c.alive,
-		);
-		if (targetAllyIdx !== -1) {
-			if (sim.pendingItem) {
-				handleViewAction(
-					sim,
-					{ type: "ITEM", itemId: sim.pendingItem, targetIndex: targetAllyIdx },
-					helpers,
-				);
-			} else if (sim.pendingSkill) {
-				handleViewAction(
-					sim,
-					{
-						type: "SKILL",
-						skill: sim.pendingSkill,
-						targetIndex: targetAllyIdx,
-						isAlly: true,
-					},
-					helpers,
-				);
-			}
-		}
+		handleConfirmTargetingAlly(sim, helpers);
 		return;
 	}
 	if (sim.selectedTab === "ATTACK" || sim.phase === "TARGETING_ENEMY") {
-		const livingEnemyIdx = sim.enemies.findIndex((e) => e.alive);
-		if (livingEnemyIdx !== -1) {
-			if (sim.pendingSkill) {
-				handleViewAction(
-					sim,
-					{
-						type: "SKILL",
-						skill: sim.pendingSkill,
-						targetIndex: livingEnemyIdx,
-						isAlly: false,
-					},
-					helpers,
-				);
-			} else {
-				handleViewAction(
-					sim,
-					{ type: "ATTACK", targetIndex: livingEnemyIdx },
-					helpers,
-				);
-			}
-		}
+		handleConfirmTargetingEnemy(sim, helpers);
 		return;
 	}
-	if (sim.selectedTab === "SKILLS") {
-		const activeChar = sim.turnQueue[sim.activeTurnIndex]?.entity;
-		const skills = helpers.Calc.getAvailableSkills(
-			activeChar,
-			helpers.getActiveManifest(),
-		);
-		if (skills.length > 0) {
-			handleViewAction(
-				sim,
-				{ type: "SELECT_SKILL", skill: skills[0] },
-				helpers,
-			);
-		}
-		return;
-	}
-	if (sim.selectedTab === "POUCH") {
-		const inv = sim.inventory || {};
-		const availableItem = ["POTION", "ETHER", "PHOENIX_EMBER"].find(
-			(id) => (inv[id] || 0) > 0,
-		);
-		if (availableItem) {
-			handleViewAction(
-				sim,
-				{ type: "SELECT_ITEM", itemId: availableItem },
-				helpers,
-			);
-		}
-	}
+	handleConfirmTabSelection(sim, helpers);
 }
 
 /**
@@ -577,6 +606,65 @@ function handleDirectionalNav(sim, direction, helpers) {
 }
 
 /**
+ * Handles numeric choice routing for enemy target selection.
+ * @param {any} sim - Simulation state.
+ * @param {number} idx - Target index.
+ * @param {any} helpers - Helpers kernel.
+ * @returns {void}
+ */
+function handleChoiceEnemyTarget(sim, idx, helpers) {
+	if (!sim.enemies[idx]?.alive) return;
+	if (sim.pendingSkill) {
+		handleViewAction(
+			sim,
+			{
+				type: "SKILL",
+				skill: sim.pendingSkill,
+				targetIndex: idx,
+				isAlly: false,
+			},
+			helpers,
+		);
+	} else {
+		handleViewAction(sim, { type: "ATTACK", targetIndex: idx }, helpers);
+	}
+}
+
+/**
+ * Handles numeric choice routing for ally target selection.
+ * @param {any} sim - Simulation state.
+ * @param {number} idx - Target index.
+ * @param {any} helpers - Helpers kernel.
+ * @returns {void}
+ */
+function handleChoiceAllyTarget(sim, idx, helpers) {
+	const targetAlly = sim.party[idx];
+	if (!targetAlly) return;
+	const isEmber = sim.pendingItem === "PHOENIX_EMBER";
+	const isValid = isEmber ? !targetAlly.alive : targetAlly.alive;
+	if (!isValid) return;
+
+	if (sim.pendingItem) {
+		handleViewAction(
+			sim,
+			{ type: "ITEM", itemId: sim.pendingItem, targetIndex: idx },
+			helpers,
+		);
+	} else if (sim.pendingSkill) {
+		handleViewAction(
+			sim,
+			{
+				type: "SKILL",
+				skill: sim.pendingSkill,
+				targetIndex: idx,
+				isAlly: true,
+			},
+			helpers,
+		);
+	}
+}
+
+/**
  * Routes numbered hotkey choices (1-4) to targeted actions or sub-menus.
  * [State Mutating]
  * @param {any} sim - Active simulation state.
@@ -589,53 +677,15 @@ function handleChoiceIndex(sim, choiceNum, helpers) {
 	const idx = choiceNum - 1;
 
 	if (sim.phase === "TARGETING_ENEMY") {
-		if (sim.enemies[idx]?.alive) {
-			if (sim.pendingSkill) {
-				handleViewAction(
-					sim,
-					{
-						type: "SKILL",
-						skill: sim.pendingSkill,
-						targetIndex: idx,
-						isAlly: false,
-					},
-					helpers,
-				);
-			} else {
-				handleViewAction(sim, { type: "ATTACK", targetIndex: idx }, helpers);
-			}
-		}
+		handleChoiceEnemyTarget(sim, idx, helpers);
 		return;
 	}
 	if (sim.phase === "TARGETING_ALLY") {
-		const targetAlly = sim.party[idx];
-		if (targetAlly) {
-			const isEmber = sim.pendingItem === "PHOENIX_EMBER";
-			const isValid = isEmber ? !targetAlly.alive : targetAlly.alive;
-			if (isValid) {
-				if (sim.pendingItem) {
-					handleViewAction(
-						sim,
-						{ type: "ITEM", itemId: sim.pendingItem, targetIndex: idx },
-						helpers,
-					);
-				} else if (sim.pendingSkill) {
-					handleViewAction(
-						sim,
-						{
-							type: "SKILL",
-							skill: sim.pendingSkill,
-							targetIndex: idx,
-							isAlly: true,
-						},
-						helpers,
-					);
-				}
-			}
-		}
+		handleChoiceAllyTarget(sim, idx, helpers);
 		return;
 	}
 
+	/** @type {Record<number, string>} */
 	const choiceMap = {
 		1: "ATTACK",
 		2: "SKILLS",
@@ -646,6 +696,28 @@ function handleChoiceIndex(sim, choiceNum, helpers) {
 	if (mappedTab) {
 		handleViewAction(sim, { type: "SELECT_TAB", tab: mappedTab }, helpers);
 	}
+}
+
+/**
+ * Resolves fallback target index for action dispatch.
+ * @param {any} actObj - Action object.
+ * @param {any} sim - Simulation state.
+ * @returns {number} Resolved target index.
+ */
+function resolveTargetIndex(actObj, sim) {
+	if (typeof actObj.targetIndex === "number") {
+		return actObj.targetIndex;
+	}
+	if (typeof actObj.targetSlot === "number") {
+		return actObj.targetSlot;
+	}
+	let idx = -1;
+	if (actObj.isAlly) {
+		idx = (sim.party || []).findIndex((/** @type {any} */ c) => c.alive);
+	} else {
+		idx = (sim.enemies || []).findIndex((/** @type {any} */ e) => e.alive);
+	}
+	return idx !== -1 ? idx : 0;
 }
 
 /**
@@ -671,37 +743,21 @@ function handleViewAction(sim, action, helpers) {
 		helpers.setLastProcessedIntentId(actObj.intentId);
 	}
 
-	// Resolve target index fallback if omitted
-	let targetIdx =
-		typeof actObj.targetIndex === "number"
-			? actObj.targetIndex
-			: typeof actObj.targetSlot === "number"
-				? actObj.targetSlot
-				: null;
+	const targetIdx = resolveTargetIndex(actObj, sim);
 
-	if (targetIdx === null) {
-		if (actObj.isAlly) {
-			targetIdx = (sim.party || []).findIndex((c) => c.alive);
-		} else {
-			targetIdx = (sim.enemies || []).findIndex((e) => e.alive);
-		}
-		if (targetIdx === -1) targetIdx = 0;
-	}
-
+	/** @type {Record<string, () => void>} */
 	const actionHandlers = {
 		ATTACK: () => {
-			if (typeof targetIdx === "number") {
-				playerExecuteAttack(sim, targetIdx, helpers);
-			}
+			playerExecuteAttack(sim, targetIdx, helpers);
 		},
 		SKILL: () => {
 			let targetSkill = actObj.skill || sim?.pendingSkill;
 			if (!targetSkill && actObj.skillId) {
 				const manifest = helpers.getActiveManifest();
 				const catalog = manifest?.skills || manifest?.progression?.skills || [];
-				targetSkill = catalog.find((s) => s.id === actObj.skillId) || null;
+				targetSkill = catalog.find((/** @type {any} */ s) => s.id === actObj.skillId) || null;
 			}
-			if (targetSkill && typeof targetIdx === "number") {
+			if (targetSkill) {
 				playerExecuteSkill(
 					sim,
 					targetSkill,
@@ -713,19 +769,17 @@ function handleViewAction(sim, action, helpers) {
 			if (sim) sim.pendingSkill = null;
 		},
 		ITEM: () => {
-			if (typeof targetIdx === "number") {
-				const itemToUse = actObj.itemId || sim?.pendingItem;
-				if (itemToUse) {
-					playerExecuteItem(sim, itemToUse, targetIdx, helpers);
-				}
-				if (sim) sim.pendingItem = null;
+			const itemToUse = actObj.itemId || sim?.pendingItem;
+			if (itemToUse) {
+				playerExecuteItem(sim, itemToUse, targetIdx, helpers);
 			}
+			if (sim) sim.pendingItem = null;
 		},
 		GUARD: () => {
 			playerExecuteGuard(sim, helpers);
 		},
 		FLEE: () => {
-			if (sim.enemies.some((enemy) => enemy.isBoss)) {
+			if (sim.enemies.some((/** @type {any} */ enemy) => enemy.isBoss)) {
 				helpers.appendLog("Cannot flee from a boss battle!", "damage");
 				helpers.dispatchSFX("DEFEAT");
 			} else if (helpers.getRandomFloat() < 0.6) {
@@ -836,10 +890,103 @@ function handleViewAction(sim, action, helpers) {
 		CANCEL: () => {
 			handleCancelChoice(sim, helpers);
 		},
+		SET_ROW: () => {
+			if (sim) {
+				const activeChar =
+					sim.turnQueue[sim.activeTurnIndex]?.entity || sim.party[0];
+				if (activeChar) {
+					activeChar.row =
+						actObj.row || (activeChar.row === "FRONT" ? "BACK" : "FRONT");
+					helpers.appendLog(
+						`${activeChar.name} shifted stance to ${activeChar.row} row.`,
+						"system",
+					);
+					helpers.renderPresentation();
+				}
+			}
+		},
+		STAGGER_STRIKE: () => {
+			if (typeof actObj.targetIndex === "number" && sim) {
+				playerExecuteAttack(sim, actObj.targetIndex, helpers);
+			}
+		},
+		SCAN_AFFINITY: () => {
+			if (sim && actObj.targetId) {
+				const target = sim.enemies.find((/** @type {any} */ e) => e.id === actObj.targetId);
+				if (target) {
+					const weak =
+						target.weakness || target.weaknesses?.join(", ") || "None";
+					const resist =
+						target.resistance || target.resistances?.join(", ") || "None";
+					helpers.appendLog(
+						`Affinity Scan [${target.name}]: Weak [${weak}] | Resist [${resist}]`,
+						"ember",
+					);
+					helpers.renderPresentation();
+				}
+			}
+		},
+		SET_DISPLACEMENT_VECTOR: () => {
+			if (sim && actObj.targetTile) {
+				helpers.appendLog(
+					`Knockback trajectory targeted at tile (${actObj.targetTile.x}, ${actObj.targetTile.y}).`,
+					"system",
+				);
+				helpers.renderPresentation();
+			}
+		},
+		FIELD_ACTION: () => {
+			if (sim) {
+				helpers.appendLog(
+					`Field tactical maneuver executed: ${actObj.action || "TACTICAL"}.`,
+					"system",
+				);
+				helpers.renderPresentation();
+			}
+		},
+		PREPARE_DELAY_STRIKE: () => {
+			if (sim) {
+				helpers.appendLog("Tactical action delay strike staged.", "system");
+				sim.selectedTab = "SKILLS";
+				helpers.renderPresentation();
+			}
+		},
+		TUNE_HARMONICS: () => {
+			if (sim) {
+				helpers.appendLog(
+					"Harmonic timeline frequency resonance aligned.",
+					"ember",
+				);
+				helpers.dispatchSFX("RESONANCE_CHIME");
+				helpers.renderPresentation();
+			}
+		},
+		HARMONIC_TUNE: () => {
+			if (sim) {
+				helpers.appendLog(
+					"Harmonic timeline frequency resonance aligned.",
+					"ember",
+				);
+				helpers.dispatchSFX("RESONANCE_CHIME");
+				helpers.renderPresentation();
+			}
+		},
+		PREPARE_REACTIVE_GUARD: () => {
+			if (sim) {
+				playerExecuteGuard(sim, helpers);
+			}
+		},
+		EXPAND_CHRONICLE_LOG: () => {
+			if (sim) {
+				helpers.appendLog("Combat chronicle telemetric audit expanded.", "system");
+				helpers.renderPresentation();
+			}
+		},
 	};
 
-	if (actionHandlers[type]) {
-		actionHandlers[type]();
+	const handler = actionHandlers[type];
+	if (handler) {
+		handler();
 	}
 }
 
@@ -855,14 +1002,18 @@ const CombatActions = Object.freeze({
 	handleViewAction,
 });
 
-const _rootMem =
-	typeof window !== "undefined"
-		? window
-		: typeof globalThis !== "undefined"
-			? globalThis
-			: {};
-_rootMem._CombatInternal = _rootMem._CombatInternal || {};
-_rootMem._CombatInternal.Actions = CombatActions;
+/** @type {any} */
+let _rootMem = null;
+if (typeof window !== "undefined") {
+	_rootMem = window;
+} else if (typeof globalThis !== "undefined") {
+	_rootMem = globalThis;
+}
+
+if (_rootMem) {
+	_rootMem._CombatInternal = _rootMem._CombatInternal || {};
+	_rootMem._CombatInternal.Actions = CombatActions;
+}
 
 if (typeof module !== "undefined" && module.exports) {
 	module.exports = CombatActions;

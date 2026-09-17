@@ -17,33 +17,19 @@
 if (typeof window !== "undefined")
 	window._DynamicLightsInternal = window._DynamicLightsInternal || {};
 if (typeof globalThis !== "undefined")
-	globalThis._DynamicLightsInternal = globalThis._DynamicLightsInternal || {};
+	(/** @type {any} */ (globalThis))._DynamicLightsInternal = (/** @type {any} */ (globalThis))._DynamicLightsInternal || {};
 
 (() => {
 	/**
 	 * Spawns a transient light emitter into the circular pool buffer.
-	 * @param {Array<Object>} transientLights - Target transient pool.
+	 * @param {Array<Record<string, any>>} transientLights - Target transient pool.
 	 * @param {number} maxTransients - Maximum allowed transients in pool.
-	 * @param {Object} opts - Emitter parameters object.
-	 * @param {number} opts.x - Relative X pixel position.
-	 * @param {number} opts.y - Relative Y pixel position.
-	 * @param {number} opts.radius - Effective light radius.
-	 * @param {string} opts.color - RGB color string format.
-	 * @param {number} [opts.duration=0.5] - Effect duration in seconds.
-	 * @param {number} [opts.intensity=1.0] - Brightness multiplier.
+	 * @param {...any} args - Emitter parameters object or positional arguments (x, y, radius, color, duration, intensity).
 	 * @returns {void}
 	 */
-	function spawnTransientLight(
-		transientLights,
-		maxTransients,
-		arg3,
-		arg4,
-		arg5,
-		arg6,
-		arg7,
-		arg8,
-	) {
+	function spawnTransientLight(transientLights, maxTransients, ...args) {
 		if (!Array.isArray(transientLights)) return;
+		const [arg3, arg4, arg5, arg6, arg7, arg8] = args;
 		let x,
 			y,
 			radius,
@@ -100,6 +86,7 @@ if (typeof globalThis !== "undefined")
 		isSubterranean,
 		flickerTime,
 	) {
+		/** @type {any[]} */
 		const mapEmitters = [];
 		if (!cachedMap) return mapEmitters;
 
@@ -147,7 +134,7 @@ if (typeof globalThis !== "undefined")
 
 	/**
 	 * Advances transient light timers and collects active transient emitters.
-	 * @param {Array<Object>} transientLights - Target transient pool.
+	 * @param {Array<Record<string, any>>} transientLights - Target transient pool.
 	 * @param {number} offsetX - Screen X offset.
 	 * @param {number} offsetY - Screen Y offset.
 	 * @returns {Array<Object>} Array of active transient emitters.
@@ -176,77 +163,55 @@ if (typeof globalThis !== "undefined")
 	}
 
 	/**
+	 * Parses variable argument signatures for emitter assembly.
+	 * @param {any[]} args - Raw arguments array.
+	 * @returns {{ pScreenX: number, pScreenY: number, flicker: number, offsetX: number, offsetY: number, isSubterranean: boolean, tileW: number, tileH: number, cachedMap: string[][]|null, flickerTime: number, transientLights: any[] }}
+	 */
+	function parseAssembleParams(args) {
+		const [arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11] = args;
+		if (typeof arg1 === "object" && arg1 !== null) {
+			return {
+				pScreenX: arg1.pScreenX || 0,
+				pScreenY: arg1.pScreenY || 0,
+				flicker: arg1.flicker || 0,
+				offsetX: arg2?.offsetX || 0,
+				offsetY: arg2?.offsetY || 0,
+				isSubterranean: Boolean(arg2?.isSubterranean),
+				tileW: arg2?.tileW || 38,
+				tileH: arg2?.tileH || 30,
+				cachedMap: arg3?.cachedMap || null,
+				flickerTime: arg3?.flickerTime || 0,
+				transientLights: Array.isArray(arg4) ? arg4 : [],
+			};
+		}
+		return {
+			pScreenX: typeof arg1 === "number" ? arg1 : 0,
+			pScreenY: typeof arg2 === "number" ? arg2 : 0,
+			flicker: typeof arg3 === "number" ? arg3 : 0,
+			offsetX: typeof arg4 === "number" ? arg4 : 0,
+			offsetY: typeof arg5 === "number" ? arg5 : 0,
+			isSubterranean: Boolean(arg6),
+			cachedMap: Array.isArray(arg7) ? arg7 : null,
+			tileW: typeof arg8 === "number" ? arg8 : 38,
+			tileH: typeof arg9 === "number" ? arg9 : 30,
+			flickerTime: typeof arg10 === "number" ? arg10 : 0,
+			transientLights: Array.isArray(arg11) ? arg11 : [],
+		};
+	}
+
+	/**
 	 * Assembles all static, transient, and player light emitters for the frame.
-	 * @param {Object} playerState - Player screen coordinates and flicker state.
-	 * @param {Object} viewportState - Viewport offset, tile dimensions, and subterranean flag.
-	 * @param {Object} mapState - Map grid and animation time.
-	 * @param {Array<Object>} transientLights - Transient emitter pool.
+	 * @param {...any} args - Grouped objects or positional arguments.
 	 * @returns {Array<Object>} Combined emitters array.
 	 */
-	function assembleEmitters(
-		arg1,
-		arg2,
-		arg3,
-		arg4,
-		arg5,
-		arg6,
-		arg7,
-		arg8,
-		arg9,
-		arg10,
-		arg11,
-	) {
-		let pScreenX = 0,
-			pScreenY = 0,
-			flicker = 0;
-		let offsetX = 0,
-			offsetY = 0,
-			isSubterranean = false,
-			tileW = 38,
-			tileH = 30;
-		let cachedMap = null,
-			flickerTime = 0,
-			transientLights = [];
-
-		if (typeof arg1 === "object" && arg1 !== null) {
-			// Grouped object signature: (playerState, viewportState, mapState, transientLights)
-			pScreenX = arg1.pScreenX || 0;
-			pScreenY = arg1.pScreenY || 0;
-			flicker = arg1.flicker || 0;
-
-			if (arg2) {
-				offsetX = arg2.offsetX || 0;
-				offsetY = arg2.offsetY || 0;
-				isSubterranean = Boolean(arg2.isSubterranean);
-				tileW = arg2.tileW || 38;
-				tileH = arg2.tileH || 30;
-			}
-			if (arg3) {
-				cachedMap = arg3.cachedMap || null;
-				flickerTime = arg3.flickerTime || 0;
-			}
-			transientLights = Array.isArray(arg4) ? arg4 : [];
-		} else {
-			// Positional arguments signature: (pScreenX, pScreenY, flicker, offsetX, offsetY, isSubterranean, cachedMap, tileW, tileH, flickerTime, transientLights)
-			pScreenX = typeof arg1 === "number" ? arg1 : 0;
-			pScreenY = typeof arg2 === "number" ? arg2 : 0;
-			flicker = typeof arg3 === "number" ? arg3 : 0;
-			offsetX = typeof arg4 === "number" ? arg4 : 0;
-			offsetY = typeof arg5 === "number" ? arg5 : 0;
-			isSubterranean = Boolean(arg6);
-			cachedMap = Array.isArray(arg7) ? arg7 : null;
-			tileW = typeof arg8 === "number" ? arg8 : 38;
-			tileH = typeof arg9 === "number" ? arg9 : 30;
-			flickerTime = typeof arg10 === "number" ? arg10 : 0;
-			transientLights = Array.isArray(arg11) ? arg11 : [];
-		}
-
+	function assembleEmitters(...args) {
+		const params = parseAssembleParams(args);
 		const emitters = [];
-		if (isSubterranean) {
+		if (params.isSubterranean) {
 			emitters.push({
-				x: pScreenX,
-				y: pScreenY,
-				radius: Math.max(45, 85 + flicker),
+				x: params.pScreenX,
+				y: params.pScreenY,
+				radius: Math.max(45, 85 + params.flicker),
 				innerRadius: 16,
 				color: "255, 160, 60",
 				intensity: 0.85,
@@ -255,15 +220,15 @@ if (typeof globalThis !== "undefined")
 		}
 		emitters.push(
 			...collectStaticMapEmitters(
-				cachedMap,
-				tileW,
-				tileH,
-				offsetX,
-				offsetY,
-				isSubterranean,
-				flickerTime,
+				params.cachedMap,
+				params.tileW,
+				params.tileH,
+				params.offsetX,
+				params.offsetY,
+				params.isSubterranean,
+				params.flickerTime,
 			),
-			...collectTransientEmitters(transientLights, offsetX, offsetY),
+			...collectTransientEmitters(params.transientLights, params.offsetX, params.offsetY),
 		);
 		return emitters;
 	}
@@ -279,7 +244,7 @@ if (typeof globalThis !== "undefined")
 		window._DynamicLightsInternal.Emitters = Emitters;
 	}
 	if (typeof globalThis !== "undefined") {
-		globalThis._DynamicLightsInternal.Emitters = Emitters;
+		(/** @type {any} */ (globalThis))._DynamicLightsInternal.Emitters = Emitters;
 	}
 	if (typeof module !== "undefined" && module.exports) {
 		module.exports = Emitters;

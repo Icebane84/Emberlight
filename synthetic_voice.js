@@ -30,7 +30,6 @@
 	 ========================================================================= */
 
 const EmberlightVoice = (() => {
-	'use strict';
 
 	//#region [SEC-01] Domain Type Contracts & JSDoc Schemas
 	/**
@@ -98,7 +97,7 @@ const EmberlightVoice = (() => {
 				masterGain.gain.setValueAtTime(isMuted ? 0.0 : 1.0, ctx.currentTime);
 				masterGain.connect(ctx.destination);
 				bakeNoiseBuffer();
-			} catch (err) {
+			} catch (_) {
 				// AudioContext instantiation may fail due to browser autoplay policies or missing hardware support; safely ignored.
 			}
 		}
@@ -124,7 +123,7 @@ const EmberlightVoice = (() => {
 				// NOSONAR: Non-cryptographic Math.random is used intentionally here for procedural audio jitter/noise generation.
 				data[i] = Math.random() * 2 - 1; // NOSONAR
 			}
-		} catch (err) {
+		} catch (_) {
 			// Noise buffer baking failures are non-fatal and safely ignored.
 		}
 	}
@@ -342,7 +341,7 @@ const EmberlightVoice = (() => {
 
 			osc.start(t0);
 			osc.stop(t0 + dur);
-		} catch (err) {
+		} catch (_) {
 			// Audio node scheduling exceptions are non-fatal and safely ignored.
 		}
 	}
@@ -390,7 +389,7 @@ const EmberlightVoice = (() => {
 
 			osc.start(t0);
 			osc.stop(t0 + dur);
-		} catch (err) {
+		} catch (_) {
 			// Audio node scheduling exceptions are non-fatal and safely ignored.
 		}
 	}
@@ -398,7 +397,7 @@ const EmberlightVoice = (() => {
 
 	//#region [SEC-06] Canonical Runtime Lifecycle Gateway & EventBus Subscriptions
 	// --- CANONICAL RUNTIME INTERFACE ---
-	/** @type {Array<function(): void>} */
+	/** @type {Array<() => void>} */
 	let unsubs = [];
 
 	return {
@@ -465,7 +464,7 @@ const EmberlightVoice = (() => {
 			if (masterGain && ctx) {
 				try {
 					masterGain.gain.setValueAtTime(isMuted ? 0.0 : 1.0, ctx.currentTime);
-				} catch (err) {
+				} catch (_) {
 					// Audio parameter scheduling exceptions are non-fatal and safely ignored.
 				}
 			}
@@ -496,14 +495,14 @@ const EmberlightVoice = (() => {
 			unsubs.forEach((u) => {
 				try {
 					if (typeof u === 'function') u();
-				} catch (err) {
+				} catch (_) {
 					// Unsubscription handler exceptions are non-fatal and safely ignored.
 				}
 			});
 			unsubs = [];
 
 			if (ctx) {
-				ctx.close().catch((err) => {
+				ctx.close().catch(() => {
 					// AudioContext closure errors are non-fatal and safely ignored.
 				});
 				ctx = null;
@@ -518,8 +517,8 @@ const EmberlightVoice = (() => {
 
 //#region [SEC-07] Global Environment & Window ScopeExport
 if (typeof window !== 'undefined') {
-	// @ts-ignore
 	window.EmberlightVoice = EmberlightVoice;
+	window.EmberlightSyntheticVoice = EmberlightVoice;
 }
 if (typeof module !== 'undefined' && module.exports) {
 	module.exports = EmberlightVoice;

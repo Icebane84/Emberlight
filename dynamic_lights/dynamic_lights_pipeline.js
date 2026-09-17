@@ -15,46 +15,55 @@
  */
 
 if (typeof window !== 'undefined') window._DynamicLightsInternal = window._DynamicLightsInternal || {};
-if (typeof globalThis !== 'undefined') globalThis._DynamicLightsInternal = globalThis._DynamicLightsInternal || {};
+if (typeof globalThis !== 'undefined') (/** @type {any} */ (globalThis))._DynamicLightsInternal = (/** @type {any} */ (globalThis))._DynamicLightsInternal || {};
 
 (() => {
 
 	/**
+	 * @param {any[]} args
+	 */
+	function parseDarknessParams(args) {
+		const [arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11] = args;
+		if (typeof arg2 === 'object' && arg2 !== null && !Array.isArray(arg2)) {
+			const mapState = arg4 || {};
+			return {
+				w: arg2.w || 480,
+				h: arg2.h || 320,
+				ambientDarkness: typeof arg2.ambientDarkness === 'number' ? arg2.ambientDarkness : 0,
+				emitters: Array.isArray(arg3) ? arg3 : [],
+				offsetX: mapState.offsetX || 0,
+				offsetY: mapState.offsetY || 0,
+				cachedMap: mapState.cachedMap || null,
+				tileW: mapState.tileW || 38,
+				tileH: mapState.tileH || 30,
+				castShadowFromOccluder: (typeof arg5 === 'object' ? arg5?.castShadowFromOccluder : arg5) || (() => {}),
+			};
+		}
+		return {
+			w: arg2 || 480,
+			h: arg3 || 320,
+			ambientDarkness: typeof arg4 === 'number' ? arg4 : 0,
+			emitters: Array.isArray(arg5) ? arg5 : [],
+			offsetX: arg6 || 0,
+			offsetY: arg7 || 0,
+			cachedMap: arg8 || null,
+			tileW: arg9 || 38,
+			tileH: arg10 || 30,
+			castShadowFromOccluder: typeof arg11 === 'function' ? arg11 : (() => {}),
+		};
+	}
+
+	/**
 	 * Renders global darkness mask and carves out light visibility circles and shadow volumes.
-	 * Supports both grouped object signatures and positional argument lists.
 	 * @param {CanvasRenderingContext2D} ctx - Target 2D canvas rendering context.
+	 * @param {...any} args - Grouped object configuration or positional parameter list.
 	 * @returns {void}
 	 */
-	function renderDarknessAndShadows(ctx, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11) {
+	function renderDarknessAndShadows(ctx, ...args) {
 		if (!ctx) return;
-		let w, h, ambientDarkness, emitters, offsetX, offsetY, cachedMap, tileW, tileH, castShadowFromOccluder;
-
-		if (typeof arg2 === 'object' && arg2 !== null && !Array.isArray(arg2)) {
-			// Grouped object signature: (ctx, renderState, emitters, mapState, subroutines)
-			w = arg2.w || 480;
-			h = arg2.h || 320;
-			ambientDarkness = typeof arg2.ambientDarkness === 'number' ? arg2.ambientDarkness : 0;
-			emitters = Array.isArray(arg3) ? arg3 : [];
-			const mapState = arg4 || {};
-			offsetX = mapState.offsetX || 0;
-			offsetY = mapState.offsetY || 0;
-			cachedMap = mapState.cachedMap || null;
-			tileW = mapState.tileW || 38;
-			tileH = mapState.tileH || 30;
-			castShadowFromOccluder = (typeof arg5 === 'object' ? arg5?.castShadowFromOccluder : arg5) || (() => {});
-		} else {
-			// Positional arguments signature: (ctx, w, h, ambientDarkness, emitters, offsetX, offsetY, cachedMap, tileW, tileH, castShadowFromOccluder)
-			w = arg2 || 480;
-			h = arg3 || 320;
-			ambientDarkness = typeof arg4 === 'number' ? arg4 : 0;
-			emitters = Array.isArray(arg5) ? arg5 : [];
-			offsetX = arg6 || 0;
-			offsetY = arg7 || 0;
-			cachedMap = arg8 || null;
-			tileW = arg9 || 38;
-			tileH = arg10 || 30;
-			castShadowFromOccluder = typeof arg11 === 'function' ? arg11 : (() => {});
-		}
+		const {
+			w, h, ambientDarkness, emitters, offsetX, offsetY, cachedMap, tileW, tileH, castShadowFromOccluder
+		} = parseDarknessParams(args);
 
 		if (ambientDarkness <= 0 || !Array.isArray(emitters) || emitters.length === 0) return;
 
@@ -104,37 +113,44 @@ if (typeof globalThis !== 'undefined') globalThis._DynamicLightsInternal = globa
 	}
 
 	/**
+	 * @param {any[]} args
+	 */
+	function parseRadiantParams(args) {
+		const [arg2, arg3, arg4, arg5, arg6, arg7, arg8] = args;
+		const emitters = Array.isArray(arg2) ? arg2 : [];
+		if (typeof arg3 === 'object' && arg3 !== null && !Array.isArray(arg3)) {
+			return {
+				emitters,
+				offsetX: arg3.offsetX || 0,
+				offsetY: arg3.offsetY || 0,
+				cachedMap: arg3.cachedMap || null,
+				tileW: arg3.tileW || 38,
+				tileH: arg3.tileH || 30,
+				drawBeveledWallEdges: typeof arg4 === 'function' ? arg4 : (() => {}),
+			};
+		}
+		return {
+			emitters,
+			offsetX: arg3 || 0,
+			offsetY: arg4 || 0,
+			cachedMap: arg5 || null,
+			tileW: arg6 || 38,
+			tileH: arg7 || 30,
+			drawBeveledWallEdges: typeof arg8 === 'function' ? arg8 : (() => {}),
+		};
+	}
+
+	/**
 	 * Renders additive radiant light glows and wall edge bevel highlights.
-	 * Supports both grouped object signatures and positional argument lists.
 	 * @param {CanvasRenderingContext2D} ctx - Target 2D canvas rendering context.
+	 * @param {...any} args - Grouped object configuration or positional parameter list.
 	 * @returns {void}
 	 */
-	function renderRadiantAndBevelHighlights(ctx, arg2, arg3, arg4, arg5, arg6, arg7, arg8) {
+	function renderRadiantAndBevelHighlights(ctx, ...args) {
 		if (!ctx) return;
-		let emitters, offsetX, offsetY, cachedMap, tileW, tileH, drawBeveledWallEdges;
-
-		if (Array.isArray(arg2)) {
-			emitters = arg2;
-			if (typeof arg3 === 'object' && arg3 !== null && !Array.isArray(arg3)) {
-				// (ctx, emitters, mapState, drawBeveledWallEdges)
-				offsetX = arg3.offsetX || 0;
-				offsetY = arg3.offsetY || 0;
-				cachedMap = arg3.cachedMap || null;
-				tileW = arg3.tileW || 38;
-				tileH = arg3.tileH || 30;
-				drawBeveledWallEdges = typeof arg4 === 'function' ? arg4 : (() => {});
-			} else {
-				// (ctx, emitters, offsetX, offsetY, cachedMap, tileW, tileH, drawBeveledWallEdges)
-				offsetX = arg3 || 0;
-				offsetY = arg4 || 0;
-				cachedMap = arg5 || null;
-				tileW = arg6 || 38;
-				tileH = arg7 || 30;
-				drawBeveledWallEdges = typeof arg8 === 'function' ? arg8 : (() => {});
-			}
-		} else {
-			emitters = [];
-		}
+		const {
+			emitters, offsetX, offsetY, cachedMap, tileW, tileH, drawBeveledWallEdges
+		} = parseRadiantParams(args);
 
 		if (!Array.isArray(emitters) || emitters.length === 0) return;
 
@@ -174,46 +190,65 @@ if (typeof globalThis !== 'undefined') globalThis._DynamicLightsInternal = globa
 		ctx.restore();
 	}
 
+	let fallbackMoteSeed = 1337;
+	/**
+	 * Generates deterministic fallback pseudorandom float numbers for motes.
+	 * @returns {number} Normalized float between 0 and 1.
+	 */
+	function fallbackMoteRand() {
+		fallbackMoteSeed = (fallbackMoteSeed * 16807) % 2147483647;
+		return (fallbackMoteSeed - 1) / 2147483646;
+	}
+
+	/**
+	 * @param {any[]} args
+	 */
+	function parseDustParams(args) {
+		const [arg2, arg3, arg4, arg5, arg6, arg7, arg8] = args;
+		if (typeof arg2 === 'object' && arg2 !== null && !Array.isArray(arg2)) {
+			const moteState = arg3 || {};
+			return {
+				w: arg2.w || 480,
+				h: arg2.h || 320,
+				pScreenX: arg2.pScreenX || 0,
+				pScreenY: arg2.pScreenY || 0,
+				dustMotes: moteState.dustMotes || [],
+				initDustMotes: moteState.initDustMotes || (() => {}),
+				moteRand: moteState.moteRand || fallbackMoteRand,
+			};
+		}
+		return {
+			w: arg2 || 480,
+			h: arg3 || 320,
+			pScreenX: arg4 || 0,
+			pScreenY: arg5 || 0,
+			dustMotes: Array.isArray(arg6) ? arg6 : [],
+			initDustMotes: typeof arg7 === 'function' ? arg7 : (() => {}),
+			moteRand: typeof arg8 === 'function' ? arg8 : fallbackMoteRand,
+		};
+	}
+
 	/**
 	 * Advances and renders floating ambient crypt dust motes.
-	 * Supports both grouped object signatures and positional argument lists.
 	 * @param {CanvasRenderingContext2D} ctx - Target 2D canvas rendering context.
+	 * @param {...any} args - Grouped object configuration or positional parameter list.
 	 * @returns {void}
 	 */
-	function renderDustMotes(ctx, arg2, arg3, arg4, arg5, arg6, arg7, arg8) {
+	function renderDustMotes(ctx, ...args) {
 		if (!ctx) return;
-		let w, h, pScreenX, pScreenY, dustMotes, initDustMotes, moteRand;
-
-		if (typeof arg2 === 'object' && arg2 !== null && !Array.isArray(arg2)) {
-			// (ctx, renderState, moteState)
-			w = arg2.w || 480;
-			h = arg2.h || 320;
-			pScreenX = arg2.pScreenX || 0;
-			pScreenY = arg2.pScreenY || 0;
-			const moteState = arg3 || {};
-			dustMotes = moteState.dustMotes || [];
-			initDustMotes = moteState.initDustMotes || (() => {});
-			moteRand = moteState.moteRand || Math.random;
-		} else {
-			// (ctx, w, h, pScreenX, pScreenY, dustMotes, initDustMotes, moteRand)
-			w = arg2 || 480;
-			h = arg3 || 320;
-			pScreenX = arg4 || 0;
-			pScreenY = arg5 || 0;
-			dustMotes = Array.isArray(arg6) ? arg6 : [];
-			initDustMotes = typeof arg7 === 'function' ? arg7 : (() => {});
-			moteRand = typeof arg8 === 'function' ? arg8 : Math.random;
-		}
+		const {
+			w, h, pScreenX, pScreenY, dustMotes, initDustMotes, moteRand
+		} = parseDustParams(args);
 
 		if (typeof initDustMotes === 'function') {
 			initDustMotes(dustMotes);
 		}
 
 		ctx.save();
-		dustMotes.forEach((m) => {
+		dustMotes.forEach((/** @type {any} */ m) => {
 			m.x += m.vx;
 			m.y += m.vy;
-			if (m.y < 0) { m.y = h; m.x = (typeof moteRand === 'function' ? moteRand() : Math.random()) * w; }
+			if (m.y < 0) { m.y = h; m.x = (typeof moteRand === 'function' ? moteRand() : fallbackMoteRand()) * w; }
 			if (m.x < 0) m.x = w;
 			if (m.x > w) m.x = 0;
 
@@ -241,7 +276,7 @@ if (typeof globalThis !== 'undefined') globalThis._DynamicLightsInternal = globa
 		window._DynamicLightsInternal.Pipeline = Pipeline;
 	}
 	if (typeof globalThis !== 'undefined') {
-		globalThis._DynamicLightsInternal.Pipeline = Pipeline;
+		(/** @type {any} */ (globalThis))._DynamicLightsInternal.Pipeline = Pipeline;
 	}
 	if (typeof module !== 'undefined' && module.exports) {
 		module.exports = Pipeline;

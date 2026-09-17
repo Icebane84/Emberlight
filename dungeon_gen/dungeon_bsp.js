@@ -22,7 +22,7 @@ if (typeof globalThis !== 'undefined') globalThis._DungeonGenInternal = globalTh
 	/**
 	 * Creates a seeded pseudorandom number generator.
 	 * @param {number} [seed] - Initialization seed.
-	 * @returns {function(): number} PRNG floating-point supplier.
+	 * @returns {() => number} PRNG floating-point supplier.
 	 */
 	function createRNG(seed) {
 		if (
@@ -40,9 +40,19 @@ if (typeof globalThis !== 'undefined') globalThis._DungeonGenInternal = globalTh
 	}
 
 	/**
+	 * @typedef {Object} DungeonRoom
+	 * @property {number} x - Room X coordinate.
+	 * @property {number} y - Room Y coordinate.
+	 * @property {number} w - Room width.
+	 * @property {number} h - Room height.
+	 * @property {number} cx - Room center X coordinate.
+	 * @property {number} cy - Room center Y coordinate.
+	 */
+
+	/**
 	 * Evaluates and pushes valid leaf rooms during BSP subdivision.
 	 * @param {{ rx: number, ry: number, rw: number, rh: number }} leaf - Leaf boundaries.
-	 * @param {{ rng: function():number, rooms: Array<Object> }} env - Environment context.
+	 * @param {{ rng: () => number, rooms: Array<DungeonRoom> }} env - Environment context.
 	 * @returns {void}
 	 */
 	function createLeafRoom(leaf, env) {
@@ -67,7 +77,7 @@ if (typeof globalThis !== 'undefined') globalThis._DungeonGenInternal = globalTh
 	/**
 	 * Recursively carves BSP dungeon leaf nodes.
 	 * @param {{ rx: number, ry: number, rw: number, rh: number, depth: number }} leaf - Leaf boundaries and depth.
-	 * @param {{ rng: function():number, rooms: Array<Object> }} env - Environment context.
+	 * @param {{ rng: () => number, rooms: Array<DungeonRoom> }} env - Environment context.
 	 * @returns {void}
 	 */
 	function splitLeaf(leaf, env) {
@@ -96,7 +106,7 @@ if (typeof globalThis !== 'undefined') globalThis._DungeonGenInternal = globalTh
 	/**
 	 * Carves a single room region onto the tile map.
 	 * @param {string[][]} map - Tile grid.
-	 * @param {Object} r - Target room.
+	 * @param {DungeonRoom} r - Target room.
 	 * @param {number} h - Height.
 	 * @param {number} w - Width.
 	 * @param {Array<{x:number, y:number}>} carvedCoords - Coordinates accumulator.
@@ -168,12 +178,13 @@ if (typeof globalThis !== 'undefined') globalThis._DungeonGenInternal = globalTh
 	/**
 	 * Carves rooms and corridors onto the tile map.
 	 * @param {string[][]} map - Tile grid.
-	 * @param {Array<Object>} rooms - Carved rooms.
+	 * @param {Array<DungeonRoom>} rooms - Carved rooms.
 	 * @param {number} w - Width.
 	 * @param {number} h - Height.
 	 * @returns {Array<{x:number, y:number}>} Carved coordinate array.
 	 */
 	function carveLayout(map, rooms, w, h) {
+		/** @type {Array<{x:number, y:number}>} */
 		const carvedCoords = [];
 		rooms.forEach((r) => {
 			carveRoom(map, r, h, w, carvedCoords);

@@ -18,9 +18,8 @@
 if (typeof window !== 'undefined') window._BattlerBakerInternal = window._BattlerBakerInternal || {};
 
 (() => {
-	'use strict';
-
-	const { P, rect, poly, line, ellipse, diamond, glow } = window._BattlerBakerInternal.Primitives || (typeof require !== 'undefined' ? require('./battler_primitives.js') : {});
+	const primitives = /** @type {any} */ (window._BattlerBakerInternal?.Primitives || (typeof require !== 'undefined' ? require('./battler_primitives.js') : {}));
+	const { P, poly, line, ellipse, diamond, glow } = primitives;
 
 	//#region [SEC-04] Equipment Overlay Pipeline (Armor & Weapons)
 	/**

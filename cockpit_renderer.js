@@ -32,7 +32,10 @@ const EmberlightCockpitRenderer = (() => {
 	 * @property {number} [gold] - Currency count.
 	 * @property {string} [townId] - Active town identifier if in settlement.
 	 * @property {string[][]} [activeMap] - Current 2D tile matrix.
+	 * @property {string[][]} [map] - Fallback 2D tile matrix.
 	 * @property {{ x: number, y: number }} [worldPos] - Player world coordinates.
+	 * @property {{ x: number, y: number }} [playerPos] - Fallback player coordinates.
+	 * @property {string} [facingPrompt] - Directional interaction prompt.
 	 * @property {Record<string, { stage?: number, completed?: boolean }>} [quests] - Quest journal status mapping.
 	 * @property {boolean} [pouchOpen] - Field pouch expansion flag.
 	 * @property {Record<string, number>} [inventory] - Consumable inventory item counts.
@@ -48,7 +51,7 @@ const EmberlightCockpitRenderer = (() => {
 
 	/**
 	 * @typedef {Object} CockpitContext
-	 * @property {{ publish: function(string, any):void }} [eventBus] - Event communication bus.
+	 * @property {{ publish: (topic: string, payload: any) => void }} [eventBus] - Event communication bus.
 	 */
 
 	/**
@@ -61,11 +64,14 @@ const EmberlightCockpitRenderer = (() => {
 	//#endregion
 
 	//#region [SEC-02] DOM Element Utility & Notification Helpers
+	/** @type {any} */
 	let eventBusRef = null;
 	let lastScannedHazardSignature = "";
+	/** @type {string|null} */
 	let activePouchSelectedItemId = null;
 	let isQ4DeckExpanded = false;
 	let is3DViewExpanded = false;
+	/** @type {number|null} */
 	let titleAnimId = null;
 
 	/**
@@ -119,8 +125,9 @@ const EmberlightCockpitRenderer = (() => {
 		const ticker = document.getElementById("status-quest-ticker");
 		if (!ticker) return;
 
-		const manifest =
-			typeof EmberlightManifest !== "undefined" ? EmberlightManifest : {};
+		const manifest = /** @type {any} */ (
+			typeof EmberlightManifest !== "undefined" ? EmberlightManifest : {}
+		);
 		const quests = manifest.Quests || {};
 		const activeQuests = snapshot?.quests || {};
 
@@ -170,11 +177,12 @@ const EmberlightCockpitRenderer = (() => {
 
 		container.innerHTML = party
 			.map((c) => {
-				const stats =
+				const stats = /** @type {any} */ (
 					typeof EmberlightManifest !== "undefined" &&
 						typeof EmberlightManifest.computeCharacterStats === "function"
 						? EmberlightManifest.computeCharacterStats(c)
-						: c;
+						: c
+				);
 				const maxHp = stats.maxHp || c.maxHp || 1;
 				const maxMp = stats.maxMp || c.maxMp || 1;
 				const hpPct = Math.round((Math.max(0, c.hp) / maxHp) * 100);
@@ -310,6 +318,7 @@ const EmberlightCockpitRenderer = (() => {
 			{ x: px - 1, y: py },
 			{ x: px + 1, y: py },
 		];
+		/** @type {string[]} */
 		const adjacentTiles = [];
 		adjacentCoords.forEach(({ x, y }) => {
 			if (y >= 0 && y < map.length && x >= 0 && x < map[0]?.length) {
@@ -450,7 +459,7 @@ const EmberlightCockpitRenderer = (() => {
 	 * Renders interactive field pouch consumables drawer.
 	 * [DOM Presentation Render]
 	 * @param {CockpitSimState} snapshot - Current simulation snapshot.
-	 * @param {function(CockpitActionPayload):void} dispatch - Action dispatcher.
+	 * @param {(arg0: CockpitActionPayload) => void} dispatch - Action dispatcher.
 	 * @returns {void}
 	 */
 	function renderFieldPouch(snapshot, dispatch) {
@@ -520,7 +529,7 @@ const EmberlightCockpitRenderer = (() => {
 	 * @param {CockpitSimState} snapshot - Current simulation snapshot.
 	 * @param {FieldPouchItem} item - Item definition.
 	 * @param {HTMLElement|null} drawer - Target DOM container.
-	 * @param {function(CockpitActionPayload):void} dispatch - Action dispatcher.
+	 * @param {(arg0: CockpitActionPayload) => void} dispatch - Action dispatcher.
 	 * @returns {void}
 	 */
 	function renderPouchTargetSelector(snapshot, item, drawer, dispatch) {
@@ -565,7 +574,7 @@ const EmberlightCockpitRenderer = (() => {
 	/**
 	 * Initiates canvas-based ambient title screen background animation loop.
 	 * [Canvas Animation Render]
-	 * @param {function():string} getActiveDistrict - District state query callback.
+	 * @param {() => string} getActiveDistrict - District state query callback.
 	 * @param {string} [canvasId='title-bg-canvas'] - Target canvas element ID.
 	 * @returns {void}
 	 */
@@ -583,6 +592,7 @@ const EmberlightCockpitRenderer = (() => {
 
 		let t = 0;
 		function renderTitleFrame() {
+			if (!ctx || !canvas) return;
 			const activeDistrict =
 				typeof getActiveDistrict === "function" ? getActiveDistrict() : "TITLE";
 			if (activeDistrict !== "TITLE") {
@@ -633,12 +643,12 @@ const EmberlightCockpitRenderer = (() => {
 	//#region [SEC-07B] Tactical Focal Ring & Target Chassis Helpers
 	/**
 	 * Resolves target bounding box and center coordinates.
-	 * @param {Object} meta - Target metadata descriptor.
+	 * @param {any} meta - Target metadata descriptor.
 	 * @returns {{ bbox: { left: number, top: number, width: number, height: number }, centerX: number, centerY: number, orbitRadius: number }}
 	 */
 	function resolveTargetGeometry(meta) {
-		let bbox = meta.bbox;
-		if (!bbox && meta.targetDom && typeof meta.targetDom.getBoundingClientRect === 'function') {
+		let bbox = meta?.bbox;
+		if (!bbox && meta?.targetDom && typeof meta.targetDom.getBoundingClientRect === 'function') {
 			bbox = meta.targetDom.getBoundingClientRect();
 		}
 		if (!bbox) {
@@ -648,24 +658,24 @@ const EmberlightCockpitRenderer = (() => {
 		}
 		const centerX = bbox.left + bbox.width / 2;
 		const centerY = bbox.top + bbox.height / 2;
-		const orbitRadius = Math.max(64, Math.hypot(bbox.width, bbox.height) / 2 + 28);
+		const orbitRadius = Math.max(38, Math.max(bbox.width, bbox.height) / 2 + 18);
 		return { bbox, centerX, centerY, orbitRadius };
 	}
 
 	/**
-	 * Resolves health gauge color from percentage.
-	 * @param {number} hpPct - Health percentage value.
-	 * @returns {string} CSS color variable name.
+	 * Computes dynamic gauge color based on remaining health percentage.
+	 * @param {number} hpPct - Health percentage (0-100).
+	 * @returns {string} Hex or HSL color string.
 	 */
 	function getCrownGaugeColor(hpPct) {
-		if (hpPct > 50) return 'var(--ok)';
-		if (hpPct > 20) return 'var(--ember)';
-		return 'var(--danger)';
+		if (hpPct > 50) return '#4ade80';
+		if (hpPct > 25) return '#fbbf24';
+		return '#ef4444';
 	}
 
 	/**
 	 * Positions and updates the elevated crown banner.
-	 * @param {Object} meta - Target metadata descriptor.
+	 * @param {any} meta - Target metadata descriptor.
 	 * @param {number} centerX - Target center X.
 	 * @param {number} centerY - Target center Y.
 	 * @param {number} orbitRadius - Radial orbit offset.
@@ -681,19 +691,19 @@ const EmberlightCockpitRenderer = (() => {
 			crown.style.left = `${centerX}px`;
 			crown.style.top = `${Math.max(64, centerY - orbitRadius - 34)}px`;
 		}
-		if (crownTitle) crownTitle.textContent = meta.title || 'TARGET';
+		if (crownTitle) crownTitle.textContent = meta?.title || 'TARGET';
 		if (crownGauge) {
-			const hpPct = typeof meta.hpPct === 'number' ? Math.max(0, Math.min(100, meta.hpPct)) : 100;
+			const hpPct = typeof meta?.hpPct === 'number' ? Math.max(0, Math.min(100, meta.hpPct)) : 100;
 			crownGauge.style.width = `${hpPct}%`;
 			crownGauge.style.background = getCrownGaugeColor(hpPct);
 		}
-		if (badge1) badge1.textContent = meta.badge1 || 'TARGET';
-		if (badge2) badge2.textContent = meta.badge2 || 'TACTICAL';
+		if (badge1) badge1.textContent = meta?.badge1 || 'TARGET';
+		if (badge2) badge2.textContent = meta?.badge2 || 'TACTICAL';
 	}
 
 	/**
 	 * Positions satellite leaves along cardinal axes.
-	 * @param {Object} leaves - Map of cardinal leaf elements.
+	 * @param {{ north?: HTMLElement|null, south?: HTMLElement|null, east?: HTMLElement|null, west?: HTMLElement|null }} leaves - Map of cardinal leaf elements.
 	 * @param {number} centerX - Target center X.
 	 * @param {number} centerY - Target center Y.
 	 * @param {number} orbitRadius - Radial orbit offset.
@@ -747,10 +757,10 @@ const EmberlightCockpitRenderer = (() => {
 	/**
 	 * Binds interaction events and parchment tooltip triggers to cardinal leaves.
 	 * @param {Array<HTMLElement|null>} leafList - Array of leaf elements.
-	 * @param {Object} meta - Target metadata descriptor.
-	 * @param {function(string, Object): void} [onSelect] - Action execution callback.
-	 * @param {function(string, string, number, number): void} showTooltip - Tooltip show callback.
-	 * @param {function(): void} hideTooltip - Tooltip hide callback.
+	 * @param {any} meta - Target metadata descriptor.
+	 * @param {(arg0: string, arg1: any) => void} [onSelect] - Action execution callback.
+	 * @param {(arg0: string, arg1: string, arg2: number, arg3: number) => void} [showTooltip] - Tooltip show callback.
+	 * @param {() => void} [hideTooltip] - Tooltip hide callback.
 	 */
 	function bindLeafEventHandlers(leafList, meta, onSelect, showTooltip, hideTooltip) {
 		leafList.forEach((leaf) => {
@@ -764,10 +774,14 @@ const EmberlightCockpitRenderer = (() => {
 				const title = leaf.dataset.tooltipTitle || '';
 				const desc = leaf.dataset.tooltipDesc || '';
 				const leafBounds = leaf.getBoundingClientRect();
-				showTooltip(title, desc, leafBounds.left + leafBounds.width / 2, leafBounds.top + leafBounds.height + 6);
+				if (typeof showTooltip === 'function') {
+					showTooltip(title, desc, leafBounds.left + leafBounds.width / 2, leafBounds.top + leafBounds.height + 6);
+				}
 			};
 			leaf.onmouseleave = () => {
-				hideTooltip();
+				if (typeof hideTooltip === 'function') {
+					hideTooltip();
+				}
 			};
 		});
 	}
@@ -801,7 +815,7 @@ const EmberlightCockpitRenderer = (() => {
 		 * Renders complete tactical cockpit HUD and drawer components.
 		 * [DOM Presentation Render]
 		 * @param {CockpitSimState} snapshot - Simulation state snapshot.
-		 * @param {function(CockpitActionPayload):void} dispatch - Action dispatcher.
+		 * @param {(arg0: CockpitActionPayload) => void} dispatch - Action dispatcher.
 		 * @returns {void}
 		 */
 		render(snapshot, dispatch) {
@@ -823,7 +837,7 @@ const EmberlightCockpitRenderer = (() => {
 		 * Renders cockpit viewport (alias to render).
 		 * [DOM Presentation Render]
 		 * @param {CockpitSimState} snapshot - Simulation state snapshot.
-		 * @param {function(CockpitActionPayload):void} dispatch - Action dispatcher.
+		 * @param {(arg0: CockpitActionPayload) => void} dispatch - Action dispatcher.
 		 * @returns {void}
 		 */
 		renderCockpit(snapshot, dispatch) {
@@ -880,8 +894,8 @@ const EmberlightCockpitRenderer = (() => {
 
 		/**
 		 * Deploys the target-bound chassis, elevated crown, and cardinal leaves.
-		 * @param {Object} meta - Target metadata descriptor.
-		 * @param {function(string, Object): void} [onSelect] - Action execution callback.
+		 * @param {any} meta - Target metadata descriptor.
+		 * @param {(arg0: string, arg1: any) => void} [onSelect] - Action execution callback.
 		 * @returns {void}
 		 */
 		deployTacticalChassis(meta, onSelect) {
@@ -974,7 +988,8 @@ const EmberlightCockpitRenderer = (() => {
 		highlightLeaf(dir) {
 			if (typeof document === 'undefined') return;
 			const leaves = document.querySelectorAll('.ring-leaf');
-			leaves.forEach((leaf) => {
+			leaves.forEach((node) => {
+				const leaf = /** @type {HTMLElement} */ (node);
 				const isTarget = leaf.dataset.direction === dir;
 				leaf.classList.toggle('gesture-targeted', isTarget);
 				if (isTarget) {
@@ -994,7 +1009,8 @@ const EmberlightCockpitRenderer = (() => {
 		clearLeafHighlights() {
 			if (typeof document === 'undefined') return;
 			const leaves = document.querySelectorAll('.ring-leaf');
-			leaves.forEach((leaf) => {
+			leaves.forEach((node) => {
+				const leaf = /** @type {HTMLElement} */ (node);
 				leaf.classList.remove('gesture-targeted');
 			});
 		},
@@ -1050,7 +1066,6 @@ const EmberlightCockpitRenderer = (() => {
 
 //#region [SEC-09] Global Environment & Module Export
 if (typeof window !== "undefined") {
-	// @ts-expect-error
 	window.EmberlightCockpitRenderer = EmberlightCockpitRenderer;
 }
 if (typeof module !== "undefined" && module.exports) {

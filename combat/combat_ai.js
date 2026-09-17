@@ -6,12 +6,7 @@
  * Subsystem:           Hostile Decision Trees, Spawning, Boss Phases & Attack Routines
  * ============================================================================
  */
-'use strict';
-
-if (typeof window !== 'undefined') {
-	window._CombatInternal = window._CombatInternal || {};
-}
-
+(() => {
 /**
  * Hydrates concrete enemy units from encounter definitions.
  * [Pure Query / State Instantiation]
@@ -31,7 +26,7 @@ function spawnEnemies(encounterKey, manifest) {
 		'MOSS_GOLEM',
 	]);
 
-	return table.map((enemyKey, idx) => {
+	return table.map((/** @type {any} */ enemyKey, /** @type {number} */ idx) => {
 		const base = manifest?.Enemies?.[enemyKey] || {
 			label: 'Unknown Beast',
 			sprite: '👾',
@@ -83,7 +78,7 @@ function spawnEnemies(encounterKey, manifest) {
  * [Pure Query]
  * @param {any} active - Attacking enemy entity.
  * @param {any[]} livingParty - List of alive squad members.
- * @param {function():number} getRandomFloat - PRNG float provider.
+ * @param {() => number} getRandomFloat - PRNG float provider.
  * @returns {any} Selected squad target.
  */
 function selectEnemyTarget(active, livingParty, getRandomFloat) {
@@ -110,8 +105,8 @@ function selectEnemyTarget(active, livingParty, getRandomFloat) {
  * Evaluates boss health ratio to trigger phase 2 enrage transitions.
  * [Authoritative State Mutation]
  * @param {any} enemy - Boss entity being evaluated.
- * @param {function(string, string=):void} appendLog - Log helper.
- * @param {function(string):void} dispatchSFX - Audio helper.
+ * @param {(msg: string, type?: string) => void} appendLog - Log helper.
+ * @param {(sfxName: string) => void} dispatchSFX - Audio helper.
  * @param {any} hostContext - Host runtime context handle.
  * @returns {void}
  */
@@ -130,50 +125,47 @@ function checkBossPhase(enemy, appendLog, dispatchSFX, hostContext) {
 		enemy.atk = enemy.phaseTwoStats.atk;
 		enemy.def = enemy.phaseTwoStats.def;
 		enemy.agi = enemy.phaseTwoStats.agi;
-		enemy.accumulatedDelay = 1000 / Math.max(1, enemy.agi);
-		if (appendLog) {
-			appendLog(
-				`💥 ${enemy.name} SHATTERS HIS ASHEN ARMOR! ENRAGED!`,
-				'ember',
-			);
+		if (enemy.phaseTwoStats.rotation) {
+			enemy.rotation = [...enemy.phaseTwoStats.rotation];
 		}
-		if (dispatchSFX) dispatchSFX('ENCOUNTER_TRIGGER');
-
+		appendLog(
+			`🔥 BOSS ENRAGE! ${enemy.name} assumes ${enemy.phaseTwoStats.label || 'Phase 2'} form!`,
+			'ember',
+		);
+		dispatchSFX('BOSS_ROAR');
 		if (hostContext?.eventBus?.publish) {
-			hostContext.eventBus.publish('combat:banner', {
-				text: '🔥 MALAKOR ENRAGED! 🔥',
-				subtext: 'Ashen armor shattered! Speed & Attack doubled!',
-				color: '#ff5555',
-				duration: 2.6,
+			hostContext.eventBus.publish('combat:boss_phase_change', {
+				enemyId: enemy.id,
+				phase: 2,
 			});
 		}
 	}
 }
 
 /**
- * Executes scripted rotation patterns for boss entities.
+ * Executes a specialized boss rotation skill pattern.
  * [Authoritative State Mutation]
  * @param {any} sim - Active simulation state.
- * @param {any} boss - Boss combatant.
- * @param {{ type: string, power?: number, label: string, sfx?: string }} pattern - Action descriptor.
- * @param {any[]} livingParty - Conscious squad members.
+ * @param {any} boss - Hostile boss entity.
+ * @param {any} pattern - Scripted attack action pattern.
+ * @param {any[]} livingParty - List of alive squad members.
  * @param {any} helpers - Injected simulation helpers.
  * @returns {void}
  */
 function executeBossPatternAction(sim, boss, pattern, livingParty, helpers) {
 	if (!sim) return;
 	const {
-		triggerAttackerLunge,
 		appendLog,
 		dispatchSFX,
 		getRandomFloat,
+		triggerAttackerLunge,
 		checkUnitDefeat,
 		applyAilment,
 		hostContext,
 		renderPresentation,
 	} = helpers;
 
-	const bossIdx = sim.enemies.findIndex((e) => e.id === boss.id);
+	const bossIdx = sim.enemies.findIndex((/** @type {any} */ e) => e.id === boss.id);
 	triggerAttackerLunge(false, bossIdx !== -1 ? bossIdx : 0);
 	appendLog(`⚡ ${boss.name} unleashes ${pattern.label}!`, 'ember');
 	dispatchSFX(pattern.sfx || 'SPELL_BOLT');
@@ -200,7 +192,7 @@ function executeBossPatternAction(sim, boss, pattern, livingParty, helpers) {
 				'damage',
 			);
 
-			const heroIdx = sim?.party.findIndex((c) => c.id === target.id) ?? -1;
+			const heroIdx = sim?.party.findIndex((/** @type {any} */ c) => c.id === target.id) ?? -1;
 			if (hostContext?.eventBus?.publish) {
 				hostContext.eventBus.publish('combat:damage', {
 					amount: finalDmg,
@@ -219,7 +211,7 @@ function executeBossPatternAction(sim, boss, pattern, livingParty, helpers) {
 		appendLog(`${target.name} choked by ash for ${rawDmg} DMG!`, 'damage');
 		applyAilment(target, 'STUN', 1);
 
-		const heroIdx = sim?.party.findIndex((c) => c.id === target.id) ?? -1;
+		const heroIdx = sim?.party.findIndex((/** @type {any} */ c) => c.id === target.id) ?? -1;
 		if (hostContext?.eventBus?.publish) {
 			hostContext.eventBus.publish('combat:damage', {
 				amount: rawDmg,
@@ -247,7 +239,7 @@ function executeBossPatternAction(sim, boss, pattern, livingParty, helpers) {
 			);
 			if (getRandomFloat() < 0.5) applyAilment(target, 'BURN', 2);
 
-			const heroIdx = sim?.party.findIndex((c) => c.id === target.id) ?? -1;
+			const heroIdx = sim?.party.findIndex((/** @type {any} */ c) => c.id === target.id) ?? -1;
 			if (hostContext?.eventBus?.publish) {
 				hostContext.eventBus.publish('combat:damage', {
 					amount: finalDmg,
@@ -294,7 +286,7 @@ function applyEnemyAttack(sim, active, target, helpers) {
 		'damage',
 	);
 
-	const heroIdx = sim.party.findIndex((c) => c.id === target.id);
+	const heroIdx = sim.party.findIndex((/** @type {any} */ c) => c.id === target.id);
 	if (hostContext?.eventBus?.publish) {
 		hostContext.eventBus.publish('combat:damage', {
 			amount: finalDmg,
@@ -360,7 +352,7 @@ function executeEnemyTurn(sim, helpers) {
 		return;
 	}
 
-	const livingParty = sim.party.filter((c) => c.alive);
+	const livingParty = sim.party.filter((/** @type {any} */ c) => c.alive);
 	if (livingParty.length === 0) {
 		checkBattleEnd();
 		return;
@@ -377,7 +369,7 @@ function executeEnemyTurn(sim, helpers) {
 	}
 
 	const target = selectEnemyTarget(active, livingParty, helpers.getRandomFloat);
-	const enemyIdx = sim.enemies.findIndex((e) => e.id === active.id);
+	const enemyIdx = sim.enemies.findIndex((/** @type {any} */ e) => e.id === active.id);
 	triggerAttackerLunge(false, enemyIdx !== -1 ? enemyIdx : 0);
 
 	applyEnemyAttack(sim, active, target, helpers);
@@ -401,3 +393,4 @@ if (typeof window !== 'undefined') {
 if (typeof module !== 'undefined' && module.exports) {
 	module.exports = CombatAI;
 }
+})();

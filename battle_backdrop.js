@@ -143,8 +143,8 @@ const EmberlightCombatBackdrop = (() => {
 	 * Host context dictionary injected during module initialization.
 	 * @typedef {Object} BackdropContext
 	 * @property {Object} [eventBus] - Host synchronous EventBus arbiter.
-	 * @property {function(string, function(any): void): function(): void} [eventBus.subscribe] - Bus subscription.
-	 * @property {function(string, function(any): void): function(): void} [subscribe] - Direct bus subscription fallback.
+	 * @property {((event: string, handler: (payload: any) => void) => (() => void))} [eventBus.subscribe] - Bus subscription.
+	 * @property {((event: string, handler: (payload: any) => void) => (() => void))} [subscribe] - Direct bus subscription fallback.
 	 */
 
 	/**
@@ -156,7 +156,7 @@ const EmberlightCombatBackdrop = (() => {
 
 	/**
 	 * Target canvas selector or renderer delegate interface.
-	 * @typedef {string | { renderBackdrop?: function(any): void }} BackdropRendererTarget
+	 * @typedef {string | { renderBackdrop?: (contextOrSnapshot?: any, ...args: any[]) => void }} BackdropRendererTarget
 	 */
 
 	/**
@@ -182,13 +182,14 @@ const EmberlightCombatBackdrop = (() => {
 	 */
 	function deepFreeze(obj) {
 		if (!obj || typeof obj !== "object") return obj;
-		Object.keys(obj).forEach((prop) => {
+		const record = /** @type {Record<string, any>} */ (obj);
+		Object.keys(record).forEach((prop) => {
 			if (
-				typeof obj[prop] === "object" &&
-				obj[prop] !== null &&
-				!Object.isFrozen(obj[prop])
+				typeof record[prop] === "object" &&
+				record[prop] !== null &&
+				!Object.isFrozen(record[prop])
 			) {
-				deepFreeze(obj[prop]);
+				deepFreeze(record[prop]);
 			}
 		});
 		return Object.freeze(obj);
@@ -413,11 +414,13 @@ const EmberlightCombatBackdrop = (() => {
 		let animFrameId = null;
 		/** @type {any} */
 		let eventBus = null;
-		/** @type {Array<function(): void>} */
+		/** @type {Array<() => void>} */
 		let unsubs = [];
 		let time = 0;
 		/** @type {BackdropBiome} */
 		let activeBiome = "CRYPT";
+		/** @type {((ctx: CanvasRenderingContext2D, width: number, height: number) => void) | null} */
+		let overlayCallback = null;
 
 		// Cinematic Illumination & Post-Processing State
 		let flareIntensity = 0.0;
@@ -542,13 +545,13 @@ const EmberlightCombatBackdrop = (() => {
 		 * Projects midground monoliths, ruined pillars, and architectural silhouettes.
 		 * State-mutating canvas render procedure.
 		 *
-		 * @param {number} w - Target viewport width.
+		 * @param {number} _w - Target viewport width.
 		 * @param {number} h - Target viewport height.
 		 * @param {CinematicStageState} currentSim - Active stage descriptor.
 		 * @param {BackdropBiome} biome - Active biome key.
 		 * @returns {void}
 		 */
-		function renderMidgroundSilhouettes(w, h, currentSim, biome) {
+		function renderMidgroundSilhouettes(_w, h, currentSim, biome) {
 			ctx.fillStyle = getMidgroundFill(biome);
 			const strokeColor = biome === "BOSS" ? "#2c0b0b" : "#1e1b4b";
 			currentSim.midElements?.forEach((pillar) => {
@@ -667,12 +670,12 @@ const EmberlightCombatBackdrop = (() => {
 		 * Renders continuous floating thermal ash and atmospheric dust motes.
 		 * State-mutating canvas render procedure.
 		 *
-		 * @param {number} w - Target viewport width.
+		 * @param {number} _w - Target viewport width.
 		 * @param {number} h - Target viewport height.
 		 * @param {CinematicStageState} currentSim - Active stage descriptor.
 		 * @returns {void}
 		 */
-		function renderAtmosphericParticles(w, h, currentSim) {
+		function renderAtmosphericParticles(_w, h, currentSim) {
 			if (!currentSim.atmosphericParticles?.length) return;
 			ctx.fillStyle = "#fb923c";
 			currentSim.atmosphericParticles.forEach((p) => {
@@ -760,8 +763,6 @@ const EmberlightCombatBackdrop = (() => {
 				flareIntensity = Math.max(0, flareIntensity - flareDecay);
 			}
 		}
-
-		let overlayCallback = null;
 
 		/**
 		 * Single RAF animation loop step; advances time and triggers render passes.
@@ -1038,7 +1039,7 @@ const EmberlightCombatBackdrop = (() => {
 
 			/**
 			 * Registers an overlay rendering hook executed after background & post-processing passes.
-			 * @param {function(CanvasRenderingContext2D, number, number): void} [fn] - Callback hook.
+			 * @param {((ctx: CanvasRenderingContext2D, width: number, height: number) => void) | null} [fn] - Callback hook.
 			 * @returns {void}
 			 */
 			setOverlayRenderer(fn) {
@@ -1085,8 +1086,8 @@ const EmberlightCombatBackdrop = (() => {
 })();
 
 if (typeof window !== "undefined") {
-	window["EmberlightCombatBackdrop"] = EmberlightCombatBackdrop;
-	window["EmberlightBattleBackdrop"] = EmberlightCombatBackdrop;
+	window.EmberlightCombatBackdrop = EmberlightCombatBackdrop;
+	window.EmberlightBattleBackdrop = EmberlightCombatBackdrop;
 }
 if (typeof module !== "undefined" && module.exports) {
 	module.exports = EmberlightCombatBackdrop;

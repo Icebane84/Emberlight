@@ -17,10 +17,7 @@
  * ============================================================================
  */
 
-// @ts-ignore
 const EmberlightPRNG = (() => {
-	"use strict";
-
 	//#region [SEC-01] Type Definitions & Contract Schemas
 	/**
 	 * @typedef {Object} Mulberry32StepResult
@@ -30,14 +27,14 @@ const EmberlightPRNG = (() => {
 
 	/**
 	 * @typedef {Object} PRNGStream
-	 * @property {function(): number} nextFloat - Returns a deterministic float in [0, 1).
-	 * @property {function(number, number): number} nextInt - Returns a deterministic integer in [min, max] inclusive.
-	 * @property {function(number=): boolean} nextBool - Returns a deterministic boolean with given probability of true.
-	 * @property {function(any[]): any} choice - Deterministically picks an element from an array.
-	 * @property {function(any[]): any[]} shuffle - Returns a deterministic copy of the array shuffled.
-	 * @property {function(): number} getState - Serializes internal state for deterministic snapshotting.
-	 * @property {function(number | string): void} setState - Restores internal state.
-	 * @property {function(): PRNGStream} fork - Clones this PRNG stream at its exact current state.
+	 * @property {() => number} nextFloat - Returns a deterministic float in [0, 1).
+	 * @property {(min: number, max: number) => number} nextInt - Returns a deterministic integer in [min, max] inclusive.
+	 * @property {(p?: number) => boolean} nextBool - Returns a deterministic boolean with given probability of true.
+	 * @property {<T>(arr: T[]) => T | undefined} choice - Deterministically picks an element from an array.
+	 * @property {<T>(arr: T[]) => T[]} shuffle - Returns a deterministic copy of the array shuffled.
+	 * @property {() => number} getState - Serializes internal state for deterministic snapshotting.
+	 * @property {(state: number | string) => void} setState - Restores internal state.
+	 * @property {() => PRNGStream} fork - Clones this PRNG stream at its exact current state.
 	 */
 	//#endregion
 
@@ -71,7 +68,7 @@ const EmberlightPRNG = (() => {
 		if (typeof initialSeed === 'string') {
 			let hash = 0;
 			for (let i = 0; i < initialSeed.length; i++) {
-				hash = Math.trunc(Math.imul(31, hash) + initialSeed.codePointAt(i));
+				hash = Math.trunc(Math.imul(31, hash) + (initialSeed.codePointAt(i) || 0));
 			}
 			currentSeed = hash >>> 0;
 		} else {

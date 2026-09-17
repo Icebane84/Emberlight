@@ -16,10 +16,9 @@
  */
 
 if (typeof window !== 'undefined') window._DynamicLightsInternal = window._DynamicLightsInternal || {};
-if (typeof globalThis !== 'undefined') globalThis._DynamicLightsInternal = globalThis._DynamicLightsInternal || {};
+if (typeof globalThis !== 'undefined') (/** @type {any} */ (globalThis))._DynamicLightsInternal = (/** @type {any} */ (globalThis))._DynamicLightsInternal || {};
 
 (() => {
-	'use strict';
 
 	const MAX_TRANSIENTS = 24;
 	const DUST_MOTE_COUNT = 24;
@@ -114,7 +113,7 @@ if (typeof globalThis !== 'undefined') globalThis._DynamicLightsInternal = globa
 		window._DynamicLightsInternal.Primitives = Primitives;
 	}
 	if (typeof globalThis !== 'undefined') {
-		globalThis._DynamicLightsInternal.Primitives = Primitives;
+		(/** @type {any} */ (globalThis))._DynamicLightsInternal.Primitives = Primitives;
 	}
 	if (typeof module !== 'undefined' && module.exports) {
 		module.exports = Primitives;

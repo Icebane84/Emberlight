@@ -22,10 +22,7 @@
  */
 
 /**
- * @typedef {Object} ItemStats
- * @property {number} [atk] Attack stat bonus.
- * @property {number} [def] Defense stat bonus.
- * @property {number} [agi] Agility stat bonus.
+ * @typedef {Record<string, number>} ItemStats
  */
 
 /**
@@ -90,8 +87,6 @@
  */
 
 const EmberlightMarketRenderer = (() => {
-	'use strict';
-
 	//#region [SEC-01] Module State & DOM/Emission Helpers
 	/**
 	 * Safely retrieves the market view container element.
@@ -105,7 +100,7 @@ const EmberlightMarketRenderer = (() => {
 	/**
 	 * Dispatches an action token via the provided dispatch callback.
 	 * (Action inversion dispatcher)
-	 * @param {function(MarketActionToken): void} dispatch Dispatch handler function.
+	 * @param {((action: MarketActionToken) => void) | any} dispatch Dispatch handler function.
 	 * @param {MarketActionToken} action Action payload object.
 	 * @returns {void}
 	 */
@@ -118,7 +113,7 @@ const EmberlightMarketRenderer = (() => {
 	/**
 	 * Retrieves the active game manifest definition.
 	 * (Pure state-accessor utility)
-	 * @returns {Object} Manifest object.
+	 * @returns {Record<string, any>} Manifest object.
 	 */
 	function getManifest() {
 		return typeof EmberlightManifest !== 'undefined' ? EmberlightManifest : {};
@@ -127,20 +122,22 @@ const EmberlightMarketRenderer = (() => {
 	/**
 	 * Retrieves a specific item definition from the manifest.
 	 * (Pure state-accessor utility)
-	 * @param {string} itemId Unique item identifier key.
+	 * @param {string | null | undefined} itemId Unique item identifier key.
 	 * @returns {ItemDefinition|null} Item definition object or null.
 	 */
 	function getItem(itemId) {
+		if (!itemId) return null;
 		return getManifest()?.Items?.[itemId] || null;
 	}
 
 	/**
 	 * Retrieves a specific shop definition from the manifest.
 	 * (Pure state-accessor utility)
-	 * @param {string} shopId Unique shop identifier key.
+	 * @param {string | null | undefined} shopId Unique shop identifier key.
 	 * @returns {ShopDefinition|null} Shop definition object or null.
 	 */
 	function getShop(shopId) {
+		if (!shopId) return null;
 		return getManifest()?.Shops?.[shopId] || null;
 	}
 	//#endregion
@@ -159,8 +156,8 @@ const EmberlightMarketRenderer = (() => {
 		if (!character || !newItem?.slot) return fallback;
 		const currentItemId = character.equipment?.[newItem.slot];
 		const currentItem = currentItemId ? getItem(currentItemId) : null;
-		const currentStats = currentItem?.stats || {};
-		const newStats = newItem.stats || {};
+		const currentStats = /** @type {Record<string, number>} */ (currentItem?.stats || {});
+		const newStats = /** @type {Record<string, number>} */ (newItem.stats || {});
 		const allStatKeys = Array.from(new Set([...Object.keys(currentStats), ...Object.keys(newStats)]));
 
 		/** @type {Object.<string, number>} */
@@ -207,7 +204,7 @@ const EmberlightMarketRenderer = (() => {
 	 * Renders a single row in the buy goods catalog.
 	 * @param {ShopStockEntry} entry Stock catalog entry.
 	 * @param {MarketState} state Active market state.
-	 * @param {function(MarketActionToken): void} dispatch Action dispatch callback.
+	 * @param {((action: MarketActionToken) => void) | any} dispatch Action dispatch callback.
 	 * @param {ShopDefinition} [shop] Shop definition.
 	 * @returns {HTMLElement|null} Catalog row element.
 	 */
@@ -267,7 +264,7 @@ const EmberlightMarketRenderer = (() => {
 	 * @param {string} itemId Item identifier.
 	 * @param {number} count Owned inventory quantity.
 	 * @param {MarketState} state Active market state.
-	 * @param {function(MarketActionToken): void} dispatch Action dispatch callback.
+	 * @param {((action: MarketActionToken) => void) | any} dispatch Action dispatch callback.
 	 * @param {ShopDefinition} [shop] Shop definition.
 	 * @returns {HTMLElement|null} Inventory row element.
 	 */
@@ -318,7 +315,7 @@ const EmberlightMarketRenderer = (() => {
 	/**
 	 * Renders the tab navigation header bar.
 	 * @param {MarketState} state Active market state.
-	 * @param {function(MarketActionToken): void} dispatch Action dispatch callback.
+	 * @param {((action: MarketActionToken) => void) | any} dispatch Action dispatch callback.
 	 * @returns {HTMLElement} Navigation container element.
 	 */
 	function renderMarketNavBar(state, dispatch) {
@@ -329,14 +326,14 @@ const EmberlightMarketRenderer = (() => {
 
 		const buyTabBtn = document.createElement('button');
 		buyTabBtn.type = 'button';
-		buyTabBtn.className = 'cmd-btn' + (state.currentTab === 'BUY' ? ' run' : '');
+		buyTabBtn.className = `cmd-btn${state.currentTab === 'BUY' ? ' run' : ''}`;
 		buyTabBtn.textContent = '🛒 BUY GOODS';
 		buyTabBtn.onclick = () => emit(dispatch, { type: 'SWITCH_TAB', tab: 'BUY' });
 		navBar.appendChild(buyTabBtn);
 
 		const sellTabBtn = document.createElement('button');
 		sellTabBtn.type = 'button';
-		sellTabBtn.className = 'cmd-btn' + (state.currentTab === 'SELL' ? ' run' : '');
+		sellTabBtn.className = `cmd-btn${state.currentTab === 'SELL' ? ' run' : ''}`;
 		sellTabBtn.textContent = '💰 SELL ITEMS';
 		sellTabBtn.onclick = () => emit(dispatch, { type: 'SWITCH_TAB', tab: 'SELL' });
 		navBar.appendChild(sellTabBtn);
@@ -348,7 +345,7 @@ const EmberlightMarketRenderer = (() => {
 	 * Renders the main catalog or inventory content box based on the active tab.
 	 * @param {MarketState} state Active market state.
 	 * @param {ShopDefinition|null} shop Shop definition object.
-	 * @param {function(MarketActionToken): void} dispatch Action dispatch callback.
+	 * @param {((action: MarketActionToken) => void) | any} dispatch Action dispatch callback.
 	 * @returns {HTMLElement} Content box element.
 	 */
 	function renderMarketContentBox(state, shop, dispatch) {
@@ -448,7 +445,7 @@ const EmberlightMarketRenderer = (() => {
 		 * Renders the market store interface, tabs, inventory catalogs, and inspection HUD.
 		 * (State-mutating DOM presenter)
 		 * @param {MarketState} state Active market state snapshot.
-		 * @param {function(MarketActionToken): void} dispatch Action dispatch handler.
+		 * @param {((action: MarketActionToken) => void) | any} dispatch Action dispatch handler.
 		 * @returns {void}
 		 */
 		renderMarket(state, dispatch) {

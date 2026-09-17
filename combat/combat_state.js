@@ -6,7 +6,7 @@
  * Subsystem:           State Baseline, Party Hydration, Mortality, Victory & Defeat
  * ============================================================================
  */
-'use strict';
+(() => {
 
 if (typeof window !== 'undefined') {
 	window._CombatInternal = window._CombatInternal || {};
@@ -102,7 +102,7 @@ function hydratePartySnapshot(partySnapshot = []) {
  * Checks whether target collapsed and updates mortality state.
  * [Authoritative State Mutation]
  * @param {any} target - Checked unit.
- * @param {function(string, string=):void} [appendLog] - Log helper.
+ * @param {(msg: string, type?: string) => void} [appendLog] - Log helper.
  * @returns {boolean} True if unit collapsed.
  */
 function checkUnitDefeat(target, appendLog) {
@@ -122,32 +122,34 @@ function checkUnitDefeat(target, appendLog) {
  * [Authoritative State Mutation]
  * @param {any} sim - Active simulation state.
  * @param {any} manifest - Manifest SSOT reference.
- * @param {function(string, string=):void} [appendLog] - Log helper.
+ * @param {(msg: string, type?: string) => void} [appendLog] - Log helper.
  * @returns {void}
  */
 function distributeVictoryRewards(sim, manifest, appendLog) {
 	if (!sim) return;
 	let totExp = 0;
 	let totGold = 0;
+	/** @type {string[]} */
 	const itemsAwarded = [];
 
-	sim.enemies.forEach((e) => {
+	sim.enemies.forEach((/** @type {any} */ e) => {
 		totExp += e.rewards?.exp || 0;
 		totGold += e.rewards?.gold || 0;
 		if (e.rewards?.item) itemsAwarded.push(e.rewards.item);
 	});
 
 	sim.party
-		.filter((c) => c.alive)
-		.forEach((c) => {
+		.filter((/** @type {any} */ c) => c.alive)
+		.forEach((/** @type {any} */ c) => {
 			c.exp = (c.exp || 0) + totExp;
 			const curveFn =
 				manifest?.Curves?.expForNextLevel ||
 				((/** @type {number} */ lv) => Math.round(20 * lv ** 1.4));
 			if (c.exp >= curveFn(c.level || 1)) {
-				const { Calc } = window._CombatInternal || {};
-				if (Calc?.applyHeroLevelUp) {
-					Calc.applyHeroLevelUp(c, manifest, appendLog);
+				const internal = typeof window !== 'undefined' ? window._CombatInternal : undefined;
+				const calc = /** @type {any} */ (internal?.Calc);
+				if (calc?.applyHeroLevelUp) {
+					calc.applyHeroLevelUp(c, manifest, appendLog);
 				}
 			}
 		});
@@ -243,12 +245,12 @@ function resolveVictory(sim, helpers) {
  */
 function checkBattleEnd(sim, helpers) {
 	if (!sim) return true;
-	const partyAlive = sim.party.some((c) => c.alive);
+	const partyAlive = sim.party.some((/** @type {any} */ c) => c.alive);
 	if (!partyAlive) {
 		resolveDefeat(sim, helpers);
 		return true;
 	}
-	const enemiesAlive = sim.enemies.some((e) => e.alive);
+	const enemiesAlive = sim.enemies.some((/** @type {any} */ e) => e.alive);
 	if (!enemiesAlive) {
 		resolveVictory(sim, helpers);
 		return true;
@@ -297,3 +299,4 @@ if (typeof window !== 'undefined') {
 if (typeof module !== 'undefined' && module.exports) {
 	module.exports = CombatState;
 }
+})();
