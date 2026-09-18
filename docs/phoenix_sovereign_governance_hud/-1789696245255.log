@@ -1,0 +1,108 @@
+(() => {
+function spawnEnemies(encounterKey, manifest) {
+	const table =
+		manifest?.Encounters?.[encounterKey] ||
+		manifest?.Encounters?.DEFAULT ||
+		['SHADE_WOLF'];
+	const defaultBackKeys = new Set([
+		'BONE_ARCHER',
+		'BLIGHT_SPIDER',
+		'DREAD_ACOLYTE',
+		'MOSS_GOLEM',
+	]);
+
+	return table.map((enemyKey, idx) => {
+		const base = manifest?.Enemies?.[enemyKey] || {
+			label: 'Unknown Beast',
+			sprite: '🐺',
+			baseStats: { hp: 10, atk: 5, def: 2, agi: 5 },
+			targeting: 'RANDOM',
+			rewards: { exp: 5, gold: 5 },
+		};
+
+		let row = 'FRONT';
+		if (base.isBoss) {
+			row = 'BOTH';
+		} else if (defaultBackKeys.has(enemyKey)) {
+			row = 'BACK';
+		}
+
+		return {
+			id: `enemy_${idx}`,
+			key: enemyKey,
+			name: base.isBoss
+				? base.label
+				: `${base.label} ${String.fromCodePoint(65 + idx)}`,
+			sprite: base.sprite,
+			hp: base.baseStats.hp,
+			maxHp: base.baseStats.hp,
+			atk: base.baseStats.atk,
+			def: base.baseStats.def,
+			agi: base.baseStats.agi,
+			row,
+			accumulatedDelay: 1000 / Math.max(1, base.baseStats.agi || 5),
+			weaknesses: base.weaknesses || (base.weakness ? [base.weakness] : []),
+		resistances: base.resistances || (base.resistance ? [base.resistance] : []),
+			resistance: base.resistance || null,
+			targeting: base.targeting,
+			isBoss: Boolean(base.isBoss),
+			phaseTwoThreshold: base.phaseTwoThreshold || null,
+			phaseTwoStats: base.phaseTwoStats ? { ...base.phaseTwoStats } : null,
+			phaseTwoActive: false,
+			rotation: Array.isArray(base.rotation) ? [...base.rotation] : null,
+			ailmentProc: base.ailmentProc ? { ...base.ailmentProc } : null,
+			rewards: { ...base.rewards },
+			alive: true,
+			ailments: [],
+		};
+	});
+}
+
+function selectEnemyTarget(active, livingParty, getRandomFloat) {
+	let candidateParty = livingParty;
+	const frontParty = livingParty.filter(
+		(c) => c.row === 'FRONT' || c.row === 'BOTH',
+	);
+	if (frontParty.length > 0 && active.targeting !== 'RANGED_SNIPER') {
+		candidateParty = frontParty;
+	}
+	if (active.targeting === 'LOWEST_DEF') {
+		return candidateParty.slice().sort((a, b) => a.def - b.def)[0];
+	}
+	if (active.targeting === 'HIGHEST_ATK') {
+		return candidateParty.slice().sort((a, b) => a.atk - b.atk)[0];
+	}
+	return candidateParty[Math.floor(getRandomFloat() * candidateParty.length)];
+}
+
+function checkBossPhase(enemy, appendLog, dispatchSFX, hostContext) {
+	if (!enemy.isBoss || enemy.phaseTwoActive || !enemy.phaseTwoThreshold || !enemy.phaseTwoStats) return;
+	const hpPct = enemy.hp / enemy.maxHp;
+	if (hpPct <= enemy.phaseTwoThreshold) {
+		enemy.phaseTwoActive = true;
+		enemy.sprite = enemy.phaseTwoStats.sprite || '⚡';
+		enemy.atk = enemy.phaseTwoStats.atk;
+		enemy.def = enemy.phaseTwoStats.def;
+		enemy.agi = enemy.phaseTwoStats.agi;
+		if (enemy.phaseTwoStats.rotation) {
+			enemy.rotation = [...enemy.phaseTwoStats.rotation];
+		}
+		appendLog(`🔥 BOSS ENRAGE! ${enemy.name} assumes ${enemy.phaseTwoStats.label || 'Phase 2'} form!`, 'ember');
+		dispatchSFX('BOSS_ROAR');
+	}
+}
+
+const CombatAI = Object.freeze({
+	spawnEnemies,
+	selectEnemyTarget,
+	checkBossPhase,
+});
+
+if (typeof window !== 'undefined') {
+	window._CombatInternal = window._CombatInternal || {};
+	window._CombatInternal.AI = CombatAI;
+}
+if (typeof module !== 'undefined' && module.exports) {
+	module.exports = CombatAI;
+}
+})();

@@ -4,10 +4,68 @@
  * Document Identifier: VSRP-001-RUNTIME-CORE
  * Governing Protocol:  VSRP-001 / MPFS-001 / SDCP-001
  * Authority:           Host SSOT & Ephemeral District Coordinator
- * Timestamp:           2026-09-16T23:45:00-04:00
+ * Timestamp:           2026-09-17T02:35:00-04:00
  * Index Anchor:        PRS-001
  * ============================================================================
  */
+
+/**
+ * Resolves all runtime staging subsystems from window or require.
+ * @returns {{ StateMod: any, PresMod: any, InterMod: any, NavMod: any, StepMod: any, EventMod: any }}
+ */
+function loadSubsystems() {
+	const win = typeof window !== "undefined" ? window._RuntimeInternal : null;
+	const req = typeof require !== "undefined" ? require : null;
+	return {
+		StateMod: win?.State || (req ? req("./runtime/runtime_state.js") : {}),
+		PresMod: win?.Presentation || (req ? req("./runtime/runtime_presentation.js") : {}),
+		InterMod: win?.Interactions || (req ? req("./runtime/runtime_interactions.js") : {}),
+		NavMod: win?.Navigation || (req ? req("./runtime/runtime_navigation.js") : {}),
+		StepMod: win?.Stepper || (req ? req("./runtime/runtime_stepper.js") : {}),
+		EventMod: win?.Events || (req ? req("./runtime/runtime_events.js") : {}),
+	};
+}
+
+/**
+ * Resolves state accessors with canonical zero-dependency defaults.
+ * @param {any} StateMod
+ * @param {any} store
+ * @returns {Record<string, any>}
+ */
+function resolveAccessors(StateMod, store) {
+	const raw = StateMod.createStateAccessors ? StateMod.createStateAccessors(store) : {};
+	const defaults = {
+		getParty: () => [],
+		setParty: () => {},
+		getInventory: () => ({}),
+		setInventory: () => {},
+		modifyItem: () => {},
+		getGold: () => 0,
+		modifyGold: () => {},
+		getWorldPos: () => ({ x: 10, y: 10 }),
+		setWorldPos: () => {},
+		getDungeonFloor: () => 1,
+		setDungeonFloor: () => {},
+		getDungeonDepth: () => 0,
+		setDungeonDepth: () => {},
+		getQuests: () => [],
+		setQuests: () => {},
+		getFlags: () => ({}),
+		setFlag: () => {},
+		getMacroPos: () => ({ x: 1, y: 1 }),
+		setMacroPos: () => {},
+		getTownId: () => "town_haven",
+		setTownId: () => {},
+		getSurfaceMutations: () => ({}),
+		getTownMutations: () => ({}),
+		getDungeonSpec: () => null,
+		setDungeonSpec: () => {},
+		getSurfaceMap: () => null,
+		setSurfaceMap: () => {},
+		commitSession: () => false,
+	};
+	return Object.assign(defaults, raw);
+}
 
 /**
  * Creates save slot operation callbacks.
@@ -62,16 +120,16 @@ function createSaveSlotHandlers(store, deps) {
  */
 function createTenantDispatchers(deps) {
 	const resetOverworldTenant = () => {
-		const currentTownId = deps.getTownId();
+		const currentTownId = deps.acc.getTownId();
 		const inTown = Boolean(currentTownId);
 		if (typeof EmberlightOverworld !== "undefined" && typeof EmberlightOverworld.reset === "function") {
 			EmberlightOverworld.reset({
 				map: deps.getActiveWorldMap(),
-				playerPos: { ...deps.getWorldPos(), inTown, townId: currentTownId },
-				party: deps.getParty(),
-				flags: { ...deps.getFlags(), in_town: inTown, townId: currentTownId },
+				playerPos: { ...deps.acc.getWorldPos(), inTown, townId: currentTownId },
+				party: deps.acc.getParty(),
+				flags: { ...deps.acc.getFlags(), in_town: inTown, townId: currentTownId },
 				facing: deps.store?.getFlag("facingDirection") || "DOWN",
-				dungeonDepth: deps.getDungeonDepth(),
+				dungeonDepth: deps.acc.getDungeonDepth(),
 				dangerSteps: 0,
 				townId: currentTownId,
 				inTown,
@@ -82,7 +140,7 @@ function createTenantDispatchers(deps) {
 	return {
 		STATUS(hostContext) {
 			if (typeof EmberlightStatus !== "undefined" && typeof EmberlightStatus.reset === "function") {
-				EmberlightStatus.reset({ party: deps.getParty() });
+				EmberlightStatus.reset({ party: deps.acc.getParty() });
 				if (typeof EmberlightStatusRenderer !== "undefined") {
 					EmberlightStatus.render(EmberlightStatusRenderer, hostContext);
 				}
@@ -91,9 +149,9 @@ function createTenantDispatchers(deps) {
 		ARMORY(hostContext) {
 			if (typeof EmberlightArmory !== "undefined" && typeof EmberlightArmory.reset === "function") {
 				EmberlightArmory.reset({
-					party: deps.getParty(),
-					inventory: deps.getInventory(),
-					gold: deps.getGold(),
+					party: deps.acc.getParty(),
+					inventory: deps.acc.getInventory(),
+					gold: deps.acc.getGold(),
 				});
 				if (typeof EmberlightArmoryRenderer !== "undefined") {
 					EmberlightArmory.render(EmberlightArmoryRenderer, hostContext);
@@ -102,7 +160,7 @@ function createTenantDispatchers(deps) {
 		},
 		PROGRESSION(hostContext) {
 			if (typeof EmberlightProgression !== "undefined" && typeof EmberlightProgression.reset === "function") {
-				EmberlightProgression.reset({ party: deps.getParty() });
+				EmberlightProgression.reset({ party: deps.acc.getParty() });
 				if (typeof EmberlightProgressionRenderer !== "undefined") {
 					EmberlightProgression.render(EmberlightProgressionRenderer, hostContext);
 				}
@@ -111,9 +169,9 @@ function createTenantDispatchers(deps) {
 		MARKET(hostContext) {
 			if (typeof EmberlightMarket !== "undefined" && typeof EmberlightMarket.reset === "function") {
 				EmberlightMarket.reset({
-					party: deps.getParty(),
-					gold: deps.getGold(),
-					inventory: deps.getInventory(),
+					party: deps.acc.getParty(),
+					gold: deps.acc.getGold(),
+					inventory: deps.acc.getInventory(),
 				});
 				if (typeof EmberlightMarketRenderer !== "undefined") {
 					EmberlightMarket.render(EmberlightMarketRenderer, hostContext);
@@ -122,7 +180,7 @@ function createTenantDispatchers(deps) {
 		},
 		CHRONICLE(hostContext) {
 			if (typeof EmberlightChronicle !== "undefined" && typeof EmberlightChronicle.reset === "function") {
-				EmberlightChronicle.reset({ quests: deps.getQuests(), flags: deps.getFlags() });
+				EmberlightChronicle.reset({ quests: deps.acc.getQuests(), flags: deps.acc.getFlags() });
 				if (typeof EmberlightChronicleRenderer !== "undefined") {
 					EmberlightChronicle.render(EmberlightChronicleRenderer, hostContext);
 				}
@@ -131,9 +189,9 @@ function createTenantDispatchers(deps) {
 		RELIC_FORGE(hostContext) {
 			if (typeof EmberlightRelicForge !== "undefined" && typeof EmberlightRelicForge.reset === "function") {
 				EmberlightRelicForge.reset({
-					party: deps.getParty(),
-					gold: deps.getGold(),
-					inventory: deps.getInventory(),
+					party: deps.acc.getParty(),
+					gold: deps.acc.getGold(),
+					inventory: deps.acc.getInventory(),
 				});
 				if (typeof EmberlightRelicForgeRenderer !== "undefined") {
 					EmberlightRelicForge.render(EmberlightRelicForgeRenderer, hostContext);
@@ -169,7 +227,7 @@ function createTenantDispatchers(deps) {
 			deps.updateTitleSaveSummary();
 			const Cockpit = typeof EmberlightCockpitRenderer !== "undefined" ? /** @type {any} */ (EmberlightCockpitRenderer) : null;
 			if (Cockpit && typeof Cockpit.startTitleAnimation === "function") {
-				Cockpit.startTitleAnimation("title-bg-canvas", () => deps.activeDistrict);
+				Cockpit.startTitleAnimation("title-bg-canvas", () => deps.getActiveDistrict());
 			}
 		},
 		OVERWORLD(hostContext) {
@@ -179,37 +237,31 @@ function createTenantDispatchers(deps) {
 	};
 }
 
+/**
+ * Registers navigation handlers with the DistrictRouter.
+ * @param {any} Router
+ * @param {any} handlers
+ */
+function registerDistrictRouter(Router, handlers) {
+	if (!Router || typeof Router.registerHandlers !== "function") return;
+	Router.registerHandlers({
+		switchDistrict: (/** @type {any} */ targetDistrict, /** @type {any} */ metadata) =>
+			handlers.switchDistrict(String(targetDistrict || "OVERWORLD"), metadata),
+		renderHUD: handlers.renderHUD,
+		getParty: handlers.getParty,
+		getInventory: handlers.getInventory,
+		getGold: handlers.getGold,
+		handleCancelAction: handlers.handleCancelAction,
+		toggleQ4DeckExpansion: (/** @type {any} */ forceState) =>
+			handlers.toggleQ4DeckExpansion(typeof forceState === "boolean" ? forceState : undefined),
+		toggle3DViewportExpansion: (/** @type {any} */ forceState) =>
+			handlers.toggle3DViewportExpansion(typeof forceState === "boolean" ? forceState : undefined),
+	});
+}
+
 const GameRuntime = (() => {
 	//#region [SEC-01] Staging Ingestion & Domain Subsystem Binding
-	/** @type {any} */
-	const StateMod =
-		(typeof window !== "undefined" && window._RuntimeInternal?.State) ||
-		(typeof require !== "undefined" ? require("./runtime/runtime_state.js") : {});
-
-	/** @type {any} */
-	const PresMod =
-		(typeof window !== "undefined" && window._RuntimeInternal?.Presentation) ||
-		(typeof require !== "undefined" ? require("./runtime/runtime_presentation.js") : {});
-
-	/** @type {any} */
-	const InterMod =
-		(typeof window !== "undefined" && window._RuntimeInternal?.Interactions) ||
-		(typeof require !== "undefined" ? require("./runtime/runtime_interactions.js") : {});
-
-	/** @type {any} */
-	const NavMod =
-		(typeof window !== "undefined" && window._RuntimeInternal?.Navigation) ||
-		(typeof require !== "undefined" ? require("./runtime/runtime_navigation.js") : {});
-
-	/** @type {any} */
-	const StepMod =
-		(typeof window !== "undefined" && window._RuntimeInternal?.Stepper) ||
-		(typeof require !== "undefined" ? require("./runtime/runtime_stepper.js") : {});
-
-	/** @type {any} */
-	const EventMod =
-		(typeof window !== "undefined" && window._RuntimeInternal?.Events) ||
-		(typeof require !== "undefined" ? require("./runtime/runtime_events.js") : {});
+	const { StateMod, PresMod, InterMod, NavMod, StepMod, EventMod } = loadSubsystems();
 	//#endregion
 
 	//#region [SEC-02] Host State, SSOT Bridge & Helper Closures
@@ -218,35 +270,7 @@ const GameRuntime = (() => {
 			? /** @type {any} */ (EmberlightSessionStore)
 			: null;
 
-	const accessors = StateMod.createStateAccessors ? StateMod.createStateAccessors(store) : {};
-	const getParty = accessors.getParty || (() => []);
-	const setParty = accessors.setParty || (() => {});
-	const getInventory = accessors.getInventory || (() => ({}));
-	const setInventory = accessors.setInventory || (() => {});
-	const modifyItem = accessors.modifyItem || (() => {});
-	const getGold = accessors.getGold || (() => 0);
-	const modifyGold = accessors.modifyGold || (() => {});
-	const getWorldPos = accessors.getWorldPos || (() => ({ x: 10, y: 10 }));
-	const setWorldPos = accessors.setWorldPos || (() => {});
-	const getDungeonFloor = accessors.getDungeonFloor || (() => 1);
-	const setDungeonFloor = accessors.setDungeonFloor || (() => {});
-	const getDungeonDepth = accessors.getDungeonDepth || (() => 0);
-	const setDungeonDepth = accessors.setDungeonDepth || (() => {});
-	const getQuests = accessors.getQuests || (() => []);
-	const setQuests = accessors.setQuests || (() => {});
-	const getFlags = accessors.getFlags || (() => ({}));
-	const setFlag = accessors.setFlag || (() => {});
-	const getMacroPos = accessors.getMacroPos || (() => ({ x: 1, y: 1 }));
-	const setMacroPos = accessors.setMacroPos || (() => {});
-	const getTownId = accessors.getTownId || (() => "town_haven");
-	const setTownId = accessors.setTownId || (() => {});
-	const getSurfaceMutations = accessors.getSurfaceMutations || (() => ({}));
-	const getTownMutations = accessors.getTownMutations || (() => ({}));
-	const getDungeonSpec = accessors.getDungeonSpec || (() => null);
-	const setDungeonSpec = accessors.setDungeonSpec || (() => {});
-	const getSurfaceMap = accessors.getSurfaceMap || (() => null);
-	const setSurfaceMap = accessors.setSurfaceMap || (() => {});
-	const commitSession = accessors.commitSession || (() => false);
+	const acc = resolveAccessors(StateMod, store);
 
 	let activeDistrict = "TITLE";
 	const isTickPaused = false;
@@ -285,14 +309,14 @@ const GameRuntime = (() => {
 	const getActiveWorldMap = () => {
 		return InterMod.getActiveWorldMap({
 			activeDistrict,
-			getDungeonSpec,
-			getTownId,
-			getFlags,
-			getTownMutations,
-			getSurfaceMutations,
+			getDungeonSpec: acc.getDungeonSpec,
+			getTownId: acc.getTownId,
+			getFlags: acc.getFlags,
+			getTownMutations: acc.getTownMutations,
+			getSurfaceMutations: acc.getSurfaceMutations,
 			stepCounter,
-			getDungeonDepth,
-			getSurfaceMap,
+			getDungeonDepth: acc.getDungeonDepth,
+			getSurfaceMap: acc.getSurfaceMap,
 		});
 	};
 
@@ -317,7 +341,7 @@ const GameRuntime = (() => {
 	 * @param {string} [reason]
 	 */
 	const commitWorldUpdate = (reason) => {
-		commitSession(reason || "WorldStateUpdate");
+		acc.commitSession(reason || "WorldStateUpdate");
 	};
 
 	const updateTitleSaveSummary = () => {
@@ -380,37 +404,37 @@ const GameRuntime = (() => {
 		stepCounter,
 		incrementStepCounter: () => { stepCounter++; },
 		getStepCounter: () => stepCounter,
-		getParty,
-		setParty,
-		getInventory,
-		setInventory,
-		modifyItem,
-		getGold,
-		modifyGold,
-		getWorldPos,
-		setWorldPos,
-		getDungeonFloor,
-		setDungeonFloor,
-		getDungeonDepth,
-		setDungeonDepth,
-		getQuests,
-		setQuests,
-		getFlags,
-		setFlag,
-		getMacroPos,
-		setMacroPos,
-		getTownId,
-		setTownId,
-		getSurfaceMutations,
-		getTownMutations,
-		getDungeonSpec,
-		setDungeonSpec,
-		getSurfaceMap,
-		setSurfaceMap,
+		getParty: acc.getParty,
+		setParty: acc.setParty,
+		getInventory: acc.getInventory,
+		setInventory: acc.setInventory,
+		modifyItem: acc.modifyItem,
+		getGold: acc.getGold,
+		modifyGold: acc.modifyGold,
+		getWorldPos: acc.getWorldPos,
+		setWorldPos: acc.setWorldPos,
+		getDungeonFloor: acc.getDungeonFloor,
+		setDungeonFloor: acc.setDungeonFloor,
+		getDungeonDepth: acc.getDungeonDepth,
+		setDungeonDepth: acc.setDungeonDepth,
+		getQuests: acc.getQuests,
+		setQuests: acc.setQuests,
+		getFlags: acc.getFlags,
+		setFlag: acc.setFlag,
+		getMacroPos: acc.getMacroPos,
+		setMacroPos: acc.setMacroPos,
+		getTownId: acc.getTownId,
+		setTownId: acc.setTownId,
+		getSurfaceMutations: acc.getSurfaceMutations,
+		getTownMutations: acc.getTownMutations,
+		getDungeonSpec: acc.getDungeonSpec,
+		setDungeonSpec: acc.setDungeonSpec,
+		getSurfaceMap: acc.getSurfaceMap,
+		setSurfaceMap: acc.setSurfaceMap,
 		getActiveWorldMap,
 		isTilePassable,
 		recordTileMutation,
-		commitSession,
+		commitSession: acc.commitSession,
 		commitWorldUpdate,
 		notifyStatus,
 		publishSfx,
@@ -446,18 +470,11 @@ const GameRuntime = (() => {
 
 	overworldActionHandlers = StepMod.createOverworldActionHandlers ? StepMod.createOverworldActionHandlers(getSharedDeps()) : {};
 	const TENANT_DISPATCHERS = createTenantDispatchers({
-		getParty,
-		getInventory,
-		getGold,
-		getQuests,
-		getFlags,
-		getTownId,
-		getActiveWorldMap,
-		getWorldPos,
-		getDungeonDepth,
+		acc,
 		store,
 		updateTitleSaveSummary,
-		activeDistrict,
+		getActiveDistrict: () => activeDistrict,
+		getActiveWorldMap,
 		renderOverworldGraphics,
 	});
 
@@ -472,21 +489,21 @@ const GameRuntime = (() => {
 		}
 		activeDistrict = district;
 
-		const currentTownId = getTownId();
+		const currentTownId = acc.getTownId();
 		const inTown = Boolean(currentTownId);
 		const snapshot = {
-			party: getParty(),
-			gold: getGold(),
-			inventory: getInventory(),
-			worldPos: getWorldPos(),
-			playerPos: { ...getWorldPos(), inTown, townId: currentTownId },
+			party: acc.getParty(),
+			gold: acc.getGold(),
+			inventory: acc.getInventory(),
+			worldPos: acc.getWorldPos(),
+			playerPos: { ...acc.getWorldPos(), inTown, townId: currentTownId },
 			map: getActiveWorldMap(),
-			macroPos: getMacroPos(),
+			macroPos: acc.getMacroPos(),
 			activeDistrict,
-			dungeonFloor: getDungeonFloor(),
-			dungeonDepth: getDungeonDepth(),
+			dungeonFloor: acc.getDungeonFloor(),
+			dungeonDepth: acc.getDungeonDepth(),
 			stepCounter,
-			flags: { ...getFlags(), in_town: inTown, townId: currentTownId },
+			flags: { ...acc.getFlags(), in_town: inTown, townId: currentTownId },
 			facing: store?.getFlag("facingDirection") || "DOWN",
 			pouchOpen: store?.getFlag("pouchOpen") || false,
 			townId: currentTownId,
@@ -638,21 +655,16 @@ const GameRuntime = (() => {
 		EventMod.registerHostCapabilities(EventBus);
 		EventMod.bindEventBusSubscriptions(getSharedDeps());
 
-		if (Router && typeof Router.registerHandlers === "function") {
-			Router.registerHandlers({
-				switchDistrict: (/** @type {any} */ targetDistrict, /** @type {any} */ metadata) =>
-					switchDistrict(String(targetDistrict || "OVERWORLD"), metadata),
-				renderHUD,
-				getParty,
-				getInventory: () => /** @type {Record<string, number>} */ (/** @type {unknown} */ (getInventory())),
-				getGold,
-				handleCancelAction,
-				toggleQ4DeckExpansion: (/** @type {any} */ forceState) =>
-					toggleQ4DeckExpansion(typeof forceState === "boolean" ? forceState : undefined),
-				toggle3DViewportExpansion: (/** @type {any} */ forceState) =>
-					toggle3DViewportExpansion(typeof forceState === "boolean" ? forceState : undefined),
-			});
-		}
+		registerDistrictRouter(Router, {
+			switchDistrict,
+			renderHUD,
+			getParty: acc.getParty,
+			getInventory: () => /** @type {Record<string, number>} */ (/** @type {unknown} */ (acc.getInventory())),
+			getGold: acc.getGold,
+			handleCancelAction,
+			toggleQ4DeckExpansion,
+			toggle3DViewportExpansion,
+		});
 
 		StepMod.bindDOMControls(getSharedDeps());
 		switchDistrict("TITLE", {});
@@ -664,35 +676,35 @@ const GameRuntime = (() => {
 
 	facade = {
 		init,
-		getParty,
-		setParty,
-		getInventory: () => /** @type {Record<string, number>} */ (/** @type {unknown} */ (getInventory())),
-		setInventory,
-		modifyItem,
-		getGold,
-		modifyGold,
-		getWorldPos,
-		setWorldPos,
-		getDungeonFloor,
-		setDungeonFloor,
-		getDungeonDepth,
-		setDungeonDepth,
-		getQuests,
-		setQuests,
-		getFlags,
-		setFlag,
-		getMacroPos,
-		setMacroPos,
-		getTownId,
-		setTownId,
-		getSurfaceMutations,
-		getTownMutations,
-		getDungeonSpec,
-		setDungeonSpec,
-		getSurfaceMap,
-		setSurfaceMap,
+		getParty: acc.getParty,
+		setParty: acc.setParty,
+		getInventory: () => /** @type {Record<string, number>} */ (/** @type {unknown} */ (acc.getInventory())),
+		setInventory: acc.setInventory,
+		modifyItem: acc.modifyItem,
+		getGold: acc.getGold,
+		modifyGold: acc.modifyGold,
+		getWorldPos: acc.getWorldPos,
+		setWorldPos: acc.setWorldPos,
+		getDungeonFloor: acc.getDungeonFloor,
+		setDungeonFloor: acc.setDungeonFloor,
+		getDungeonDepth: acc.getDungeonDepth,
+		setDungeonDepth: acc.setDungeonDepth,
+		getQuests: acc.getQuests,
+		setQuests: acc.setQuests,
+		getFlags: acc.getFlags,
+		setFlag: acc.setFlag,
+		getMacroPos: acc.getMacroPos,
+		setMacroPos: acc.setMacroPos,
+		getTownId: acc.getTownId,
+		setTownId: acc.setTownId,
+		getSurfaceMutations: acc.getSurfaceMutations,
+		getTownMutations: acc.getTownMutations,
+		getDungeonSpec: acc.getDungeonSpec,
+		setDungeonSpec: acc.setDungeonSpec,
+		getSurfaceMap: acc.getSurfaceMap,
+		setSurfaceMap: acc.setSurfaceMap,
 		getActiveWorldMap,
-		commitSession,
+		commitSession: acc.commitSession,
 		getActiveDistrict: () => activeDistrict,
 		switchDistrict,
 		enterMarketDistrict,

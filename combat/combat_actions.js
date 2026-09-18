@@ -1,4 +1,4 @@
-/* cSpell:words VSRP KNOCKBACK Ailments Malakor SSOT */
+/* cSpell:words VSRP KNOCKBACK Ailments Malakor SSOT mult */
 /**
  * ============================================================================
  * EMBERLIGHT COMBAT SUBSYSTEM: ACTION EXECUTION KERNEL (VSRP-001 / MPFS-001)
@@ -7,10 +7,61 @@
  * ============================================================================
  */
 
+//#region [SEC-00-TYPEDEFS] AMBIENT COMBAT ACTION CONTRACTS
+/**
+ * @typedef {Object} CombatEntity
+ * @property {string} id - Unique entity identifier.
+ * @property {string} name - Display name.
+ * @property {number} hp - Current hit points.
+ * @property {number} maxHp - Maximum hit points.
+ * @property {number} mp - Current mana points.
+ * @property {number} maxMp - Maximum mana points.
+ * @property {number} atk - Attack power rating.
+ * @property {number} def - Defense rating.
+ * @property {boolean} alive - Life state flag.
+ * @property {'FRONT'|'BACK'|'BOTH'} [row] - Combat positioning row.
+ * @property {boolean} [isBoss] - Boss entity flag.
+ * @property {boolean} [isGuarding] - Tactical guard stance flag.
+ * @property {string} [weakness] - Elemental weakness descriptor.
+ * @property {string[]} [weaknesses] - Elemental weakness array.
+ * @property {string} [resistance] - Elemental resistance descriptor.
+ * @property {string[]} [resistances] - Elemental resistance array.
+ */
+
+/**
+ * @typedef {Object} ActionDescriptor
+ * @property {string} type - Action command type ('ATTACK', 'SKILL', 'ITEM', 'GUARD', etc.).
+ * @property {number} [targetIndex] - Explicit target array index.
+ * @property {number} [targetSlot] - Alternative target slot index.
+ * @property {boolean} [isAlly] - Side designation flag.
+ * @property {any} [skill] - Skill object payload.
+ * @property {string} [skillId] - Skill unique identifier token.
+ * @property {string} [itemId] - Inventory item token.
+ * @property {string} [intentId] - Transient idempotency identifier.
+ * @property {string} [actionType] - Fallback action type specifier.
+ * @property {string} [targetId] - Target entity identifier.
+ * @property {{ x: number, y: number }} [targetTile] - Tile coordinate for knockback/displacement.
+ * @property {string} [tab] - Selected navigation tab.
+ */
+
+/**
+ * @typedef {Object} CombatSimulationState
+ * @property {CombatEntity[]} party - Active hero squad array.
+ * @property {CombatEntity[]} enemies - Active enemy combatants array.
+ * @property {Array<{ entity: CombatEntity }>} turnQueue - Combat turn order queue.
+ * @property {number} activeTurnIndex - Current active turn index in queue.
+ * @property {string} [phase] - Current phase of combat state machine.
+ * @property {any} [pendingSkill] - Pending skill waiting for target selection.
+ * @property {string|null} [pendingItem] - Pending item waiting for target selection.
+ * @property {string} [selectedTab] - Active UI selection tab.
+ * @property {Record<string, number>} [inventory] - Consumables inventory dictionary.
+ */
+//#endregion
+
 /**
  * Resolves basic physical melee attack executed by active hero.
  * [Authoritative State Mutation]
- * @param {any} sim - Active simulation state.
+ * @param {CombatSimulationState} sim - Active simulation state.
  * @param {number} targetEnemyIndex - Selected target position in enemy row.
  * @param {any} helpers - Helper kernel functions bundle.
  * @returns {void}
@@ -21,7 +72,7 @@ function playerExecuteAttack(sim, targetEnemyIndex, helpers) {
 	const target = sim.enemies[targetEnemyIndex];
 	if (!activeChar || !target?.alive) return;
 
-	const heroIdx = sim.party.findIndex((/** @type {any} */ c) => c.id === activeChar.id);
+	const heroIdx = sim.party.findIndex((c) => c.id === activeChar.id);
 	helpers.triggerAttackerLunge(true, heroIdx !== -1 ? heroIdx : 0);
 
 	const Displacement = helpers.Displacement;
@@ -84,7 +135,7 @@ function playerExecuteAttack(sim, targetEnemyIndex, helpers) {
 /**
  * Puts active character into tactical guard stance (-50% DMG, +2 MP).
  * [Authoritative State Mutation]
- * @param {any} sim - Active simulation state.
+ * @param {CombatSimulationState} sim - Active simulation state.
  * @param {any} helpers - Helper kernel functions bundle.
  * @returns {void}
  */
@@ -101,7 +152,7 @@ function playerExecuteGuard(sim, helpers) {
 	);
 	helpers.dispatchSFX("BUFF");
 
-	const heroIdx = sim.party.findIndex((/** @type {any} */ c) => c.id === activeChar.id);
+	const heroIdx = sim.party.findIndex((c) => c.id === activeChar.id);
 	helpers.publish("combat:text", {
 		text: "GUARD",
 		targetType: "party",
@@ -336,7 +387,7 @@ function executeEnemySkill(
 /**
  * Finalizes skill resolution, visual effects, and advances the turn schedule.
  * [State Machine Progression]
- * @param {any} sim - Active simulation state.
+ * @param {CombatSimulationState} sim - Active simulation state.
  * @param {any} node - Resolved skill node.
  * @param {number} targetIndex - Target slot.
  * @param {boolean} isAllyTarget - Targeted side.
@@ -356,7 +407,7 @@ function finalizeSkillExecution(
 	const activeChar = sim.turnQueue[sim.activeTurnIndex]?.entity;
 	if (!activeChar) return;
 
-	const heroIdx = sim.party.findIndex((/** @type {any} */ c) => c.id === activeChar.id);
+	const heroIdx = sim.party.findIndex((c) => c.id === activeChar.id);
 	if (node.subType === "strike") {
 		helpers.triggerAttackerLunge(true, heroIdx !== -1 ? heroIdx : 0);
 	} else {
@@ -394,7 +445,7 @@ function finalizeSkillExecution(
 /**
  * Entry point for executing character skills, managing MP deduction and harmonic triggers.
  * [Authoritative State Mutation]
- * @param {any} sim - Active simulation state.
+ * @param {CombatSimulationState} sim - Active simulation state.
  * @param {any} node - Target skill node.
  * @param {number} targetIndex - Target entity index.
  * @param {boolean} isAllyTarget - Whether skill targets ally.
@@ -408,7 +459,7 @@ function playerExecuteSkill(sim, node, targetIndex, isAllyTarget, helpers) {
 
 	if (node.tier === 3 || node.id?.endsWith("_3")) {
 		sim.phase = "HARMONIC_CHANNELING";
-		helpers.renderHarmonicChannelingStage(node, (/** @type {any} */ resonanceScore) => {
+		helpers.renderHarmonicChannelingStage(node, (/** @type {number} */ resonanceScore) => {
 			activeChar.mp -= node.mpCost;
 			const isGuaranteedCrit = resonanceScore >= 90;
 			finalizeSkillExecution(
@@ -436,13 +487,13 @@ function playerExecuteSkill(sim, node, targetIndex, isAllyTarget, helpers) {
  */
 /**
  * Handles confirmation dispatch when targeting an ally.
- * @param {any} sim - Simulation state.
+ * @param {CombatSimulationState} sim - Simulation state.
  * @param {any} helpers - Helpers kernel.
  * @returns {void}
  */
 function handleConfirmTargetingAlly(sim, helpers) {
 	const isEmber = sim.pendingItem === "PHOENIX_EMBER";
-	const targetAllyIdx = sim.party.findIndex((/** @type {any} */ c) =>
+	const targetAllyIdx = sim.party.findIndex((c) =>
 		isEmber ? !c.alive : c.alive,
 	);
 	if (targetAllyIdx === -1) return;
@@ -468,12 +519,12 @@ function handleConfirmTargetingAlly(sim, helpers) {
 
 /**
  * Handles confirmation dispatch when targeting an enemy.
- * @param {any} sim - Simulation state.
+ * @param {CombatSimulationState} sim - Simulation state.
  * @param {any} helpers - Helpers kernel.
  * @returns {void}
  */
 function handleConfirmTargetingEnemy(sim, helpers) {
-	const livingEnemyIdx = sim.enemies.findIndex((/** @type {any} */ e) => e.alive);
+	const livingEnemyIdx = sim.enemies.findIndex((e) => e.alive);
 	if (livingEnemyIdx === -1) return;
 	if (sim.pendingSkill) {
 		handleViewAction(
@@ -699,31 +750,31 @@ function handleChoiceIndex(sim, choiceNum, helpers) {
 }
 
 /**
- * Resolves fallback target index for action dispatch.
- * @param {any} actObj - Action object.
- * @param {any} sim - Simulation state.
- * @returns {number} Resolved target index.
+ * Resolves fallback target index for action dispatch with boundary clamping.
+ * [Pure Query / State Guard]
+ * @param {ActionDescriptor} actObj - Incoming action payload object.
+ * @param {CombatSimulationState} sim - Active simulation state snapshot.
+ * @returns {number} Validated target index guaranteed to exist or fallback safely.
  */
 function resolveTargetIndex(actObj, sim) {
 	if (typeof actObj.targetIndex === "number") {
-		return actObj.targetIndex;
+		const list = actObj.isAlly ? (sim.party || []) : (sim.enemies || []);
+		if (list[actObj.targetIndex]?.alive) return actObj.targetIndex;
+		const fallbackIdx = list.findIndex((e) => e.alive);
+		return fallbackIdx !== -1 ? fallbackIdx : actObj.targetIndex;
 	}
 	if (typeof actObj.targetSlot === "number") {
 		return actObj.targetSlot;
 	}
-	let idx = -1;
-	if (actObj.isAlly) {
-		idx = (sim.party || []).findIndex((/** @type {any} */ c) => c.alive);
-	} else {
-		idx = (sim.enemies || []).findIndex((/** @type {any} */ e) => e.alive);
-	}
+	const candidateList = actObj.isAlly ? (sim.party || []) : (sim.enemies || []);
+	const idx = candidateList.findIndex((e) => e.alive);
 	return idx !== -1 ? idx : 0;
 }
 
 /**
  * Primary action dispatch handler receiving actions from presentation renderer.
  * [State Machine Progression]
- * @param {any} sim - Active simulation state.
+ * @param {CombatSimulationState} sim - Active simulation state.
  * @param {any} action - Incoming view command.
  * @param {any} helpers - Helper kernel functions bundle.
  * @returns {void}
@@ -754,8 +805,9 @@ function handleViewAction(sim, action, helpers) {
 			let targetSkill = actObj.skill || sim?.pendingSkill;
 			if (!targetSkill && actObj.skillId) {
 				const manifest = helpers.getActiveManifest();
+				/** @type {Array<{ id: string, [key: string]: any }>} */
 				const catalog = manifest?.skills || manifest?.progression?.skills || [];
-				targetSkill = catalog.find((/** @type {any} */ s) => s.id === actObj.skillId) || null;
+				targetSkill = catalog.find((s) => s.id === actObj.skillId) || null;
 			}
 			if (targetSkill) {
 				playerExecuteSkill(
@@ -779,7 +831,7 @@ function handleViewAction(sim, action, helpers) {
 			playerExecuteGuard(sim, helpers);
 		},
 		FLEE: () => {
-			if (sim.enemies.some((/** @type {any} */ enemy) => enemy.isBoss)) {
+			if (sim.enemies.some((enemy) => enemy.isBoss)) {
 				helpers.appendLog("Cannot flee from a boss battle!", "damage");
 				helpers.dispatchSFX("DEFEAT");
 			} else if (helpers.getRandomFloat() < 0.6) {
@@ -912,7 +964,7 @@ function handleViewAction(sim, action, helpers) {
 		},
 		SCAN_AFFINITY: () => {
 			if (sim && actObj.targetId) {
-				const target = sim.enemies.find((/** @type {any} */ e) => e.id === actObj.targetId);
+				const target = sim.enemies.find((e) => e.id === actObj.targetId);
 				if (target) {
 					const weak =
 						target.weakness || target.weaknesses?.join(", ") || "None";

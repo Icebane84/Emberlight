@@ -25,17 +25,17 @@ const EmberlightDungeonGen = (() => {
 			let seed = Number(s) || 123456789;
 			return () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
 		},
-		splitLeaf = (/** @type {any} */ _leaf, /** @type {any} */ _ctx) => {},
+		splitLeaf = (/** @type {any} */ _leaf, /** @type {any} */ _ctx) => { },
 		carveLayout = (/** @type {any} */ _m, /** @type {any} */ _r, /** @type {any} */ _w, /** @type {any} */ _h) => [],
 	} = membrane.BSP || {};
 
 	const {
-		applyDrunkardsWalk = (/** @type {any} */ _m, /** @type {any} */ _w, /** @type {any} */ _h, /** @type {any} */ _c, /** @type {any} */ _r) => {},
+		applyDrunkardsWalk = (/** @type {any} */ _m, /** @type {any} */ _w, /** @type {any} */ _h, /** @type {any} */ _c, /** @type {any} */ _r) => { },
 	} = membrane.Drunkard || {};
 
 	const {
 		ASSET_MANIFEST = {},
-		applyFloorHazards = (/** @type {any} */ _m, /** @type {any} */ _s, /** @type {any} */ _o) => {},
+		applyFloorHazards = (/** @type {any} */ _m, /** @type {any} */ _s, /** @type {any} */ _o) => { },
 	} = membrane.Hazards || {};
 
 	// Clean membrane
@@ -79,49 +79,49 @@ const EmberlightDungeonGen = (() => {
 
 		const spawn =
 			rooms.length > 0
-				? { x: rooms[0].cx, y: rooms[0].cy }
-				: { x: carvedCoords[0].x, y: carvedCoords[0].y };
-		map[spawn.y][spawn.x] = "<";
+				? { x: rooms[ 0 ].cx, y: rooms[ 0 ].cy }
+				: { x: carvedCoords[ 0 ].x, y: carvedCoords[ 0 ].y };
+		map[ spawn.y ][ spawn.x ] = "<";
 
-		const sortedByDist = [...carvedCoords].sort((a, b) => {
+		const sortedByDist = [ ...carvedCoords ].sort((a, b) => {
 			const distA = Math.hypot(a.x - spawn.x, a.y - spawn.y);
 			const distB = Math.hypot(b.x - spawn.x, b.y - spawn.y);
 			return distB - distA;
 		});
 
-		const exitPt = sortedByDist[0];
-		map[exitPt.y][exitPt.x] = ">";
+		const exitPt = sortedByDist[ 0 ];
+		map[ exitPt.y ][ exitPt.x ] = ">";
 
-		const chestPt = sortedByDist[1] || sortedByDist[0];
+		const chestPt = sortedByDist[ 1 ] || sortedByDist[ 0 ];
 		if (chestPt.x !== spawn.x || chestPt.y !== spawn.y) {
-			map[chestPt.y][chestPt.x] = "$";
+			map[ chestPt.y ][ chestPt.x ] = "$";
 		}
 
 		const campPt =
-			sortedByDist[Math.floor(sortedByDist.length * 0.5)] || sortedByDist[0];
+			sortedByDist[ Math.floor(sortedByDist.length * 0.5) ] || sortedByDist[ 0 ];
 		if (
 			(campPt.x !== spawn.x || campPt.y !== spawn.y) &&
 			(campPt.x !== exitPt.x || campPt.y !== exitPt.y)
 		) {
-			map[campPt.y][campPt.x] = "C";
+			map[ campPt.y ][ campPt.x ] = "C";
 		}
 
 		applyFloorHazards(map, sortedByDist, { spawn, exitPt, chestPt, floorLevel, w, h, rng });
 
 		carvedCoords.forEach((/** @type {any} */ pt) => {
 			if (
-				map[pt.y][pt.x] === "." &&
+				map[ pt.y ][ pt.x ] === "." &&
 				(pt.x !== spawn.x || pt.y !== spawn.y) &&
 				(pt.x !== exitPt.x || pt.y !== exitPt.y) &&
 				rng() < 0.18
 			) {
-				map[pt.y][pt.x] = '"';
+				map[ pt.y ][ pt.x ] = '"';
 			}
 		});
 
 		const metadataMap = map.map((row, y) =>
 			row.map((char, x) => {
-				const rule = ASSET_MANIFEST[char] || ASSET_MANIFEST["."];
+				const rule = ASSET_MANIFEST[ char ] || ASSET_MANIFEST[ "." ];
 				const variantCount = rule?.variants || 1;
 				const selectedVariant = Math.floor(rng() * variantCount);
 

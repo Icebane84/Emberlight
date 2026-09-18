@@ -1,0 +1,14 @@
+core_governor.html:1 Unsafe attempt to load URL file:///C:/Users/Chris/Emberlight(Lab)/testing/core_governor.html from frame with URL file:///C:/Users/Chris/Emberlight(Lab)/testing/core_governor.html. 'file:' URLs are treated as unique security origins.
+
+window.PhoenixGovernor.registerTarget('combat/actions', {
+  tenant:            'Combat',
+  path:              'combat_actions.js',
+  allowedOperations: ['MODIFY', 'REPLACE'],
+  capabilities:      [],
+  dependencies:      []
+});
+
+window.PhoenixGovernor.registerSource('combat_actions.js', `/* Paste full canonical combat_actions.js content here */`);
+VM108:1 Uncaught TypeError: window.PhoenixGovernor.registerTarget is not a function
+    at <anonymous>:1:24
+(anonymous) @ VM108:1

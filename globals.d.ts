@@ -450,10 +450,33 @@ declare var EmberlightVoice: Record<string, unknown>;
 declare var EmberlightShaderCompositor: Record<string, unknown>;
 declare var EmberlightSpriteBaker: Record<string, unknown>;
 declare var EmberlightBattlerBaker: Record<string, unknown>;
-declare var EmberlightSynthSoundtrack: Record<string, unknown>;
-declare var EmberlightSyntheticVoice: Record<string, unknown>;
-declare var EmberlightAcousticSFX: Record<string, unknown>;
-declare var EmberlightAudio: Record<string, unknown>;
+declare interface AcousticSFXDiagnostics {
+  serviceId: string;
+  contextState: string;
+  activeZone: string;
+  userUnlocked: boolean;
+  isMuted: boolean;
+  masterVolume: number;
+  limiterActive?: boolean;
+  activeNodeCount: number;
+  dryLevel: number;
+  wetLevel: number;
+  [key: string]: unknown;
+}
+
+declare interface AcousticSFXFacade extends VSRPTenantModule {
+  play(sfxName: string, pan?: number): void;
+  playSFX(sfxName: string, pan?: number): void;
+  setZone(zoneKey: "MEADOW" | "TOWN" | "CRYPT" | string): void;
+  setMasterVolume(level: number): number;
+  toggleMute(): boolean;
+  getDiagnostics(): AcousticSFXDiagnostics;
+  destroy(): void;
+  [key: string]: unknown;
+}
+
+declare var EmberlightAcousticSFX: AcousticSFXFacade;
+declare var EmberlightAudio: AcousticSFXFacade;
 declare var EmberlightThreatOracle: VSRPPeripheralRenderer & {
   createInstance?: (options?: Record<string, unknown>) => unknown;
 };
@@ -548,8 +571,8 @@ declare interface Window {
   EmberlightBattlerBaker?: Record<string, unknown>;
   EmberlightSynthSoundtrack?: Record<string, unknown>;
   EmberlightSyntheticVoice?: Record<string, unknown>;
-  EmberlightAcousticSFX?: Record<string, unknown>;
-  EmberlightAudio?: Record<string, unknown>;
+  EmberlightAcousticSFX?: AcousticSFXFacade;
+  EmberlightAudio?: AcousticSFXFacade;
   EmberlightThreatOracle?: VSRPPeripheralRenderer & {
     forecastTimeline?: (...args: unknown[]) => unknown;
     [key: string]: unknown;
@@ -1041,3 +1064,57 @@ declare interface Window {
   _RuntimeInternal?: RuntimeInternalStaging;
 }
 declare var _RuntimeInternal: RuntimeInternalStaging | undefined;
+
+/**
+ * ============================================================================
+ * [COMBAT DOMAIN ENTITY & ACTION CONTRACTS] - VSRP-001-COMBAT-SCHEMAS
+ * ============================================================================
+ */
+declare interface CombatEntity {
+  id: string;
+  name: string;
+  hp: number;
+  maxHp: number;
+  mp: number;
+  maxMp: number;
+  atk: number;
+  def: number;
+  alive: boolean;
+  row?: 'FRONT' | 'BACK' | 'BOTH';
+  isBoss?: boolean;
+  isGuarding?: boolean;
+  weakness?: string;
+  weaknesses?: string[];
+  resistance?: string;
+  resistances?: string[];
+  [key: string]: unknown;
+}
+
+declare interface ActionDescriptor {
+  type: string;
+  targetIndex?: number;
+  targetSlot?: number;
+  isAlly?: boolean;
+  skill?: unknown;
+  skillId?: string;
+  itemId?: string;
+  intentId?: string;
+  actionType?: string;
+  targetId?: string;
+  targetTile?: { x: number; y: number };
+  tab?: string;
+  [key: string]: unknown;
+}
+
+declare interface CombatSimulationState {
+  party: CombatEntity[];
+  enemies: CombatEntity[];
+  turnQueue: Array<{ entity: CombatEntity; [key: string]: unknown }>;
+  activeTurnIndex: number;
+  phase?: string;
+  pendingSkill?: unknown;
+  pendingItem?: string | null;
+  selectedTab?: string;
+  inventory?: Record<string, number>;
+  [key: string]: unknown;
+}
