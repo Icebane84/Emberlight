@@ -1449,9 +1449,21 @@ declare interface PhoenixSovereignEngineFacade {
 
 declare interface PhoenixWebLLMWorkerBridgeInstance {
   ready: boolean;
-  busy: boolean;
-  start(adapterFactory: unknown, config?: Record<string, unknown>): Promise<void>;
-  generate(payload: unknown, onToken?: (token: string) => void): Promise<string>;
+  isReady: boolean;
+  start(adapterFactory: unknown, config?: Record<string, unknown>): Promise<this>;
+  generate(
+    prompt: string,
+    options?: {
+      maxTokens?: number;
+      temperature?: number;
+      top_p?: number;
+      topP?: number;
+      repeat_penalty?: number;
+      repeatPenalty?: number;
+      onToken?: (token: string) => void;
+      signal?: AbortSignal;
+    }
+  ): Promise<string>;
   ping(): Promise<boolean>;
   destroy(): Promise<void>;
 }
@@ -1462,7 +1474,9 @@ declare interface PhoenixMonolithExporterFacade {
     engineVersion?: string;
     sources?: Array<{ path: string; content: string }>;
     wasmKernels?: Array<{ name: string; base64: string }>;
-    shaders?: Array<{ name: string; wgsl: string }>;
+    shaders?: Array<{ name: string; source?: string; wgsl?: string }>;
+    stylesheets?: string[];
+    headTags?: string[];
     receipts?: PhoenixReceiptDTO[] | unknown[];
   }): string;
   exportMonolithAsync(options?: {
@@ -1470,7 +1484,9 @@ declare interface PhoenixMonolithExporterFacade {
     engineVersion?: string;
     sources?: Array<{ path: string; content: string }>;
     wasmKernels?: Array<{ name: string; base64: string }>;
-    shaders?: Array<{ name: string; wgsl: string }>;
+    shaders?: Array<{ name: string; source?: string; wgsl?: string }>;
+    stylesheets?: string[];
+    headTags?: string[];
     receipts?: PhoenixReceiptDTO[] | unknown[];
     includeOPFSJournal?: boolean;
   }): Promise<string>;

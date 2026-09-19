@@ -31,6 +31,16 @@
 			/* ---- Adapter slot ---- */
 			"let _adapter = null;\n" +
 			"let _seq = 0;\n" +
+			"const _abortControllers = new Map();\n" +
+			/* ---- Shared Helpers ---- */
+			`const SOVEREIGN_ENGINE_CONSTITUTION = ${JSON.stringify(SOVEREIGN_ENGINE_CONSTITUTION)};\n` +
+			`${_extractStreamToken.toString()};\n` +
+			`${_parseSingleStreamLine.toString()};\n` +
+			`${_processStreamBuffer.toString()};\n` +
+			`${_consumeOllamaStream.toString()};\n` +
+			`${_resolveSamplingOptions.toString()};\n` +
+			`${_generateOpenAIChat.toString()};\n` +
+			`${_generateOllama.toString()};\n` +
 			/* ---- Streaming helper ----
 			 * Streams token-by-token back to the host via postMessage.
 			 * The generate() method on the adapter must accept an onToken callback
@@ -57,12 +67,29 @@
 			/* generate */
 			'    if (m.type === "generate") {\n' +
 			'      if (!_adapter) throw new Error("Adapter not configured.");\n' +
+			"      const ac = typeof AbortController !== 'undefined' ? new AbortController() : null;\n" +
+			"      if (ac) _abortControllers.set(reqId, ac);\n" +
 			"      const opts = { ...(m.options || {}) };\n" +
+			"      if (ac) opts.signal = ac.signal;\n" +
 			"      if (m.streaming) {\n" +
 			"        opts.onToken = function(tok) { _streamCallback(reqId, tok); };\n" +
 			"      }\n" +
-			"      const result = await _adapter.generate(m.prompt, opts);\n" +
-			'      self.postMessage({ id: reqId, type: "result", result: result });\n' +
+			"      try {\n" +
+			"        const result = await _adapter.generate(m.prompt, opts);\n" +
+			'        self.postMessage({ id: reqId, type: "result", result: result });\n' +
+			"      } finally {\n" +
+			"        _abortControllers.delete(reqId);\n" +
+			"      }\n" +
+			"      return;\n" +
+			"    }\n" +
+			/* abort */
+			'    if (m.type === "abort") {\n' +
+			"      const ac = _abortControllers.get(reqId);\n" +
+			"      if (ac) {\n" +
+			"        ac.abort();\n" +
+			"        _abortControllers.delete(reqId);\n" +
+			"      }\n" +
+			'      self.postMessage({ id: reqId, type: "aborted" });\n' +
 			"      return;\n" +
 			"    }\n" +
 			/* ping */
@@ -135,8 +162,55 @@
 	}
 
 	/* =========================================================================
-	 * OLLAMA STREAMING HELPER
+	 * OLLAMA & OPENAI DUAL STREAMING HELPER
+	 * Supports raw Ollama NDJSON ({"response": "..."}) and OpenAI/LM Studio
+	 * Server-Sent Events (data: {"choices":[{"delta":{"content":"..."}}]}).
 	 * ========================================================================= */
+	/**
+	 * @param {Record<string, any>} json
+	 * @returns {string | null}
+	 */
+	function _extractStreamToken(json) {
+		if (typeof json.response === "string") {
+			return json.response;
+		}
+		const delta = json.choices?.[0]?.delta?.content;
+		if (typeof delta === "string") {
+			return delta;
+		}
+		const text = json.choices?.[0]?.text;
+		if (typeof text === "string") {
+			return text;
+		}
+		return null;
+	}
+
+	/**
+	 * @param {string} rawLine
+	 * @param {(token: string) => void} onToken
+	 * @returns {string}
+	 */
+	function _parseSingleStreamLine(rawLine, onToken) {
+		let line = rawLine;
+		if (line.startsWith("data:")) {
+			line = line.slice(5).trim();
+		}
+		if (!line || line === "[DONE]") {
+			return "";
+		}
+		try {
+			const json = JSON.parse(line);
+			const token = _extractStreamToken(json);
+			if (token) {
+				onToken(token);
+				return token;
+			}
+		} catch {
+			// Incomplete json chunk; keep in remaining buffer
+		}
+		return "";
+	}
+
 	/**
 	 * @param {string} buffer
 	 * @param {(token: string) => void} onToken
@@ -150,15 +224,7 @@
 			const line = rem.slice(0, newlineIdx).trim();
 			rem = rem.slice(newlineIdx + 1);
 			if (line) {
-				try {
-					const json = JSON.parse(line);
-					if (json.response) {
-						onToken(json.response);
-						fullText += json.response;
-					}
-				} catch (_) {
-					// Incomplete json chunk; proceed
-				}
+				fullText += _parseSingleStreamLine(line, onToken);
 			}
 			newlineIdx = rem.indexOf("\n");
 		}
@@ -168,31 +234,158 @@
 	/**
 	 * @param {ReadableStream<Uint8Array>} body
 	 * @param {(token: string) => void} onToken
+	 * @param {AbortSignal} [signal]
 	 * @returns {Promise<string>}
 	 */
-	async function _consumeOllamaStream(body, onToken) {
+	async function _consumeOllamaStream(body, onToken, signal) {
 		const reader = body.getReader();
 		const decoder = new TextDecoder();
 		let fullText = "";
 		let buffer = "";
 
-		while (true) {
-			const { done, value } = await reader.read();
-			if (done) break;
+		const onAbort = () => {
+			reader.cancel().catch(() => {});
+		};
 
-			buffer += decoder.decode(value, { stream: true });
-			const chunkResult = _processStreamBuffer(buffer, onToken);
-			fullText += chunkResult.fullText;
-			buffer = chunkResult.remaining;
+		if (signal) {
+			if (signal.aborted) {
+				reader.cancel().catch(() => {});
+				throw new Error("[PHOENIX/AI] Inference stream aborted by signal.");
+			}
+			signal.addEventListener("abort", onAbort, { once: true });
+		}
+
+		try {
+			while (true) {
+				if (signal?.aborted) {
+					throw new Error("[PHOENIX/AI] Inference stream aborted by signal.");
+				}
+				const { done, value } = await reader.read();
+				if (done) break;
+
+				buffer += decoder.decode(value, { stream: true });
+				const chunkResult = _processStreamBuffer(buffer, onToken);
+				fullText += chunkResult.fullText;
+				buffer = chunkResult.remaining;
+			}
+			if (buffer.length > 0) {
+				const finalChunk = _processStreamBuffer(buffer + "\n", onToken);
+				fullText += finalChunk.fullText;
+			}
+		} finally {
+			if (signal) {
+				signal.removeEventListener("abort", onAbort);
+			}
+			reader.releaseLock();
 		}
 		return fullText;
 	}
 
 	/* =========================================================================
-	 * OLLAMA LOCAL MODEL ADAPTER FACTORY
+	 * OLLAMA LOCAL MODEL ADAPTER FACTORY & ENDPOINT DISPATCHERS
 	 * Connects to local Ollama instance (default: http://localhost:11434,
-	 * model: qwen2.5-coder:7b). Supports streaming with line buffering.
+	 * model: qwen2.5-coder:7b) or OpenAI/LM Studio (http://localhost:1234/v1).
+	 * Supports streaming with SSE/NDJSON parsing, AbortSignal, and sampling params.
 	 * ========================================================================= */
+	/**
+	 * @param {Record<string, any>} opts
+	 */
+	function _resolveSamplingOptions(opts) {
+		const temperature = opts.temperature ?? 0.2;
+		const topP = opts.top_p ?? opts.topP ?? 0.9;
+		const repeatPenalty = opts.repeat_penalty ?? opts.repeatPenalty ?? 1.1;
+		const maxTokens = opts.maxTokens || 2048;
+		return { temperature, topP, repeatPenalty, maxTokens };
+	}
+
+	/**
+	 * @param {string} host
+	 * @param {string} modelName
+	 * @param {string} prompt
+	 * @param {ReturnType<typeof _resolveSamplingOptions>} sampling
+	 * @param {boolean} isStreaming
+	 * @param {((token: string) => void) | undefined} onToken
+	 * @param {AbortSignal | undefined} signal
+	 */
+	async function _generateOpenAIChat(host, modelName, prompt, sampling, isStreaming, onToken, signal) {
+		let baseHost = host;
+		while (baseHost.endsWith("/")) {
+			baseHost = baseHost.slice(0, -1);
+		}
+		const endpoint = host.endsWith("/chat/completions") ? host : `${baseHost}/chat/completions`;
+		const res = await fetch(endpoint, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			signal,
+			body: JSON.stringify({
+				model: modelName,
+				messages: [
+					{ role: "system", content: SOVEREIGN_ENGINE_CONSTITUTION },
+					{ role: "user", content: prompt }
+				],
+				stream: isStreaming,
+				max_tokens: sampling.maxTokens,
+				temperature: sampling.temperature,
+				top_p: sampling.topP,
+				presence_penalty: (sampling.repeatPenalty - 1.0) * 0.5,
+			}),
+		});
+
+		if (!res.ok) {
+			throw new Error(
+				`[PHOENIX/AI] OpenAI/LM Studio endpoint failed: ${res.status} ${res.statusText}. Target: ${endpoint}`,
+			);
+		}
+
+		if (isStreaming && res.body && typeof onToken === "function") {
+			return _consumeOllamaStream(res.body, onToken, signal);
+		}
+
+		const data = await res.json();
+		return data.choices?.[0]?.message?.content || "";
+	}
+
+	/**
+	 * @param {string} host
+	 * @param {string} modelName
+	 * @param {string} prompt
+	 * @param {ReturnType<typeof _resolveSamplingOptions>} sampling
+	 * @param {boolean} isStreaming
+	 * @param {((token: string) => void) | undefined} onToken
+	 * @param {AbortSignal | undefined} signal
+	 */
+	async function _generateOllama(host, modelName, prompt, sampling, isStreaming, onToken, signal) {
+		const res = await fetch(`${host}/api/generate`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			signal,
+			body: JSON.stringify({
+				model: modelName,
+				prompt,
+				stream: isStreaming,
+				options: {
+					num_predict: sampling.maxTokens,
+					temperature: sampling.temperature,
+					top_p: sampling.topP,
+					repeat_penalty: sampling.repeatPenalty,
+				},
+			}),
+		});
+
+		if (!res.ok) {
+			throw new Error(
+				`[PHOENIX/ollama] Connection failed: ${res.status} ${res.statusText}. Ensure Ollama is running with OLLAMA_ORIGINS="*".`,
+			);
+		}
+
+		if (isStreaming && res.body && typeof onToken === "function") {
+			return _consumeOllamaStream(res.body, onToken, signal);
+		}
+
+		const data = await res.json();
+		return data.response || "";
+	}
+
 	/**
 	 * @param {{ host?: string, model?: string }} [config]
 	 */
@@ -205,72 +398,19 @@
 		return Promise.resolve({
 			/**
 			 * @param {string} prompt
-			 * @param {{ onToken?: (token: string) => void, maxTokens?: number, temperature?: number }} [options]
+			 * @param {{ onToken?: (token: string) => void, maxTokens?: number, temperature?: number, top_p?: number, topP?: number, repeat_penalty?: number, repeatPenalty?: number, signal?: AbortSignal }} [options]
 			 */
 			async generate(prompt, options) {
 				const opts = options || {};
 				const onToken = opts.onToken;
 				const isStreaming = typeof onToken === "function";
+				const sampling = _resolveSamplingOptions(opts);
 
 				if (isOpenAIEndpoint) {
-					// OpenAI / LM Studio / LocalAI Chat Completion Endpoint
-					const endpoint = host.endsWith("/chat/completions") ? host : `${host.replace(/\/+$/, "")}/chat/completions`;
-					const res = await fetch(endpoint, {
-						method: "POST",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({
-							model: modelName,
-							messages: [
-								{ role: "system", content: SOVEREIGN_ENGINE_CONSTITUTION },
-								{ role: "user", content: prompt }
-							],
-							stream: isStreaming,
-							max_tokens: opts.maxTokens || 2048,
-							temperature: opts.temperature !== undefined ? opts.temperature : 0.2,
-						}),
-					});
-
-					if (!res.ok) {
-						throw new Error(
-							`[PHOENIX/AI] OpenAI/LM Studio endpoint failed: ${res.status} ${res.statusText}. Target: ${endpoint}`,
-						);
-					}
-
-					if (isStreaming && res.body && typeof onToken === "function") {
-						return _consumeOllamaStream(res.body, onToken);
-					}
-
-					const data = await res.json();
-					return data.choices?.[0]?.message?.content || "";
+					return _generateOpenAIChat(host, modelName, prompt, sampling, isStreaming, onToken, opts.signal);
 				}
 
-				// Standard Native Ollama Endpoint
-				const res = await fetch(`${host}/api/generate`, {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						model: modelName,
-						prompt,
-						stream: isStreaming,
-						options: {
-							num_predict: opts.maxTokens || 2048,
-							temperature: opts.temperature !== undefined ? opts.temperature : 0.2,
-						},
-					}),
-				});
-
-				if (!res.ok) {
-					throw new Error(
-						`[PHOENIX/ollama] Connection failed: ${res.status} ${res.statusText}. Ensure Ollama is running with OLLAMA_ORIGINS="*".`,
-					);
-				}
-
-				if (isStreaming && res.body && typeof onToken === "function") {
-					return _consumeOllamaStream(res.body, onToken);
-				}
-
-				const data = await res.json();
-				return data.response || "";
+				return _generateOllama(host, modelName, prompt, sampling, isStreaming, onToken, opts.signal);
 			},
 
 			async destroy() {
@@ -389,10 +529,91 @@
 			"",
 			"CRITICAL REPAIR INSTRUCTIONS:",
 			"1. Fix EVERY reported diagnostic and structural issue in the file.",
-			"2. Ensure all replacement 'search' anchors match EXACT character sequences from CURRENT FILE SOURCE CODE.",
-			"3. Maintain 100% zero-dependency compliance (no import/export, no placeholders, full dual-binding IIFE).",
-			"4. Output ONLY a valid PGE-DSL-1 JSON proposal enclosed in ```json ``` code fences."
+			"2. If addressing high cognitive complexity, invert nested conditions into early-return guard clauses and extract pure helper functions placed immediately above the target function.",
+			"3. Ensure all replacement 'search' anchors match EXACT character sequences from CURRENT FILE SOURCE CODE.",
+			"4. Maintain 100% zero-dependency compliance (no import/export, no placeholders, full dual-binding IIFE).",
+			"5. Output ONLY a valid PGE-DSL-1 JSON proposal enclosed in ```json ``` code fences."
 		].filter(Boolean).join("\n");
+	}
+
+	/**
+	 * Builds a focused PGE-DSL-1 prompt for decomposing a high cognitive complexity function into pure helpers & guard clauses.
+	 * @param {string} targetFile
+	 * @param {string} sourceCode
+	 * @param {{ name?: string, line?: number, complexity?: number, codeSlice?: string }} fnInfo
+	 * @returns {string}
+	 */
+	function buildCognitiveDecompositionPrompt(targetFile, sourceCode, fnInfo) {
+		const fnName = fnInfo?.name || 'targetFunction';
+		const line = fnInfo?.line || 1;
+		const complexity = fnInfo?.complexity || 20;
+		const snippet = fnInfo?.codeSlice || sourceCode;
+
+		return [
+			SOVEREIGN_ENGINE_CONSTITUTION,
+			"",
+			"COGNITIVE COMPLEXITY REDUCTION & SAFE DECOMPOSITION DIRECTIVE:",
+			`Target File: ${targetFile}`,
+			`Target Function: '${fnName}' (Line ${line}, Cognitive Complexity Score: ${complexity}/15)`,
+			"",
+			"OBJECTIVE:",
+			`Refactor and decompose function '${fnName}' so its cognitive complexity score drops to <= 15 (ideal: <= 10) without breaking any runtime behavior, contracts, or side-effects.`,
+			"",
+			"TARGET FUNCTION CODE TO REFACTOR:",
+			"```javascript",
+			snippet,
+			"```",
+			"",
+			"DECOMPOSITION ARCHITECTURAL RULES:",
+			"1. EARLY-RETURN GUARD CLAUSES: Invert nested if/else ladders into early-return guard clauses to eliminate nested control flow levels.",
+			"2. PURE HELPER EXTRACTION: Extract discrete sub-operations into small, pure helper functions placed immediately ABOVE the target function.",
+			"3. STRICT JSDOC CONTRACTS: Decorate every extracted helper function with explicit JSDoc typing (@param, @returns).",
+			"4. CONTRACT & SIGNATURE INVARIANCE: Preserve the EXACT name, parameter list, return type, and external state mutations of the original function.",
+			"5. ZERO DEPENDENCIES: Use only standard browser-native JavaScript ES2022+ with no external npm packages or placeholders.",
+			"6. SEARCH ANCHOR INTEGRITY: Ensure the 'search' block in the PGE-DSL-1 change matches the exact target function in the source code.",
+			"",
+			"Output ONLY a valid PGE-DSL-1 JSON proposal enclosed in ```json ``` code fences."
+		].join("\n");
+	}
+
+	/**
+	 * Builds a structured batch remediation prompt for multiple unresolved diagnostics across a target file.
+	 * @param {string} targetFile
+	 * @param {string} sourceCode
+	 * @param {Array<{ rule?: string, message?: string, line?: number, col?: number, severity?: string, fnName?: string }>} diagnostics
+	 * @returns {string}
+	 */
+	function buildBatchDiagnosticDebugPrompt(targetFile, sourceCode, diagnostics) {
+		const diagList = (diagnostics || []).map((d, i) =>
+			`${i + 1}. [${d.severity || 'warn'}] Line ${d.line || '?'}, Col ${d.col || '?'}: (${d.rule || 'ERROR'}) ${d.message || 'Issue'}`
+		).join('\n');
+
+		const snippet = sourceCode.length > 8000 ? sourceCode.slice(0, 8000) + '\n/* ... truncated for context ... */' : sourceCode;
+
+		return [
+			SOVEREIGN_ENGINE_CONSTITUTION,
+			'',
+			'BATCH ERROR REMEDIATION DIRECTIVE (ERL-001):',
+			`Target File: ${targetFile}`,
+			`Total Issues to Resolve: ${(diagnostics || []).length}`,
+			'',
+			'REPORTED DIAGNOSTIC BATCH TO RESOLVE:',
+			diagList || 'Resolve all static and architectural linter issues.',
+			'',
+			'CURRENT FILE SOURCE CODE:',
+			'```javascript',
+			snippet,
+			'```',
+			'',
+			'BATCH RESOLUTION MANDATE:',
+			'1. Return a single PGE-DSL-1 proposal with a discrete change entry for each diagnostic.',
+			'2. Every replacement change MUST have a "search" anchor matching exact code in the CURRENT FILE SOURCE CODE.',
+			'3. For JSDoc typing, add complete @param / @returns contracts above functions.',
+			'4. For high complexity functions, extract pure helpers and invert nested logic into early-return guard clauses.',
+			'5. Maintain 100% zero-dependency compliance (pure vanilla JS ES2022+).',
+			'',
+			'Output ONLY a valid PGE-DSL-1 JSON proposal enclosed in ```json ``` code fences.'
+		].filter(Boolean).join('\n');
 	}
 
 	/* =========================================================================
@@ -491,7 +712,7 @@
 		/**
 		 * Generate text from a prompt.
 		 * @param {string} prompt
-		 * @param {{ maxTokens?: number, temperature?: number, onToken?: (tok: string) => void }} [options]
+		 * @param {{ maxTokens?: number, temperature?: number, top_p?: number, topP?: number, repeat_penalty?: number, repeatPenalty?: number, onToken?: (tok: string) => void, signal?: AbortSignal }} [options]
 		 * @returns {Promise<string>}
 		 */
 		generate(prompt, options) {
@@ -505,16 +726,24 @@
 			const opts = options || {};
 			const onToken = opts.onToken;
 			const streaming = typeof onToken === "function";
+			const signal = opts.signal;
 
-			// Strip onToken from the serialized options — it cannot cross the Worker boundary
+			if (signal?.aborted) {
+				return Promise.reject(new Error("[PHOENIX/bridge] Generation aborted by signal."));
+			}
+
+			// Strip non-transferable callbacks from the serialized options across Worker boundary
 			const workerOpts = {
 				maxTokens: opts.maxTokens || 512,
-				temperature: opts.temperature || 0.7,
+				temperature: opts.temperature ?? 0.7,
+				top_p: opts.top_p ?? opts.topP ?? 0.9,
+				repeat_penalty: opts.repeat_penalty ?? opts.repeatPenalty ?? 1.1,
 			};
 
 			return this._request(
 				{ type: "generate", prompt, options: workerOpts, streaming },
 				onToken,
+				signal,
 			);
 		}
 
@@ -561,7 +790,9 @@
 			if (!entry) return;
 			this._pending.delete(message.id);
 
-			if (message.type === "error") {
+			if (message.type === "aborted") {
+				entry.reject(new Error("[PHOENIX/bridge] Request aborted by worker."));
+			} else if (message.type === "error") {
 				entry.reject(new Error(message.error || "Unknown worker error"));
 			} else {
 				entry.resolve(message.result === undefined ? true : message.result);
@@ -580,15 +811,39 @@
 		/**
 		 * @param {Record<string, unknown>} payload
 		 * @param {((tok: string) => void) | null | undefined} [onToken]
+		 * @param {AbortSignal} [signal]
 		 * @returns {Promise<any>}
 		 */
-		_request(payload, onToken) {
+		_request(payload, onToken, signal) {
 			return new Promise((resolve, reject) => {
 				const worker = this._worker;
 				if (!worker)
 					return reject(new Error("[PHOENIX/bridge] Worker not started."));
 				const id = `req-${++this._sequence}`;
-				this._pending.set(id, { resolve, reject, onToken: onToken || null });
+
+				let onAbort = null;
+				if (signal) {
+					onAbort = () => {
+						try {
+							worker.postMessage({ type: "abort", id });
+						} catch (_) { }
+						this._pending.delete(id);
+						reject(new Error("[PHOENIX/bridge] Request aborted by signal."));
+					};
+					signal.addEventListener("abort", onAbort, { once: true });
+				}
+
+				this._pending.set(id, {
+					resolve: (res) => {
+						if (signal && onAbort) signal.removeEventListener("abort", onAbort);
+						resolve(res);
+					},
+					reject: (err) => {
+						if (signal && onAbort) signal.removeEventListener("abort", onAbort);
+						reject(err);
+					},
+					onToken: onToken || null,
+				});
 				worker.postMessage({ ...payload, id });
 			});
 		}
@@ -612,6 +867,8 @@
 	global.SOVEREIGN_ENGINE_CONSTITUTION = SOVEREIGN_ENGINE_CONSTITUTION;
 	global.buildIntentPrompt = buildIntentPrompt;
 	global.buildDiagnosticDebugPrompt = buildDiagnosticDebugPrompt;
+	global.buildCognitiveDecompositionPrompt = buildCognitiveDecompositionPrompt;
+	global.buildBatchDiagnosticDebugPrompt = buildBatchDiagnosticDebugPrompt;
 
 	if (typeof module !== "undefined" && module.exports) {
 		module.exports = {
@@ -622,6 +879,8 @@
 			SOVEREIGN_ENGINE_CONSTITUTION,
 			buildIntentPrompt,
 			buildDiagnosticDebugPrompt,
+			buildCognitiveDecompositionPrompt,
+			buildBatchDiagnosticDebugPrompt,
 		};
 	}
 })(typeof globalThis !== "undefined" ? globalThis : this);

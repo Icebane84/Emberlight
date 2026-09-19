@@ -328,6 +328,16 @@ function check(label, condition, detail) {
     })()
   );
 
+  const buildDecomp = context.window.buildCognitiveDecompositionPrompt;
+  check('buildCognitiveDecompositionPrompt is defined', typeof buildDecomp === 'function');
+  check(
+    'buildCognitiveDecompositionPrompt generates targeted directive',
+    (() => {
+      const prompt = buildDecomp('combat/combat_actions.js', 'function test() {}', { name: 'test', line: 10, complexity: 18 });
+      return prompt.includes('COGNITIVE COMPLEXITY REDUCTION') && prompt.includes('combat_actions.js') && prompt.includes('18/15');
+    })()
+  );
+
   /* ── SEC-06: PhoenixMonolithExporter API surface ────────────────────── */
   console.log('\n[SEC-06] PhoenixMonolithExporter API surface');
   const Exporter = context.window.PhoenixMonolithExporter;
@@ -679,6 +689,83 @@ function check(label, condition, detail) {
   const lintIssues = linter.lintCode(badSource, 'test.js');
   check('PhoenixLinterSuite catches forbidden placeholders and eval', lintIssues.length >= 2);
 
+  const complexSource = [
+    'function deeplyNested(a, b, c) {',
+    '  if (a) {',
+    '    if (b) {',
+    '      for (let i = 0; i < 10; i++) {',
+    '        if (c && i > 5) {',
+    '          return i;',
+    '        }',
+    '      }',
+    '    }',
+    '  }',
+    '  return 0;',
+    '}'
+  ].join('\n');
+  const complexScore = linter.calculateCognitiveComplexity(complexSource);
+  check('calculateCognitiveComplexity measures nested control flow', complexScore >= 10);
+  const scanned = linter.scanFunctionsComplexity(complexSource, 8);
+  check('scanFunctionsComplexity identifies functions exceeding threshold', scanned.length === 1 && scanned[0].name === 'deeplyNested');
+
+
+
+  /* ── SEC-15: Error Resolution Ledger (ERL-001) & Batch Remediation ───── */
+  console.log('\n[SEC-15] Error Resolution Ledger (ERL-001) & Batch Remediation');
+  const ERLLedgerClass = context.window.PhoenixSovereignEngine.PhoenixErrorResolutionLedger;
+  check('PhoenixErrorResolutionLedger is defined', typeof ERLLedgerClass === 'function');
+  const erl = new ERLLedgerClass();
+  check('ERL initialized with seed templates', erl.size >= 2);
+
+  const mathDiag = { rule: 'MATH/RANDOM', line: 10, message: 'Math.random() is forbidden' };
+  const matched = erl.findMatch(mathDiag, 'const r = Math.random();');
+  check('ERL matches MATH/RANDOM diagnostic', matched !== null && matched.searchPattern === 'Math.random()');
+
+  // Test recording a novel pattern
+  erl.record({
+    id: 'erl_custom_1',
+    fingerprint: 'CUSTOM/TEST',
+    rule: 'CUSTOM/TEST',
+    description: 'Custom test template',
+    searchPattern: 'oldVarName',
+    replacePattern: 'newVarName',
+    verifiedReceipt: 'PASS',
+    timestamp: new Date().toISOString(),
+    useCount: 1
+  });
+  check('ERL records new pattern', erl.lookup('CUSTOM/TEST') !== null);
+
+  // Test NDJSON serialization / deserialization
+  const ndjson = erl.exportNDJSON();
+  check('exportNDJSON produces valid lines', ndjson.includes('CUSTOM/TEST') && ndjson.split('\n').length >= 3);
+  const erl2 = new ERLLedgerClass();
+  const importedCount = erl2.importNDJSON(ndjson);
+  check('importNDJSON restores all records', importedCount >= 3 && erl2.lookup('CUSTOM/TEST') !== null);
+
+  // Test Batch Remediation Fast-Path
+  const BatchPipeline = context.window.PhoenixSovereignEngine.PhoenixBatchRemediationPipeline;
+  check('PhoenixBatchRemediationPipeline is defined', typeof BatchPipeline === 'function');
+
+  const rawSampleCode = 'function doRoll() {\n  return Math.random();\n}';
+  const diags = [
+    { rule: 'MATH/RANDOM', line: 2, message: 'Forbidden Math.random()' },
+    { rule: 'UNKNOWN/NOVEL', line: 1, message: 'Novel issue' }
+  ];
+  const batchFastResult = BatchPipeline.executeFastPath(
+    rawSampleCode,
+    diags,
+    'test.js',
+    erl,
+    (candidate) => ({ pass: !candidate.includes('Math.random()') })
+  );
+  check('Batch fast-path applies cached resolution', batchFastResult.fastPathApplied === 1 && batchFastResult.patchedSource.includes('_rng.next()'));
+  check('Batch fast-path leaves novel diagnostics unresolved', batchFastResult.unresolvedDiagnostics.length === 1 && batchFastResult.unresolvedDiagnostics[0].rule === 'UNKNOWN/NOVEL');
+
+  // Test batch prompt generator
+  const buildBatchPrompt = context.window.buildBatchDiagnosticDebugPrompt;
+  check('buildBatchDiagnosticDebugPrompt is defined', typeof buildBatchPrompt === 'function');
+  const batchPrompt = buildBatchPrompt('combat.js', rawSampleCode, batchFastResult.unresolvedDiagnostics);
+  check('buildBatchDiagnosticDebugPrompt contains BATCH REMEDIATION DIRECTIVE', batchPrompt.includes('BATCH ERROR REMEDIATION DIRECTIVE') && batchPrompt.includes('combat.js'));
 
   /* =========================================================================
    * SUMMARY

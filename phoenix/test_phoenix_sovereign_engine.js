@@ -427,11 +427,10 @@ async function run() {
 	}
 }
 
-(async function main() {
-	try {
-		await run();
-	} catch (err) {
-		console.error("[FATAL] Uncaught error in test runner:", err);
-		process.exitCode = 1;
-	}
-})();
+run().catch((err) => {
+	console.error("[FATAL] Uncaught error in test runner:", err);
+	process.exitCode = 1;
+});
+
+
+

@@ -76,7 +76,7 @@
 	const DEFAULT_CAP_EXPIRY = 16;
 
 	/** Regex: valid identifier for IDs, targets, capability names */
-	const RE_ID = /^[A-Za-z0-9_.:/()[\]@\s-]{1,256}$/;
+	const RE_ID = /^[A-Za-z0-9_.:/()[\]@\s&+#%,'"!$-]{1,256}$/;
 	const RE_CAP = /^[A-Za-z0-9_.:-]{1,128}$/;
 
 	/**
@@ -1261,6 +1261,91 @@ function ${fnName}(audioCtx) {
 		},
 	});
 
+	/**
+	 * Resolves file text from a VFS map using relative or basename lookup.
+	 * @param {Map<string, string> | { get: (k: string) => string | undefined; has: (k: string) => boolean; entries?: () => Iterable<[string, string]> }} vfsMap
+	 * @param {string} filePath
+	 * @returns {string | undefined}
+	 */
+	function _lookupVFS(vfsMap, filePath) {
+		if (!vfsMap || typeof vfsMap.get !== "function") return undefined;
+		const clean = filePath.replace(/^\.?\//, "").trim();
+		if (vfsMap.has(clean)) return vfsMap.get(clean);
+		if (vfsMap.has("./" + clean)) return vfsMap.get("./" + clean);
+		const baseName = clean.split("/").pop() || clean;
+		if (vfsMap.has(baseName)) return vfsMap.get(baseName);
+		if (typeof vfsMap.entries === "function") {
+			for (const [ k, v ] of vfsMap.entries()) {
+				if (k.endsWith("/" + clean) || k.endsWith("/" + baseName)) return v;
+			}
+		}
+		return undefined;
+	}
+
+	/**
+	 * Inlines all stylesheet links found in HTML markup.
+	 * @param {string} html
+	 * @param {Map<string, string> | any} vfsMap
+	 * @returns {string}
+	 */
+	function _inlineStylesheets(html, vfsMap) {
+		const reLink = /<link\b[^>]*?\bhref=["']([^"']+)["'][^>]*?>/gi;
+		return html.replace(reLink, (match, href) => {
+			if (!match.includes("stylesheet") && !href.endsWith(".css")) return match;
+			const css = _lookupVFS(vfsMap, href);
+			if (css !== undefined) {
+				return `<style>/* [VFS INLINE CSS: ${href}] */\n${css}\n</style>`;
+			}
+			return `<!-- [VFS External CSS Skipped: ${href}] -->`;
+		});
+	}
+
+	/**
+	 * Inlines all script tags found in HTML markup in declared order.
+	 * @param {string} html
+	 * @param {Map<string, string> | any} vfsMap
+	 * @param {Set<string>} inlinedSet
+	 * @returns {{ html: string, hasScriptTags: boolean }}
+	 */
+	function _inlineScripts(html, vfsMap, inlinedSet) {
+		let hasScriptTags = false;
+		const reScript = /<script\b[^>]*?\bsrc=["']([^"']+)["'][^>]*?>\s*<\/script>/gi;
+		const safeClosingScript = "<" + "/script>";
+		const safeOpeningScript = "<script>";
+		const transformed = html.replace(reScript, (_match, src) => {
+			hasScriptTags = true;
+			const code = _lookupVFS(vfsMap, src);
+			if (code !== undefined) {
+				inlinedSet.add(src.replace(/^\.?\//, "").trim());
+				const safeCode = code.replaceAll("</script>", safeClosingScript);
+				return `${safeOpeningScript}/* [VFS INLINE SCRIPT: ${src}] */\n${safeCode}\n${safeClosingScript}`;
+			}
+			return `<!-- [VFS External Script Skipped: ${src}] -->`;
+		});
+		return { html: transformed, hasScriptTags };
+	}
+
+	/**
+	 * Builds fallback bundle when no script tags were declared in entry HTML.
+	 * @param {Map<string, string> | any} vfsMap
+	 * @param {Set<string>} inlinedSet
+	 * @returns {string}
+	 */
+	function _buildFallbackScriptBundle(vfsMap, inlinedSet) {
+		if (!vfsMap || typeof vfsMap.entries !== "function") return "";
+		const scripts = [];
+		const safeClosingScript = "<" + "/script>";
+		const safeOpeningScript = "<script>";
+		for (const [ path, code ] of vfsMap.entries()) {
+			const clean = path.replace(/^\.?\//, "");
+			if (path.endsWith(".js") && !path.includes("test_") && !inlinedSet.has(clean)) {
+				const safeCode = code.replaceAll("</script>", safeClosingScript);
+				scripts.push(`/* [VFS: ${path}] */\n${safeCode}`);
+			}
+		}
+		return scripts.length > 0 ? `${safeOpeningScript}\n${scripts.join("\n\n")}\n${safeClosingScript}` : "";
+	}
+
 	const PhoenixRuntimeSandbox = Object.freeze({
 		/**
 		 * @param {Map<string, string> | { get: (k: string) => string | undefined; has: (k: string) => boolean; entries: () => Iterable<[string, string]> }} vfsMap
@@ -1268,44 +1353,53 @@ function ${fnName}(audioCtx) {
 		 * @returns {string}
 		 */
 		buildRuntimeHTML(vfsMap, entryFile = "index.html") {
-			let baseHtml = "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Phoenix Game Runtime</title><style>body{margin:0;background:#05080c;color:#00ffcc;font-family:monospace;display:flex;align-items:center;justify-content:center;height:100vh;overflow:hidden;}canvas{border:1px solid #00ffcc44;box-shadow:0 0 16px rgba(0,255,204,0.15);}</style></head><body><canvas id=\"gameCanvas\" width=\"640\" height=\"480\"></canvas></body></html>";
+			const defaultCanvas = "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Phoenix Game Runtime</title><style>body{margin:0;background:#05080c;color:#00ffcc;font-family:monospace;display:flex;align-items:center;justify-content:center;height:100vh;overflow:hidden;}canvas{border:1px solid #00ffcc44;box-shadow:0 0 16px rgba(0,255,204,0.15);}</style></head><body><canvas id=\"gameCanvas\" width=\"640\" height=\"480\"></canvas></body></html>";
 
-			if (vfsMap && typeof vfsMap.get === "function" && vfsMap.has(entryFile)) {
-				baseHtml = vfsMap.get(entryFile) || baseHtml;
+			let baseHtml = (vfsMap && typeof vfsMap.get === "function" && vfsMap.has(entryFile))
+				? (vfsMap.get(entryFile) || defaultCanvas)
+				: defaultCanvas;
+
+			baseHtml = _inlineStylesheets(baseHtml, vfsMap);
+
+			const inlinedScripts = new Set();
+			const scriptRes = _inlineScripts(baseHtml, vfsMap, inlinedScripts);
+			baseHtml = scriptRes.html;
+
+			const fallbackBundle = scriptRes.hasScriptTags ? "" : _buildFallbackScriptBundle(vfsMap, inlinedScripts);
+
+			const hookScript = [
+				"<script>",
+				"(function() {",
+				"	window.__PHOENIX_RUNTIME__ = {",
+				"		active: true,",
+				"		fps: 60,",
+				"		lastTick: performance.now(),",
+				"		frameCount: 0,",
+				"		isPaused: false,",
+				"		step() { window.__PHOENIX_RUNTIME__.frameCount++; },",
+				"		pause() { window.__PHOENIX_RUNTIME__.isPaused = true; },",
+				"		resume() { window.__PHOENIX_RUNTIME__.isPaused = false; }",
+				"	};",
+				"	window.addEventListener('error', function(e) {",
+				"		if (window.parent) {",
+				"			window.parent.postMessage({ type: 'PHOENIX_RUNTIME_ERROR', message: e.message, line: e.lineno }, '*');",
+				"		}",
+				"	});",
+				"})();",
+				"<" + "/script>"
+			].join("\n");
+
+			baseHtml = baseHtml.includes("</head>")
+				? baseHtml.replace("</head>", `${hookScript}\n</head>`)
+				: `${hookScript}\n${baseHtml}`;
+
+			if (fallbackBundle) {
+				baseHtml = baseHtml.includes("</body>")
+					? baseHtml.replace("</body>", `${fallbackBundle}\n</body>`)
+					: `${baseHtml}\n${fallbackBundle}`;
 			}
 
-			const scripts = [];
-			if (vfsMap && typeof vfsMap.entries === "function") {
-				for (const [ path, code ] of vfsMap.entries()) {
-					if (path.endsWith(".js") && !path.includes("test_")) {
-						scripts.push(`/* [VFS: ${path}] */\n${code}`);
-					}
-				}
-			}
-
-			const hookScript = `
-<script>
-(function() {
-	window.__PHOENIX_RUNTIME__ = {
-		active: true,
-		fps: 60,
-		lastTick: performance.now(),
-		frameCount: 0,
-		isPaused: false,
-		step() { window.__PHOENIX_RUNTIME__.frameCount++; },
-		pause() { window.__PHOENIX_RUNTIME__.isPaused = true; },
-		resume() { window.__PHOENIX_RUNTIME__.isPaused = false; }
-	};
-	window.addEventListener('error', function(e) {
-		if (window.parent) {
-			window.parent.postMessage({ type: 'PHOENIX_RUNTIME_ERROR', message: e.message, line: e.lineno }, '*');
-		}
-	});
-})();
-</script>`;
-
-			const bundleScript = `<script>\n${scripts.join("\n\n")}\n</script>`;
-			return baseHtml.replace("</head>", `${hookScript}</head>`).replace("</body>", `${bundleScript}</body>`);
+			return baseHtml;
 		},
 
 		/**
@@ -1566,19 +1660,19 @@ void main() {
 				 * @param {number[] | { u0?: number; v0?: number; u1?: number; v1?: number }} [uvs]
 				 * @param {number[] | { r?: number; g?: number; b?: number; a?: number }} [color]
 				 */
-				drawQuad(x, y, w, h, uvs = [0, 0, 1, 1], color = [1, 1, 1, 1]) {
+				drawQuad(x, y, w, h, uvs = [ 0, 0, 1, 1 ], color = [ 1, 1, 1, 1 ]) {
 					if (quadCount >= maxQuads) this.flush();
 
 					let u0 = 0, v0 = 0, u1 = 1, v1 = 1;
 					if (Array.isArray(uvs)) {
-						[u0 = 0, v0 = 0, u1 = 1, v1 = 1] = uvs;
+						[ u0 = 0, v0 = 0, u1 = 1, v1 = 1 ] = uvs;
 					} else if (uvs && typeof uvs === "object") {
 						({ u0 = 0, v0 = 0, u1 = 1, v1 = 1 } = uvs);
 					}
 
 					let r = 1, g = 1, b = 1, a = 1;
 					if (Array.isArray(color)) {
-						[r = 1, g = 1, b = 1, a = 1] = color;
+						[ r = 1, g = 1, b = 1, a = 1 ] = color;
 					} else if (color && typeof color === "object") {
 						({ r = 1, g = 1, b = 1, a = 1 } = color);
 					}
@@ -1685,8 +1779,8 @@ void main() {
 							p.y - p.size / 2,
 							p.size,
 							p.size,
-							[0, 0, 1, 1],
-							[p.color[ 0 ], p.color[ 1 ], p.color[ 2 ], alpha]
+							[ 0, 0, 1, 1 ],
+							[ p.color[ 0 ], p.color[ 1 ], p.color[ 2 ], alpha ]
 						);
 					}
 				},
@@ -2664,15 +2758,105 @@ void main() {
 			try {
 				const parsed = JSON.parse(jsonStr);
 				return JSON.stringify(parsed, null, indent);
-			} catch (parseError) {
+			} catch {
 				// Fallback to unformatted raw string if JSON parsing fails
-				void parseError;
 				return jsonStr;
 			}
 		}
 	});
 
 	const PhoenixLinterSuite = Object.freeze({
+		/**
+		 * Computes the cognitive complexity score of a JavaScript code block or function.
+		 * @param {string} code
+		 * @returns {number}
+		 */
+		calculateCognitiveComplexity(code) {
+			if (typeof code !== 'string') return 0;
+			const lines = code.split(/\r?\n/);
+			let complexity = 0;
+			let nesting = 0;
+
+			for (const rawLine of lines) {
+				const line = rawLine.replace(/\/\/.*/, '').replace(/\/\*.*?\*\//g, '').trim();
+				if (!line) continue;
+
+				const closeBraces = (line.match(/\}/g) || []).length;
+				const openBraces = (line.match(/\{/g) || []).length;
+
+				const hasIf = /\bif\s*\(/.test(line);
+				const hasElseIf = /\belse\s+if\s*\(/.test(line);
+				const hasElse = /\belse\b/.test(line) && !hasElseIf;
+				const hasLoop = /\b(for|while|do)\b/.test(line);
+				const hasCatch = /\bcatch\s*\(/.test(line);
+				const hasSwitch = /\bswitch\s*\(/.test(line);
+				const hasTernary = /\?.*:/.test(line);
+
+				let structuralHits = 0;
+				if (hasIf || hasElseIf || hasLoop || hasCatch || hasSwitch) structuralHits++;
+				if (hasElse || hasTernary) structuralHits++;
+
+				const logicalOps = (line.match(/(&&|\|\||\?\?)/g) || []).length;
+
+				if (structuralHits > 0) {
+					complexity += structuralHits * (1 + nesting);
+				}
+				complexity += logicalOps;
+
+				if (openBraces > closeBraces) {
+					nesting += (openBraces - closeBraces);
+				} else if (closeBraces > openBraces) {
+					nesting = Math.max(0, nesting - (closeBraces - openBraces));
+				}
+			}
+			return complexity;
+		},
+
+		/**
+		 * Scans source code for function declarations and measures cognitive complexity against threshold.
+		 * @param {string} source
+		 * @param {number} [threshold=15]
+		 * @returns {Array<{ name: string; line: number; endLine: number; complexity: number; score: number; codeSlice: string }>}
+		 */
+		scanFunctionsComplexity(source, threshold = 15) {
+			if (typeof source !== 'string') return [];
+			const lines = source.split(/\r?\n/);
+			const results = [];
+
+			for (let i = 0; i < lines.length; i++) {
+				const line = lines[ i ];
+				const fnMatch = line.match(/(?:async\s+)?function\s*([A-Za-z0-9_$]+)?\s*\(([^)]*)\)|(?:const|let|var)\s+([A-Za-z0-9_$]+)\s*=\s*(?:async\s+)?(?:\([^)]*\)|[A-Za-z0-9_$]+)\s*=>/);
+				if (fnMatch && line.includes('{')) {
+					const fnName = fnMatch[ 1 ] || fnMatch[ 3 ] || 'anonymous';
+					let open = 0;
+					let endLine = i;
+					const fnLines = [];
+					for (let j = i; j < lines.length; j++) {
+						fnLines.push(lines[ j ]);
+						open += (lines[ j ].match(/\{/g) || []).length;
+						open -= (lines[ j ].match(/\}/g) || []).length;
+						if (open <= 0 && j > i) {
+							endLine = j;
+							break;
+						}
+					}
+					const fnBody = fnLines.join('\n');
+					const score = this.calculateCognitiveComplexity(fnBody);
+					if (score > threshold) {
+						results.push({
+							name: fnName,
+							line: i + 1,
+							endLine: endLine + 1,
+							complexity: score,
+							score,
+							codeSlice: fnBody
+						});
+					}
+				}
+			}
+			return results;
+		},
+
 		/**
 		 * Multi-Pass Structural and Syntax Linter
 		 * @param {string} source
@@ -2705,6 +2889,221 @@ void main() {
 			return issues;
 		}
 	});
+
+	/* =========================================================================
+	 * [SEC-15] ERROR RESOLUTION LEDGER (ERL-001) & BATCH REMEDIATION PIPELINE
+	 * ========================================================================= */
+	/**
+	 * @typedef {Object} ERLResolutionTemplate
+	 * @property {string} id
+	 * @property {string} fingerprint
+	 * @property {string} rule
+	 * @property {string} description
+	 * @property {string} searchPattern
+	 * @property {string} replacePattern
+	 * @property {boolean} [isRegex]
+	 * @property {string} [verifiedReceipt]
+	 * @property {string} timestamp
+	 * @property {number} useCount
+	 */
+
+	class PhoenixErrorResolutionLedger {
+		constructor() {
+			/** @type {Map<string, ERLResolutionTemplate>} */
+			this._entries = new Map();
+			this._initSeedTemplates();
+		}
+
+		_initSeedTemplates() {
+			this.record({
+				id: 'erl_seed_math_random',
+				fingerprint: 'MATH/RANDOM',
+				rule: 'MATH/RANDOM',
+				description: 'Replace unseeded Math.random() with deterministic Emberlight PRNG',
+				searchPattern: 'Math.random()',
+				replacePattern: '(_rng.next() / 0xFFFFFFFF)',
+				verifiedReceipt: 'PASS',
+				timestamp: '2026-01-01T00:00:00.000Z',
+				useCount: 1
+			});
+
+			this.record({
+				id: 'erl_seed_debugger',
+				fingerprint: 'DEBUGGER',
+				rule: 'DEBUGGER',
+				description: 'Strip leftover debugger statements',
+				searchPattern: 'debugger;',
+				replacePattern: '',
+				verifiedReceipt: 'PASS',
+				timestamp: '2026-01-01T00:00:00.000Z',
+				useCount: 1
+			});
+		}
+
+		/**
+		 * Computes structural diagnostic fingerprint
+		 * @param {{ rule?: string; message?: string; line?: number; fnName?: string }} diag
+		 * @param {string} [codeSnippet]
+		 * @returns {string}
+		 */
+		computeFingerprint(diag, codeSnippet = '') {
+			const rule = diag?.rule || 'UNKNOWN';
+			if (rule === 'MATH/RANDOM') return 'MATH/RANDOM';
+			if (rule === 'DEBUGGER' || (codeSnippet?.includes('debugger;'))) return 'DEBUGGER';
+			if (diag?.fnName) return `${rule}:${diag.fnName}`;
+			if (codeSnippet) {
+				const trimmed = codeSnippet.trim().slice(0, 80);
+				return `${rule}:${hash(trimmed)}`;
+			}
+			return rule;
+		}
+
+		/**
+		 * Look up an exact or rule-based template
+		 * @param {string} fingerprint
+		 * @returns {ERLResolutionTemplate | null}
+		 */
+		lookup(fingerprint) {
+			if (!fingerprint) return null;
+			return this._entries.get(fingerprint) || null;
+		}
+
+		/**
+		 * Checks if diagnostic matches a template
+		 * @param {{ rule?: string; message?: string; line?: number; fnName?: string }} diag
+		 * @param {string} [lineText='']
+		 * @returns {ERLResolutionTemplate | null}
+		 */
+		findMatch(diag, lineText = '') {
+			const fp = this.computeFingerprint(diag, lineText);
+			const exact = this.lookup(fp);
+			if (exact) return exact;
+			if (diag?.rule && this._entries.has(diag.rule)) {
+				return this._entries.get(diag.rule);
+			}
+			return null;
+		}
+
+		/**
+		 * Record or update a resolution template
+		 * @param {ERLResolutionTemplate} entry
+		 */
+		record(entry) {
+			if (!entry?.fingerprint) return;
+			const existing = this._entries.get(entry.fingerprint);
+			const useCount = (existing ? existing.useCount : 0) + (entry.useCount || 1);
+			const finalized = {
+				id: entry.id || `erl_${Date.now()}_${uid()}`,
+				fingerprint: entry.fingerprint,
+				rule: entry.rule || 'UNKNOWN',
+				description: entry.description || 'Verified error repair template',
+				searchPattern: entry.searchPattern || '',
+				replacePattern: entry.replacePattern || '',
+				verifiedReceipt: entry.verifiedReceipt || 'PASS',
+				timestamp: entry.timestamp || new Date().toISOString(),
+				useCount
+			};
+			this._entries.set(entry.fingerprint, finalized);
+		}
+
+		/**
+		 * Serializes all ledger entries to NDJSON format
+		 * @returns {string}
+		 */
+		exportNDJSON() {
+			const lines = [];
+			for (const entry of this._entries.values()) {
+				lines.push(JSON.stringify(entry));
+			}
+			return lines.join('\n');
+		}
+
+		/**
+		 * Deserializes and loads NDJSON content
+		 * @param {string} ndjson
+		 * @returns {number} count of imported records
+		 */
+		importNDJSON(ndjson) {
+			if (typeof ndjson !== 'string' || !ndjson.trim()) return 0;
+			const lines = ndjson.split(/\r?\n/);
+			let count = 0;
+			for (const line of lines) {
+				const trimmed = line.trim();
+				if (!trimmed) continue;
+				try {
+					const parsed = JSON.parse(trimmed);
+					if (parsed.fingerprint) {
+						this.record(parsed);
+						count++;
+					}
+				} catch (e) {
+					console.warn('[PHOENIX/ERL] Skipped invalid NDJSON line:', e);
+				}
+			}
+			return count;
+		}
+
+		get size() {
+			return this._entries.size;
+		}
+
+		getAllEntries() {
+			return Array.from(this._entries.values());
+		}
+	}
+
+	class PhoenixBatchRemediationPipeline {
+		/**
+		 * Executes a 2-phase batch remediation (Ledger fast-path + optional AI fallback)
+		 * @param {string} sourceCode
+		 * @param {Array<{ rule?: string; message?: string; line?: number; col?: number; fnName?: string; quickFix?: any }>} diagnostics
+		 * @param {string} filePath
+		 * @param {PhoenixErrorResolutionLedger} ledger
+		 * @param {Function} sandboxVerifier Function(patchedSource) -> { pass: boolean, remainingErrors: any[] }
+		 * @returns {{ pass: boolean; patchedSource: string; fastPathApplied: number; unresolvedDiagnostics: Array<any>; appliedChanges: Array<any> }}
+		 */
+		static executeFastPath(sourceCode, diagnostics, filePath, ledger, sandboxVerifier) {
+			let currentSource = sourceCode;
+			const lines = currentSource.split('\n');
+			const unresolvedDiagnostics = [];
+			const appliedChanges = [];
+			let fastPathApplied = 0;
+
+			for (const diag of diagnostics) {
+				const lineIdx = (diag.line || 1) - 1;
+				const lineText = lines[ lineIdx ] || '';
+				const match = ledger ? ledger.findMatch(diag, lineText) : null;
+
+				if (match?.searchPattern && currentSource.includes(match.searchPattern)) {
+					const candidate = currentSource.replace(match.searchPattern, match.replacePattern);
+					const verification = typeof sandboxVerifier === 'function' ? sandboxVerifier(candidate) : { pass: true };
+					if (verification.pass) {
+						currentSource = candidate;
+						fastPathApplied++;
+						match.useCount = (match.useCount || 0) + 1;
+						appliedChanges.push({
+							type: 'replace_text',
+							search: match.searchPattern,
+							content: match.replacePattern,
+							rule: match.rule,
+							via: 'ERL-001'
+						});
+						continue;
+					}
+				}
+
+				unresolvedDiagnostics.push(diag);
+			}
+
+			return {
+				pass: unresolvedDiagnostics.length === 0,
+				patchedSource: currentSource,
+				fastPathApplied,
+				unresolvedDiagnostics,
+				appliedChanges
+			};
+		}
+	}
 	//#endregion
 
 	//#region [SEC-10] Layer 1: Structural Linter & Proposal Shape Validator
@@ -3779,7 +4178,7 @@ void main() {
 			// Extract localized fault slices across proposal changes
 			const faultSlices = (originalProposal.changes || []).map((/** @type {{ path: string; }} */ c) => {
 				const src = this.getSource(c.path) || "";
-				return extractFaultSlice(src, c, /** @type {Record<string, unknown>} */ (receipt.details));
+				return extractFaultSlice(src, c, /** @type {Record<string, unknown>} */(receipt.details));
 			});
 
 			const repairPrompt = [
@@ -3930,6 +4329,8 @@ void main() {
 		PhoenixTerrainRaymarcher,
 		PhoenixCodeFormatter,
 		PhoenixLinterSuite,
+		PhoenixErrorResolutionLedger,
+		PhoenixBatchRemediationPipeline,
 	});
 
 	global.PhoenixSovereignEngine = API;

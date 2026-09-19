@@ -592,14 +592,27 @@
 		const btnExport = document.getElementById('btn-export');
 		if (btnExport) {
 			btnExport.addEventListener('click', async () => {
-				const receipts = _governor ? _governor.getReceipts() : [];
+				let receipts = [];
+				if (_governor) {
+					try {
+						if (_governor.storage && typeof _governor.storage.readJournal === 'function') {
+							receipts = await _governor.storage.readJournal();
+						}
+					} catch (_) {
+						// Fallback to in-memory receipts if journal read fails
+					}
+					if (!receipts || receipts.length === 0) {
+						receipts = _governor.getReceipts();
+					}
+				}
 				const html = await PhoenixMonolithExporter.exportMonolithAsync({
 					title: 'Phoenix Sovereign Monolith — v7.0.0-ULTIMATE-FUSION',
 					sources: _governor
 						? [ { path: 'combat.js', content: _governor.getSource('combat.js') || '' } ]
 						: [],
 					shaders: [ { name: 'particle.wgsl', source: PARTICLE_WGSL } ],
-					receipts: receipts
+					receipts: receipts,
+					includeOPFSJournal: true
 				});
 				const blob = new Blob([ html ], { type: 'text/html' });
 				const url = URL.createObjectURL(blob);
@@ -610,7 +623,7 @@
 				a.click();
 				a.remove();
 				URL.revokeObjectURL(url);
-				_log.ok(`Monolith exported — ${receipts.length} receipts embedded.`);
+				_log.ok(`Monolith exported — ${receipts.length} receipts synchronized from journal.`);
 			});
 		}
 

@@ -67,6 +67,7 @@
 	}
 
 	/**
+	 * Chunked base64 encoder to handle massive WASM / binary assets without stack overflow.
 	 * @param {string} s
 	 * @returns {string}
 	 */
@@ -76,9 +77,11 @@
 		}
 		if (typeof global.btoa === "function") {
 			const bytes = new TextEncoder().encode(s);
+			const CHUNK_SIZE = 0x8000; // 32KB chunk limit to prevent stack overflow
 			let binary = "";
-			for (const byte of bytes) {
-				binary += String.fromCodePoint(byte);
+			for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+				const chunk = bytes.subarray(i, i + CHUNK_SIZE);
+				binary += String.fromCodePoint.apply(null, Array.from(chunk));
 			}
 			return global.btoa(binary);
 		}
@@ -133,6 +136,8 @@
 	 *   sources?: Array<{ path: string, content: string }>,
 	 *   wasmKernels?: Array<{ name: string, base64: string }>,
 	 *   shaders?: Array<{ name: string, source?: string, wgsl?: string }>,
+	 *   stylesheets?: Array<string>,
+	 *   headTags?: Array<string>,
 	 *   receipts?: unknown[]
 	 * }} [options]
 	 * @returns {string} complete HTML document
@@ -165,6 +170,8 @@
 				}))
 				: [ { name: "phoenix_default.wgsl", source: DEFAULT_WGSL } ];
 
+		const stylesheets = Array.isArray(o.stylesheets) ? o.stylesheets : [];
+		const headTags = Array.isArray(o.headTags) ? o.headTags : [];
 		const receipts = Array.isArray(o.receipts) ? o.receipts : [];
 
 		const manifest = {
@@ -196,6 +203,8 @@
 			'<meta name="viewport" content="width=device-width,initial-scale=1">',
 			`<title>${_escapeHtml(title)}</title>`,
 			'<meta name="description" content="Phoenix Sovereign Monolith — self-contained governance artifact">',
+			...headTags,
+			...stylesheets.map((css) => `<style>\n${css}\n</style>`),
 			"</head>",
 			"<body>",
 			"<script>",
