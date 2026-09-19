@@ -1,0 +1,614 @@
+/**
+ * ============================================================================
+ * EMBERLIGHT SOVEREIGN ENGINE: TACTICAL WAR TABLE // CORE FOUNDATION & COCKPIT
+ * Document Identifier: ARCH-SPEC-WAR-TABLE-001-PART-01
+ * Governing Protocol:  VSRP-001 / CSS Architecture
+ * Authority:           Peripheral Presentation
+ * ============================================================================
+
+ * TABLE OF CONTENTS & NAVIGATION ANCHORS:
+ *   [SEC-01] Design Tokens, Reset & Body Typography
+ *   [SEC-02] Master Cockpit Enclosure, Panels & CRT Overlay
+ *   [SEC-03] Top Header Strip, Telemetry Channels & Q4 Persistent Mini-HUD
+ *   [SEC-04] District Sub-Nav Dock, Retro Modals & Field Pouch Selectors
+ *   [SEC-05] 2x2 Quad-Matrix Layout Grid & Expanded Full-Matrix Mode Deck
+ * ============================================================================
+ */
+
+/* #region [SEC-01] Design Tokens, Reset & Body Typography */
+:root {
+	--bg: #04040c;
+	--panel-bg: #0c0c1c;
+	--panel-bg-trans: rgba(12, 12, 28, 0.96);
+	--border: #e8a33d;
+	--border-dim: #25253d;
+	--border-focus: #ff9d4d;
+	--text: #f8fafc;
+	--text-dim: #94a3b8;
+	--text-bright: #ffffff;
+	--hp: #ef4444;
+	--mp: #38bdf8;
+	--ember: #ff9d4d;
+	--danger: #ff5555;
+	--ok: #4ade80;
+	--shadow-ember: rgba(255, 157, 77, 0.35);
+	--font-display: 'Press Start 2P', monospace;
+	--font-mono: 'JetBrains Mono', 'VT323', 'Consolas', 'Courier New', monospace;
+	box-sizing: border-box;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: inherit;
+}
+
+body {
+	background: var(--bg);
+	color: var(--text);
+	font-family: var(--font-mono);
+	font-size: 11px;
+	line-height: 1.5;
+	margin: 0;
+	padding: 10px;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	min-height: 100vh;
+	user-select: none;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	text-rendering: geometricPrecision;
+	background-image:
+		radial-gradient(ellipse at 50% 10%, rgba(232, 163, 61, 0.09), transparent 70%),
+		linear-gradient(rgba(10, 10, 25, 0.55) 1px, transparent 1px),
+		linear-gradient(90deg, rgba(10, 10, 25, 0.55) 1px, transparent 1px);
+	background-size:
+		100% 100%,
+		16px 16px,
+		16px 16px;
+}
+
+/* #endregion */
+
+/* #region [SEC-02] Master Cockpit Enclosure, Panels & CRT Overlay */
+/* --- RETRO CRT SCANLINE OVERLAY --- */
+body.crt-enabled::before {
+	content: ' ';
+	display: block;
+	position: fixed;
+	top: 0;
+	left: 0;
+	bottom: 0;
+	right: 0;
+	background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.12) 50%);
+	background-size: 100% 3px;
+	z-index: 1000;
+	pointer-events: none;
+	opacity: 0.5;
+}
+
+/* --- MASTER COCKPIT ENCLOSURE --- */
+#game-cockpit {
+	width: min(1280px, 98vw);
+	min-height: 94vh;
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.panel {
+	background: var(--panel-bg);
+	border: 2px solid var(--border-dim);
+	box-shadow:
+		inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+		0 4px 16px rgba(0, 0, 0, 0.7);
+	padding: 8px 12px;
+	transition:
+		border-color 0.2s ease,
+		box-shadow 0.2s ease;
+}
+
+.panel-title {
+	color: var(--text-dim);
+	font-size: 7.5px;
+	margin-bottom: 6px;
+	border-bottom: 1px solid var(--border-dim);
+	padding-bottom: 4px;
+	letter-spacing: 1px;
+}
+
+/* #endregion */
+
+/* #region [SEC-03] Top Header Strip, Telemetry Channels & Q4 Persistent Mini-HUD */
+/* --- TOP HEADER STRIP --- */
+#cockpit-top-bar {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 8px 14px;
+	border-color: var(--border);
+	background: rgba(12, 12, 28, 0.98);
+}
+
+.brand-title {
+	color: var(--ember);
+	font-size: 11px;
+	font-weight: bold;
+	letter-spacing: 2px;
+	text-shadow: 0 0 8px var(--shadow-ember);
+}
+
+.telemetry-channel-group {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	flex: 1;
+	max-width: 650px;
+	min-width: 0;
+}
+
+.quest-ticker {
+	font-size: 7.5px;
+	color: #7dd3fc;
+	font-weight: bold;
+	background: #081b2e;
+	padding: 3px 8px;
+	border-radius: 3px;
+	border: 1px solid rgba(56, 189, 248, 0.4);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.quest-ticker .quest-tag {
+	color: var(--ember);
+	font-weight: bold;
+}
+
+.ticker {
+	font-size: 7.5px;
+	color: var(--text-dim);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	padding-left: 2px;
+}
+
+.top-telemetry {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.gold-counter {
+	color: var(--ember);
+	font-size: 8.5px;
+	font-weight: bold;
+	text-shadow: 0 0 4px rgba(255, 157, 77, 0.4);
+}
+
+.quick-settings-btn {
+	font-size: 7.5px;
+	padding: 5px 8px;
+	border-color: var(--border-dim);
+}
+
+/* --- PERSISTENT Q4 MINI-HUD --- */
+#q4-persistent-mini-hud {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 4px;
+	padding: 4px 6px;
+	background: rgba(8, 8, 20, 0.95);
+	border-bottom: 1px solid var(--border-dim);
+}
+
+.mini-hud-pip {
+	background: rgba(0, 0, 0, 0.5);
+	border: 1px solid var(--border-dim);
+	border-radius: 2px;
+	padding: 2px 4px;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	transition:
+		opacity 0.2s ease,
+		border-color 0.2s ease;
+}
+
+.mini-hud-pip.fainted {
+	opacity: 0.35;
+	filter: grayscale(0.85);
+	border-color: var(--danger);
+}
+
+.mini-hud-name {
+	font-size: 6px;
+	font-weight: bold;
+	color: var(--text-dim);
+	display: flex;
+	justify-content: space-between;
+}
+
+.mini-hud-bar-track {
+	height: 3px;
+	background: rgba(255, 255, 255, 0.1);
+	border-radius: 1px;
+	overflow: hidden;
+}
+
+.mini-hud-bar-fill.hp {
+	background: var(--ok);
+}
+
+.mini-hud-bar-fill.mp {
+	background: #60a5fa;
+}
+
+/* #endregion */
+
+/* #region [SEC-04] District Sub-Nav Dock, Retro Modals & Field Pouch Selectors */
+/* --- Q4 DISTRICT SUB-NAV DOCK --- */
+#q4-sub-nav {
+	display: flex;
+	gap: 4px;
+	margin-bottom: 6px;
+	border-bottom: 1px solid var(--border-dim);
+	padding-bottom: 4px;
+	overflow-x: auto;
+}
+
+.subnav-tab {
+	background: rgba(255, 255, 255, 0.05);
+	border: 1px solid var(--border-dim);
+	color: var(--text-dim);
+	font-size: 6.5px;
+	padding: 3px 6px;
+	cursor: pointer;
+	border-radius: 2px;
+	white-space: nowrap;
+}
+
+.subnav-tab:hover,
+.subnav-tab.active {
+	border-color: var(--ember);
+	color: #ffffff;
+	background: #2b1708;
+}
+
+.subnav-tab.close-tab {
+	margin-left: auto;
+	border-color: rgba(248, 113, 113, 0.4);
+	color: #f87171;
+}
+
+/* --- GAME OVER RETRO MODAL --- */
+.game-over-modal {
+	border-color: var(--danger);
+	box-shadow:
+		0 0 35px rgba(248, 113, 113, 0.4),
+		inset 0 0 15px rgba(248, 113, 113, 0.2);
+	animation: pulse-game-over 2s infinite alternate ease-in-out;
+	background: rgba(14, 8, 12, 0.98);
+}
+
+@keyframes pulse-game-over {
+	0% {
+		box-shadow: 0 0 25px rgba(248, 113, 113, 0.3);
+	}
+
+	100% {
+		box-shadow: 0 0 45px rgba(248, 113, 113, 0.7);
+	}
+}
+
+/* --- FIELD POUCH CARD --- */
+.field-pouch-btn {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 4px;
+	padding: 6px;
+	background: rgba(0, 0, 0, 0.6);
+	border: 1px solid var(--border-dim);
+	color: var(--text);
+	cursor: pointer;
+	border-radius: 3px;
+	font-size: 6.5px;
+	text-align: center;
+}
+
+.field-pouch-btn:hover:not(:disabled) {
+	border-color: var(--ok);
+	background: rgba(74, 222, 128, 0.1);
+}
+
+.field-pouch-btn:disabled {
+	opacity: 0.35;
+	cursor: not-allowed;
+}
+
+/* --- IN-SITU POUCH TARGET SELECTOR --- */
+#pouch-target-drawer {
+	background: rgba(4, 4, 12, 0.95);
+	border: 1px solid var(--border-dim);
+	border-radius: 4px;
+	padding: 8px;
+	margin-top: 6px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8);
+}
+
+.pouch-target-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	font-size: 7px;
+	color: var(--ok);
+	font-weight: bold;
+	border-bottom: 1px dashed var(--border-dim);
+	padding-bottom: 3px;
+}
+
+.pouch-target-grid {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 4px;
+}
+
+.pouch-target-btn {
+	background: rgba(12, 12, 28, 0.85);
+	border: 1px solid var(--border-dim);
+	color: var(--text);
+	font-family: inherit;
+	font-size: 6.5px;
+	padding: 6px 4px;
+	cursor: pointer;
+	border-radius: 2px;
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	text-align: center;
+	transition: all 0.12s ease;
+}
+
+.pouch-target-btn:hover:not(:disabled) {
+	border-color: var(--ok);
+	background: rgba(74, 222, 128, 0.15);
+	transform: translateY(-1px);
+}
+
+.pouch-target-btn:disabled {
+	opacity: 0.35;
+	cursor: not-allowed;
+}
+
+.pouch-target-hp {
+	font-size: 6px;
+	color: var(--hp);
+}
+
+.pouch-target-mp {
+	font-size: 6px;
+	color: var(--mp);
+}
+
+/* #endregion */
+
+/* #region [SEC-05] 2x2 Quad-Matrix Layout Grid & Expanded Full-Matrix Mode Deck */
+/* --- 2x2 QUAD-MATRIX LAYOUT GRID --- */
+#war-table-matrix {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+}
+
+.matrix-grid {
+	flex: 1;
+	display: grid;
+	grid-template-columns: 1.05fr 0.95fr;
+	grid-template-rows: minmax(310px, 1.1fr) minmax(280px, 0.9fr);
+	gap: 8px;
+	transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* =========================================================================
+   EXPANDED FULL-MATRIX MODE FOR QUADRANT 4 (CLEANED & OPTIMIZED)
+   -------------------------------------------------------------------------
+   Replaces redundant !important chains and eliminates specificity clutter
+   while maintaining precise layer precedence and grid scaling.
+   ========================================================================= */
+
+.q4-expanded-deck {
+
+	/* Grid and Viewport Matrix Reallocation */
+	&.matrix-grid,
+	#war-table-matrix & .matrix-grid {
+		grid-template-columns: 1fr;
+		grid-template-rows: 1fr;
+	}
+
+	/* Hide Non-Target Panes */
+	&>.quadrant-pane:not(#pane-readiness):not(#pane-command-deck),
+	#war-table-matrix & .quadrant-pane:not(#pane-readiness):not(#pane-command-deck),
+	#pane-cartography,
+	#pane-sensor,
+	#pane-scanner,
+	#pane-battlefield,
+	#pane-theater,
+	#pane-oracle {
+		display: none;
+	}
+
+	/* Target Readiness & Command Deck Full Expansion */
+	&>#pane-readiness,
+	&>#pane-command-deck,
+	#war-table-matrix & #pane-readiness,
+	#war-table-matrix & #pane-command-deck {
+		grid-column: 1 / -1;
+		grid-row: 1 / -1;
+		min-height: 590px;
+		height: 100%;
+		box-shadow:
+			0 0 24px rgba(56, 189, 248, 0.15),
+			inset 0 0 20px rgba(0, 0, 0, 0.8);
+		border-color: rgba(56, 189, 248, 0.6);
+		position: relative;
+		z-index: 100;
+		pointer-events: auto;
+	}
+
+	/* Visibility and Layout State Adjustments */
+	#party-hud-panel.hidden,
+	#district-mount-container.hidden,
+	#exploration-pouch-drawer.hidden,
+	.hidden {
+		display: none;
+	}
+
+	#party-hud-panel:not(.hidden) {
+		display: block;
+	}
+
+	#party-hud-grid {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 10px;
+	}
+
+	.hud-char-card {
+		flex-direction: column;
+		align-items: stretch;
+		padding: 10px;
+		background: rgba(15, 23, 42, 0.85);
+	}
+
+	.hud-char-crest {
+		width: 48px;
+		height: 48px;
+		margin: 0 auto 6px;
+	}
+
+	#field-pouch-grid {
+		grid-template-columns: repeat(6, 1fr);
+	}
+
+	#district-mount-container:not(.hidden) {
+		min-height: 560px;
+		max-height: none;
+		height: 100%;
+		flex: 1 1 auto;
+		display: flex;
+		flex-direction: column;
+		gap: 0;
+		overflow: hidden;
+	}
+
+	/* Sub-Navigation Dock Stack Priority */
+	& #q4-sub-nav {
+		position: sticky;
+		top: 0;
+		z-index: 9999;
+		background: rgba(8, 12, 24, 0.98);
+		backdrop-filter: blur(10px);
+		border-bottom: 1px solid var(--border-glow);
+		padding: 6px 8px;
+		margin-bottom: 8px;
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+		overflow-x: auto;
+		pointer-events: auto;
+	}
+
+	& .subnav-tab {
+		font-size: 7.5px;
+		padding: 4px 9px;
+		border-radius: 3px;
+		font-family: var(--font-display);
+		letter-spacing: 0.5px;
+		pointer-events: auto;
+		position: relative;
+		z-index: 10000;
+		cursor: pointer;
+
+		&:hover,
+		&.active {
+			background: #3d1c08;
+			border-color: var(--ember);
+			color: #ffffff;
+			box-shadow: 0 0 10px rgba(255, 157, 77, 0.35);
+		}
+	}
+
+	/* District Viewports Layout Sizing */
+	#status-view:not(.hidden),
+	#armory-view:not(.hidden),
+	#progression-view:not(.hidden),
+	#chronicle-view:not(.hidden),
+	#market-view:not(.hidden),
+	#auditor-view:not(.hidden),
+	#relic-forge-view:not(.hidden),
+	#settings-view:not(.hidden),
+	#lockpick-view:not(.hidden) {
+		flex: 1 1 auto;
+		min-height: 0;
+		overflow-y: auto;
+		padding-right: 4px;
+		display: flex;
+		flex-direction: column;
+	}
+
+	#district-mount-container>div:not(#q4-sub-nav)>.panel,
+	#progression-panel {
+		border: none;
+		background: transparent;
+		padding: 0;
+		margin: 0;
+		box-shadow: none;
+		height: 100%;
+		display: flex;
+		flex-direction: column;
+	}
+
+	#skill-trees {
+		flex: 1 1 auto;
+		min-height: 0;
+		max-height: none;
+		overflow-y: auto;
+	}
+
+	/* Hide External Footer Nav Bar During Deck Expansion */
+	&~#district-nav,
+	#war-table-matrix.q4-expanded-deck+#district-nav,
+	body:has(.q4-expanded-deck) #district-nav,
+	#district-nav.deck-expanded-hidden {
+		display: none;
+	}
+
+	/* Interactive Elements Pointer Pass-Through */
+	& button,
+	& .subnav-tab,
+	& .cmd-btn,
+	& .tactical-btn,
+	& .field-pouch-btn,
+	& .pouch-target-btn,
+	& .formation-bench-btn,
+	& .medical-btn,
+	& .crucible-btn {
+		pointer-events: auto;
+		position: relative;
+		z-index: 60;
+		cursor: pointer;
+	}
+}
+
+/* #endregion */

@@ -20,13 +20,15 @@ Beyond manual review and AI extraction, three specific techniques protect vanill
 
 - **What:** Extending auditor.js with a dynamic staging membrane trap during development boot.
 - **How:** Add a temporary listener in auditor.js that inspects window immediately after all scripts load:
-  JavaScript
-  function assertGlobalHygiene() {
-  const unapprovedGlobals \= Object.keys(window).filter(k \=\> k.startsWith('\_') && k.endsWith('Internal'));
-  if (unapprovedGlobals.length \> 0) {
-  throw new Error(\`\[HYGIENE VIOLATION\] Staging membrane leak detected: ${unapprovedGlobals.join(', ')}\`);
+
+```javascript
+function assertGlobalHygiene() {
+  const unapprovedGlobals = Object.keys(window).filter(k => k.startsWith('\_') && k.endsWith('Internal'));
+  if (unapprovedGlobals.length > 0) {
+    throw new Error(`[HYGIENE VIOLATION] Staging membrane leak detected: ${unapprovedGlobals.join(', ')}`);
   }
-  }
+}
+```
 
 - **Why:** Enforces VSRP-001 Section 7 (Forbidden Patterns: Global Namespace Squatting) automatically on boot.
 
@@ -114,7 +116,7 @@ To streamline collaborative prompting, establish a canonical command vocabulary.
 
 Keep this command block at the top of refactoring chat threads to initialize the AI collaborator's operating mode:
 
-Plaintext
+```plaintext
 \[SYSTEM CONTEXT: PHOENIX GUCA ENGINE ACTIVE\]
 Protocol: VSRP-001 / Facade Subsystem Topology
 Constraints: Zero Tooling (file:// double-click only), Plain \<script\> tags, Staging Membrane (window.\_\*Internal), Verbatim Math/Coordinates (No Truncation).
@@ -129,6 +131,7 @@ Available Commands:
 \- GUCA:EXPAND_TRUNCATION \[target\]
 
 Acknowledge readiness by listing the active constraints.
+```
 
 ## **Honest Thoughts**
 

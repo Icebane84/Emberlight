@@ -567,7 +567,7 @@ if (typeof window !== "undefined") {
 			},
 			westAction: {
 				id: "3D_TOGGLE_EXPAND",
-				label: is3DViewExpanded ? "Collapse" : "Expand 3D",
+				label: is3DViewExpanded ? "Collapse [Z]" : "Expand 3D",
 				icon: is3DViewExpanded ? "🔲" : "🔳",
 				title: is3DViewExpanded ? "Collapse Viewport" : "Expand 3D Immersion",
 				desc: is3DViewExpanded ? "Collapse back to standard War Table matrix layout." : "Expand 3D viewport across top quadrant matrix.",

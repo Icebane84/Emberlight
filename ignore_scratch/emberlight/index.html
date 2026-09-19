@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<title>Emberlight — Modular War Table</title>
+	<style>
+		* {
+			box-sizing: border-box;
+			margin: 0;
+			padding: 0;
+			user-select: none;
+		}
+
+		body {
+			background: #0d0e12;
+			color: #c9cdd4;
+			font-family: 'Courier New', monospace;
+			display: flex;
+			flex-direction: column;
+			height: 100vh;
+			overflow: hidden;
+		}
+
+		header {
+			padding: 6px 16px;
+			background: #141721;
+			border-bottom: 1px solid #2a3143;
+			display: flex;
+			justify-content: space-between;
+			font-size: 12px;
+			letter-spacing: 1px;
+			flex-shrink: 0;
+		}
+
+		.badge {
+			color: #e68a3e;
+			font-weight: bold;
+		}
+
+		#war-table {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+			grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+			gap: 4px;
+			padding: 4px;
+			flex: 1;
+			min-height: 0;
+			background: #090a0f;
+		}
+
+		.quadrant {
+			background: #12151f;
+			border: 1px solid #232a3b;
+			position: relative;
+			display: flex;
+			flex-direction: column;
+			min-height: 0;
+			overflow: hidden;
+		}
+
+		.q-label {
+			position: absolute;
+			top: 6px;
+			left: 8px;
+			font-size: 11px;
+			color: #7b88a1;
+			text-transform: uppercase;
+			letter-spacing: 1px;
+			background: rgba(18, 21, 31, 0.85);
+			padding: 2px 6px;
+			border: 1px solid #2a334a;
+			z-index: 10;
+		}
+
+		canvas {
+			width: 100%;
+			height: 100%;
+			flex: 1;
+			display: block;
+			image-rendering: pixelated;
+			min-height: 0;
+		}
+
+		#telemetry-deck {
+			display: flex;
+			flex-direction: column;
+			height: 100%;
+			min-height: 0;
+			padding: 32px 16px 12px 16px;
+			gap: 8px;
+		}
+
+		.vital-row {
+			display: flex;
+			justify-content: space-between;
+			border-bottom: 1px solid #1e2538;
+			padding-bottom: 4px;
+			font-size: 13px;
+			flex-shrink: 0;
+		}
+
+		.val-good {
+			color: #5bc27d;
+		}
+
+		.val-warn {
+			color: #e68a3e;
+		}
+
+		.val-crit {
+			color: #e05252;
+		}
+
+		#combat-log {
+			flex: 1;
+			min-height: 0;
+			background: #0a0c13;
+			border: 1px solid #1c2233;
+			padding: 8px;
+			font-size: 11px;
+			overflow-y: auto;
+			line-height: 1.4;
+			color: #929db2;
+		}
+
+		.log-alert {
+			color: #e68a3e;
+			font-weight: bold;
+		}
+
+		.log-combat {
+			color: #d65d5d;
+		}
+
+		.log-success {
+			color: #5bc27d;
+		}
+
+		#controls-guide {
+			background: #141721;
+			border-top: 1px solid #2a3143;
+			padding: 6px 16px;
+			font-size: 11px;
+			color: #8c97ad;
+			display: flex;
+			justify-content: space-between;
+			flex-shrink: 0;
+		}
+	</style>
+</head>
+
+<body>
+
+	<header>
+		<div>EMBERLIGHT <span class="badge">[VSRP-001 / SDCP-001 PARTITIONED]</span></div>
+		<div>SENTINEL REFERENCE MONITOR: <span class="val-good">133 CHECKS SECURED</span></div>
+	</header>
+
+	<main id="war-table">
+		<section class="quadrant">
+			<div class="q-label">Q1: Tactical Journal</div>
+			<canvas id="canvas-q1" width="320" height="240"></canvas>
+		</section>
+		<section class="quadrant">
+			<div class="q-label">Q2: Corridor Sensor (DDA)</div>
+			<canvas id="canvas-q2" width="320" height="240"></canvas>
+		</section>
+		<section class="quadrant">
+			<div class="q-label">Q3: Threat Oracle & Clash</div>
+			<canvas id="canvas-q3" width="320" height="240"></canvas>
+		</section>
+		<section class="quadrant">
+			<div class="q-label">Q4: Readiness Deck</div>
+			<div id="telemetry-deck">
+				<div class="vital-row"><span>Vanguard (Kaelen):</span><span id="vital-hp" class="val-good">48 / 48 HP</span>
+				</div>
+				<div class="vital-row"><span>Stamina Posture:</span><span id="vital-sta" class="val-good">100% (Steady)</span>
+				</div>
+				<div class="vital-row"><span>Torch Fuel:</span><span id="vital-torch" class="val-warn">84%</span></div>
+				<div class="vital-row"><span>Active Threat:</span><span id="vital-threat" class="val-crit">Dread Bone
+						Archer</span></div>
+				<div id="combat-log"></div>
+			</div>
+		</section>
+	</main>
+
+	<footer id="controls-guide">
+		<span>MOVE: [W / A / S / D]</span>
+		<span>COMBAT: [Space] Real-Time Strike | [1] Shield Slam</span>
+		<span>SUBSYSTEMS: LOADER HYDRATED</span>
+	</footer>
+
+	<!-- Central Loader Manifest (Sequential Script Injection) -->
+	<script src="./core/loader.js"></script>
+
+	<!-- Host Harness Initialization upon Hydration Event -->
+	<script>
+		window.addEventListener('emberlight:hydrated', () => {
+			class HostEventBus {
+				publish(channel, payload) { return true; }
+			}
+
+			const eventBus = new HostEventBus();
+			const sentinel = new SentinelKernel(eventBus);
+			const audio = new AudioDriver();
+
+			const overworldTenant = sentinel.registerTenant('sim:overworld', 'SPATIAL', 0x0001 | 0x0002);
+			const combatTenant = sentinel.registerTenant('sim:combat', 'COMBAT', 0x1000);
+
+			const MAP_SIZE = 12;
+			const MAP = [
+				1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+				1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1,
+				1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1,
+				1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1,
+				1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1,
+				1, 0, 0, 0, 0, 0, 2, 1, 0, 0, 0, 1,
+				1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1,
+				1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1,
+				1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1,
+				1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1,
+				1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 1,
+				1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+			];
+
+			const state = {
+				player: { x: 1.5, y: 1.5, dirX: 1, dirY: 0, planeX: 0, planeY: 0.66, hp: 48, maxHp: 48, stamina: 100 },
+				combat: { active: false, enemy: { name: "Dread Archer", row: 1, hp: 32, maxHp: 32 } },
+				explored: new Array(MAP_SIZE * MAP_SIZE).fill(false)
+			};
+
+			const logBox = document.getElementById('combat-log');
+			function appendLog(msg, cls = '') {
+				const line = document.createElement('div');
+				if (cls) line.className = cls;
+				line.textContent = `> ${msg}`;
+				logBox.appendChild(line);
+				logBox.scrollTop = logBox.scrollHeight;
+			}
+			appendLog("Sovereign stack initialized. Continuous polling active.", "log-success");
+
+			const q1Ctx = document.getElementById('canvas-q1').getContext('2d');
+			const q2Canvas = document.getElementById('canvas-q2');
+			const q2Ctx = q2Canvas.getContext('2d');
+			const q3Ctx = document.getElementById('canvas-q3').getContext('2d');
+
+			// Live Input State Map for Continuous Polling
+			const input = {};
+
+			window.addEventListener('keydown', (e) => {
+				input[e.key] = true;
+				input[e.code] = true;
+
+				if (e.key === '1' && state.combat.active) {
+					combatTenant.publish('combat:action', { type: 'SHIELD_SLAM' });
+					if (state.combat.enemy.row === 1) {
+						state.combat.enemy.row = 0;
+						state.combat.enemy.hp -= 8;
+						appendLog("Shield Slam drags Dread Archer into FRONT ROW!", "log-combat");
+					}
+					audio.playClash();
+				}
+			});
+
+			window.addEventListener('keyup', (e) => {
+				input[e.key] = false;
+				input[e.code] = false;
+			});
+
+			let lastTime = performance.now();
+			let footstepTimer = 0;
+			const footstepInterval = 0.38;
+
+			function updatePhysics(dt) {
+				const rotSpeed = 2.2 * dt;
+				const moveSpeed = 3.2 * dt;
+
+				// Rotation Polling
+				if (input['a'] || input['A'] || input['ArrowLeft'] || input['Left']) {
+					const oldX = state.player.dirX;
+					state.player.dirX = oldX * Math.cos(-rotSpeed) - state.player.dirY * Math.sin(-rotSpeed);
+					state.player.dirY = oldX * Math.sin(-rotSpeed) + state.player.dirY * Math.cos(-rotSpeed);
+					const oldP = state.player.planeX;
+					state.player.planeX = oldP * Math.cos(-rotSpeed) - state.player.planeY * Math.sin(-rotSpeed);
+					state.player.planeY = oldP * Math.sin(-rotSpeed) + state.player.planeY * Math.cos(-rotSpeed);
+				}
+				if (input['d'] || input['D'] || input['ArrowRight'] || input['Right']) {
+					const oldX = state.player.dirX;
+					state.player.dirX = oldX * Math.cos(rotSpeed) - state.player.dirY * Math.sin(rotSpeed);
+					state.player.dirY = oldX * Math.sin(rotSpeed) + state.player.dirY * Math.cos(rotSpeed);
+					const oldP = state.player.planeX;
+					state.player.planeX = oldP * Math.cos(rotSpeed) - state.player.planeY * Math.sin(rotSpeed);
+					state.player.planeY = oldP * Math.sin(rotSpeed) + state.player.planeY * Math.cos(rotSpeed);
+				}
+
+				// Translation Polling
+				let moveStep = 0;
+				if (input['w'] || input['W'] || input['ArrowUp'] || input['Up']) moveStep = moveSpeed;
+				if (input['s'] || input['S'] || input['ArrowDown'] || input['Down']) moveStep = -moveSpeed;
+
+				if (moveStep !== 0) {
+					audio.startAmbientBGM(); // Trigger procedural BGM on first move
+					overworldTenant.publish('spatial:traverse', { x: state.player.x, y: state.player.y });
+
+					const nx = state.player.x + state.player.dirX * moveStep;
+					const ny = state.player.y + state.player.dirY * moveStep;
+
+					const margin = 0.2;
+					const checkX = nx + (moveStep > 0 ? margin : -margin);
+					const checkY = ny + (moveStep > 0 ? margin : -margin);
+
+					if (MAP[Math.floor(state.player.y) * MAP_SIZE + Math.floor(checkX)] !== 1) {
+						state.player.x = nx;
+					}
+					if (MAP[Math.floor(checkY) * MAP_SIZE + Math.floor(state.player.x)] !== 1) {
+						state.player.y = ny;
+					}
+
+					// Cadence Footstep Audio
+					footstepTimer += dt;
+					if (footstepTimer >= footstepInterval) {
+						footstepTimer = 0;
+						audio.playThud();
+					}
+
+					// Ambush Tile Check
+					if (MAP[Math.floor(state.player.y) * MAP_SIZE + Math.floor(state.player.x)] === 2 && !state.combat.active) {
+						state.combat.active = true;
+						audio.playClash();
+						appendLog("AMBUSH: Dread Archer in backline!", "log-alert");
+					}
+				} else {
+					footstepTimer = footstepInterval;
+				}
+
+				// Real-Time Strike Polling (Spacebar)
+				if (input[' '] || input['Space']) {
+					combatTenant.publish('combat:action', { type: 'REALTIME_STRIKE' });
+					if (state.combat.active) {
+						audio.playClash();
+					}
+				}
+			}
+
+			function loop(now) {
+				const dt = Math.min(0.1, (now - lastTime) / 1000);
+				lastTime = now;
+
+				updatePhysics(dt);
+				Q1Cartography(q1Ctx, state, MAP, MAP_SIZE);
+				Q2Raycaster(q2Canvas, q2Ctx, state, MAP, MAP_SIZE);
+				Q3Combat(q3Ctx, state);
+
+				requestAnimationFrame(loop);
+			}
+
+			requestAnimationFrame((now) => {
+				lastTime = now;
+				loop(now);
+			});
+		});
+	</script>
+</body>
+
+</html>

@@ -38,8 +38,9 @@ if (typeof window !== "undefined") {
 	 * @param {any} deps
 	 */
 	function handleCockpitAction(action, deps) {
-		if (!action?.type) return;
-		const handler = COCKPIT_ACTION_HANDLERS[action.type];
+		const actType = action?.type || action?.action;
+		if (!actType) return;
+		const handler = COCKPIT_ACTION_HANDLERS[actType];
 		handler?.(action, deps);
 	}
 

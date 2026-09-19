@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "checkJs": true,
+    "allowJs": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "ignoreDeprecations": "6.0",
+    "strict": false
+  },
+  "include": [
+    "*.js",
+    "*.d.ts",
+    "testing/*.js",
+    "scratch/eslint.config.js",
+    "prospects/webgl_crt_shader_compositor.js",
+    "prospects/stat_calculator_progression.js",
+    "prospects/proto1_acoustic_sfx.js",
+    "prospects/fork(streamSeed)_prng.js"
+  ],
+  "exclude": ["dist", "build"]
+}

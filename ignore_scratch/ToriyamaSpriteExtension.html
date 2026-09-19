@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emberlight Sovereign Engine - Toriyama Sprite Extension Prototype</title>
+    <style>
+        :root {
+            --bg-color: #0b0d13;
+            --panel-bg: #11131a;
+            --border-color: #26303b;
+            --text-main: #dbe4ef;
+            --text-dim: #94a3b8;
+            --accent: #fb923c;
+            --accent-glow: rgba(251, 146, 60, 0.25);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 2rem 1rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1.5rem;
+            width: 100%;
+            max-width: 800px;
+        }
+
+        h1 {
+            font-size: 1.75rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: var(--text-main);
+            margin-bottom: 0.5rem;
+        }
+
+        .protocol-badge {
+            display: inline-block;
+            background-color: var(--border-color);
+            color: var(--accent);
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        main {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .card {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent);
+            box-shadow: 0 6px 24px var(--accent-glow);
+        }
+
+        .canvas-container {
+            width: 128px;
+            height: 128px;
+            background-color: #080a0f;
+            border: 2px solid var(--border-color);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        canvas {
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            width: 128px;
+            height: 128px;
+        }
+
+        h2 {
+            font-size: 1rem;
+            margin-bottom: 0.35rem;
+            letter-spacing: 0.02em;
+        }
+
+        p {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            line-height: 1.4;
+        }
+
+        footer {
+            margin-top: 3rem;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            text-align: center;
+            border-top: 1px solid var(--border-color);
+            padding-top: 1rem;
+            width: 100%;
+            max-width: 800px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Emberlight Sovereign Engine</h1>
+        <div class="protocol-badge">Toriyama Kinetic Protocol // Prototype Viewport</div>
+    </header>
+
+    <main id="viewport-grid">
+        <!-- Render cards injected via script -->
+    </main>
+
+    <footer>
+        ARCH-SPEC-TORIYAMA-SPRITES-001 • VSRP-001 Compliant Zero-Dependency Runtime
+    </footer>
+
+    <!-- Minimal Inlined Rendering Dependencies & Extension Pipeline -->
+    <script>
+        'use strict';
+
+        const SPRITE_SIZE = 64;
+        const RENDER_SCALE = 4;
+        const WORK_SIZE = SPRITE_SIZE * RENDER_SCALE;
+
+        const P = Object.freeze({
+            outline: "#080a0f", deepest: "#0b0d13", black: "#11131a",
+            steel0: "#26303b", steel1: "#475569", steel2: "#94a3b8", steel3: "#dbe4ef", steel4: "#ffffff",
+            iron0: "#292d33", iron1: "#525963", iron2: "#89929d", iron3: "#d6dbe1",
+            leather0: "#29160c", leather1: "#63371b", leather2: "#a16207", leather3: "#d4a24c",
+            blue0: "#102a63", blue1: "#1d4ed8", blue2: "#60a5fa", blue3: "#bfdbfe",
+            red0: "#4c1117", red1: "#991b1b", red2: "#ef4444", red3: "#fca5a5",
+            gold0: "#6b3f05", gold1: "#b7791f", gold2: "#f6c453", gold3: "#fff0a6",
+            skin0: "#7b3f1d", skin1: "#b86f3f", skin2: "#e6a66b", skin3: "#ffd2a1",
+            green0: "#064e3b", green1: "#047857", green2: "#34d399", green3: "#a7f3d0",
+            violet0: "#2e1065", violet1: "#6d28d9", violet2: "#a78bfa", violet3: "#e9d5ff",
+            fire0: "#7c2d12", fire1: "#ea580c", fire2: "#fb923c", fire3: "#fef08a"
+        });
+
+        const S = (n) => n * RENDER_SCALE;
+
+        function rect(ctx, x, y, w, h, fill, alpha = 1) {
+            ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = fill;
+            ctx.fillRect(S(x), S(y), S(w), S(h)); ctx.restore();
+        }
+
+        function rr(ctx, x, y, size, r, fill, alpha = 1) {
+            ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = fill;
+            ctx.beginPath(); ctx.roundRect(S(x), S(y), S(size[0]), S(size[1]), S(r));
+            ctx.fill(); ctx.restore();
+        }
+
+        function poly(ctx, points, fill, alpha = 1) {
+            ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = fill;
+            ctx.beginPath(); ctx.moveTo(S(points[0][0]), S(points[0][1]));
+            for (let i = 1; i < points.length; i++) ctx.lineTo(S(points[i][0]), S(points[i][1]));
+            ctx.closePath(); ctx.fill(); ctx.restore();
+        }
+
+        function line(ctx, points, stroke, width = 1, alpha = 1) {
+            ctx.save(); ctx.globalAlpha = alpha; ctx.strokeStyle = stroke; ctx.lineWidth = S(width);
+            ctx.beginPath(); ctx.moveTo(S(points[0][0]), S(points[0][1]));
+            for (let i = 1; i < points.length; i++) ctx.lineTo(S(points[i][0]), S(points[i][1]));
+            ctx.stroke(); ctx.restore();
+        }
+
+        function ellipse(ctx, x, y, rx, ry, fill, alpha = 1) {
+            ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = fill;
+            ctx.beginPath(); ctx.ellipse(S(x), S(y), S(rx), S(ry), 0, 0, Math.PI * 2);
+            ctx.fill(); ctx.restore();
+        }
+
+        function ground(ctx, width = 24, x = 32, y = 61) {
+            ellipse(ctx, x, y, width, 3.2, P.deepest, 0.72);
+            ellipse(ctx, x, y - 0.7, width * 0.72, 1.25, P.steel1, 0.13);
+        }
+
+        const ToriyamaSpriteExtension = (() => {
+            'use strict';
+
+            function drawSovereignMartialArtist(ctx) {
+                ground(ctx, 24);
+                line(ctx, [[12, 58], [22, 61]], '#26303b', 4);
+                line(ctx, [[40, 61], [52, 58]], '#26303b', 4);
+
+                poly(ctx, [[20, 26], [44, 26], [48, 48], [16, 48]], P.red1);
+                poly(ctx, [[26, 26], [38, 26], [35, 48], [29, 48]], P.red0);
+
+                poly(ctx, [[18, 16], [10, 4], [24, 11], [32, 2], [40, 10], [54, 3], [44, 15], [50, 22], [32, 25], [14, 22]], P.black);
+                poly(ctx, [[20, 15], [13, 6], [25, 10], [32, 4], [39, 10], [51, 5], [42, 14], [48, 20], [32, 23], [16, 20]], P.black);
+
+                rect(ctx, 14, 44, 6, 6, P.blue1);
+                rect(ctx, 44, 44, 6, 6, P.blue1);
+            }
+
+            function drawElitePrince(ctx) {
+                ground(ctx, 24);
+                poly(ctx, [[18, 28], [46, 28], [50, 46], [14, 46]], P.iron0);
+                poly(ctx, [[22, 28], [42, 28], [40, 44], [24, 44]], P.iron3);
+
+                poly(ctx, [[22, 18], [18, 6], [26, 12], [32, 3], [38, 12], [46, 6], [42, 18], [48, 24], [32, 26], [16, 24]], P.black);
+                rect(ctx, 27, 16, 10, 5, P.skin1);
+                line(ctx, [[28, 17], [33, 19]], P.outline, 1.5);
+                line(ctx, [[36, 17], [31, 19]], P.outline, 1.5);
+            }
+
+            function drawBiomechanicalOverlord(ctx) {
+                ground(ctx, 24);
+                poly(ctx, [[22, 24], [42, 24], [45, 42], [38, 56], [26, 56], [19, 42]], P.violet3);
+                ellipse(ctx, 32, 32, 6, 4, P.violet1);
+                ellipse(ctx, 32, 45, 5, 3.5, P.violet1);
+
+                poly(ctx, [[26, 18], [14, 8], [22, 14], [32, 4], [42, 14], [50, 8], [38, 18]], P.violet1);
+                line(ctx, [[22, 12], [10, 6]], P.steel4, 2.5);
+                line(ctx, [[42, 12], [54, 6]], P.steel4, 2.5);
+            }
+
+            return Object.freeze({
+                SOVEREIGN_MARTIAL_ARTIST: { name: "Sovereign Martial Artist", desc: "Spiked kinetic silhouette with aggressive wedge mass.", baker: drawSovereignMartialArtist },
+                ELITE_PRINCE: { name: "Elite Prince", desc: "Angular steel plating and swept-back widow's peak geometry.", baker: drawElitePrince },
+                BIOMECHANICAL_OVERLORD: { name: "Biomechanical Overlord", desc: "Negative space taper with sweeping cranium horns.", baker: drawBiomechanicalOverlord }
+            });
+        })();
+
+        // Prototype Renderer Pipeline
+        window.addEventListener('DOMContentLoaded', () => {
+            const grid = document.getElementById('viewport-grid');
+
+            for (const [key, spec] of Object.entries(ToriyamaSpriteExtension)) {
+                const card = document.createElement('div');
+                card.className = 'card';
+
+                const container = document.createElement('div');
+                container.className = 'canvas-container';
+
+                const canvas = document.createElement('canvas');
+                canvas.width = WORK_SIZE;
+                canvas.height = WORK_SIZE;
+                const ctx = canvas.getContext('2d');
+                ctx.imageSmoothingEnabled = false;
+
+                // Execute Baker
+                spec.baker(ctx);
+
+                container.appendChild(canvas);
+
+                const title = document.createElement('h2');
+                title.textContent = spec.name;
+
+                const desc = document.createElement('p');
+                desc.textContent = spec.desc;
+
+                card.appendChild(container);
+                card.appendChild(title);
+                card.appendChild(desc);
+                grid.appendChild(card);
+            }
+        });
+    </script>
+</body>
+</html>

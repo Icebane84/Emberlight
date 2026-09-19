@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Emberlight</title>
+
+  <!-- [00] MUST LOAD FIRST: Sentinel Pre-Boot Hardware Trap -->
+  <script src="sentinel_trap.js"></script>
+
+  <!-- [01] Core Manifest & Primitives -->
+  <script src="manifest.js"></script>
+  <script src="prng.js"></script>
+
+  <!-- [02] Subsystem Parts & Facades -->
+  <script src="battler_baker/battler_primitives.js"></script>
+  <script src="battler_baker/battler_heroes.js"></script>
+  <script src="battler_baker/battler_overlays.js"></script>
+  <script src="battler_baker/battler_enemies.js"></script>
+  <script src="battler_baker/battler_pipeline.js"></script>
+  <script src="battler_baker.js"></script>
+
+  <!-- [03] Sentinel Auditor & Runtime -->
+  <script src="auditor.js"></script>
+  <script src="runtime.js"></script>
+</head>
+<body>
+  <div id="auditor-view"></div>
+</body>
+</html>

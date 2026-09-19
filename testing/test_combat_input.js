@@ -116,15 +116,24 @@ function createMockElement(id = '', tag = 'div') {
   return el;
 }
 
+const _mockElementCache = new Map();
+function getOrCreateMockElement(id = '', tag = 'div') {
+  if (!id) return createMockElement(id, tag);
+  if (!_mockElementCache.has(id)) {
+    _mockElementCache.set(id, createMockElement(id, tag));
+  }
+  return _mockElementCache.get(id);
+}
+
 const mockDom = {
   document: {
-    documentElement: createMockElement('html', 'html'),
-    getElementById: (id) => createMockElement(id),
+    documentElement: getOrCreateMockElement('html', 'html'),
+    getElementById: (id) => getOrCreateMockElement(id),
     createElement: (tag) => createMockElement('', tag),
     querySelector: (_sel) => createMockElement(),
     querySelectorAll: (_sel) => [createMockElement()],
     createDocumentFragment: () => createMockElement('', 'fragment'),
-    body: createMockElement('body', 'body'),
+    body: getOrCreateMockElement('body', 'body'),
   },
   window: {
     addEventListener: () => {},
@@ -159,8 +168,9 @@ mockDom.window = Object.assign(mockDom.window, mockDom);
 const context = vm.createContext(mockDom);
 
 for (const file of scripts) {
-  const code = fs.readFileSync(path.join(baseDir, file), 'utf8');
-  vm.runInContext(code, context);
+  const filePath = path.join(baseDir, file);
+  const code = fs.readFileSync(filePath, 'utf8');
+  vm.runInContext(code, context, { filename: filePath }); // NOSONAR: Test harness requires loading vanilla JS modules into headless DOM VM context
 }
 
 const runtime = context.window.GameRuntime;

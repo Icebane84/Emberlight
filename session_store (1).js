@@ -1,0 +1,803 @@
+/**
+ * ============================================================================
+ * EMBERLIGHT SOVEREIGN ENGINE: SESSION STORE & SSOT TRANSACTIONAL MUTATOR
+ * Document Identifier: VSRP-001-SESSION-STORE
+ * Governing Protocol:  VSRP-001 / COMPONENT_PROTOCOL
+ * Authority:           Host SSOT[cite: 6]
+ * Timestamp:           2026-09-07T12:06:34Z
+ * Index Anchor:        PRS-001[cite: 6]
+ * ============================================================================
+ *
+ * TABLE OF CONTENTS & NAVIGATION ANCHORS:
+ *   [SEC-01] Domain Type Contracts & JSDoc Schemas
+ *   [SEC-02] Authoritative Ephemeral Session State & Sparse Mutation Helpers
+ *   [SEC-03] Canonical Party Integrity, Anti-Contamination Sanitizer & New Game Bootstrap
+ *   [SEC-04] Persistence Gateway & Storage Manager Delegation
+ *   [SEC-05] Store Instance Public API Gateway & Global/CommonJS Module Export
+ * ============================================================================
+ */
+
+/* =========================================================================
+	 EMBERLIGHT SESSION STORE (HOST SSOT & TRANSACTIONAL MUTATOR)
+	 -------------------------------------------------------------------------
+	 Document Identifier: VSRP-001-SESSION-STORE[cite: 6]
+	 Protocol Version:    VSRP-001[cite: 6]
+	 Classification:      Host Single Source of Truth (SSOT) Store[cite: 6]
+	 Index Anchor:        PRS-001[cite: 6]
+	 ========================================================================= */
+
+const EmberlightSessionStore = (() => {
+	'use strict';
+
+	//#region [SEC-01] Domain Type Contracts & JSDoc Schemas
+	/**
+	 * @typedef {Object} PartyMemberRecord
+	 * @property {string} id - Character identifier token.
+	 * @property {string} name - Character name.
+	 * @property {string} phenotype - Phenotype archetype.
+	 * @property {number} level - Character level.
+	 * @property {number} exp - Experience points.
+	 * @property {number} skillPoints - Available skill points.
+	 * @property {number} unspentSP - Unspent skill points.
+	 * @property {string[]} unlocked - Unlocked node list.
+	 * @property {string[]} unlockedNodes - Unlocked constellation nodes.
+	 * @property {Record<string, number>} spent - Skill points spent per branch.
+	 * @property {Record<string, string|null>} equipment - Equipment slot mappings.
+	 * @property {string[]} ailments - Active status ailments.
+	 * @property {boolean} alive - Life status flag.
+	 * @property {number} hp - Current hit points.
+	 * @property {number} maxHp - Maximum hit points.
+	 * @property {number} mp - Current mana points.
+	 * @property {number} maxMp - Maximum mana points.
+	 * @property {number} atk - Attack stat.
+	 * @property {number} def - Defense stat.
+	 * @property {number} agi - Agility stat.
+	 */
+
+	/**
+	 * @typedef {Object} SessionSnapshot
+	 * @property {PartyMemberRecord[]} party - Party members.
+	 * @property {number} gold - Gold currency.
+	 * @property {Record<string, number>} inventory - Inventory items.
+	 * @property {{ x: number, y: number }} worldPos - World position.
+	 * @property {Record<string, any>} flags - Game flags.
+	 * @property {Record<string, any>} quests - Quest progress.
+	 * @property {number} dungeonDepth - Dungeon depth.
+	 * @property {string[][]|null} dungeonFloor - Dungeon floor grid.
+	 * @property {Object|null} dungeonSpec - Dungeon generation spec.
+	 * @property {string[][]|null} surfaceMap - Surface overworld map.
+	 * @property {Record<string, string>} surfaceMutations - Surface tile mutations.
+	 * @property {Record<string, Record<string, string>>} townMutations - Town tile mutations.
+	 * @property {string|null} townId - Active town identifier.
+	 * @property {{ x: number, y: number }} macroPos - Macro wilderness coordinates.
+	 * @property {number} stepCounter - Total step count.
+	 * @property {{ x: number, y: number }|null} lastInteractedChestPos - Last chest position.
+	 */
+
+	/**
+	 * @typedef {Object} SaveMetadata
+	 * @property {string} version - Save version.
+	 * @property {number} partySize - Party member count.
+	 * @property {number} avgLevel - Average party level.
+	 * @property {number} gold - Available gold.
+	 * @property {string} timestamp - Save timestamp.
+	 */
+	//#endregion
+
+	//#region [SEC-02] Authoritative Ephemeral Session State & Sparse Mutation Helpers
+	// --- Authoritative Ephemeral Session State ---
+	/** @type {PartyMemberRecord[]} */
+	let canonicalParty = [];
+	let canonicalGold = 100;
+	/** @type {Record<string, number>} */
+	let canonicalInventory = { POTION: 3, ETHER: 1 };
+	let canonicalWorldPos = { x: 1, y: 1 };
+	/** @type {Record<string, any>} */
+	let canonicalFlags = {};
+	/** @type {Record<string, any>} */
+	let canonicalQuests = {};
+	/** @type {string[][]|null} */
+	let canonicalDungeonFloor = null;
+	let canonicalDungeonDepth = 0; // 0 = Surface Overworld
+	/** @type {string[][]|null} */
+	let canonicalSurfaceMap = null;
+	/** @type {Record<string, string>} */
+	let canonicalSurfaceMutations = {}; // Sparse dictionary: { "x,y": tile }
+	/** @type {Record<string, Record<string, string>>} */
+	let canonicalTownMutations = {}; // Sparse dictionary: { townId: { "x,y": tile } }
+	let canonicalDungeonSpec = null; // Sparse descriptor: { seed, depth, width, height, mutations: { "x,y": tile } }
+	/** @type {string|null} */
+	let canonicalTownId = null; // null = Macro Wilderness, 'OAKHAVEN' = Inside town
+	let canonicalMacroPos = { x: 1, y: 1 }; // Cached wilderness coords before town entry
+	let canonicalStepCounter = 0;
+	/** @type {{ x: number, y: number }|null} */
+	let lastInteractedChestPos = null;
+
+	// --- Sparse World Mutation Helpers ---
+	/**
+	 * Records a sparse dungeon floor mutation.
+	 * [State Mutating]
+	 * @param {string} key - Grid coordinate key ("x,y").
+	 * @param {number} x - X coordinate.
+	 * @param {number} y - Y coordinate.
+	 * @param {string} newTile - Replacement tile glyph.
+	 * @returns {void}
+	 */
+	function recordDungeonMutation(key, x, y, newTile) {
+		if (!canonicalDungeonSpec) {
+			canonicalDungeonSpec = {
+				seed: 123456,
+				depth: canonicalDungeonDepth,
+				width: 12,
+				height: 10,
+				mutations: {},
+			};
+		}
+		if (!canonicalDungeonSpec.mutations) canonicalDungeonSpec.mutations = {};
+		canonicalDungeonSpec.mutations[key] = newTile;
+		if (canonicalDungeonFloor?.[y]) {
+			canonicalDungeonFloor[y][x] = newTile;
+		}
+	}
+
+	/**
+	 * Records a sparse town mutation.
+	 * [State Mutating]
+	 * @param {string} key - Grid coordinate key ("x,y").
+	 * @param {string} newTile - Replacement tile glyph.
+	 * @returns {void}
+	 */
+	function recordTownMutation(key, newTile) {
+		if (!canonicalTownMutations) canonicalTownMutations = {};
+		if (!canonicalTownId) return;
+		if (!canonicalTownMutations[canonicalTownId]) canonicalTownMutations[canonicalTownId] = {};
+		canonicalTownMutations[canonicalTownId][key] = newTile;
+	}
+
+	/**
+	 * Records a sparse surface mutation.
+	 * [State Mutating]
+	 * @param {string} key - Grid coordinate key ("x,y").
+	 * @param {number} x - X coordinate.
+	 * @param {number} y - Y coordinate.
+	 * @param {string} newTile - Replacement tile glyph.
+	 * @returns {void}
+	 */
+	function recordSurfaceMutation(key, x, y, newTile) {
+		if (!canonicalSurfaceMutations) canonicalSurfaceMutations = {};
+		canonicalSurfaceMutations[key] = newTile;
+		if (canonicalSurfaceMap?.[y]) {
+			canonicalSurfaceMap[y][x] = newTile;
+		}
+	}
+
+	/**
+	 * Routes tile mutation recording based on active depth or town context.
+	 * [State Mutating]
+	 * @param {number} x - X coordinate.
+	 * @param {number} y - Y coordinate.
+	 * @param {string} newTile - Replacement tile glyph.
+	 * @returns {void}
+	 */
+	function recordTileMutation(x, y, newTile) {
+		const key = `${x},${y}`;
+		if (canonicalDungeonDepth > 0) {
+			recordDungeonMutation(key, x, y, newTile);
+		} else if (canonicalTownId) {
+			recordTownMutation(key, newTile);
+		} else {
+			recordSurfaceMutation(key, x, y, newTile);
+		}
+	}
+	//#endregion
+
+	//#region [SEC-03] Canonical Party Integrity, Anti-Contamination Sanitizer & New Game Bootstrap
+	// --- Canonical Party Integrity & Anti-Contamination Sanitizer ---
+	/**
+	 * Normalizes a party member record name and ID.
+	 * [Pure Subroutine]
+	 * @param {any} c - Character object.
+	 * @returns {void}
+	 */
+	function normalizeCharacterRecord(c) {
+		if (!c) return;
+		if (c.name === 'AuditHero' || c.name === 'test_hero') c.name = 'Aldric';
+		if (c.id === 'test_hero') c.id = 'hero';
+	}
+
+	/**
+	 * Builds a mapped lookup index of existing party members.
+	 * [Pure Subroutine]
+	 * @param {any[]} partyList - Party list array.
+	 * @returns {Map<string, any>} Existing character lookup map.
+	 */
+	function buildExistingPartyMap(partyList) {
+		const existingMap = new Map();
+		if (Array.isArray(partyList)) {
+			partyList.forEach((c) => {
+				if (c && (c.id || c.name)) {
+					normalizeCharacterRecord(c);
+					if (c.id) existingMap.set(c.id, c);
+					if (c.name) existingMap.set(c.name, c);
+					if (c.phenotype && c.phenotype !== 'undefined') {
+						existingMap.set(c.phenotype.toUpperCase(), c);
+					}
+				}
+			});
+		}
+		return existingMap;
+	}
+
+	/**
+	 * Constructs an existing character record with verified base attributes.
+	 * [Pure Subroutine]
+	 * @param {any} existing - Existing character record.
+	 * @param {Object} tmpl - Template definition.
+	 * @param {string} pKey - Phenotype key.
+	 * @param {Object} base - Base stats object.
+	 * @returns {PartyMemberRecord} Hydrated character record.
+	 */
+	function hydrateExistingCharacter(existing, tmpl, pKey, base) {
+		return {
+			...existing,
+			id: existing.id || tmpl.id,
+			name: existing.name || tmpl.name,
+			phenotype: pKey,
+			level: existing.level || 1,
+			exp: existing.exp || 0,
+			skillPoints: existing.skillPoints ?? existing.unspentSP ?? 1,
+			unspentSP: existing.unspentSP ?? existing.skillPoints ?? 1,
+			unlocked: Array.isArray(existing.unlocked) ? existing.unlocked : [],
+			unlockedNodes: Array.isArray(existing.unlockedNodes) ? existing.unlockedNodes : [],
+			spent: existing.spent || {},
+			equipment: existing.equipment || { weapon: tmpl.weapon, armor: tmpl.armor, accessory: null },
+			ailments: Array.isArray(existing.ailments) ? existing.ailments : [],
+			alive: existing.alive !== false && (existing.hp === undefined || existing.hp > 0),
+			hp: existing.hp !== undefined && existing.hp > 0 ? existing.hp : base.hp,
+			maxHp: existing.maxHp || base.hp,
+			mp: existing.mp !== undefined && existing.mp >= 0 ? existing.mp : base.mp,
+			maxMp: existing.maxMp || base.mp,
+			atk: existing.atk || base.atk,
+			def: existing.def || base.def,
+			agi: existing.agi || base.agi,
+		};
+	}
+
+	/**
+	 * Constructs a fresh default character record from template and phenotype stats.
+	 * [Pure Subroutine]
+	 * @param {Object} tmpl - Template definition.
+	 * @param {string} pKey - Phenotype key.
+	 * @param {Object} base - Base stats object.
+	 * @returns {PartyMemberRecord} Default character record.
+	 */
+	function createDefaultCharacter(tmpl, pKey, base) {
+		return {
+			id: tmpl.id,
+			name: tmpl.name,
+			phenotype: pKey,
+			level: 1,
+			exp: 0,
+			skillPoints: 1,
+			unspentSP: 1,
+			unlocked: [],
+			unlockedNodes: [],
+			spent: {},
+			equipment: { weapon: tmpl.weapon, armor: tmpl.armor, accessory: null },
+			ailments: [],
+			alive: true,
+			hp: base.hp,
+			maxHp: base.hp,
+			mp: base.mp,
+			maxMp: base.mp,
+			atk: base.atk,
+			def: base.def,
+			agi: base.agi,
+		};
+	}
+
+	/**
+	 * Maps a template character definition to an existing or fallback record.
+	 * [Pure Subroutine]
+	 * @param {Object} tmpl - Template definition.
+	 * @param {Map<string, any>} existingMap - Existing character map.
+	 * @param {Object} phenotypes - Phenotypes dictionary.
+	 * @returns {PartyMemberRecord} Resolved party member record.
+	 */
+	function resolveCharacterRecord(tmpl, existingMap, phenotypes) {
+		const existing = existingMap.get(tmpl.id) || existingMap.get(tmpl.name) || existingMap.get(tmpl.phenotype);
+		const pKey = (
+			existing?.phenotype && existing.phenotype !== 'undefined'
+				? existing.phenotype
+				: tmpl.phenotype
+		).toUpperCase();
+		const pheno = phenotypes[pKey] || {};
+		const base = pheno.baseStats || { hp: 30, mp: 10, atk: 8, def: 5, agi: 5 };
+
+		if (existing?.level !== undefined && !Number.isNaN(existing.level)) {
+			return hydrateExistingCharacter(existing, tmpl, pKey, base);
+		}
+
+		return createDefaultCharacter(tmpl, pKey, base);
+	}
+
+	/**
+	 * Sanitizes and validates canonical party roster data.
+	 * [State Mutating]
+	 * @returns {void}
+	 */
+	function sanitizeCanonicalParty() {
+		const manifest = typeof EmberlightManifest !== 'undefined' ? EmberlightManifest : {};
+		const phenotypes = manifest.Phenotypes || {};
+		const templates = [
+			{ id: 'hero', name: 'Aldric', phenotype: 'HERO', weapon: 'IRON_SWORD', armor: 'CLOTH_TUNIC' },
+			{ id: 'warrior', name: 'Brogan', phenotype: 'WARRIOR', weapon: 'IRON_SWORD', armor: 'CHAINMAIL' },
+			{ id: 'mage', name: 'Selene', phenotype: 'MAGE', weapon: 'OAK_STAFF', armor: 'MAGE_ROBE' },
+			{ id: 'healer', name: 'Wren', phenotype: 'HEALER', weapon: 'OAK_STAFF', armor: 'MAGE_ROBE' },
+		];
+
+		if (Array.isArray(canonicalParty)) {
+			canonicalParty.forEach(normalizeCharacterRecord);
+		}
+
+		if (typeof EmberlightProgression !== 'undefined' && typeof EmberlightProgression.getState === 'function') {
+			try {
+				const progState = EmberlightProgression.getState();
+				if (Array.isArray(progState?.party)) {
+					progState.party.forEach(normalizeCharacterRecord);
+				}
+			} catch (_) {
+				// Progression tenant is in UNCONFIGURED/uninitialized state, skip progression sync
+			}
+		}
+
+		const isCorrupt =
+			!Array.isArray(canonicalParty) ||
+			canonicalParty.length < 4 ||
+			canonicalParty.some(
+				(c) => !c?.name || c.level === undefined || !c.phenotype || c.phenotype === 'undefined'
+			);
+
+		if (isCorrupt) {
+			const existingMap = buildExistingPartyMap(canonicalParty);
+			canonicalParty = templates.map((tmpl) => resolveCharacterRecord(tmpl, existingMap, phenotypes));
+		}
+	}
+
+	/**
+	 * Initializes a fresh new game expedition state.
+	 * [State Mutating]
+	 * @returns {void}
+	 */
+	function startNewGame() {
+		const manifest = typeof EmberlightManifest !== 'undefined' ? EmberlightManifest : {};
+		const phenotypes = manifest.Phenotypes || {};
+
+		const rosterTemplates = [
+			{ id: 'hero', name: 'Aldric', phenotype: 'HERO', weapon: 'IRON_SWORD', armor: 'CLOTH_TUNIC' },
+			{ id: 'warrior', name: 'Brogan', phenotype: 'WARRIOR', weapon: 'IRON_SWORD', armor: 'CHAINMAIL' },
+			{ id: 'mage', name: 'Selene', phenotype: 'MAGE', weapon: 'OAK_STAFF', armor: 'MAGE_ROBE' },
+			{ id: 'healer', name: 'Wren', phenotype: 'HEALER', weapon: 'OAK_STAFF', armor: 'MAGE_ROBE' },
+		];
+
+		canonicalParty = rosterTemplates.map((tmpl) => resolveCharacterRecord(tmpl, new Map(), phenotypes));
+
+		canonicalGold = 100;
+		canonicalInventory = { POTION: 3, ETHER: 1 };
+		canonicalWorldPos = { x: 1, y: 1 };
+		canonicalFlags = {};
+		canonicalQuests = {
+			TALL_GRASS: { stage: 0, completed: false },
+			SEALED_PASS: { stage: 0, completed: false },
+			CINDER_CATACLYSM: { stage: 0, completed: false },
+			CRUCIBLE_IRON: { stage: 0, completed: false },
+			LIGHT_SANCTUARY: { stage: 0, completed: false },
+		};
+		canonicalDungeonFloor = null;
+		canonicalDungeonDepth = 0;
+		canonicalSurfaceMap = null;
+		canonicalSurfaceMutations = {};
+		canonicalTownMutations = {};
+		canonicalDungeonSpec = null;
+		canonicalTownId = null;
+		canonicalMacroPos = { x: 1, y: 1 };
+		canonicalStepCounter = 0;
+		lastInteractedChestPos = null;
+
+		if (typeof EmberlightSaveManager !== 'undefined') {
+			StorageManager.save();
+		}
+	}
+	//#endregion
+
+	//#region [SEC-04] Persistence Gateway & Storage Manager Delegation
+	// --- Persistence Gateway ---
+	const StorageManager = {
+		get CURRENT_VERSION() {
+			return typeof EmberlightSaveManager !== 'undefined' ? EmberlightSaveManager.CURRENT_VERSION : '1.4.0';
+		},
+
+		get MIGRATIONS() {
+			return typeof EmberlightSaveManager !== 'undefined' ? EmberlightSaveManager.MIGRATIONS : {};
+		},
+
+		/**
+		 * Migrates save payload to current version.
+		 * [Pure Transformation]
+		 * @param {Object} payload - Raw save payload.
+		 * @returns {Object} Migrated payload.
+		 */
+		migrate(payload) {
+			if (typeof EmberlightSaveManager !== 'undefined') {
+				return EmberlightSaveManager.migrate(payload);
+			}
+			return payload;
+		},
+
+		/**
+		 * Checks if a local save record exists.
+		 * [Pure Query]
+		 * @returns {boolean} Existence flag.
+		 */
+		hasSave() {
+			return typeof EmberlightSaveManager !== 'undefined' && EmberlightSaveManager.hasSave();
+		},
+
+		/**
+		 * Retrieves save metadata.
+		 * [Pure Query]
+		 * @returns {SaveMetadata|null} Save metadata or null.
+		 */
+		getSaveMetadata() {
+			return typeof EmberlightSaveManager !== 'undefined' ? EmberlightSaveManager.getSaveMetadata() : null;
+		},
+
+		/**
+		 * Persists session snapshot to local storage.
+		 * [State Mutating]
+		 * @param {Object|function(string): void} [arg] - Snapshot object or notification callback.
+		 * @returns {boolean} Success assertion flag.
+		 */
+		save(arg) {
+			if (typeof EmberlightSaveManager === 'undefined') {
+				return false;
+			}
+			let snapshot;
+			/** @type {function(string): void|null} */
+			let notifyFn = null;
+			if (arg && typeof arg === 'object' && !Array.isArray(arg)) {
+				snapshot = arg;
+			} else {
+				if (typeof arg === 'function') notifyFn = arg;
+				snapshot = {
+					canonicalParty,
+					canonicalGold,
+					canonicalInventory,
+					canonicalWorldPos,
+					canonicalFlags,
+					canonicalQuests,
+					canonicalDungeonDepth,
+					canonicalDungeonSpec,
+					canonicalSurfaceMutations,
+					canonicalTownMutations,
+					canonicalTownId,
+					canonicalMacroPos,
+					canonicalStepCounter,
+				};
+			}
+			const ok = EmberlightSaveManager.save(snapshot);
+			if (ok && typeof notifyFn === 'function') {
+				notifyFn('Game state saved to local storage.');
+			}
+			return ok;
+		},
+
+		/**
+		 * Restores session state from local storage.
+		 * [State Mutating]
+		 * @param {function(string): void} [notifyFn] - Notification callback.
+		 * @returns {boolean} Success assertion flag.
+		 */
+		load(notifyFn) {
+			if (typeof EmberlightSaveManager === 'undefined') {
+				console.warn('[StorageManager] Load failed: EmberlightSaveManager is undefined.');
+				return false;
+			}
+			const payload = EmberlightSaveManager.load();
+			if (!payload) return false;
+
+			canonicalParty = payload.canonicalParty;
+			sanitizeCanonicalParty();
+			canonicalGold = typeof payload.canonicalGold === 'number' ? payload.canonicalGold : 100;
+			canonicalInventory = payload.canonicalInventory || { POTION: 4, ETHER: 2, PHOENIX_EMBER: 1 };
+			canonicalWorldPos = payload.canonicalWorldPos || { x: 1, y: 1 };
+			canonicalFlags = payload.canonicalFlags || {};
+			canonicalQuests = payload.canonicalQuests || {};
+			canonicalDungeonDepth = typeof payload.canonicalDungeonDepth === 'number' ? payload.canonicalDungeonDepth : 0;
+			canonicalDungeonSpec = payload.canonicalDungeonSpec || null;
+			canonicalSurfaceMutations = payload.canonicalSurfaceMutations || {};
+			canonicalTownMutations = payload.canonicalTownMutations || {};
+			canonicalSurfaceMap = null; // Reconstituted on demand
+			canonicalDungeonFloor = null; // Reconstituted on demand
+			canonicalTownId = payload.canonicalTownId || null;
+			canonicalMacroPos = payload.canonicalMacroPos || { x: 1, y: 1 };
+			canonicalStepCounter = typeof payload.canonicalStepCounter === 'number' ? payload.canonicalStepCounter : 0;
+
+			if (typeof notifyFn === 'function') {
+				notifyFn(`Session restored (v${payload.version}).`);
+			}
+			return true;
+		},
+
+		/**
+		 * Clears local storage save records.
+		 * [State Mutating]
+		 * @param {function(string): void} [notifyFn] - Notification callback.
+		 * @returns {void}
+		 */
+		clear(notifyFn) {
+			if (typeof EmberlightSaveManager !== 'undefined') {
+				EmberlightSaveManager.clear();
+			}
+			if (typeof notifyFn === 'function') {
+				notifyFn('Data cleared. Reloading...');
+			}
+			setTimeout(() => {
+				if (typeof window !== 'undefined' && window.location) {
+					window.location.reload();
+				}
+			}, 400);
+		},
+	};
+	//#endregion
+
+	//#region [SEC-05] Store Instance Public API Gateway & Global/CommonJS Module Export
+	const storeInstance = {
+		/**
+		 * Retrieves a cloned snapshot of current session state.
+		 * [Pure Query]
+		 * @returns {SessionSnapshot} Cloned state snapshot.
+		 */
+		getSnapshot() {
+			return structuredClone({
+				party: canonicalParty,
+				gold: canonicalGold,
+				inventory: canonicalInventory,
+				worldPos: canonicalWorldPos,
+				flags: canonicalFlags,
+				quests: canonicalQuests,
+				dungeonDepth: canonicalDungeonDepth,
+				dungeonFloor: canonicalDungeonFloor,
+				dungeonSpec: canonicalDungeonSpec,
+				surfaceMap: canonicalSurfaceMap,
+				surfaceMutations: canonicalSurfaceMutations,
+				townMutations: canonicalTownMutations,
+				townId: canonicalTownId,
+				macroPos: canonicalMacroPos,
+				stepCounter: canonicalStepCounter,
+				lastInteractedChestPos,
+			});
+		},
+
+		// Getters
+		/** @returns {PartyMemberRecord[]} */
+		getParty: () => canonicalParty,
+		/** @returns {number} */
+		getGold: () => canonicalGold,
+		/** @returns {Record<string, number>} */
+		getInventory: () => canonicalInventory,
+		/** @returns {{ x: number, y: number }} */
+		getWorldPos: () => canonicalWorldPos,
+		/** @returns {Record<string, any>} */
+		getFlags: () => canonicalFlags,
+		/** 
+		 * @param {string} key 
+		 * @returns {any} 
+		 */
+		getFlag: (key) => (canonicalFlags ? canonicalFlags[key] : undefined),
+		/** @returns {Record<string, any>} */
+		getQuests: () => canonicalQuests,
+		/** @returns {number} */
+		getDungeonDepth: () => canonicalDungeonDepth,
+		/** @returns {string[][]|null} */
+		getDungeonFloor: () => canonicalDungeonFloor,
+		/** @returns {Object|null} */
+		getDungeonSpec: () => canonicalDungeonSpec,
+		/** @returns {string[][]|null} */
+		getSurfaceMap: () => canonicalSurfaceMap,
+		/** @returns {Record<string, string>} */
+		getSurfaceMutations: () => canonicalSurfaceMutations,
+		/** @returns {Record<string, Record<string, string>>} */
+		getTownMutations: () => canonicalTownMutations,
+		/** @returns {string|null} */
+		getTownId: () => canonicalTownId,
+		/** @returns {{ x: number, y: number }} */
+		getMacroPos: () => canonicalMacroPos,
+		/** @returns {number} */
+		getStepCounter: () => canonicalStepCounter,
+		/** @returns {{ x: number, y: number }|null} */
+		getLastInteractedChestPos: () => lastInteractedChestPos,
+
+		// Setters & Transactional Mutators
+		/**
+		 * @param {PartyMemberRecord[]} party 
+		 * @returns {void}
+		 */
+		setParty(party) {
+			if (Array.isArray(party)) {
+				canonicalParty = party;
+				sanitizeCanonicalParty();
+			}
+		},
+		/**
+		 * @param {number} gold 
+		 * @returns {void}
+		 */
+		setGold(gold) {
+			if (typeof gold === 'number') canonicalGold = Math.max(0, gold);
+		},
+		/**
+		 * @param {number} delta 
+		 * @returns {number}
+		 */
+		modifyGold(delta) {
+			canonicalGold = Math.max(0, canonicalGold + delta);
+			return canonicalGold;
+		},
+		/**
+		 * @param {Record<string, number>} inv 
+		 * @returns {void}
+		 */
+		setInventory(inv) {
+			if (inv && typeof inv === 'object') canonicalInventory = inv;
+		},
+		/**
+		 * @param {string} itemId 
+		 * @param {number} delta 
+		 * @returns {number}
+		 */
+		modifyItem(itemId, delta) {
+			canonicalInventory[itemId] = Math.max(0, (canonicalInventory[itemId] || 0) + delta);
+			return canonicalInventory[itemId];
+		},
+		/**
+		 * @param {{ x: number, y: number }} pos 
+		 * @returns {void}
+		 */
+		setWorldPos(pos) {
+			if (pos && typeof pos.x === 'number' && typeof pos.y === 'number') {
+				canonicalWorldPos = { x: pos.x, y: pos.y };
+			}
+		},
+		/**
+		 * @param {Record<string, any>} flags 
+		 * @returns {void}
+		 */
+		setFlags(flags) {
+			if (flags && typeof flags === 'object') canonicalFlags = { ...canonicalFlags, ...flags };
+		},
+		/**
+		 * @param {string} key 
+		 * @param {any} val 
+		 * @returns {void}
+		 */
+		setFlag(key, val) {
+			canonicalFlags[key] = val;
+		},
+		/**
+		 * @param {Record<string, any>} quests 
+		 * @returns {void}
+		 */
+		setQuests(quests) {
+			if (quests && typeof quests === 'object') canonicalQuests = { ...canonicalQuests, ...quests };
+		},
+		/**
+		 * @param {string} key 
+		 * @param {any} val 
+		 * @returns {void}
+		 */
+		setQuest(key, val) {
+			canonicalQuests[key] = val;
+		},
+		/**
+		 * @param {number} depth 
+		 * @returns {void}
+		 */
+		setDungeonDepth(depth) {
+			canonicalDungeonDepth = depth;
+		},
+		/**
+		 * @param {string[][]|null} floor 
+		 * @returns {void}
+		 */
+		setDungeonFloor(floor) {
+			canonicalDungeonFloor = floor;
+		},
+		/**
+		 * @param {Object|null} spec 
+		 * @returns {void}
+		 */
+		setDungeonSpec(spec) {
+			canonicalDungeonSpec = spec;
+		},
+		/**
+		 * @param {string[][]|null} map 
+		 * @returns {void}
+		 */
+		setSurfaceMap(map) {
+			canonicalSurfaceMap = map;
+		},
+		/**
+		 * @param {string|null} townId 
+		 * @returns {void}
+		 */
+		setTownId(townId) {
+			canonicalTownId = townId;
+		},
+		/**
+		 * @param {{ x: number, y: number }} pos 
+		 * @returns {void}
+		 */
+		setMacroPos(pos) {
+			if (pos) canonicalMacroPos = { ...pos };
+		},
+		/**
+		 * @param {number} cnt 
+		 * @returns {void}
+		 */
+		setStepCounter(cnt) {
+			canonicalStepCounter = cnt;
+		},
+		/** @returns {number} */
+		incrementStepCounter() {
+			canonicalStepCounter++;
+			return canonicalStepCounter;
+		},
+		/**
+		 * @param {{ x: number, y: number }|null} pos 
+		 * @returns {void}
+		 */
+		setLastInteractedChestPos(pos) {
+			lastInteractedChestPos = pos ? { ...pos } : null;
+		},
+
+		// Mutations
+		recordTileMutation,
+		recordDungeonMutation,
+		recordTownMutation,
+		recordSurfaceMutation,
+		sanitizeCanonicalParty,
+		startNewGame,
+
+		/**
+		 * Commits session state.
+		 * [State Mutating]
+		 * @param {string} [reason] - Commit reason.
+		 * @returns {boolean} Success flag.
+		 */
+		commit(reason) {
+			if (reason) {
+				// Reason acknowledged
+			}
+			return StorageManager.save();
+		},
+
+		// Persistence Delegation
+		StorageManager,
+	};
+
+	sanitizeCanonicalParty();
+
+	return storeInstance;
+	//#endregion
+})();
+
+//#region [SEC-06] Global Environment & CommonJS Export
+if (typeof window !== 'undefined') {
+	// @ts-ignore
+	window.EmberlightSessionStore = EmberlightSessionStore;
+}
+if (typeof module !== 'undefined' && module.exports) {
+	module.exports = EmberlightSessionStore;
+}
+//#endregion

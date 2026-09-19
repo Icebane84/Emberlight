@@ -1,556 +1,634 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Phoenix Sovereign Monolith — v7.0.0-ULTIMATE-FUSION</title>
-  <meta name="description" content="Self-contained Phoenix Sovereign Monolith: all governance layers inlined, WebGPU compute canvas, zero external dependencies.">
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Phoenix Sovereign Monolith — v7.0.0-ULTIMATE-FUSION</title>
+	<meta name="description"
+		content="Self-contained Phoenix Sovereign Monolith: all governance layers inlined, WebGPU compute canvas, zero external dependencies.">
 
-  <script>
-    /* ── [SEC-00] Pre-boot error sentinel ──────────────────────────────── */
-    window.addEventListener('error', (e) => {
-      var el = document.getElementById('boot-log');
-      if (el) {
-        var line = document.createElement('div');
-        line.style.color = '#ff3c5a';
-        line.textContent = '[CSOC FATAL] ' + e.message + ' (line ' + e.lineno + ')';
-        el.appendChild(line);
-      }
-      console.error('[CSOC SENTINEL FATAL]:', e.message, 'at line', e.lineno);
-    });
-  </script>
+	<script>
+		/* ── [SEC-00] Pre-boot error sentinel ──────────────────────────────── */
+		window.addEventListener('error', (e) => {
+			const el = document.getElementById('boot-log');
+			if (el) {
+				const line = document.createElement('div');
+				line.style.color = '#ff3c5a';
+				line.textContent = `[CSOC FATAL] ${e.message} (line ${e.lineno})`;
+				el.appendChild(line);
+			}
+			console.error('[CSOC SENTINEL FATAL]:', e.message, 'at line', e.lineno);
+		});
+	</script>
 
-  <style>
-    :root {
-      --bg:      #060b0f;
-      --surface: #0d1117;
-      --panel:   #111820;
-      --border:  #1c2b38;
-      --accent:  #00ffcc;
-      --dim:     #4a6070;
-      --danger:  #ff3c5a;
-      --warn:    #ff9500;
-      --font:    'Courier New', monospace;
-    }
+	<style>
+		:root {
+			--bg: #060b0f;
+			--surface: #0d1117;
+			--panel: #111820;
+			--border: #1c2b38;
+			--accent: #00ffcc;
+			--dim: #4a6070;
+			--danger: #ff3c5a;
+			--warn: #ff9500;
+			--font: 'Courier New', monospace;
+		}
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+		*,
+		*::before,
+		*::after {
+			box-sizing: border-box;
+			margin: 0;
+			padding: 0;
+		}
 
-    html, body {
-      height: 100%;
-      background: var(--bg);
-      color: var(--accent);
-      font-family: var(--font);
-      font-size: 12px;
-      overflow: hidden;
-    }
+		html,
+		body {
+			height: 100%;
+			background: var(--bg);
+			color: var(--accent);
+			font-family: var(--font);
+			font-size: 12px;
+			overflow: hidden;
+		}
 
-    #layout {
-      display: grid;
-      grid-template-columns: 320px 1fr;
-      height: 100vh;
-    }
+		#layout {
+			display: grid;
+			grid-template-columns: 320px 1fr;
+			height: 100vh;
+		}
 
-    /* ── Terminal panel ─────────────────────────────────────────── */
-    #terminal {
-      background: var(--surface);
-      border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
+		/* ── Terminal panel ─────────────────────────────────────────── */
+		#terminal {
+			background: var(--surface);
+			border-right: 1px solid var(--border);
+			display: flex;
+			flex-direction: column;
+			overflow: hidden;
+		}
 
-    #terminal-header {
-      padding: 12px 14px;
-      border-bottom: 1px solid var(--border);
-      background: var(--panel);
-    }
-    #terminal-header h1 {
-      font-size: 11px;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-    }
-    #terminal-header p {
-      font-size: 10px;
-      color: var(--dim);
-      margin-top: 4px;
-    }
+		#terminal-header {
+			padding: 12px 14px;
+			border-bottom: 1px solid var(--border);
+			background: var(--panel);
+		}
 
-    #boot-log {
-      flex: 1;
-      overflow-y: auto;
-      padding: 10px 14px;
-      font-size: 11px;
-      line-height: 1.7;
-    }
-    #boot-log::-webkit-scrollbar       { width: 4px; }
-    #boot-log::-webkit-scrollbar-track  { background: var(--bg); }
-    #boot-log::-webkit-scrollbar-thumb  { background: var(--border); }
+		#terminal-header h1 {
+			font-size: 11px;
+			letter-spacing: 0.14em;
+			text-transform: uppercase;
+		}
 
-    .log-line { display: block; }
-    .log-ok   { color: #00ffcc; }
-    .log-warn { color: #ff9500; }
-    .log-err  { color: #ff3c5a; }
-    .log-dim  { color: #4a6070; }
+		#terminal-header p {
+			font-size: 10px;
+			color: var(--dim);
+			margin-top: 4px;
+		}
 
-    #terminal-footer {
-      padding: 8px 14px;
-      border-top: 1px solid var(--border);
-      background: var(--panel);
-      display: flex;
-      gap: 8px;
-    }
+		#boot-log {
+			flex: 1;
+			overflow-y: auto;
+			padding: 10px 14px;
+			font-size: 11px;
+			line-height: 1.7;
+		}
 
-    button {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--accent);
-      padding: 5px 12px;
-      font-family: var(--font);
-      font-size: 10px;
-      cursor: pointer;
-      border-radius: 3px;
-      letter-spacing: 0.08em;
-      transition: border-color 0.15s, box-shadow 0.15s;
-    }
-    button:hover   { border-color: var(--accent); box-shadow: 0 0 10px #00ffcc44; }
-    button:active  { opacity: 0.7; }
-    button:disabled { opacity: 0.3; cursor: not-allowed; }
+		#boot-log::-webkit-scrollbar {
+			width: 4px;
+		}
 
-    /* ── WebGPU / Canvas viewport ───────────────────────────────── */
-    #viewport {
-      background: #050709;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-      overflow: hidden;
-    }
+		#boot-log::-webkit-scrollbar-track {
+			background: var(--bg);
+		}
 
-    #app-canvas {
-      border: 1px solid var(--border);
-      image-rendering: pixelated;
-    }
+		#boot-log::-webkit-scrollbar-thumb {
+			background: var(--border);
+		}
 
-    #gpu-badge {
-      position: absolute;
-      top: 10px;
-      right: 12px;
-      font-size: 9px;
-      padding: 3px 8px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      letter-spacing: 0.1em;
-      color: var(--dim);
-      background: var(--panel);
-    }
-    #gpu-badge.gpu { border-color: #00ffcc55; color: var(--accent); }
+		.log-line {
+			display: block;
+		}
 
-    #fps-counter {
-      position: absolute;
-      bottom: 10px;
-      right: 12px;
-      font-size: 9px;
-      color: var(--dim);
-      letter-spacing: 0.08em;
-    }
-  </style>
+		.log-ok {
+			color: #00ffcc;
+		}
+
+		.log-warn {
+			color: #ff9500;
+		}
+
+		.log-err {
+			color: #ff3c5a;
+		}
+
+		.log-dim {
+			color: #4a6070;
+		}
+
+		#terminal-footer {
+			padding: 8px 14px;
+			border-top: 1px solid var(--border);
+			background: var(--panel);
+			display: flex;
+			gap: 8px;
+		}
+
+		button {
+			background: transparent;
+			border: 1px solid var(--border);
+			color: var(--accent);
+			padding: 5px 12px;
+			font-family: var(--font);
+			font-size: 10px;
+			cursor: pointer;
+			border-radius: 3px;
+			letter-spacing: 0.08em;
+			transition: border-color 0.15s, box-shadow 0.15s;
+		}
+
+		button:hover {
+			border-color: var(--accent);
+			box-shadow: 0 0 10px #00ffcc44;
+		}
+
+		button:active {
+			opacity: 0.7;
+		}
+
+		button:disabled {
+			opacity: 0.3;
+			cursor: not-allowed;
+		}
+
+		/* ── WebGPU / Canvas viewport ───────────────────────────────── */
+		#viewport {
+			background: #050709;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			position: relative;
+			overflow: hidden;
+		}
+
+		#app-canvas {
+			border: 1px solid var(--border);
+			image-rendering: pixelated;
+		}
+
+		#gpu-badge {
+			position: absolute;
+			top: 10px;
+			right: 12px;
+			font-size: 9px;
+			padding: 3px 8px;
+			border: 1px solid var(--border);
+			border-radius: 10px;
+			letter-spacing: 0.1em;
+			color: var(--dim);
+			background: var(--panel);
+		}
+
+		#gpu-badge.gpu {
+			border-color: #00ffcc55;
+			color: var(--accent);
+		}
+
+		#fps-counter {
+			position: absolute;
+			bottom: 10px;
+			right: 12px;
+			font-size: 9px;
+			color: var(--dim);
+			letter-spacing: 0.08em;
+		}
+	</style>
 </head>
+
 <body>
 
-<div id="layout">
-  <!-- Terminal -->
-  <aside id="terminal" aria-label="Boot Terminal">
-    <div id="terminal-header">
-      <h1>SOVEREIGN NEXUS TERMINAL</h1>
-      <p id="sys-status">System status: initialising...</p>
-    </div>
-    <div id="boot-log" aria-live="polite" role="log"></div>
-    <div id="terminal-footer">
-      <button id="btn-export" aria-label="Export self-contained monolith">EXPORT MONOLITH</button>
-      <button id="btn-gov"    aria-label="Open governance HUD">OPEN HUD</button>
-    </div>
-  </aside>
+	<div id="layout">
+		<!-- Terminal -->
+		<aside id="terminal" aria-label="Boot Terminal">
+			<div id="terminal-header">
+				<h1>SOVEREIGN NEXUS TERMINAL</h1>
+				<p id="sys-status">System status: initializing...</p>
+			</div>
+			<div id="boot-log" aria-live="polite" role="log"></div>
+			<div id="terminal-footer">
+				<button id="btn-export" type="button" aria-label="EXPORT MONOLITH">EXPORT MONOLITH</button>
+				<button id="btn-gov" type="button" aria-label="OPEN HUD">OPEN HUD</button>
+			</div>
+		</aside>
 
-  <!-- Viewport -->
-  <main id="viewport" aria-label="Render Viewport">
-    <canvas id="app-canvas" width="800" height="480" aria-label="Phoenix compute canvas"></canvas>
-    <span id="gpu-badge" aria-live="polite">Canvas 2D</span>
-    <span id="fps-counter" aria-live="off">0 fps</span>
-  </main>
-</div>
+		<!-- Viewport -->
+		<main id="viewport" aria-label="Render Viewport">
+			<canvas id="app-canvas" width="800" height="480" aria-label="Phoenix compute canvas"></canvas>
+			<span id="gpu-badge" aria-live="polite">Canvas 2D</span>
+			<span id="fps-counter" aria-live="off">0 fps</span>
+		</main>
+	</div>
 
-<!-- ── Inline: Phoenix Sovereign Engine ──────────────────────────────── -->
-<script src="phoenix_sovereign_engine.js"></script>
-<!-- ── Inline: WebLLM Worker Bridge ──────────────────────────────────── -->
-<script src="webllm_worker_bridge.js"></script>
-<!-- ── Inline: Monolith Exporter ─────────────────────────────────────── -->
-<script src="monolith_exporter.js"></script>
+	<!-- ── Inline: Phoenix Sovereign Engine ──────────────────────────────── -->
+	<script src="phoenix_sovereign_engine.js"></script>
+	<!-- ── Inline: WebLLM Worker Bridge ──────────────────────────────────── -->
+	<script src="webllm_worker_bridge.js"></script>
+	<!-- ── Inline: Monolith Exporter ─────────────────────────────────────── -->
+	<script src="monolith_exporter.js"></script>
 
-<script>
-'use strict';
+	<script type="module">
+		'use strict';
 
-/* =========================================================================
- * LOGGER — writes to #boot-log terminal
- * ========================================================================= */
-var _log = (() => {
-  var el = document.getElementById('boot-log');
-  function _write(text, cls) {
-    var line = document.createElement('span');
-    line.className   = 'log-line ' + (cls || 'log-dim');
-    line.textContent = '> ' + text;
-    el.appendChild(line);
-    el.scrollTop = el.scrollHeight;
-  }
-  return {
-    ok:   (t) => { _write(t, 'log-ok'); },
-    warn: (t) => { _write(t, 'log-warn'); },
-    err:  (t) => { _write(t, 'log-err'); },
-    dim:  (t) => { _write(t, 'log-dim'); }
-  };
-})();
+		/* =========================================================================
+		 * LOGGER — writes to #boot-log terminal
+		 * ========================================================================= */
+		const _log = (() => {
+			const el = document.getElementById('boot-log');
+			function _write(text, cls) {
+				if (!el) return;
+				const line = document.createElement('span');
+				line.className = `log-line ${cls || 'log-dim'}`;
+				line.textContent = `> ${text}`;
+				el.appendChild(line);
+				el.scrollTop = el.scrollHeight;
+			}
+			return {
+				ok: (t) => { _write(t, 'log-ok'); },
+				warn: (t) => { _write(t, 'log-warn'); },
+				err: (t) => { _write(t, 'log-err'); },
+				dim: (t) => { _write(t, 'log-dim'); }
+			};
+		})();
 
-/* =========================================================================
- * MULBERRY32 DETERMINISTIC PRNG (seeded, zero-allocation)
- * Used by Canvas 2D fallback path — no Math.random() in the hot loop.
- * ========================================================================= */
-var _rng = (() => {
-  var s = 0x4D2B79F5;
-  return {
-    next: () => {
-      var t = s += 0x6D2B79F5;
-      t = Math.imul(t ^ (t >>> 15), t | 1);
-      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    },
-    reset: (seed) => { s = seed | 0; }
-  };
-})();
+		/* =========================================================================
+		 * MULBERRY32 DETERMINISTIC PRNG (seeded, zero-allocation)
+		 * Used by Canvas 2D fallback path — no Math.random() in the hot loop.
+		 * ========================================================================= */
+		const _rng = (() => {
+			let s = 0x4D2B79F5;
+			return {
+				next: () => {
+					s += 0x6D2B79F5;
+					let t = s;
+					t = Math.imul(t ^ (t >>> 15), t | 1);
+					t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+					return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+				},
+				reset: (seed) => { s = Math.trunc(seed); }
+			};
+		})();
 
-/* =========================================================================
- * CANVAS SETUP — WebGPU preferred, Canvas 2D fallback
- * ========================================================================= */
-var _canvas      = document.getElementById('app-canvas');
-var _gpuBadge    = document.getElementById('gpu-badge');
-var _fpsCounter  = document.getElementById('fps-counter');
-var _W = _canvas.width;
-var _H = _canvas.height;
+		/* =========================================================================
+		 * CANVAS SETUP — WebGPU preferred, Canvas 2D fallback
+		 * ========================================================================= */
+		const _canvas = document.getElementById('app-canvas');
+		const _gpuBadge = document.getElementById('gpu-badge');
+		const _fpsCounter = document.getElementById('fps-counter');
+		const _W = _canvas ? _canvas.width : 800;
+		const _H = _canvas ? _canvas.height : 480;
 
-/* ── Pre-allocated render buffers (zero-allocation in hot path) ─────── */
-var _particleX    = new Float32Array(120);  // particle X positions
-var _particleY    = new Float32Array(120);  // particle Y positions
-var _particleVX   = new Float32Array(120);  // X velocities
-var _particleVY   = new Float32Array(120);  // Y velocities
-var _particleLife = new Float32Array(120);  // life 0→1
-var _PARTICLE_COUNT = 120;
+		/* ── Pre-allocated render buffers (zero-allocation in hot path) ─────── */
+		const _particleX = new Float32Array(120);  // particle X positions
+		const _particleY = new Float32Array(120);  // particle Y positions
+		const _particleVX = new Float32Array(120);  // X velocities
+		const _particleVY = new Float32Array(120);  // Y velocities
+		const _particleLife = new Float32Array(120);  // life 0→1
+		const _PARTICLE_COUNT = 120;
 
-/* ── Seed particles ─────────────────────────────────────────────────── */
-for (var _pi = 0; _pi < _PARTICLE_COUNT; _pi++) {
-  _particleX[_pi]    = _rng.next() * _W;
-  _particleY[_pi]    = _rng.next() * _H;
-  _particleVX[_pi]   = (_rng.next() - 0.5) * 0.8;
-  _particleVY[_pi]   = (_rng.next() - 0.5) * 0.8;
-  _particleLife[_pi] = _rng.next();
-}
+		/* ── Seed particles ─────────────────────────────────────────────────── */
+		for (let _pi = 0; _pi < _PARTICLE_COUNT; _pi++) {
+			_particleX[ _pi ] = _rng.next() * _W;
+			_particleY[ _pi ] = _rng.next() * _H;
+			_particleVX[ _pi ] = (_rng.next() - 0.5) * 0.8;
+			_particleVY[ _pi ] = (_rng.next() - 0.5) * 0.8;
+			_particleLife[ _pi ] = _rng.next();
+		}
 
-/* ── WebGPU path ─────────────────────────────────────────────────────── */
-var _gpuDevice   = null;
-var _gpuContext  = null;
-var _gpuPipeline = null;
-var _gpuParamBuf = null;
-var _gpuBindGroup = null;
-var _useWebGPU   = false;
+		/* ── WebGPU path ─────────────────────────────────────────────────────── */
+		let _gpuDevice = null;
+		let _gpuContext = null;
+		const _gpuPipeline = null;
+		let _gpuParamBuf = null;
+		const _gpuBindGroup = null;
+		let _useWebGPU = false;
 
-/* WGSL compute shader for particle simulation (one-shot dispatch, not in loop) */
-var PARTICLE_WGSL = [
-  'struct Params { time: f32, count: u32 };',
-  '@group(0) @binding(0) var<uniform> params: Params;',
-  '@group(0) @binding(1) var<storage, read_write> posX: array<f32>;',
-  '@group(0) @binding(2) var<storage, read_write> posY: array<f32>;',
-  '',
-  '@compute @workgroup_size(64)',
-  'fn main(@builtin(global_invocation_id) id: vec3<u32>) {',
-  '  let i = id.x;',
-  '  if (i >= params.count) { return; }',
-  '  posX[i] = posX[i] + sin(params.time + f32(i)) * 0.5;',
-  '  posY[i] = posY[i] + cos(params.time + f32(i) * 1.3) * 0.5;',
-  '}'
-].join('\n');
+		/* WGSL compute shader for particle simulation (one-shot dispatch, not in loop) */
+		const PARTICLE_WGSL = [
+			'struct Params { time: f32, count: u32 };',
+			'@group(0) @binding(0) var<uniform> params: Params;',
+			'@group(0) @binding(1) var<storage, read_write> posX: array<f32>;',
+			'@group(0) @binding(2) var<storage, read_write> posY: array<f32>;',
+			'',
+			'@compute @workgroup_size(64)',
+			'fn main(@builtin(global_invocation_id) id: vec3<u32>) {',
+			'  let i = id.x;',
+			'  if (i >= params.count) { return; }',
+			'  posX[i] = posX[i] + sin(params.time + f32(i)) * 0.5;',
+			'  posY[i] = posY[i] + cos(params.time + f32(i) * 1.3) * 0.5;',
+			'}'
+		].join('\n');
 
-async function _initWebGPU() {
-  if (!navigator.gpu) { _log.warn('WebGPU not available — using Canvas 2D.'); return false; }
-  try {
-    var adapter  = await navigator.gpu.requestAdapter();
-    if (!adapter) { _log.warn('No WebGPU adapter — using Canvas 2D.'); return false; }
-    _gpuDevice   = await adapter.requestDevice();
-    _gpuContext  = _canvas.getContext('webgpu');
+		async function _initWebGPU() {
+			if (!navigator.gpu) { _log.warn('WebGPU not available — using Canvas 2D.'); return false; }
+			try {
+				const adapter = await navigator.gpu.requestAdapter();
+				if (!adapter) { _log.warn('No WebGPU adapter — using Canvas 2D.'); return false; }
+				_gpuDevice = await adapter.requestDevice();
+				_gpuContext = _canvas.getContext('webgpu');
 
-    var format = navigator.gpu.getPreferredCanvasFormat();
-    _gpuContext.configure({ device: _gpuDevice, format: format, alphaMode: 'premultiplied' });
+				const format = navigator.gpu.getPreferredCanvasFormat();
+				_gpuContext.configure({ device: _gpuDevice, format: format, alphaMode: 'premultiplied' });
 
-    // Parameter uniform buffer: [time: f32, count: u32] = 8 bytes
-    _gpuParamBuf = _gpuDevice.createBuffer({
-      size:  8,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
-    });
+				// Parameter uniform buffer: [time: f32, count: u32] = 8 bytes
+				_gpuParamBuf = _gpuDevice.createBuffer({
+					size: 8,
+					usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+				});
 
-    _log.ok('WebGPU initialised — ' + adapter.name);
-    _gpuBadge.textContent = 'WebGPU';
-    _gpuBadge.className   = 'gpu';
-    return true;
-  } catch (err) {
-    _log.warn('WebGPU init error: ' + err.message + ' — falling back to Canvas 2D.');
-    return false;
-  }
-}
+				_log.ok(`WebGPU initialized — ${adapter.name}`);
+				if (_gpuBadge) {
+					_gpuBadge.textContent = 'WebGPU';
+					_gpuBadge.className = 'gpu';
+				}
+				return true;
+			} catch (err) {
+				_log.warn(`WebGPU init error: ${err.message} — falling back to Canvas 2D.`);
+				return false;
+			}
+		}
 
-/* =========================================================================
- * 60Hz FRAME LOOP — ZERO ALLOCATION IN HOT PATH
- * ========================================================================= */
-var _ctx2d         = null;
-var _lastTimestamp = 0;
-var _frameCount2   = 0;
-var _fpsAccum      = 0;
-var _fpsDisplay    = 0;
+		/* =========================================================================
+		 * 60Hz FRAME LOOP — ZERO ALLOCATION IN HOT PATH
+		 * ========================================================================= */
+		let _ctx2d = null;
+		let _lastTimestamp = 0;
+		let _frameCount2 = 0;
+		let _fpsAccum = 0;
+		let _fpsDisplay = 0;
 
-function _frameLoop2D(timestamp) {
-  if (!_ctx2d) return;
+		function _updateFPS(timestamp) {
+			const dt = timestamp - _lastTimestamp;
+			_lastTimestamp = timestamp;
+			_fpsAccum += dt;
+			_frameCount2++;
+			if (_fpsAccum >= 1000) {
+				_fpsDisplay = _frameCount2;
+				_frameCount2 = 0;
+				_fpsAccum = 0;
+				if (_fpsCounter) {
+					_fpsCounter.textContent = `${_fpsDisplay} fps`;
+				}
+			}
+		}
 
-  /* ── FPS counter (integer arithmetic only) ─────────────────────── */
-  var dt = timestamp - _lastTimestamp;
-  _lastTimestamp = timestamp;
-  _fpsAccum += dt;
-  _frameCount2++;
-  if (_fpsAccum >= 1000) {
-    _fpsDisplay  = _frameCount2;
-    _frameCount2 = 0;
-    _fpsAccum    = 0;
-    _fpsCounter.textContent = _fpsDisplay + ' fps';
-  }
+		function _drawGrid() {
+			_ctx2d.strokeStyle = '#1c2b3822';
+			_ctx2d.lineWidth = 1;
+			_ctx2d.beginPath();
+			for (let gx = 0; gx <= _W; gx += 40) {
+				_ctx2d.moveTo(gx, 0);
+				_ctx2d.lineTo(gx, _H);
+			}
+			for (let gy = 0; gy <= _H; gy += 40) {
+				_ctx2d.moveTo(0, gy);
+				_ctx2d.lineTo(_W, gy);
+			}
+			_ctx2d.stroke();
+		}
 
-  /* ── Clear ─────────────────────────────────────────────────────── */
-  _ctx2d.fillStyle = 'rgba(5,7,9,0.25)';
-  _ctx2d.fillRect(0, 0, _W, _H);
+		function _updateAndDrawParticles() {
+			_ctx2d.strokeStyle = '#00ffcc';
+			_ctx2d.lineWidth = 1;
 
-  /* ── Update & draw particles — no allocations ───────────────────── */
-  var t = timestamp * 0.001;
-  _ctx2d.strokeStyle = '#00ffcc';
-  _ctx2d.lineWidth   = 1;
+			for (let i = 0; i < _PARTICLE_COUNT; i++) {
+				_particleX[ i ] += _particleVX[ i ];
+				_particleY[ i ] += _particleVY[ i ];
+				_particleLife[ i ] += 0.004;
 
-  for (var i = 0; i < _PARTICLE_COUNT; i++) {
-    _particleX[i]    += _particleVX[i];
-    _particleY[i]    += _particleVY[i];
-    _particleLife[i] += 0.004;
+				/* Wrap at edges */
+				if (_particleX[ i ] < 0) _particleX[ i ] += _W;
+				if (_particleX[ i ] > _W) _particleX[ i ] -= _W;
+				if (_particleY[ i ] < 0) _particleY[ i ] += _H;
+				if (_particleY[ i ] > _H) _particleY[ i ] -= _H;
 
-    /* Wrap at edges (branch-free via modulo) */
-    if (_particleX[i] < 0)  _particleX[i] += _W;
-    if (_particleX[i] > _W) _particleX[i] -= _W;
-    if (_particleY[i] < 0)  _particleY[i] += _H;
-    if (_particleY[i] > _H) _particleY[i] -= _H;
+				if (_particleLife[ i ] > 1) { _particleLife[ i ] = 0; }
 
-    if (_particleLife[i] > 1) { _particleLife[i] = 0; }
+				const alpha = (_particleLife[ i ] < 0.5 ? _particleLife[ i ] * 2 : (1 - _particleLife[ i ]) * 2);
+				const radius = 1.5 + alpha * 2;
 
-    /* Alpha derived from life, no Math.random in hot path */
-    var alpha  = (_particleLife[i] < 0.5 ? _particleLife[i] * 2 : (1 - _particleLife[i]) * 2);
-    var radius = 1.5 + alpha * 2;
+				_ctx2d.globalAlpha = alpha * 0.8;
+				_ctx2d.beginPath();
+				_ctx2d.arc(_particleX[ i ], _particleY[ i ], radius, 0, 6.28318530718);
+				_ctx2d.stroke();
+			}
 
-    _ctx2d.globalAlpha = alpha * 0.8;
-    _ctx2d.beginPath();
-    _ctx2d.arc(_particleX[i], _particleY[i], radius, 0, 6.28318530718);
-    _ctx2d.stroke();
-  }
+			_ctx2d.globalAlpha = 1;
+		}
 
-  _ctx2d.globalAlpha = 1;
+		function _frameLoop2D(timestamp) {
+			if (!_ctx2d) return;
 
-  /* ── Grid overlay (drawn at half-frequency — every other frame) ── */
-  if (_frameCount2 % 2 === 0) {
-    _ctx2d.strokeStyle = '#1c2b3822';
-    _ctx2d.lineWidth   = 1;
-    _ctx2d.beginPath();
-    for (var gx = 0; gx <= _W; gx += 40) {
-      _ctx2d.moveTo(gx, 0);
-      _ctx2d.lineTo(gx, _H);
-    }
-    for (var gy = 0; gy <= _H; gy += 40) {
-      _ctx2d.moveTo(0, gy);
-      _ctx2d.lineTo(_W, gy);
-    }
-    _ctx2d.stroke();
-  }
+			_updateFPS(timestamp);
 
-  /* ── WebGPU one-shot dispatch (background only, not in hot path) ─
-   * GPU compute fires once per 120 frames as a background pass.
-   * It is deliberately NOT inside the 60Hz rAF to avoid blocking GPU. */
-  if (_useWebGPU && (_frameCount2 % 120 === 1)) {
-    _dispatchWebGPUCompute(t);
-  }
+			/* ── Clear ─────────────────────────────────────────────────────── */
+			_ctx2d.fillStyle = 'rgba(5,7,9,0.25)';
+			_ctx2d.fillRect(0, 0, _W, _H);
 
-  requestAnimationFrame(_frameLoop2D);
-}
+			/* ── Update & draw particles ────────────────────────────────────── */
+			const t = timestamp * 0.001;
+			_updateAndDrawParticles();
 
-/* One-shot WebGPU compute dispatch — not in 60Hz hot path */
-function _dispatchWebGPUCompute(time) {
-  if (!_gpuDevice || !_gpuPipeline || !_gpuBindGroup) return;
-  try {
-    var params = new ArrayBuffer(8);
-    new Float32Array(params, 0, 1)[0] = time;
-    new Uint32Array(params, 4, 1)[0]  = _PARTICLE_COUNT;
-    _gpuDevice.queue.writeBuffer(_gpuParamBuf, 0, params);
+			/* ── Grid overlay (every other frame) ──────────────────────────── */
+			if (_frameCount2 % 2 === 0) {
+				_drawGrid();
+			}
 
-    var commandEncoder = _gpuDevice.createCommandEncoder();
-    var pass = commandEncoder.beginComputePass();
-    pass.setPipeline(_gpuPipeline);
-    pass.setBindGroup(0, _gpuBindGroup);
-    pass.dispatchWorkgroups(Math.ceil(_PARTICLE_COUNT / 64));
-    pass.end();
-    _gpuDevice.queue.submit([commandEncoder.finish()]);
-  } catch (_) {}
-}
+			/* ── WebGPU one-shot dispatch (background only, not in hot path) ─ */
+			if (_useWebGPU && (_frameCount2 % 120 === 1)) {
+				_dispatchWebGPUCompute(t);
+			}
 
-/* =========================================================================
- * GOVERNOR BOOTSTRAP
- * ========================================================================= */
-var _governor = null;
+			requestAnimationFrame(_frameLoop2D);
+		}
 
-async function _boot() {
-  _log.ok('PHOENIX SOVEREIGN MONOLITH v7.0.0-ULTIMATE-FUSION');
-  _log.dim('Protocols: VSRP-001 / PMIP-001 / SDCP-001 / PERSIST-001');
-  _log.dim('');
+		/* One-shot WebGPU compute dispatch — not in 60Hz hot path */
+		function _dispatchWebGPUCompute(time) {
+			if (!_gpuDevice || !_gpuPipeline || !_gpuBindGroup) return;
+			try {
+				const params = new ArrayBuffer(8);
+				new Float32Array(params, 0, 1)[ 0 ] = time;
+				new Uint32Array(params, 4, 1)[ 0 ] = _PARTICLE_COUNT;
+				_gpuDevice.queue.writeBuffer(_gpuParamBuf, 0, params);
 
-  /* ── Canvas & Compute ───────────────────────────────────────────── */
-  if (!_ctx2d) {
-    _ctx2d = _canvas.getContext('2d');
-  }
-  _log.dim('Canvas 2D render pipeline active.');
-  _useWebGPU = await _initWebGPU();
-  if (!_useWebGPU) {
-    _gpuBadge.textContent = 'Canvas 2D';
-    _gpuBadge.className   = '';
-  }
+				const commandEncoder = _gpuDevice.createCommandEncoder();
+				const pass = commandEncoder.beginComputePass();
+				pass.setPipeline(_gpuPipeline);
+				pass.setBindGroup(0, _gpuBindGroup);
+				pass.dispatchWorkgroups(Math.ceil(_PARTICLE_COUNT / 64));
+				pass.end();
+				_gpuDevice.queue.submit([ commandEncoder.finish() ]);
+			} catch {
+				/* Ignore background compute failure if device is suspended */
+			}
+		}
 
-  /* ── Governor ───────────────────────────────────────────────────── */
-  _log.dim('Initialising SpecificationRegistry...');
-  var spec = new PhoenixSovereignEngine.SpecificationRegistry();
-  spec.registerTarget('combat/SEC-10', {
-    tenant:            'Combat',
-    path:              'combat.js',
-    allowedOperations: ['MODIFY', 'REPLACE'],
-    capabilities:      [],
-    dependencies:      []
-  });
-  spec.registerInvariant('damage.nonnegative', (state) => (state.damage === undefined || state.damage >= 0) ? true : 'damage < 0');
-  spec.registerTest('damage.spec', (state) => (state.damage === undefined || state.damage === 10) ? true :
-      'expected damage=10, got ' + state.damage);
-  _log.ok('SpecificationRegistry: 1 target, 1 invariant, 1 test registered.');
+		/* =========================================================================
+		 * GOVERNOR BOOTSTRAP
+		 * ========================================================================= */
+		let _governor = null;
 
-  _governor = new PhoenixSovereignEngine.Governor({
-    spec:         spec,
-    initialState: { damage: 10 }
-  });
-  await _governor.initialize();
-  _governor.registerSource('combat.js', 'function calculateDamage(base, mod) { return base * mod; }');
-  window.PhoenixGovernor = _governor;
+		async function _boot() {
+			_log.ok('PHOENIX SOVEREIGN MONOLITH v7.0.0-ULTIMATE-FUSION');
+			_log.dim('Protocols: VSRP-001 / PMIP-001 / SDCP-001 / PERSIST-001');
+			_log.dim('');
 
-  /* Grant persistent bypass for bootstrap agent */
-  var origHas = _governor.capabilities.has.bind(_governor.capabilities);
-  _governor.capabilities.has = (subj, cap, tgt, txId, tick) => {
-    if (subj === 'bootstrap-agent') return true;
-    return origHas(subj, cap, tgt, txId, tick);
-  };
+			/* ── Canvas & Compute ───────────────────────────────────────────── */
+			if (!_ctx2d && _canvas) {
+				_ctx2d = _canvas.getContext('2d');
+			}
+			_log.dim('Canvas 2D render pipeline active.');
+			_useWebGPU = await _initWebGPU();
+			if (!_useWebGPU && _gpuBadge) {
+				_gpuBadge.textContent = 'Canvas 2D';
+				_gpuBadge.className = '';
+			}
 
-  var diag = _governor.diagnostics();
-  _log.ok('Governor READY — OPFS: ' + (diag.opfsAvailable ? 'YES' : 'NO (localStorage fallback)'));
+			/* ── Governor ───────────────────────────────────────────────────── */
+			_log.dim('Initializing SpecificationRegistry...');
+			const spec = new PhoenixSovereignEngine.SpecificationRegistry();
+			spec.registerTarget('combat/SEC-10', {
+				tenant: 'Combat',
+				path: 'combat.js',
+				allowedOperations: [ 'MODIFY', 'REPLACE' ],
+				capabilities: [],
+				dependencies: []
+			});
+			spec.registerInvariant('damage.nonnegative', (state) => (state.damage === undefined || state.damage >= 0) ? true : 'damage < 0');
+			spec.registerTest('damage.spec', (state) => (state.damage === undefined || state.damage === 10) ? true :
+				`expected damage=10, got ${state.damage}`);
+			_log.ok('SpecificationRegistry: 1 target, 1 invariant, 1 test registered.');
 
-  /* ── Storage inspection ─────────────────────────────────────────── */
-  if (diag.opfsAvailable) {
-    _log.ok('OPFS origin private filesystem mounted at namespace: phoenix-v7');
-    _log.dim('Journal: receipt-journal.ndjson | AST cache: ast-cache-manifest.json');
-  }
+			_governor = new PhoenixSovereignEngine.Governor({
+				spec: spec,
+				initialState: { damage: 10 }
+			});
+			await _governor.initialize();
+			_governor.registerSource('combat.js', 'function calculateDamage(base, mod) { return base * mod; }');
+			window.PhoenixGovernor = _governor;
 
-  /* ── Perform a self-test proposal ───────────────────────────────── */
-  _log.dim('');
-  _log.dim('Running self-test proposal...');
-  var selfTest = {
-    schemaVersion:        PhoenixSovereignEngine.SCHEMA_VERSION,
-    proposalId:           'selftest-' + Date.now().toString(36),
-    target:               'combat/SEC-10',
-    operation:            'MODIFY',
-    intent:               'Bootstrap self-test: identity replace.',
-    requiredCapabilities: [],
-    expectedInvariants:   ['damage.nonnegative'],
-    testsRequested:       ['damage.spec'],
-    changes: [{
-      type:    'replace_text',
-      path:    'combat.js',
-      search:  'return base * mod;',
-      content: 'return base * mod;'
-    }],
-    explanation: 'Identity replace — verifies gate pipeline is operational.'
-  };
+			/* Grant persistent bypass for bootstrap agent */
+			const origHas = _governor.capabilities.has.bind(_governor.capabilities);
+			_governor.capabilities.has = (subj, cap, tgt, txId, tick) => {
+				if (subj === 'bootstrap-agent') return true;
+				return origHas(subj, cap, tgt, txId, tick);
+			};
 
-  var selfReceipt = await _governor.submit(selfTest, 'bootstrap-agent');
-  if (selfReceipt.status === 'PASS') {
-    _log.ok('Self-test PASS — all gates operational. Receipt: ' + selfReceipt.receiptId);
-  } else {
-    _log.err('Self-test FAIL — ' + selfReceipt.gate + ': ' + JSON.stringify(selfReceipt.details));
-  }
+			const diag = _governor.diagnostics();
+			_log.ok(`Governor READY — OPFS: ${diag.opfsAvailable ? 'YES' : 'NO (localStorage fallback)'}`);
 
-  /* ── WebLLM bridge (Ollama / Local LLM) ─────────────────────────── */
-  _log.dim('');
-  _log.dim('Initialising WebLLM Worker Bridge...');
-  var bridge = new PhoenixWebLLMWorkerBridge();
-  window.PhoenixWebLLMBridge   = bridge;
-  window.PhoenixProposalParser = phoenixProposalParser;
-  bridge.start(phoenixOllamaAdapterFactory, {
-    host: 'http://localhost:11434',
-    model: 'qwen2.5-coder:7b'
-  }).then(function () {
-    _log.ok('AI Bridge: Connected to Ollama (qwen2.5-coder:7b).');
-  }).catch(function (err) {
-    _log.dim('AI Bridge: Ollama offline (' + err.message + ') — manual mode.');
-  });
+			/* ── Storage inspection ─────────────────────────────────────────── */
+			if (diag.opfsAvailable) {
+				_log.ok('OPFS origin private filesystem mounted at namespace: phoenix-v7');
+				_log.dim('Journal: receipt-journal.ndjson | AST cache: ast-cache-manifest.json');
+			}
 
-  /* ── Start render loop ──────────────────────────────────────────── */
-  document.getElementById('sys-status').textContent = 'System status: Nominal. Zero dependencies.';
-  _log.dim('');
-  _log.ok('Boot complete. Render loop starting at 60 Hz.');
+			/* ── Perform a self-test proposal ───────────────────────────────── */
+			_log.dim('');
+			_log.dim('Running self-test proposal...');
+			const selfTest = {
+				schemaVersion: PhoenixSovereignEngine.SCHEMA_VERSION,
+				proposalId: `selftest-${Date.now().toString(36)}`,
+				target: 'combat/SEC-10',
+				operation: 'MODIFY',
+				intent: 'Bootstrap self-test: identity replace.',
+				requiredCapabilities: [],
+				expectedInvariants: [ 'damage.nonnegative' ],
+				testsRequested: [ 'damage.spec' ],
+				changes: [ {
+					type: 'replace_text',
+					path: 'combat.js',
+					search: 'return base * mod;',
+					content: 'return base * mod;'
+				} ],
+				explanation: 'Identity replace — verifies gate pipeline is operational.'
+			};
 
-  requestAnimationFrame(_frameLoop2D);
-}
+			const selfReceipt = await _governor.submit(selfTest, 'bootstrap-agent');
+			if (selfReceipt.status === 'PASS') {
+				_log.ok(`Self-test PASS — all gates operational. Receipt: ${selfReceipt.receiptId}`);
+			} else {
+				_log.err(`Self-test FAIL — ${selfReceipt.gate}: ${JSON.stringify(selfReceipt.details)}`);
+			}
 
-/* =========================================================================
- * BUTTON BINDINGS
- * ========================================================================= */
-document.getElementById('btn-export').addEventListener('click', async () => {
-  var receipts = _governor ? _governor.getReceipts() : [];
-  var html     = await PhoenixMonolithExporter.exportMonolithAsync({
-    title:    'Phoenix Sovereign Monolith — v7.0.0-ULTIMATE-FUSION',
-    sources:  _governor
-                ? [{ path: 'combat.js', content: _governor.getSource('combat.js') || '' }]
-                : [],
-    shaders:  [{ name: 'particle.wgsl', source: PARTICLE_WGSL }],
-    receipts: receipts
-  });
-  var blob = new Blob([html], { type: 'text/html' });
-  var url  = URL.createObjectURL(blob);
-  var a    = document.createElement('a');
-  a.href     = url;
-  a.download = 'phoenix_sovereign_monolith_' + Date.now() + '.html';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-  _log.ok('Monolith exported — ' + receipts.length + ' receipts embedded.');
-});
+			/* ── WebLLM bridge (Ollama / Local LLM) ─────────────────────────── */
+			_log.dim('');
+			_log.dim('Initializing WebLLM Worker Bridge...');
+			const bridge = new PhoenixWebLLMWorkerBridge();
+			window.PhoenixWebLLMBridge = bridge;
+			window.PhoenixProposalParser = phoenixProposalParser;
+			bridge.start(phoenixOllamaAdapterFactory, {
+				host: 'http://localhost:11434',
+				model: 'qwen2.5-coder:7b'
+			}).then(() => {
+				_log.ok('AI Bridge: Connected to Ollama (qwen2.5-coder:7b).');
+			}).catch((err) => {
+				_log.dim(`AI Bridge: Ollama offline (${err.message}) — manual mode.`);
+			});
 
-document.getElementById('btn-gov').addEventListener('click', () => {
-  window.open('core_governor.html', '_blank');
-});
+			/* ── Start render loop ──────────────────────────────────────────── */
+			const statusEl = document.getElementById('sys-status');
+			if (statusEl) {
+				statusEl.textContent = 'System status: Nominal. Zero dependencies.';
+			}
+			_log.dim('');
+			_log.ok('Boot complete. Render loop starting at 60 Hz.');
 
-/* ── Boot ─────────────────────────────────────────────────────────── */
-_boot().catch((err) => {
-  _log.err('Boot failed: ' + err.message);
-  console.error('[PHOENIX/bootstrap] Fatal boot error:', err);
-});
-</script>
+			requestAnimationFrame(_frameLoop2D);
+		}
+
+		/* =========================================================================
+		 * BUTTON BINDINGS
+		 * ========================================================================= */
+		const btnExport = document.getElementById('btn-export');
+		if (btnExport) {
+			btnExport.addEventListener('click', async () => {
+				const receipts = _governor ? _governor.getReceipts() : [];
+				const html = await PhoenixMonolithExporter.exportMonolithAsync({
+					title: 'Phoenix Sovereign Monolith — v7.0.0-ULTIMATE-FUSION',
+					sources: _governor
+						? [ { path: 'combat.js', content: _governor.getSource('combat.js') || '' } ]
+						: [],
+					shaders: [ { name: 'particle.wgsl', source: PARTICLE_WGSL } ],
+					receipts: receipts
+				});
+				const blob = new Blob([ html ], { type: 'text/html' });
+				const url = URL.createObjectURL(blob);
+				const a = document.createElement('a');
+				a.href = url;
+				a.download = `phoenix_sovereign_monolith_${Date.now()}.html`;
+				document.body.appendChild(a);
+				a.click();
+				a.remove();
+				URL.revokeObjectURL(url);
+				_log.ok(`Monolith exported — ${receipts.length} receipts embedded.`);
+			});
+		}
+
+		const btnGov = document.getElementById('btn-gov');
+		if (btnGov) {
+			btnGov.addEventListener('click', () => {
+				window.open('core_governor.html', '_blank');
+			});
+		}
+
+		/* ── Boot ─────────────────────────────────────────────────────────── */
+		try {
+			await _boot();
+		} catch (err) {
+			_log.err(`Boot failed: ${err.message}`);
+			console.error('[PHOENIX/bootstrap] Fatal boot error:', err);
+		}
+	</script>
 </body>
+
 </html>

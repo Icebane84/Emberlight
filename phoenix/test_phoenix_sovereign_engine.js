@@ -19,28 +19,41 @@
 
 const assert = require("node:assert/strict");
 const path = require("node:path");
+/** @type {any} */
 const Phoenix = require(path.join(__dirname, "phoenix_sovereign_engine.js"));
 
 /* ── Minimal in-memory storage stub (OPFS unavailable in Node) ─────────── */
 class NodeStorage extends Phoenix.SovereignStorage {
 	constructor() {
 		super("test-ns");
+		/** @type {any[]} */
 		this._journal = [];
+		/** @type {Map<string, any>} */
 		this._kv = new Map();
 	}
 	async initialize() {
 		return this;
 	}
+	/**
+	 * @param {any} r
+	 */
 	async appendJournalEntry(r) {
 		this._journal.push(r);
 	}
 	async readJournal() {
 		return this._journal.slice();
 	}
+	/**
+	 * @param {string} name
+	 * @param {any} value
+	 */
 	async write(name, value) {
 		this._kv.set(name, value);
 		return true;
 	}
+	/**
+	 * @param {string} name
+	 */
 	async read(name) {
 		return this._kv.has(name) ? this._kv.get(name) : null;
 	}
@@ -56,34 +69,42 @@ class NodeStorage extends Phoenix.SovereignStorage {
 let _passed = 0;
 let _failed = 0;
 
+/**
+ * @param {string} label
+ * @param {() => Promise<void>} fn
+ */
 async function test(label, fn) {
 	try {
 		await fn();
-		console.log("  ✓ " + label);
+		console.log(`  ✓ ${label}`);
 		_passed += 1;
-	} catch (err) {
-		console.error("  ✗ " + label);
-		console.error("      " + err.message);
+	} catch (/** @type {any} */ err) {
+		console.error(`  ✗ ${label}`);
+		console.error(`      ${err.message}`);
 		if (err.stack) console.error(err.stack.split("\n").slice(1, 4).join("\n"));
 		_failed += 1;
 	}
 }
 
 /* ── Factory: fresh governor per scenario ─────────────────────────────── */
+/**
+ * @param {Record<string, any>} [initialState]
+ * @returns {any}
+ */
 function makeGovernor(initialState) {
 	const spec = new Phoenix.SpecificationRegistry();
 	spec.registerTarget("combat/SEC-10", {
 		tenant: "Combat",
 		path: "combat.js",
-		allowedOperations: ["MODIFY"],
+		allowedOperations: [ "MODIFY" ],
 		capabilities: [],
 		dependencies: [],
 	});
-	spec.registerInvariant("damage.nonnegative", (state) =>
-		state.damage >= 0 ? true : "damage is negative: " + state.damage,
+	spec.registerInvariant("damage.nonnegative", (/** @type {any} */ state) =>
+		state.damage >= 0 ? true : `damage is negative: ${state.damage}`,
 	);
-	spec.registerTest("damage.spec", (state) =>
-		state.damage === 10 ? true : "expected damage=10, got " + state.damage,
+	spec.registerTest("damage.spec", (/** @type {any} */ state) =>
+		state.damage === 10 ? true : `expected damage=10, got ${state.damage}`,
 	);
 	spec.registerTest("always.fail", () => false);
 
@@ -96,17 +117,24 @@ function makeGovernor(initialState) {
 	return gov;
 }
 
-/** Build a minimal valid PGE-DSL-1 proposal */
+let _proposalCounter = 0;
+
+/**
+ * Build a minimal valid PGE-DSL-1 proposal
+ * @param {Record<string, any>} [overrides]
+ * @returns {any}
+ */
 function makeProposal(overrides) {
+	_proposalCounter += 1;
 	const base = {
 		schemaVersion: "PGE-DSL-1",
-		proposalId: "test-" + Math.random().toString(36).slice(2),
+		proposalId: `test-proposal-${_proposalCounter}`,
 		target: "combat/SEC-10",
 		operation: "MODIFY",
 		intent: "Replace implementation without changing canonical output",
 		requiredCapabilities: [],
-		expectedInvariants: ["damage.nonnegative"],
-		testsRequested: ["damage.spec"],
+		expectedInvariants: [ "damage.nonnegative" ],
+		testsRequested: [ "damage.spec" ],
 		changes: [
 			{
 				type: "replace_text",
@@ -117,21 +145,32 @@ function makeProposal(overrides) {
 		],
 		explanation: "deterministic verification",
 	};
-	return Object.assign({}, base, overrides || {});
+	return { ...base, ...overrides };
 }
 
-/** Grant capability so the test bypasses CAPABILITY_GATE */
-function grantAll(gov, subject, transactionId) {
+/**
+ * Grant capability so the test bypasses CAPABILITY_GATE
+ * @param {any} gov
+ * @param {string} subject
+ */
+function grantAll(gov, subject) {
 	// We patch has() to unconditionally allow 'local-ai' through CAPABILITY_GATE
 	const orig = gov.capabilities.has.bind(gov.capabilities);
-	gov.capabilities.has = (subj, cap, tgt, txId, tick) => {
+	gov.capabilities.has = (/** @type {any} */ subj, /** @type {any} */ cap, /** @type {any} */ tgt, /** @type {any} */ txId, /** @type {any} */ tick) => {
 		if (subj === subject) return true;
 		return orig(subj, cap, tgt, txId, tick);
 	};
 }
 
+/**
+ * @param {string} raw
+ */
+async function fakeParser(raw) {
+	return JSON.parse(raw);
+}
+
 /* ── RUN SUITE ─────────────────────────────────────────────────────────── */
-(async function run() {
+async function run() {
 	console.log(
 		"\nPHOENIX SOVEREIGN ENGINE v7.0.0-ULTIMATE-FUSION — TEST SUITE\n",
 	);
@@ -182,7 +221,7 @@ function grantAll(gov, subject, transactionId) {
 		assert.equal(receipt.status, Phoenix.STATUS.REJECTED);
 		assert.equal(receipt.gate, Phoenix.GATES.STRUCTURAL);
 		assert.ok(Array.isArray(receipt.details));
-		assert.ok(receipt.details.some((d) => d.includes("unsafe path")));
+		assert.ok(receipt.details.some((/** @type {any} */ d) => d.includes("unsafe path")));
 	});
 
 	/* ── T-03: Placeholder content rejected at STRUCTURAL_GATE (linter) ─── */
@@ -206,7 +245,7 @@ function grantAll(gov, subject, transactionId) {
 		const receipt = await gov.submit(proposal, "local-ai");
 		assert.equal(receipt.status, Phoenix.STATUS.REJECTED);
 		assert.equal(receipt.gate, Phoenix.GATES.STRUCTURAL);
-		assert.ok(receipt.details.some((d) => d.includes("placeholder")));
+		assert.ok(receipt.details.some((/** @type {any} */ d) => d.includes("placeholder")));
 	});
 
 	/* ── T-04: Missing capability → CAPABILITY_GATE ─────────────────────── */
@@ -233,7 +272,7 @@ function grantAll(gov, subject, transactionId) {
 
 		const proposal = makeProposal({
 			proposalId: "behavior-fail",
-			testsRequested: ["always.fail"],
+			testsRequested: [ "always.fail" ],
 		});
 		const receipt = await gov.submit(proposal, "local-ai");
 		assert.equal(receipt.status, Phoenix.STATUS.REJECTED);
@@ -290,7 +329,7 @@ function grantAll(gov, subject, transactionId) {
 		assert.equal(journalEntries.length, ledger.length);
 		assert.ok(
 			journalEntries.every(
-				(e) =>
+				(/** @type {any} */ e) =>
 					e.receiptVersion === Phoenix.RECEIPT_VERSION &&
 					typeof e.integrity === "string" &&
 					e.integrity.length === 8,
@@ -349,18 +388,14 @@ function grantAll(gov, subject, transactionId) {
 		let callCount = 0;
 		const fakeBridge = {
 			ready: true,
-			generate: async (prompt) => {
+			generate: async (_prompt = "") => {
 				callCount += 1;
 				// Return a valid-looking proposal that will still be rejected (no capability)
 				return JSON.stringify(
-					makeProposal({ proposalId: "repaired-" + callCount }),
+					makeProposal({ proposalId: `repaired-${callCount}` }),
 				);
 			},
 		};
-
-		async function fakeParser(raw) {
-			return JSON.parse(raw);
-		}
 
 		const finalReceipt = await gov.repairLoop(
 			firstReceipt,
@@ -373,30 +408,30 @@ function grantAll(gov, subject, transactionId) {
 		// Must not exceed REPAIR_LOOP_CAP calls
 		assert.ok(
 			callCount <= Phoenix.REPAIR_LOOP_CAP,
-			"Expected <= " + Phoenix.REPAIR_LOOP_CAP + " LLM calls, got " + callCount,
+			`Expected <= ${Phoenix.REPAIR_LOOP_CAP} LLM calls, got ${callCount}`,
 		);
 		assert.equal(finalReceipt.status, Phoenix.STATUS.REJECTED);
 	});
 
 	/* ── Summary ─────────────────────────────────────────────────────────── */
-	console.log("\n" + "─".repeat(60));
+	console.log(`\n${"─".repeat(60)}`);
 	if (_failed === 0) {
 		console.log(
-			"PHOENIX SOVEREIGN ENGINE v7.0.0-ULTIMATE-FUSION: ALL " +
-				_passed +
-				" TESTS PASS ✓",
+			`PHOENIX SOVEREIGN ENGINE v7.0.0-ULTIMATE-FUSION: ALL ${_passed} TESTS PASS ✓`,
 		);
 	} else {
 		console.error(
-			"PHOENIX SOVEREIGN ENGINE v7.0.0-ULTIMATE-FUSION: " +
-				_failed +
-				" FAILED / " +
-				_passed +
-				" PASSED",
+			`PHOENIX SOVEREIGN ENGINE v7.0.0-ULTIMATE-FUSION: ${_failed} FAILED / ${_passed} PASSED`,
 		);
 		process.exitCode = 1;
 	}
-})().catch((err) => {
-	console.error("[FATAL] Uncaught error in test runner:", err);
-	process.exitCode = 1;
-});
+}
+
+(async function main() {
+	try {
+		await run();
+	} catch (err) {
+		console.error("[FATAL] Uncaught error in test runner:", err);
+		process.exitCode = 1;
+	}
+})();

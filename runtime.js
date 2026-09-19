@@ -399,7 +399,8 @@ const GameRuntime = (() => {
 	/** @returns {Record<string, any>} */
 	const getSharedDeps = () => ({
 		store,
-		activeDistrict,
+		get activeDistrict() { return activeDistrict; },
+		getActiveDistrict: () => activeDistrict,
 		setActiveDistrict: (/** @type {string} */ d) => { activeDistrict = d; },
 		stepCounter,
 		incrementStepCounter: () => { stepCounter++; },
@@ -464,8 +465,8 @@ const GameRuntime = (() => {
 		triggerZoneTransition: PresMod.triggerZoneTransition,
 		runtime: facade,
 		EventBus,
-		OVERWORLD_ACTION_HANDLERS: overworldActionHandlers,
-		overworldActionHandlers,
+		get OVERWORLD_ACTION_HANDLERS() { return overworldActionHandlers; },
+		get overworldActionHandlers() { return overworldActionHandlers; },
 	});
 
 	overworldActionHandlers = StepMod.createOverworldActionHandlers ? StepMod.createOverworldActionHandlers(getSharedDeps()) : {};
@@ -644,7 +645,10 @@ const GameRuntime = (() => {
 	//#endregion
 
 	//#region [SEC-05] Public Interface Assembly, Seal & Exports
+	let isInitialized = false;
 	const init = () => {
+		if (isInitialized) return;
+		isInitialized = true;
 		console.log("[GameRuntime] Initializing Host Harness with Thin SSOT Bridge.");
 		const hostConfig = {
 			manifest: typeof EmberlightManifest !== "undefined" ? EmberlightManifest : {},

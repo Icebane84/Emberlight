@@ -9,144 +9,144 @@ const baseDir = path.resolve(__dirname, '..');
 const scripts = require('./load_order.js');
 
 function createMockElement(id = '', tag = 'div') {
-  const listeners = {};
-  const classSet = new Set();
-  const el = {
-    id,
-    tagName: tag.toUpperCase(),
-    dataset: {},
-    classList: {
-      add: (cls) => classSet.add(cls),
-      remove: (cls) => classSet.delete(cls),
-      contains: (cls) => classSet.has(cls),
-      toggle: (cls, force) => {
-        if (typeof force === 'boolean') {
-          if (force) classSet.add(cls);
-          else classSet.delete(cls);
-          return force;
-        }
-        if (classSet.has(cls)) {
-          classSet.delete(cls);
-          return false;
-        }
-        classSet.add(cls);
-        return true;
-      },
-    },
-    style: {},
-    textContent: '',
-    innerHTML: '',
-    children: [],
-    closest: () => null,
-    appendChild: (child) => {
-      el.children.push(child);
-      child.parentElement = el;
-      return child;
-    },
-    remove: () => {},
-    addEventListener: (type, fn) => {
-      if (!listeners[type]) listeners[type] = [];
-      listeners[type].push(fn);
-    },
-    dispatchEvent: (type, evt = {}) => {
-      if (listeners[type]) {
-        listeners[type].forEach((fn) => fn(evt));
-      }
-    },
-    querySelector: (sel) => {
-      if (sel === '.expand-label') return createMockElement('expand-label', 'span');
-      return createMockElement('sub-elem');
-    },
-    querySelectorAll: () => [],
-    toDataURL: () => 'data:image/png;base64,mock',
-    getContext: () => ({
-      fillRect: () => {},
-      clearRect: () => {},
-      beginPath: () => {},
-      closePath: () => {},
-      moveTo: () => {},
-      lineTo: () => {},
-      arc: () => {},
-      ellipse: () => {},
-      quadraticCurveTo: () => {},
-      bezierCurveTo: () => {},
-      rect: () => {},
-      roundRect: () => {},
-      clip: () => {},
-      strokeRect: () => {},
-      createRadialGradient: () => ({ addColorStop: () => {} }),
-      createLinearGradient: () => ({ addColorStop: () => {} }),
-      createPattern: () => ({}),
-      getImageData: () => ({ data: new Uint8ClampedArray(480 * 320 * 4) }),
-      putImageData: () => {},
-      createImageData: (w = 1, h = 1) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }),
-      fill: () => {},
-      stroke: () => {},
-      fillText: () => {},
-      measureText: () => ({ width: 10 }),
-      drawImage: () => {},
-      save: () => {},
-      restore: () => {},
-      setTransform: () => {},
-      scale: () => {},
-      translate: () => {},
-      rotate: () => {},
-    }),
-    getBoundingClientRect: () => ({ left: 0, top: 0, width: 480, height: 320 }),
-  };
-  return el;
+	const listeners = {};
+	const classSet = new Set();
+	const el = {
+		id,
+		tagName: tag.toUpperCase(),
+		dataset: {},
+		classList: {
+			add: (cls) => classSet.add(cls),
+			remove: (cls) => classSet.delete(cls),
+			contains: (cls) => classSet.has(cls),
+			toggle: (cls, force) => {
+				if (typeof force === 'boolean') {
+					if (force) classSet.add(cls);
+					else classSet.delete(cls);
+					return force;
+				}
+				if (classSet.has(cls)) {
+					classSet.delete(cls);
+					return false;
+				}
+				classSet.add(cls);
+				return true;
+			},
+		},
+		style: {},
+		textContent: '',
+		innerHTML: '',
+		children: [],
+		closest: () => null,
+		appendChild: (child) => {
+			el.children.push(child);
+			child.parentElement = el;
+			return child;
+		},
+		remove: () => { },
+		addEventListener: (type, fn) => {
+			if (!listeners[ type ]) listeners[ type ] = [];
+			listeners[ type ].push(fn);
+		},
+		dispatchEvent: (type, evt = {}) => {
+			if (listeners[ type ]) {
+				listeners[ type ].forEach((fn) => fn(evt));
+			}
+		},
+		querySelector: (sel) => {
+			if (sel === '.expand-label') return createMockElement('expand-label', 'span');
+			return createMockElement('sub-elem');
+		},
+		querySelectorAll: () => [],
+		toDataURL: () => 'data:image/png;base64,mock',
+		getContext: () => ({
+			fillRect: () => { },
+			clearRect: () => { },
+			beginPath: () => { },
+			closePath: () => { },
+			moveTo: () => { },
+			lineTo: () => { },
+			arc: () => { },
+			ellipse: () => { },
+			quadraticCurveTo: () => { },
+			bezierCurveTo: () => { },
+			rect: () => { },
+			roundRect: () => { },
+			clip: () => { },
+			strokeRect: () => { },
+			createRadialGradient: () => ({ addColorStop: () => { } }),
+			createLinearGradient: () => ({ addColorStop: () => { } }),
+			createPattern: () => ({}),
+			getImageData: () => ({ data: new Uint8ClampedArray(480 * 320 * 4) }),
+			putImageData: () => { },
+			createImageData: (w = 1, h = 1) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }),
+			fill: () => { },
+			stroke: () => { },
+			fillText: () => { },
+			measureText: () => ({ width: 10 }),
+			drawImage: () => { },
+			save: () => { },
+			restore: () => { },
+			setTransform: () => { },
+			scale: () => { },
+			translate: () => { },
+			rotate: () => { },
+		}),
+		getBoundingClientRect: () => ({ left: 0, top: 0, width: 480, height: 320 }),
+	};
+	return el;
 }
 
 const mockElements = new Map();
 function getOrCreateElement(id) {
-  if (!mockElements.has(id)) {
-    mockElements.set(id, createMockElement(id));
-  }
-  return mockElements.get(id);
+	if (!mockElements.has(id)) {
+		mockElements.set(id, createMockElement(id));
+	}
+	return mockElements.get(id);
 }
 
 const context = {
-  console,
-  setTimeout,
-  clearTimeout,
-  setInterval,
-  clearInterval,
-  Date,
-  Math,
-  Array,
-  Object,
-  String,
-  Number,
-  Boolean,
-  Set,
-  Map,
-  Uint32Array,
-  Float32Array,
-  structuredClone: typeof structuredClone !== 'undefined' ? structuredClone : (x) => JSON.parse(JSON.stringify(x)),
-  document: {
-    getElementById: (id) => getOrCreateElement(id),
-    querySelector: (sel) => {
-      if (sel.startsWith('#')) return getOrCreateElement(sel.slice(1));
-      return createMockElement('sel-mock');
-    },
-    querySelectorAll: () => [],
-    createElement: (tag) => createMockElement(`created-${tag}`, tag),
-    body: createMockElement('body'),
-    addEventListener: () => {},
-  },
-  window: {
-    devicePixelRatio: 1,
-    addEventListener: () => {},
-    removeEventListener: () => {},
-  },
+	console,
+	setTimeout,
+	clearTimeout,
+	setInterval,
+	clearInterval,
+	Date,
+	Math,
+	Array,
+	Object,
+	String,
+	Number,
+	Boolean,
+	Set,
+	Map,
+	Uint32Array,
+	Float32Array,
+	structuredClone: typeof structuredClone !== 'undefined' ? structuredClone : (x) => structuredClone(x),
+	document: {
+		getElementById: (id) => getOrCreateElement(id),
+		querySelector: (sel) => {
+			if (sel.startsWith('#')) return getOrCreateElement(sel.slice(1));
+			return createMockElement('sel-mock');
+		},
+		querySelectorAll: () => [],
+		createElement: (tag) => createMockElement(`created-${tag}`, tag),
+		body: createMockElement('body'),
+		addEventListener: () => { },
+	},
+	window: {
+		devicePixelRatio: 1,
+		addEventListener: () => { },
+		removeEventListener: () => { },
+	},
 };
 context.window.document = context.document;
 vm.createContext(context);
 
 scripts.forEach((file) => {
-  const fullPath = path.join(baseDir, file);
-  const code = fs.readFileSync(fullPath, 'utf8');
-  vm.runInContext(code, context);
+	const fullPath = path.join(baseDir, file);
+	const code = fs.readFileSync(fullPath, 'utf8');
+	vm.runInContext(code, context, { filename: fullPath }); // NOSONAR: Test harness requires loading vanilla JS modules into headless DOM VM context
 });
 
 console.log('=== TEST SUITE: HOTKEYS & VIEWPORT EXPANSION VERIFICATION ===');

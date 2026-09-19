@@ -1,0 +1,810 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Emberlight — Tactical War Table (ARCH-SPEC-WAR-TABLE-001)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=JetBrains+Mono:wght@400;600;700&family=VT323&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="index.css" />
+  </head>
+  <body class="crt-enabled">
+    <div id="game-cockpit">
+      <!-- TOP METADATA & TELEMETRY STRIP -->
+      <header id="cockpit-top-bar" class="panel">
+        <div class="brand-title">⚡ EMBERLIGHT // WAR TABLE ⚡</div>
+        <div class="telemetry-channel-group">
+          <div id="status-quest-ticker" class="quest-ticker">
+            📜 <span class="quest-tag">[QUEST]</span> Objective: Investigate
+            Oakhaven Hamlet
+          </div>
+          <div id="status-line" class="ticker">
+            System initialized. Awaiting tactical input...
+          </div>
+        </div>
+        <div class="top-telemetry">
+          <span id="hud-gold-display" class="gold-counter">0 GOLD</span>
+          <button
+            type="button"
+            class="cmd-btn quick-settings-btn"
+            id="top-settings-btn"
+          >
+            ⚙️ [ESC]
+          </button>
+        </div>
+      </header>
+
+      <!-- TITLE & MAIN MENU VIEWPORT (MODAL OVERLAY) -->
+      <div
+        id="title-view"
+        class="panel"
+        style="
+          position: relative;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          min-height: 540px;
+          text-align: center;
+          margin-top: 4px;
+        "
+      >
+        <canvas
+          id="title-bg-canvas"
+          width="640"
+          height="400"
+          style="
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0.35;
+            z-index: 1;
+          "
+        ></canvas>
+        <div
+          style="
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+          "
+        >
+          <div
+            style="
+              font-size: 28px;
+              font-weight: bold;
+              color: var(--ember);
+              letter-spacing: 6px;
+              margin-bottom: 4px;
+              text-shadow: 0 0 16px var(--shadow-ember);
+            "
+          >
+            EMBERLIGHT
+          </div>
+          <div
+            style="
+              font-size: 8.5px;
+              color: var(--text-dim);
+              letter-spacing: 3px;
+              margin-bottom: 24px;
+            "
+          >
+            TACTICAL WAR TABLE // VSRP-001
+          </div>
+          <div
+            style="
+              display: flex;
+              flex-direction: column;
+              gap: 10px;
+              width: 220px;
+              margin-bottom: 18px;
+            "
+          >
+            <button
+              type="button"
+              class="cmd-btn action"
+              id="menu-continue-btn"
+              style="padding: 10px; font-size: 9.5px"
+            >
+              ▶ RESUME EXPEDITION
+            </button>
+            <button
+              type="button"
+              class="cmd-btn"
+              id="menu-new-game-btn"
+              style="padding: 10px; font-size: 9.5px"
+            >
+              ⚔ INITIALIZE MISSION
+            </button>
+            <div style="display: flex; gap: 8px">
+              <button
+                type="button"
+                class="cmd-btn"
+                id="title-settings-btn"
+                style="flex: 1; font-size: 8px; padding: 6px"
+              >
+                ⚙ CONFIG
+              </button>
+              <button
+                type="button"
+                class="cmd-btn"
+                id="title-mute-btn"
+                style="flex: 1; font-size: 8px; padding: 6px"
+              >
+                🔊 AUDIO
+              </button>
+            </div>
+          </div>
+          <div
+            id="title-save-summary"
+            style="
+              font-size: 7.5px;
+              color: var(--text-dim);
+              line-height: 1.6;
+              border: 1px solid var(--border-dim);
+              padding: 10px 16px;
+              background: rgba(0, 0, 0, 0.6);
+              max-width: 300px;
+              border-radius: 3px;
+            "
+          >
+            Scanning tactical save records...
+          </div>
+        </div>
+      </div>
+
+      <!-- GAME OVER / DEFEAT MODAL (MODAL OVERLAY) -->
+      <div
+        id="game-over-view"
+        class="panel hidden modal-layer game-over-modal"
+        style="
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          padding: 20px;
+          max-width: 440px;
+        "
+      >
+        <div
+          style="
+            font-size: 18px;
+            color: var(--danger);
+            font-weight: bold;
+            letter-spacing: 4px;
+            margin-bottom: 6px;
+            text-shadow: 0 0 12px rgba(248, 113, 113, 0.8);
+          "
+        >
+          💀 EXPEDITION COLLAPSE 💀
+        </div>
+        <div
+          style="font-size: 8px; color: var(--text-dim); margin-bottom: 16px"
+        >
+          All vanguard combatants have succumbed to the shadows.
+        </div>
+        <div
+          id="game-over-stats"
+          style="
+            width: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid var(--border-dim);
+            padding: 10px;
+            font-size: 7.5px;
+            line-height: 1.8;
+            margin-bottom: 18px;
+            text-align: left;
+          "
+        >
+          <div>
+            • Turns Survived:
+            <span id="go-turns-count" style="color: var(--ember)">0</span>
+          </div>
+          <div>
+            • Gold Forfeited:
+            <span id="go-gold-lost" style="color: var(--danger)">0</span>
+          </div>
+          <div>
+            • Current Floor:
+            <span id="go-floor-depth" style="color: #38bdf8">Surface</span>
+          </div>
+        </div>
+        <div style="display: flex; gap: 10px; width: 100%">
+          <button
+            type="button"
+            class="cmd-btn action"
+            id="go-reload-btn"
+            style="flex: 1; padding: 10px 6px; font-size: 8px"
+          >
+            ↺ RELOAD LAST SAVE
+          </button>
+          <button
+            type="button"
+            class="cmd-btn"
+            id="go-yield-btn"
+            style="
+              flex: 1;
+              padding: 10px 6px;
+              font-size: 8px;
+              border-color: var(--ember);
+              color: var(--ember);
+            "
+          >
+            ▲ YIELD TO TOWN (-25% G)
+          </button>
+        </div>
+      </div>
+
+      <!-- MASTER 2x2 QUAD-MATRIX WAR TABLE -->
+      <main id="war-table-matrix" class="hidden">
+        <!-- ================================================================= -->
+        <!-- MODE 1: EXPEDITION RIG (OVERWORLD & CATACOMB EXPLORATION)          -->
+        <!-- ================================================================= -->
+        <div id="expedition-rig" class="matrix-grid">
+          <!-- QUADRANT 1: STRATEGIC CARTOGRAPHY (TOP-LEFT) -->
+          <section class="quadrant-pane" id="pane-cartography">
+            <div class="pane-header">
+              <span class="pane-title">🛰️ Q1: STRATEGIC CARTOGRAPHY</span>
+              <span class="pane-tag">[WASD] Step</span>
+            </div>
+            <div id="overworld-view" class="pane-content">
+              <div id="overworld-grid-wrapper">
+                <div id="overworld-grid"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- QUADRANT 2: ENVIRONMENT SENSOR (TOP-RIGHT) -->
+          <section class="quadrant-pane" id="pane-sensor">
+            <div class="pane-header">
+              <span class="pane-title" id="q2-pane-title"
+                >👁️ Q2: ENVIRONMENT SENSOR // 3D CORRIDOR</span
+              >
+              <div style="display: flex; align-items: center; gap: 6px">
+                <span class="pane-tag" id="q2-pane-tag">Acoustic Frustum</span>
+                <button
+                  type="button"
+                  class="q4-expand-btn"
+                  id="q2-expand-btn"
+                  title="Toggle 3D Immersion Viewport [X]"
+                >
+                  <span class="expand-icon">⛶</span>
+                  <span class="expand-label">3D VIEW [X]</span>
+                </button>
+              </div>
+            </div>
+            <div class="pane-content sensor-content" style="position: relative">
+              <!-- Top-Center Compass Ribbon -->
+              <div id="corridor-compass-ribbon" class="hidden">
+                <span class="compass-marker" id="compass-heading"
+                  >▲ NORTH (000°)</span
+                >
+              </div>
+              <!-- Inset Tactical Mini-Radar Overlay -->
+              <div id="corridor-minimap-overlay" class="hidden">
+                <canvas
+                  id="corridor-minimap-canvas"
+                  width="100"
+                  height="80"
+                ></canvas>
+              </div>
+              <canvas id="corridor-canvas" width="480" height="260"></canvas>
+            </div>
+          </section>
+
+          <!-- QUADRANT 3: TELEGRAPH & FIELD SCANNER (BOTTOM-LEFT) -->
+          <section class="quadrant-pane" id="pane-scanner">
+            <div class="pane-header">
+              <span class="pane-title">📡 Q3: TELEGRAPH & FIELD SCANNER</span>
+              <span class="pane-tag">SDCP-001 Tokens</span>
+            </div>
+            <div class="pane-content scanner-content">
+              <div id="scanner-hazard-feed" class="hazard-feed">
+                <div class="threat-gauge-row">
+                  <span class="threat-label">AREA THREAT INDEX:</span>
+                  <div class="threat-gauge-track">
+                    <div
+                      id="overworld-threat-gauge"
+                      style="
+                        width: 0%;
+                        height: 100%;
+                        background: var(--ember);
+                        transition:
+                          width 0.2s ease,
+                          background-color 0.2s ease;
+                      "
+                    ></div>
+                  </div>
+                </div>
+                <div id="scanner-alerts" class="scanner-alerts">
+                  <span class="scanner-status"
+                    >✨ Environmental scan nominal. Cobblestone stable.</span
+                  >
+                </div>
+              </div>
+
+              <!-- INTEGRATED SDCP-001 CAPABILITY DOCK -->
+              <div id="tactical-dock">
+                <button
+                  type="button"
+                  class="tactical-btn scorch"
+                  id="btn-field-scorch"
+                  title="Burn adjacent tall grass or mist"
+                >
+                  <span class="keycap">[F]</span> 🔥 SCORCH
+                  <span class="cost">(3 MP)</span>
+                </button>
+                <button
+                  type="button"
+                  class="tactical-btn freeze"
+                  id="btn-field-freeze"
+                  title="Freeze water chasms into ice bridges"
+                >
+                  <span class="keycap">[G]</span> ❄️ FREEZE
+                  <span class="cost">(4 MP)</span>
+                </button>
+                <button
+                  type="button"
+                  class="tactical-btn consecrate"
+                  id="btn-field-consecrate"
+                  title="Consecrate a sanctuary campsite"
+                >
+                  <span class="keycap">[H]</span> ✨ CONSECRATE
+                  <span class="cost">(6 MP)</span>
+                </button>
+                <button
+                  type="button"
+                  class="tactical-btn dispel"
+                  id="btn-field-dispel"
+                  title="Dispel noxious miasma clouds"
+                >
+                  <span class="keycap">[V]</span> 💨 DISPEL
+                  <span class="cost">(3 MP)</span>
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <!-- QUADRANT 4: PARTY READINESS & IN-PLACE DISTRICT MOUNT (BOTTOM-RIGHT) -->
+          <section class="quadrant-pane" id="pane-readiness">
+            <div class="pane-header">
+              <span class="pane-title" id="q4-pane-title"
+                >🛡️ Q4: PARTY READINESS DECK</span
+              >
+              <div style="display: flex; align-items: center; gap: 6px">
+                <span class="pane-tag" id="q4-pane-tag">4 Active</span>
+                <button
+                  type="button"
+                  class="q4-expand-btn"
+                  id="q4-expand-btn"
+                  title="Toggle Fullscreen Deck [Z]"
+                >
+                  <span class="expand-icon">⛶</span>
+                  <span class="expand-label">EXPAND [Z]</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- PERSISTENT COMPACT MINI-HUD -->
+            <div id="q4-persistent-mini-hud" class="hidden"></div>
+
+            <!-- UNIFIED DISTRICT SUB-NAV DOCK (HOISTED OUT OF MOUNT CONTAINER) -->
+            <div id="q4-sub-nav">
+              <button type="button" class="subnav-tab" data-nav="STATUS">
+                <span class="keycap">[C]</span> 📋 STATUS
+              </button>
+              <button type="button" class="subnav-tab" data-nav="ARMORY">
+                <span class="keycap">[E]</span> 🛡️ GEAR
+              </button>
+              <button type="button" class="subnav-tab" data-nav="PROGRESSION">
+                <span class="keycap">[T]</span> ✨ SKILLS
+              </button>
+              <button type="button" class="subnav-tab" data-nav="POUCH">
+                <span class="keycap">[I]</span> 🎒 POUCH
+              </button>
+              <button type="button" class="subnav-tab" data-nav="SHOP">
+                <span class="keycap">[B]</span> 🛒 SHOP
+              </button>
+              <button type="button" class="subnav-tab" data-nav="CHRONICLE">
+                <span class="keycap">[J]</span> 📖 JOURNAL
+              </button>
+              <button type="button" class="subnav-tab" data-nav="FORGE">
+                🔥 FORGE
+              </button>
+              <button
+                type="button"
+                class="subnav-tab"
+                data-nav="AUDIT"
+                style="border-color: #b07fe0; color: #b07fe0"
+              >
+                🔬 AUDIT
+              </button>
+              <button
+                type="button"
+                class="subnav-tab"
+                data-nav="SETTINGS"
+                style="border-color: var(--border); color: var(--ember)"
+              >
+                ⚙️ CONFIG
+              </button>
+              <button
+                type="button"
+                class="subnav-tab close-tab"
+                data-nav="OVERWORLD"
+              >
+                <span class="keycap">[ESC]</span> ↩ BACK
+              </button>
+            </div>
+
+            <div class="pane-content readiness-content" id="q4-content-stage">
+              <!-- Live Party Vitals View (Default) -->
+              <div id="party-hud-panel">
+                <div id="party-hud-grid"></div>
+              </div>
+
+              <!-- In-Place District Mount Viewport (When District Opened) -->
+              <div id="district-mount-container" class="hidden">
+                <!-- Dynamic Tenant Viewports Mount Here -->
+                <div id="status-view" class="hidden"></div>
+                <div id="progression-view" class="hidden">
+                  <div class="panel" id="progression-panel">
+                    <div class="panel-title">
+                      PROGRESSION DISTRICT — AETHER MATRIX
+                    </div>
+                    <div id="skill-trees"></div>
+                    <div style="text-align: right; margin-top: 8px">
+                      <button
+                        type="button"
+                        class="cmd-btn action"
+                        id="close-progression-btn"
+                      >
+                        ↩ RETURN TO DECK
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div id="armory-view" class="hidden"></div>
+                <div id="market-view" class="hidden"></div>
+                <div id="chronicle-view" class="hidden"></div>
+                <div id="auditor-view" class="hidden"></div>
+                <div id="relic-forge-view" class="hidden"></div>
+                <div id="lockpick-view" class="hidden"></div>
+                <div id="settings-view" class="hidden"></div>
+              </div>
+
+              <!-- EXPLORATION QUICK POUCH DRAWER ([I]) -->
+              <div
+                id="exploration-pouch-drawer"
+                class="hidden panel"
+                style="
+                  padding: 10px;
+                  background: rgba(10, 10, 24, 0.95);
+                  border: 1px solid var(--ember);
+                  margin-top: 6px;
+                "
+              >
+                <div
+                  style="
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 8px;
+                    border-bottom: 1px solid var(--border-dim);
+                    padding-bottom: 4px;
+                  "
+                >
+                  <span
+                    style="
+                      color: var(--ember);
+                      font-weight: bold;
+                      font-size: 8px;
+                    "
+                    >🎒 QUICK FIELD POUCH</span
+                  >
+                  <button
+                    type="button"
+                    class="cmd-btn"
+                    id="close-pouch-btn"
+                    style="font-size: 6px; padding: 2px 6px"
+                  >
+                    [ESC] CLOSE
+                  </button>
+                </div>
+                <div
+                  id="field-pouch-grid"
+                  style="
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 6px;
+                  "
+                ></div>
+                <div
+                  id="pouch-target-drawer"
+                  class="hidden"
+                  style="
+                    margin-top: 8px;
+                    border-top: 1px solid var(--border-dim);
+                    padding-top: 6px;
+                  "
+                ></div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- ================================================================= -->
+        <!-- MODE 2: COMBAT THEATER (DUAL-ZONE MASTER TACTICAL ARENA)          -->
+        <!-- ================================================================= -->
+        <div id="combat-theater" class="combat-master-stage hidden">
+          <!-- UPPER ZONE: GRAND BATTLEFIELD ARENA (100% Full Width) -->
+          <section class="quadrant-pane" id="pane-combat-arena">
+            <!-- Procedural Biome Depth Backdrop Canvas -->
+            <canvas
+              id="combat-backdrop-canvas"
+              width="600"
+              height="300"
+            ></canvas>
+
+            <!-- Full-Width CTB Turn Ribbon Bar (12 Slots) -->
+            <div id="combat-ctb-ribbon-bar" class="ctb-master-ribbon"></div>
+
+            <!-- Horizontal Opposing Formations Stage -->
+            <div id="combat-stage-wrapper">
+              <!-- Left: Hostile Formation Wing (Front/Back Staggered) -->
+              <div class="combat-wing-container enemy-wing-container">
+                <div class="formation-wing-header">HOSTILE FORMATION</div>
+                <div id="enemy-row" class="combat-wing enemy-wing"></div>
+              </div>
+
+              <!-- Center: Clash Core & Dynamic Duel Overlay -->
+              <div id="theater-clash-core" class="theater-clash-core">
+                <span id="theater-clash-icon" class="clash-icon">⚔️</span>
+                <div id="theater-clash-label" class="clash-label">
+                  ENGAGEMENT
+                </div>
+              </div>
+
+              <!-- Right: Allied Vanguard Wing (Front/Back Staggered) -->
+              <div class="combat-wing-container party-wing-container">
+                <div class="formation-wing-header">ALLIED SQUAD</div>
+                <div id="party-grid" class="combat-wing party-wing"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- LOWER ZONE: TACTICAL CONSOLE (55% / 45% Split) -->
+          <div id="combat-console-zone">
+            <!-- Left: Action & Sub-Deck Hub -->
+            <section class="quadrant-pane" id="pane-combat-command">
+              <div class="pane-header">
+                <span class="pane-title" id="command-deck-title"
+                  >🎯 ACTION & COMMAND HUB</span
+                >
+                <span class="pane-tag" id="command-deck-tag"
+                  >Awaiting Orders</span
+                >
+              </div>
+              <div class="pane-content command-content">
+                <div
+                  id="command-primary-ribbon"
+                  class="command-primary-ribbon"
+                ></div>
+                <div id="command-sub-deck" class="command-sub-deck"></div>
+                <div id="command-footer-row" class="command-footer-row">
+                  <button
+                    type="button"
+                    class="cmd-btn run"
+                    id="combat-flee-btn"
+                  >
+                    🏃 DISENGAGE / ESCAPE (60%)
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <!-- Right: Threat Oracle & Combat Log -->
+            <section class="quadrant-pane" id="pane-combat-oracle">
+              <div class="pane-header">
+                <span class="pane-title"
+                  >🔮 THREAT ORACLE & ENGAGEMENT LOG</span
+                >
+                <span class="pane-tag" id="theater-phase-tag"
+                  >Telemetry Active</span
+                >
+              </div>
+              <div class="pane-content oracle-content">
+                <div id="theater-telemetry-bar" class="theater-telemetry-bar">
+                  <span id="telemetry-dmg-range" class="telemetry-metric"
+                    >EST DMG: --</span
+                  >
+                  <span id="telemetry-hit-rate" class="telemetry-metric"
+                    >HIT: 100%</span
+                  >
+                  <span
+                    id="telemetry-affinity-tag"
+                    class="telemetry-metric affinity-tag"
+                    >AFFINITY: NEUTRAL</span
+                  >
+                </div>
+                <div id="log-box"></div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </main>
+
+      <!-- BOTTOM UNIFIED DISTRICT NAVIGATION DOCK -->
+      <footer id="district-nav" class="panel">
+        <button type="button" class="cmd-btn nav-btn" id="nav-status-btn">
+          <span class="keycap">[C]</span> 📋 STATUS
+        </button>
+        <button type="button" class="cmd-btn nav-btn" id="nav-armory-btn">
+          <span class="keycap">[E]</span> 🛡️ GEAR
+        </button>
+        <button type="button" class="cmd-btn nav-btn" id="nav-progression-btn">
+          <span class="keycap">[T]</span> ✨ SKILLS
+        </button>
+        <button type="button" class="cmd-btn nav-btn" id="nav-pouch-btn">
+          <span class="keycap">[I]</span> 🎒 POUCH
+        </button>
+        <button type="button" class="cmd-btn nav-btn" id="nav-shop-btn">
+          <span class="keycap">[B]</span> 🛒 SHOP
+        </button>
+        <button type="button" class="cmd-btn nav-btn" id="nav-chronicle-btn">
+          <span class="keycap">[J]</span> 📖 JOURNAL
+        </button>
+        <button type="button" class="cmd-btn nav-btn" id="nav-forge-btn">
+          🔥 FORGE
+        </button>
+        <button type="button" class="cmd-btn nav-btn" id="nav-rest-btn">
+          ▲ REST
+        </button>
+        <button
+          type="button"
+          class="cmd-btn nav-btn"
+          id="nav-audit-btn"
+          style="border-color: #b07fe0; color: #b07fe0"
+        >
+          🔬 AUDIT
+        </button>
+        <button
+          type="button"
+          class="cmd-btn nav-btn"
+          id="nav-settings-btn"
+          style="border-color: var(--border); color: var(--text-dim)"
+        >
+          ⚙️ CONFIG
+        </button>
+      </footer>
+
+      <!-- EPHEMERAL DIALOGUE MODAL OVERLAY -->
+      <div
+        id="dialogue-view"
+        class="panel hidden modal-layer"
+        style="border-color: var(--ember); cursor: pointer"
+      >
+        <div
+          id="dialogue-speaker"
+          class="panel-title"
+          style="color: var(--ember)"
+        >
+          SPEAKER
+        </div>
+        <div
+          id="dialogue-text"
+          style="min-height: 38px; margin-bottom: 8px; line-height: 1.8"
+        >
+          ...
+        </div>
+        <div
+          id="dialogue-choices"
+          class="hidden"
+          style="display: flex; gap: 8px; margin-bottom: 6px"
+        ></div>
+        <div style="text-align: right; color: var(--text-dim); font-size: 7px">
+          [ CLICK OR SPACE TO ADVANCE ]
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- SCRIPT LOADER — order governed by testing/load_order.js (SSOT)   -->
+    <!-- To add/rename a module: edit load_order.js, then re-sync here.   -->
+    <!-- Run `node testing/gen_html_scripts.js` to audit for drift.        -->
+    <!-- ================================================================ -->
+
+    <!-- 1. Tier 4: Kernels & Static Schema -->
+    <!-- Manifest Domain Subsystems (Loaded in Dependency Order) -->
+    <script src="manifest/manifest_config.js"></script>
+    <script src="manifest/manifest_actors.js"></script>
+    <script src="manifest/manifest_items.js"></script>
+    <script src="manifest/manifest_progression.js"></script>
+    <script src="manifest/manifest_world.js"></script>
+    <script src="manifest/manifest_narrative.js"></script>
+    <script src="manifest/manifest_calculators.js"></script>
+    <!-- Root Manifest Facade (Seals & Exports EmberlightManifest SSOT) -->
+    <script src="manifest/manifest.js"></script>
+    <script src="prng.js"></script>
+
+    <!-- 2. Tier 1: Host Harness Core -->
+    <script src="session_store.js"></script>
+    <script src="event_bus.js"></script>
+
+    <!-- 3. Tier 1: World & Ecology Systems -->
+    <script src="world_ecology.js"></script>
+    <script src="district_router.js"></script>
+
+    <!-- 4. Tier 3: Audio Peripheral Drivers -->
+    <script src="acoustic_sfx.js"></script>
+    <script src="synth_soundtrack.js"></script>
+    <script src="synthetic_voice.js"></script>
+
+    <!-- 5. Tier 3: Input Peripheral Driver -->
+    <script src="input.js"></script>
+
+    <!-- 6. Tier 3: Icon & Asset Bakers -->
+    <script src="icons.js"></script>
+    <script src="skill_icons.js"></script>
+    <script src="party_icons.js"></script>
+    <script src="sprite_baker.js"></script>
+
+    <!-- 7. Tier 3: Rendering Pipeline & Compositors -->
+    <script src="combat_vfx.js"></script>
+    <script src="dynamic_lights.js"></script>
+    <script src="pseudo_3d_renderer.js"></script>
+    <script src="shader_compositor.js"></script>
+    <script src="battler_baker.js"></script>
+    <script src="battle_backdrop.js"></script>
+    <script src="threat_oracle.js"></script>
+    <script src="cockpit_renderer.js"></script>
+    <script src="combat_renderer.js"></script>
+    <script src="map_renderer.js"></script>
+    <script src="armory_renderer.js"></script>
+    <script src="chronicle_renderer.js"></script>
+    <script src="progression_renderer.js"></script>
+    <script src="market_renderer.js"></script>
+    <script src="status_renderer.js"></script>
+    <script src="relic_forge_renderer.js"></script>
+
+    <!-- 8. Tier 2: Ephemeral Simulation Districts -->
+    <script src="progression.js"></script>
+    <script src="combat.js"></script>
+    <script src="overworld.js"></script>
+    <script src="armory.js"></script>
+    <script src="market.js"></script>
+    <script src="chronicle.js"></script>
+    <script src="status.js"></script>
+
+    <!-- 9. Tier 4: Audit Kernel (VSRP-001 staged membrane sub-modules) -->
+    <script src="auditor/auditor_kernel.js"></script>
+    <script src="auditor/auditor_contracts.js"></script>
+    <script src="auditor/auditor_district_sims.js"></script>
+    <script src="auditor/auditor_combat_extended.js"></script>
+    <script src="auditor/auditor_persistence.js"></script>
+    <script src="auditor/auditor_constitutional.js"></script>
+    <script src="auditor/auditor_endgame.js"></script>
+    <script src="auditor.js"></script><!-- Facade: ingests membrane, purges _AuditorInternal, exports EmberlightAuditor -->
+
+
+    <!-- 10. Tier 2 (cont.) & Persistence -->
+    <script src="relic_forge.js"></script>
+    <script src="dungeon_gen.js"></script>
+    <script src="lockpick.js"></script>
+    <script src="settings.js"></script>
+    <script src="save_manager.js"></script>
+
+    <!-- 11. Tier 1: Orchestration & Entry Points -->
+    <script src="script.js"></script>
+    <script src="runtime.js"></script>
+
+  </body>
+</html>

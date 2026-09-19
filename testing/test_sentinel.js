@@ -1,120 +1,31 @@
-const fs = require('fs');
-const path = require('path');
-const vm = require('vm');
+/**
+ * @fileoverview Emberlight Sentinel Audit Harness (Pass 1 - Pass 21)
+ *
+ * Protocols: VSRP-001 / SDCP-001 / PERSIST-001 / MPFS-001
+ * Authority: Host SSOT | Sentinel Audit Engine
+ *
+ * Evaluates the full topological load order of Emberlight game engine modules
+ * in a zero-dependency headless VM sandbox and executes the 21-Pass Sentinel Headless Audit.
+ *
+ * Usage: node testing/test_sentinel.js
+ */
+
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const { createVmContext } = require('./mock_dom.js');
 
 const baseDir = path.resolve(__dirname, '..');
 
 // SSOT: canonical topological load order — edit testing/load_order.js, not here.
 const scripts = require('./load_order.js');
 
-function createMockElement(id = '', tag = 'div') {
-  const el = {
-    id,
-    tagName: tag.toUpperCase(),
-    getContext: () => ({
-      createImageData: (w, h) => ({ data: new Uint8ClampedArray(w * h * 4) }),
-      putImageData: () => {},
-      drawImage: () => {},
-      fillRect: () => {},
-      clearRect: () => {},
-      strokeRect: () => {},
-      fillText: () => {},
-      strokeText: () => {},
-      createRadialGradient: () => ({ addColorStop: () => {} }),
-      createLinearGradient: () => ({ addColorStop: () => {} }),
-      save: () => {},
-      restore: () => {},
-      beginPath: () => {},
-      closePath: () => {},
-      clip: () => {},
-      arc: () => {},
-      ellipse: () => {},
-      rect: () => {},
-      roundRect: () => {},
-      bezierCurveTo: () => {},
-      quadraticCurveTo: () => {},
-      fill: () => {},
-      stroke: () => {},
-      moveTo: () => {},
-      lineTo: () => {},
-      translate: () => {},
-      rotate: () => {},
-      scale: () => {},
-      setTransform: () => {},
-      resetTransform: () => {},
-      measureText: () => ({ width: 10 }),
-    }),
-    width: 480,
-    height: 260,
-    toDataURL: () => 'data:image/png;base64,mock',
-    classList: {
-      _classes: new Set(),
-      add: function(...cls) { cls.forEach(c => this._classes.add(c)); },
-      remove: function(...cls) { cls.forEach(c => this._classes.delete(c)); },
-      toggle: function(c, force) { if (force !== undefined) { force ? this._classes.add(c) : this._classes.delete(c); } else { this._classes.has(c) ? this._classes.delete(c) : this._classes.add(c); } },
-      contains: function(c) { return this._classes.has(c); }
-    },
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    style: {},
-    innerHTML: '',
-    textContent: '',
-    children: [],
-    querySelector: (sel) => createMockElement(),
-    querySelectorAll: (sel) => [createMockElement()],
-    appendChild: function(child) { this.children.push(child); return child; },
-    setAttribute: () => {},
-    getAttribute: () => null,
-    dataset: {},
-  };
-  return el;
-}
-
-const mockDom = {
-  document: {
-    getElementById: (id) => createMockElement(id),
-    createElement: (tag) => createMockElement('', tag),
-    querySelector: (sel) => createMockElement(),
-    querySelectorAll: (sel) => [createMockElement()],
-    createDocumentFragment: () => createMockElement('', 'fragment'),
-    body: createMockElement('body', 'body'),
-  },
-  window: {
-    addEventListener: () => {},
-    removeEventListener: () => {},
-  },
-  addEventListener: () => {},
-  removeEventListener: () => {},
-  localStorage: {
-    getItem: () => null,
-    setItem: () => {},
-    removeItem: () => {},
-  },
-  console: console,
-  Math: Math,
-  JSON: JSON,
-  Date: Date,
-  Float32Array: Float32Array,
-  Uint32Array: Uint32Array,
-  Uint8Array: Uint8Array,
-  Uint8ClampedArray: Uint8ClampedArray,
-  TextEncoder: typeof TextEncoder !== 'undefined' ? TextEncoder : function() { return { encode: (s) => Buffer.from(s) }; },
-  structuredClone: typeof structuredClone !== 'undefined' ? structuredClone : (x) => JSON.parse(JSON.stringify(x)),
-  setTimeout: setTimeout,
-  clearTimeout: clearTimeout,
-  setInterval: setInterval,
-  clearInterval: clearInterval,
-  requestAnimationFrame: (cb) => { return setTimeout(cb, 16); },
-  cancelAnimationFrame: (id) => { clearTimeout(id); },
-};
-
-mockDom.window = Object.assign(mockDom.window, mockDom);
-
-const context = vm.createContext(mockDom);
+const context = createVmContext();
 
 scripts.forEach((file) => {
-  const code = fs.readFileSync(path.join(baseDir, file), 'utf8');
-  vm.runInContext(code, context);
+  const filePath = path.join(baseDir, file);
+  const code = fs.readFileSync(filePath, 'utf8');
+  vm.runInContext(code, context, { filename: filePath }); // NOSONAR: Test harness requires loading vanilla JS modules into headless DOM VM context
 });
 
 // Boot GameRuntime which registers and seals SDCP-001 capabilities
@@ -162,13 +73,13 @@ const peripheralDrivers = {
 auditor.reset({
   modules: targetModules,
   drivers: peripheralDrivers,
-  eventBus: runtime.EventBus
+  eventBus: runtime.EventBus,
 });
 
 const diag = auditor.getDiagnostics();
 console.log('AUDIT DIAGNOSTICS:', diag);
 const state = auditor.getState();
-state.auditLog.forEach(l => console.log(l.message));
+state.auditLog.forEach((l) => console.log(l.message));
 
 if (diag.score === diag.totalChecks && diag.passed) {
   console.log(`=== SENTINEL AUDIT 100% SUCCESS: ${diag.score}/${diag.totalChecks} CHECKS PASSED ===`);

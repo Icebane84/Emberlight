@@ -78,6 +78,83 @@ Navigating code by scrolling breaks cognitive flow. An architectural banner at l
 
 When refactoring a section out of a 3,000-line file into its own module, the hardest task is identifying what variables it secretly relies on. JSDoc annotations paired with your root jsconfig.json ("checkJs": true) convert vanilla JavaScript comments into static type definitions and dependency boundaries.
 
+How to write JSDoc in HTML example:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Strict Typing Demo</title>
+</head>
+<body>
+    <script>
+        /**
+         * Adds two numbers together.
+         * @param {number} a - First number
+         * @param {number} b - Second number
+         * @returns {number} Total sum
+         */
+        function add(a, b) {
+            return a + b;
+        }
+    </script>
+</body>
+</html>
+```
+
+"Docstrings" and Documentation in .css Files:
+
+Option A: Documenting CSS Custom Properties (Variables)
+If you place a standard CSS comment /*...*/ directly above a CSS variable declaration, VS Code natively parses it as documentation. When you hover over that variable elsewhere in your codebase, the text will appear. Example:
+
+```css
+:root {
+  /* The primary brand color. Use this for main buttons, headers, and active links. */
+  --color-primary: #0070f3;
+
+  /* Standard transition speed for micro-interactions and hover effects. */
+  --transition-fast: 0.2s ease-in-out;
+}
+
+/* Hovering over `--color-primary` below will display the docstring description */
+button {
+  background-color: var(--color-primary);
+  transition: background-color var(--transition-fast);
+}
+```
+
+Option B: Documentation for CSS Classes & Architecture
+If you want to document UI components, utilities, or complex layout rules for your team, use a standardized layout like KSS (Knackback Styleguide Styles) or MDS (Markdown in CSS). While VS Code won't natively turn these into interactive tooltips for standard classes, parsers can use them to automatically build interactive living style guides. Example:
+
+```css
+/**
+ * @name Button
+ * @description A flexible, accessible button component.
+ *
+ * @state .btn--primary - The default call-to-action state.
+ * @state .btn--disabled - Faded look indicating an unclickable action.
+ *
+ * @markup
+ * <button class="btn btn--primary">Click me</button>
+ */
+.btn {
+  padding: 10px 20px;
+  border-radius: 4px;
+}
+```
+
+Option C: Tailwind CSS / JSDoc IntelliSense (If using JS-in-CSS)
+If your ultimate goal is checking utilities or extracting design rules within a JavaScript environment, you can use JSDoc annotations inside your jsconfig.json typed files to cast styles to specific CSS string shapes. Example:
+
+```javascript
+/** @type {CSSStyleDeclaration} */
+const dynamicStyles = {
+  backgroundColor: 'red',
+  margin: '10px'
+};
+```
+
 ### **Defining Shared Data Types (@typedef)**
 
 Place all domain data shapes at the top of the file or above the section that owns them:
@@ -164,4 +241,4 @@ function update(dt, context) {
 
 Large 3,000+ line files are often criticized, but in a zero-dependency, flat-directory vanilla JavaScript architecture, having a self-contained module (like a complete combat or overworld engine) in one file avoids the overhead of circular imports and script-tag management.
 The real danger of a 3,000-line file isn't its size; it is **invisible coupling**—functions buried at line 2,400 reaching up to mutate variables declared at line 40\.
-Using //\#region combined with \[SEC-XX\] tags gives you immediate spatial control: you can fold everything up and navigate the file like an 8-item menu. More importantly, enforcing JSDoc @param contracts ensures that the functions inside that region behave like pure, decoupled machines. When the day comes that you _do_ want to split that 3,000-line file into two or three smaller files, you can literally cut out the entire region block, paste it into a new file, and it will execute without breaking a single reference.
+Using //\#region combined with \[SEC-XX\] tags gives you immediate spatial control: you can fold everything up and navigate the file like an 8-item menu. More importantly, enforcing JSDoc @param contracts ensures that the functions inside that region behave like pure, decoupled machines. When the day comes that you *do* want to split that 3,000-line file into two or three smaller files, you can literally cut out the entire region block, paste it into a new file, and it will execute without breaking a single reference.

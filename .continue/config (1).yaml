@@ -1,0 +1,57 @@
+{
+  "models":
+    [
+      {
+        "title": "Qwen 2.5 Coder 7B",
+        "provider": "ollama",
+        "model": "qwen2.5-coder:7b",
+        "contextLength": 32768,
+        "completionOptions":
+          {
+            "maxTokens": 4096,
+            "temperature": 0.1,
+            "topP": 0.95,
+            "keepAlive": 1800,
+          },
+      },
+      {
+        "title": "Llama 3.1 8B",
+        "provider": "ollama",
+        "model": "llama3.1:8b",
+        "contextLength": 16384,
+        "completionOptions":
+          {
+            "maxTokens": 4096,
+            "temperature": 0.2,
+            "topP": 0.9,
+            "keepAlive": 1800,
+          },
+      },
+    ],
+  "tabAutocompleteModel":
+    {
+      "title": "Qwen Autocomplete",
+      "provider": "ollama",
+      "model": "qwen2.5-coder:1.5b-base",
+    },
+  "embeddingsProvider":
+    { "provider": "ollama", "model": "nomic-embed-text:latest" },
+  "tabAutocompleteOptions":
+    {
+      "debounceDelay": 250,
+      "maxPromptTokens": 1024,
+      "prefixPercentage": 0.7,
+      "maxSuffixPercentage": 0.3,
+      "onlyMyCode": true,
+      "useRecentlyEdited": true,
+      "useRecentlyOpened": true,
+    },
+  "systemMessage": "Strictly enforce the 4-Tier Sovereign Architecture and VSRP-001 contract:\n1. Root Topology: All 34 runtime JavaScript files reside strictly at workspace root (./). Zero src/ prefixes.\n2. Faraday Boundary: Tier 2 simulation districts and Tier 4 kernels must NEVER touch DOM elements, window, document, canvas, or alert().\n3. Clocks & Timers: Zero setTimeout, setInterval, or unmanaged requestAnimationFrame in simulation.\n4. Deterministic Math: Zero Math.random(). Use EmberlightPRNG (Mulberry32) exclusively.\n5. Universal Export: Support both window.ModuleName and module.exports.",
+  "prompts":
+    [
+      { "name": "audit", "prompt": "file://.continue/prompts/audit.md" },
+      { "name": "wiring", "prompt": "file://.continue/prompts/wiring.md" },
+      { "name": "feature", "prompt": "file://.continue/prompts/feature.md" },
+      { "name": "inspect", "prompt": "file://.continue/prompts/inspect.md" },
+    ],
+}
