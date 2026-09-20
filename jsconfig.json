@@ -1,14 +1,31 @@
 {
   "compilerOptions": {
     "target": "es2022",
-    "module": "es2022",
-    "lib": ["es2022", "dom"],
+    "module": "none",
+    "moduleResolution": "classic",
+    "lib": [
+      "es2022",
+      "dom",
+      "dom.iterable",
+      "webworker"
+    ],
     "checkJs": true,
     "strict": true,
     "strictNullChecks": true,
-    "allowJs": true
+    "allowJs": true,
+    "skipLibCheck": true
   },
-  "exclude": ["node_modules", "tools", "testing", "watch_engine.js", "data/boilerplatetenant.js"]
+  "include": [
+    "globals.d.ts",
+    "**/*.js",
+    "**/*.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    ".git",
+    ".agents",
+    ".agent",
+    "tools",
+    "testing"
+  ]
 }
-
-

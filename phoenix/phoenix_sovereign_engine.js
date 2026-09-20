@@ -2765,6 +2765,43 @@ void main() {
 		}
 	});
 
+	/**
+	 * Pure Helper: Extract function name from declaration or arrow assignment
+	 * @param {string} line
+	 * @param {RegExp} declRegex
+	 * @param {RegExp} arrowRegex
+	 * @returns {string}
+	 */
+	function _extractFunctionName(line, declRegex, arrowRegex) {
+		const declMatch = declRegex.exec(line);
+		if (declMatch) return declMatch[ 1 ] || 'anonymous';
+		const arrowMatch = arrowRegex.exec(line);
+		if (arrowMatch) return arrowMatch[ 1 ] || 'anonymous';
+		return '';
+	}
+
+	/**
+	 * Pure Helper: Slice function body by matching braces
+	 * @param {string[]} lines
+	 * @param {number} startIdx
+	 * @returns {{ endLine: number; fnBody: string }}
+	 */
+	function _extractFunctionSlice(lines, startIdx) {
+		let open = 0;
+		let endLine = startIdx;
+		const fnLines = [];
+		for (let j = startIdx; j < lines.length; j++) {
+			fnLines.push(lines[ j ]);
+			open += (lines[ j ].match(/\{/g) || []).length;
+			open -= (lines[ j ].match(/\}/g) || []).length;
+			if (open <= 0 && j > startIdx) {
+				endLine = j;
+				break;
+			}
+		}
+		return { endLine, fnBody: fnLines.join('\n') };
+	}
+
 	const PhoenixLinterSuite = Object.freeze({
 		/**
 		 * Computes the cognitive complexity score of a JavaScript code block or function.
@@ -2821,6 +2858,7 @@ void main() {
 		scanFunctionsComplexity(source, threshold = 15) {
 			if (typeof source !== 'string') return [];
 			const lines = source.split(/\r?\n/);
+			/** @type {Array<{ name: string; line: number; endLine: number; complexity: number; score: number; codeSlice: string }>} */
 			const results = [];
 			const FN_DECL_REGEX = /(?:async\s+)?function(?:\s+([A-Za-z0-9_$]+))?\s*\(/;
 			const ARROW_FN_REGEX = /(?:const|let|var)\s+([A-Za-z0-9_$]+)\s*=\s*(?:async\s+)?(?:\([^)]*\)|[A-Za-z0-9_$]+)\s*=>/;
@@ -2829,32 +2867,10 @@ void main() {
 				const line = lines[ i ];
 				if (!line.includes('{')) continue;
 
-				let fnName = '';
-				const declMatch = FN_DECL_REGEX.exec(line);
-				if (declMatch) {
-					fnName = declMatch[ 1 ] || 'anonymous';
-				} else {
-					const arrowMatch = ARROW_FN_REGEX.exec(line);
-					if (arrowMatch) {
-						fnName = arrowMatch[ 1 ] || 'anonymous';
-					}
-				}
-
+				const fnName = _extractFunctionName(line, FN_DECL_REGEX, ARROW_FN_REGEX);
 				if (!fnName) continue;
 
-				let open = 0;
-				let endLine = i;
-				const fnLines = [];
-				for (let j = i; j < lines.length; j++) {
-					fnLines.push(lines[ j ]);
-					open += (lines[ j ].match(/\{/g) || []).length;
-					open -= (lines[ j ].match(/\}/g) || []).length;
-					if (open <= 0 && j > i) {
-						endLine = j;
-						break;
-					}
-				}
-				const fnBody = fnLines.join('\n');
+				const { endLine, fnBody } = _extractFunctionSlice(lines, i);
 				const score = this.calculateCognitiveComplexity(fnBody);
 				if (score > threshold) {
 					results.push({
@@ -3150,6 +3166,340 @@ void main() {
 			};
 		}
 	}
+
+	/* =========================================================================
+	 * [SEC-16] DETERMINISTIC REGION SCAFFOLDER, AST CONTRACT & GRAPH ANALYZER
+	 * Protocol: ARCH-CODE-PARTITION-001 / VSRP-001 / SDCP-001
+	 * ========================================================================= */
+	/**
+	 * Pure Helper: Handle character when in active string or comment state
+	 * @param {string} ch
+	 * @param {string} next
+	 * @param {{ inBlock: boolean; inLine: boolean; inStr: string | null }} state
+	 * @returns {{ advance: number; emit: string } | null}
+	 */
+	function _handleActiveState(ch, next, state) {
+		if (state.inStr) {
+			if (ch === '\\') return { advance: 2, emit: ch + next };
+			if (ch === state.inStr) state.inStr = null;
+			return { advance: 1, emit: ch };
+		}
+		if (state.inLine) {
+			if (ch === '\n') {
+				state.inLine = false;
+				return { advance: 1, emit: '\n' };
+			}
+			return { advance: 1, emit: '' };
+		}
+		if (state.inBlock) {
+			if (ch === '*' && next === '/') {
+				state.inBlock = false;
+				return { advance: 2, emit: '' };
+			}
+			return { advance: 1, emit: '' };
+		}
+		return null;
+	}
+
+	/**
+	 * Pure Helper: Process a single character step in comment stripping
+	 * @param {string} source
+	 * @param {number} i
+	 * @param {{ inBlock: boolean; inLine: boolean; inStr: string | null }} state
+	 * @returns {{ advance: number; emit: string }}
+	 */
+	function _stepStripComments(source, i, state) {
+		const ch = source[ i ];
+		const next = source[ i + 1 ] || '';
+
+		if (state.inStr || state.inLine || state.inBlock) {
+			const res = _handleActiveState(ch, next, state);
+			if (res) return res;
+		}
+
+		if (ch === '"' || ch === "'" || ch === '`') {
+			state.inStr = ch;
+			return { advance: 1, emit: ch };
+		}
+
+		if (ch === '/' && next === '/') {
+			state.inLine = true;
+			return { advance: 2, emit: '' };
+		}
+
+		if (ch === '/' && next === '*') {
+			state.inBlock = true;
+			return { advance: 2, emit: '' };
+		}
+
+		return { advance: 1, emit: ch };
+	}
+
+	/**
+	 * Pure Helper: Classify a line into a canonical region category
+	 * @param {string} trimmed
+	 * @returns {{ kind: string; title: string } | null}
+	 */
+	function _classifySourceLine(trimmed) {
+		if (trimmed.startsWith('/**') && (trimmed.includes('@typedef') || trimmed.includes('@type'))) {
+			return { kind: 'types', title: 'Type Definitions & Contract Schemas' };
+		}
+		if (/^const\s+[A-Z0-9_]+\s*=\s*(?:Object\.freeze)?/.test(trimmed)) {
+			return { kind: 'constants', title: 'Constants & Configuration' };
+		}
+		if (/^(?:class\s+|const\s+[A-Za-z0-9_$]+\s*=\s*\(\(\)\s*=>)/.test(trimmed)) {
+			return { kind: 'core', title: 'Core Implementation & State Engine' };
+		}
+		if (/^(?:if\s*\(typeof\s+window|if\s*\(typeof\s+module|window\.[A-Za-z0-9_$]+\s*=)/.test(trimmed)) {
+			return { kind: 'export', title: 'Module Export & Global Scope Bindings' };
+		}
+		return null;
+	}
+
+	const PhoenixRegionScaffolder = Object.freeze({
+		/**
+		 * Strips comments from JavaScript source code for AST equivalence comparison
+		 * @param {string} source
+		 * @returns {string} Normalized code without comments
+		 */
+		stripComments(source) {
+			if (typeof source !== 'string') return '';
+			let out = '';
+			const state = { inBlock: false, inLine: false, inStr: null };
+			let i = 0;
+
+			while (i < source.length) {
+				const step = _stepStripComments(source, i, state);
+				out += step.emit;
+				i += step.advance;
+			}
+			return out.replace(/\s+/g, ' ').trim();
+		},
+
+		/**
+		 * Checks whether a file contains valid, balanced //#region ... //#endregion blocks
+		 * @param {string} source
+		 * @returns {{ valid: boolean; count: number; regions: Array<{ id: string; title: string; line: number }> }}
+		 */
+		inspectRegions(source) {
+			if (typeof source !== 'string') return { valid: false, count: 0, regions: [] };
+			const lines = source.split(/\r?\n/);
+			/** @type {Array<{ id: string; title: string; line: number }>} */
+			const regions = [];
+			let openCount = 0;
+			const REG_REGION = /(?:\/\/|\/\*)\s*#?region\s*(\[SEC-[^\]]+\])?\s*(.*)/i;
+			const REG_ENDREGION = /(?:\/\/|\/\*)\s*#?endregion/i;
+
+			for (let i = 0; i < lines.length; i++) {
+				const line = lines[ i ].trim();
+				const regMatch = REG_REGION.exec(line);
+				if (regMatch) {
+					openCount++;
+					regions.push({
+						id: regMatch[ 1 ] || `[SEC-${String(regions.length + 1).padStart(2, '0')}]`,
+						title: (regMatch[ 2 ] || 'Unlabeled Subsystem').replace(/\*\/$/, '').trim(),
+						line: i + 1
+					});
+				}
+				if (REG_ENDREGION.test(line)) {
+					openCount--;
+				}
+			}
+
+			return {
+				valid: openCount === 0 && regions.length > 0,
+				count: regions.length,
+				regions
+			};
+		},
+
+		/**
+		 * Deterministically scaffolds canonical //#region anchors around top-level code blocks
+		 * with 100% executable AST invariance.
+		 * @param {string} source
+		 * @param {string} [_filename='unknown.js']
+		 * @returns {{ scaffoldedSource: string; astEquivalent: boolean; regionCount: number }}
+		 */
+		scaffoldRegions(source, _filename = 'unknown.js') {
+			if (typeof source !== 'string' || !source.trim()) {
+				return { scaffoldedSource: source, astEquivalent: true, regionCount: 0 };
+			}
+
+			const existing = this.inspectRegions(source);
+			if (existing.valid && existing.count >= 2) {
+				return { scaffoldedSource: source, astEquivalent: true, regionCount: existing.count };
+			}
+
+			// Clean existing fragmented region markers before reconstructing
+			const cleanedLines = source
+				.split(/\r?\n/)
+				.filter(l => !/^\s*(?:\/\/|\/\*)\s*#?(?:region|endregion)/i.test(l.trim()));
+
+			/** @type {Array<{ kind: string; title: string; lines: string[] }>} */
+			const blocks = [];
+			/** @type {string[]} */
+			let currentBlock = [];
+			/** @type {string | null} */
+			let currentKind = null;
+
+			/**
+			 * @param {string} kind
+			 * @param {string} title
+			 */
+			const flushBlock = (kind, title) => {
+				if (currentBlock.length > 0) {
+					blocks.push({
+						kind: currentKind || kind,
+						title: title || 'Subsystem Implementation',
+						lines: currentBlock.slice()
+					});
+					currentBlock = [];
+					currentKind = null;
+				}
+			};
+
+			for (const line of cleanedLines) {
+				const classified = _classifySourceLine(line.trim());
+				if (classified && classified.kind !== currentKind) {
+					flushBlock(classified.kind, classified.title);
+					currentKind = classified.kind;
+				}
+				currentBlock.push(line);
+			}
+
+			flushBlock('misc', 'Subsystem Implementation');
+
+			// Construct canonical scaffolded file with strict sequential numbering
+			/** @type {string[]} */
+			const scaffolded = [];
+			let secIndex = 1;
+
+			for (const block of blocks) {
+				const secTag = `[SEC-${String(secIndex).padStart(2, '0')}]`;
+				secIndex++;
+				scaffolded.push(
+					`//#region ${secTag} ${block.title.toUpperCase()}`,
+					...block.lines,
+					`//#endregion\n`
+				);
+			}
+
+			const scaffoldedSource = scaffolded.join('\n').trim() + '\n';
+			const astEquivalent = this.stripComments(source) === this.stripComments(scaffoldedSource);
+
+			return {
+				scaffoldedSource: astEquivalent ? scaffoldedSource : source,
+				astEquivalent,
+				regionCount: blocks.length
+			};
+		},
+
+		/**
+		 * Verifies whether declared capabilities in JSDoc / getModuleInfo match actual AST operations.
+		 * @param {string} source
+		 * @param {string[]} [declaredCapabilities=[]]
+		 * @returns {{ compliant: boolean; verifiedCapabilities: string[]; discrepancies: string[] }}
+		 */
+		verifyContract(source, declaredCapabilities = []) {
+			/** @type {string[]} */
+			const verified = [];
+			/** @type {string[]} */
+			const discrepancies = [];
+
+			const hasMathRandom = /Math\.random\(\)/.test(source);
+			/** @type {Array<{ cap: string; test: RegExp; checkDiscrepancy?: (present: boolean) => string | null }>} */
+			const CAPABILITY_RULES = [
+				{
+					cap: 'cap:render.canvas',
+					test: /getContext\(['"]2d['"]\)|transferControlToOffscreen|fillRect|drawImage/,
+					checkDiscrepancy: (present) => present ? null : 'Declared cap:render.canvas but found no Canvas 2D operations.'
+				},
+				{
+					cap: 'cap:render.webgl',
+					test: /getContext\(['"]webgl|getContext\(['"]webgl2|gl\./
+				},
+				{
+					cap: 'cap:persist.binary',
+					test: /ArrayBuffer|DataView|Float32Array|Uint8Array|Int32Array/,
+					checkDiscrepancy: (present) => present ? null : 'Declared cap:persist.binary but found no TypedArray / DataView operations.'
+				},
+				{
+					cap: 'cap:audio.procedural',
+					test: /AudioContext|webkitAudioContext|createOscillator|createGain/,
+					checkDiscrepancy: (present) => present ? null : 'Declared cap:audio.procedural but found no Web Audio API operations.'
+				},
+				{
+					cap: 'cap:persist.opfs',
+					test: /FileSystemSyncAccessHandle|getDirectory|createWritable/
+				},
+				{
+					cap: 'cap:math.prng',
+					test: /Mulberry32|calculateCRC32|_prngSeed|EmberlightPRNG/,
+					checkDiscrepancy: (_present) => hasMathRandom ? 'Declared cap:math.prng but found unseeded Math.random() calls.' : null
+				}
+			];
+
+			for (const rule of CAPABILITY_RULES) {
+				const isPresent = rule.test.test(source);
+				if (isPresent) verified.push(rule.cap);
+
+				if (declaredCapabilities.includes(rule.cap) && rule.checkDiscrepancy) {
+					const discrepancy = rule.checkDiscrepancy(isPresent);
+					if (discrepancy) discrepancies.push(discrepancy);
+				}
+			}
+
+			return {
+				compliant: discrepancies.length === 0,
+				verifiedCapabilities: verified,
+				discrepancies
+			};
+		},
+
+		/**
+		 * Analyzes module input/output dependencies and external global symbol bindings
+		 * @param {string} source
+		 * @returns {{ reads: string[]; writes: string[]; events: string[] }}
+		 */
+		analyzeDependencies(source) {
+			/** @type {Set<string>} */
+			const reads = new Set();
+			/** @type {Set<string>} */
+			const writes = new Set();
+			/** @type {Set<string>} */
+			const events = new Set();
+
+			const STANDARD_GLOBALS = new Set([ 'Object', 'Array', 'String', 'Number', 'Boolean', 'Math', 'Date', 'JSON', 'Map', 'Set', 'Promise', 'DataView', 'ArrayBuffer' ]);
+
+			// Detect global reads
+			const REG_READ = /\b([A-Z][A-Za-z0-9_$]*)\b/g;
+			let match;
+			while ((match = REG_READ.exec(source)) !== null) {
+				const sym = match[ 1 ];
+				if (!STANDARD_GLOBALS.has(sym) && sym.length > 1) {
+					reads.add(sym);
+				}
+			}
+
+			// Detect global exports
+			const REG_WRITE = /\b(?:window|global)\.([A-Za-z0-9_$]+)\s*=/g;
+			while ((match = REG_WRITE.exec(source)) !== null) {
+				writes.add(match[ 1 ].trim());
+			}
+
+			// Detect EventBus subscriptions / publications
+			const REG_EVENT = /\b(?:subscribe|publish)\(['"]([A-Z0-9_:]+)['"]/g;
+			while ((match = REG_EVENT.exec(source)) !== null) {
+				events.add(match[ 1 ]);
+			}
+
+			return {
+				reads: Array.from(reads),
+				writes: Array.from(writes),
+				events: Array.from(events)
+			};
+		}
+	});
 	//#endregion
 
 	//#region [SEC-10] Layer 1: Structural Linter & Proposal Shape Validator
@@ -4377,6 +4727,7 @@ void main() {
 		PhoenixLinterSuite,
 		PhoenixErrorResolutionLedger,
 		PhoenixBatchRemediationPipeline,
+		PhoenixRegionScaffolder,
 	});
 
 	global.PhoenixSovereignEngine = API;

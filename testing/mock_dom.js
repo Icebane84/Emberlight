@@ -92,16 +92,11 @@ function createMockElement(id = '', tag = 'div') {
        * @param {boolean} [force]
        */
       toggle: function(c, force) {
-        if (force !== undefined) {
-          if (force) {
-            classes.add(c);
-          } else {
-            classes.delete(c);
-          }
-        } else if (classes.has(c)) {
-          classes.delete(c);
-        } else {
+        const shouldAdd = force !== undefined ? Boolean(force) : !classes.has(c);
+        if (shouldAdd) {
           classes.add(c);
+        } else {
+          classes.delete(c);
         }
       },
       /**

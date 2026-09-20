@@ -23,12 +23,16 @@ const testSuites = [
     file: 'testing/test_sentinel.js',
   },
   {
-    name: 'Phoenix Sovereign Engine & Governance Substrate (SEC 01-08)',
+    name: 'Phoenix Sovereign Engine & Governance Substrate (SEC 01-16)',
     file: 'testing/test_phoenix.js',
   },
   {
     name: 'Static Syntax Compilation Battery',
     file: 'testing/test_syntax.js',
+  },
+  {
+    name: 'Sentinel Anti-Theater Mutation Crucible',
+    file: 'testing/test_mutation.js',
   },
 ];
 

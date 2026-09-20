@@ -427,7 +427,7 @@ async function run() {
 	}
 }
 
-run().catch((err) => {
+run().catch((err) => { // NOSONAR: Top-level invocation in CommonJS Node environment
 	console.error("[FATAL] Uncaught error in test runner:", err);
 	process.exitCode = 1;
 });

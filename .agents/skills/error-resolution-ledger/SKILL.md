@@ -3,7 +3,7 @@ name: error-resolution-ledger
 description: Governs the Error Resolution Ledger (ERL-001) catalog of canonical diagnostic fingerprints, pre-commit lint filters, and verified deterministic self-repair patterns across Emberlight and Phoenix engines.
 globs: "**/*.js, **/*.html, **/*.ts, testing/**/*.js, phoenix/**/*.js"
 alwaysApply: false
-version: 1.0.0
+version: 1.1.0
 ---
 
 # AGENT OPERATIONAL SPECIFICATION: Error Resolution Ledger (ERL-001)
@@ -16,7 +16,7 @@ version: 1.0.0
 
 ## 1. Core Purpose & Architectural Mandate
 
-The **Error Resolution Ledger (ERL-001)** is the single source of truth for detecting, preventing, and repairing systemic code anomalies across all Emberlight modules and Phoenix tools.
+The **Error Resolution Ledger (ERL-001)** is the living single source of truth for detecting, preventing, and repairing systemic code anomalies across all Emberlight modules and Phoenix tools.
 
 When an AI agent (Antigravity, Cursor, Continue, Aider, or Phoenix in-IDE model) encounters a diagnostic error, linter warning, or test assertion failure, it **MUST NOT** hallucinate an ad-hoc fix. It must consult this ledger, match the diagnostic fingerprint, and apply the verified canonical remediation pattern.
 
@@ -24,7 +24,7 @@ When an AI agent (Antigravity, Cursor, Continue, Aider, or Phoenix in-IDE model)
 
 ## 2. Pre-Commit Guardrails & Prohibited Anti-Patterns
 
-Before presenting or applying any code changes, all AI agents must enforce these 5 immutable constraints:
+Before presenting or applying any code changes, all AI agents must enforce these 6 immutable constraints:
 
 1. **Zero Placeholders (Anti-Theater):**
    - NEVER output `// ...`, `/* ... */`, or `TODO(impl)` anywhere in code changes.
@@ -39,11 +39,15 @@ Before presenting or applying any code changes, all AI agents must enforce these
    - NEVER write natural language descriptive sentences in these fields.
 
 4. **Zero-Backtracking Regular Expressions:**
-   - Avoid unanchored wildcards like `/\?.*:/` or nested quantifiers. Use $O(N)$ string methods (`includes`) or strictly bounded regex character classes (`/\?[^:]*:/`).
+   - Avoid unanchored wildcards like `/\?.*:/` or nested quantifiers. Use $O(N)$ string methods (`includes`) or strictly bounded regex character classes (`/\?[^:]*:/`) anchored to line starts (`^\s*`).
 
 5. **Type-Safe Catch Error Handling:**
    - Catch variables are typed as `unknown` under `checkJs: true`.
    - Always extract via: `const errMsg = err instanceof Error ? err.message : String(err);`.
+   - Explain intentional exception suppressions with explicit comments.
+
+6. **Script Context Async Boundary Protection:**
+   - NEVER write top-level `await` inside CommonJS `.js` files or classic `<script>` tags without `type="module"`.
 
 ---
 
@@ -189,6 +193,130 @@ Before presenting or applying any code changes, all AI agents must enforce these
 
 ---
 
+### [ERL-07] `ASYNC/TOP_LEVEL_AWAIT_CJS_OR_HTML` — Top-Level Await in CommonJS or Classic HTML Script
+
+- **Trigger:** SonarLint rule `S7785` or `S3776` suggesting top-level `await` instead of `.catch()` in `.js` test runners or classic `<script>` tags without `type="module"`.
+- **Hazard:** Throws runtime `SyntaxError: await is only valid in async functions and the top level bodies of modules`.
+- **Rule:** In zero-bundler CommonJS and classic browser HTML scripts, top-level execution must remain within named functions.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION:
+  await run(); // Fails in CJS Node and classic <script> tags!
+
+  // ✅ CANONICAL REPAIR (Node CommonJS):
+  run().catch((err) => { // NOSONAR: Top-level invocation in CommonJS Node environment
+      console.error(err);
+      process.exit(1);
+  });
+
+  // ✅ CANONICAL REPAIR (Browser Classic Script):
+  async function _boot() {
+      try {
+          await _governor.initialize();
+      } catch (err) {
+          console.error('[BOOT] Failed:', err);
+      }
+  }
+  _boot(); // NOSONAR: Classic script tag execution requires explicit boot invocation
+  ```
+
+---
+
+### [ERL-08] `REGEX/SUPERLINEAR_BACKTRACKING` — Unanchored Token Scanner Backtracking
+
+- **Trigger:** SonarLint warning for super-linear performance due to regex backtracking over code text.
+- **Hazard:** Catastrophic regex backtracking hangs the UI or event loop on malformed source lines.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION:
+  const match = line.match(/([A-Za-z0-9_$]+)\s*\(([^)]*)\)\s*\{/);
+
+  // ✅ CANONICAL REPAIR:
+  const match = line.match(/^\s*(?:async\s+)?([A-Za-z0-9_$]+)\s*\(([^)]*)\)\s*\{/);
+  ```
+
+---
+
+### [ERL-09] `EXCEPT/EMPTY_CATCH` — Unhandled Benign Exception in Sandboxed Contexts
+
+- **Trigger:** SonarLint rule flagging empty catch block `catch (_) {}`.
+- **Rule:** Exceptions must either be handled, rethrown, or explicitly explained with an intent comment.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION:
+  try {
+      localStorage.setItem('key', val);
+  } catch (_) { }
+
+  // ✅ CANONICAL REPAIR:
+  try {
+      localStorage.setItem('key', val);
+  } catch (_err) {
+      // Ignore localStorage write failures in sandboxed iframe contexts
+  }
+  ```
+
+---
+
+### [ERL-10] `TS/IMPLICIT_ANY_ARRAY_LITERAL` — Empty Array Literal Implicit `any[]` under `checkJs`
+
+- **Trigger:** Declaring `const auditLog = [];` or `const results = [];` in JSDoc JavaScript files with `"checkJs": true`.
+- **Hazard:** TypeScript emits `Variable 'auditLog' implicitly has an 'any[]' type.`
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION:
+  const auditLog = [];
+
+  // ✅ CANONICAL REPAIR:
+  /** @type {Array<{ label: string; status: string; detail?: string }>} */
+  const auditLog = [];
+  ```
+
+---
+
+### [ERL-11] `AST/INVARIANCE_SAFETY_TRAP` — Non-Equivalent Scaffolding Mutation
+
+- **Trigger:** Automated code reformatter / region scaffolder altering executable tokens while re-structuring `#region` jump anchors.
+- **Hazard:** Silently breaks running production code while claiming harmless visual formatting.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ✅ CANONICAL REPAIR:
+  // Strip all comments and whitespace from original and scaffolded AST,
+  // assert 100% token-for-token byte equality before committing changes:
+  const rawOriginal = stripComments(originalCode).replace(/\s+/g, '');
+  const rawScaffolded = stripComments(scaffoldedCode).replace(/\s+/g, '');
+  if (rawOriginal !== rawScaffolded) {
+      throw new Error('AST Invariance Violation: Scaffolding altered executable code tokens.');
+  }
+  ```
+
+---
+
+### [ERL-12] `SYNTAX/NESTED_TERNARY` — Nested Ternary Operation Readability Smells
+
+- **Trigger:** SonarLint rule flagging nested ternary operations `a ? b : (c ? d : e)`.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION:
+  const icon = diag.severity === 'err' ? '❌' : (diag.rule === 'COMPLEXITY/HIGH' ? '⚡' : '⚠️');
+
+  // ✅ CANONICAL REPAIR:
+  let icon = '⚠️';
+  if (diag.severity === 'err') {
+      icon = '❌';
+  } else if (diag.rule === 'COMPLEXITY/HIGH') {
+      icon = '⚡';
+  }
+  ```
+
+---
+
 ## 4. Self-Healing Execution Runloop
 
 When an agent is fixing errors:
@@ -199,22 +327,23 @@ When an agent is fixing errors:
         ▼
 [Match ERL-001 Catalog Fingerprint]
         │
-        ▼
-[Apply Canonical Replacement Template]
+        ├── 🔹 Known Pattern ────► Apply Canonical Replacement Template
         │
-        ▼
-[Execute Verification Gate] ───> `node testing/run_all_tests.js`
-        │
-        ├── ❌ Fails: Re-inspect trace, refine helper extraction without changing signature.
-        │
-        └── 🟢 Passes: Commit fix to repository & record pattern if novel.
+        └── 🔸 Novel Pattern ────► Synthesize Safe Fix via Sandbox Gate
+                                         │
+                                         ▼
+                               [Apply Verification Gate] ───> `node testing/run_all_tests.js`
+                                         │
+                                         ├── ❌ Fails: Refine fix without mutating interface contracts.
+                                         │
+                                         └── 🟢 Passes: Execute Continuous Ledger Expansion Protocol (Sec 6).
 ```
 
 ---
 
 ## 5. Master Verification Command
 
-Always verify all repairs across the complete triple-suite battery:
+Always verify all repairs across the complete 4-suite battery:
 
 ```bash
 node testing/run_all_tests.js
@@ -222,6 +351,42 @@ node testing/run_all_tests.js
 
 Expected output:
 
-- **124/124** Phoenix Sovereign Engine checks PASS
-- **134/134** Sentinel Audit checks PASS
+- **134/134** Phoenix Sovereign Engine checks PASS
+- **219/219** Sentinel Audit checks PASS
 - **86/86** Static Syntax Compilation tests PASS
+- **8/8** Sentinel Anti-Theater Mutation Crucible tests PASS (0 surviving mutants)
+
+---
+
+## 6. Continuous Ledger Expansion Protocol (Recording Novel Errors & Types)
+
+To ensure systemic anomalies and novel type contracts are permanently retained across AI sessions, whenever a new error type or ambient data structure is encountered and resolved:
+
+### Step 1: Assign Authoritative Fingerprint
+
+- Format: `[ERL-XX] CATEGORY/NAME` (e.g., `[ERL-13] WEBGPU/BUFFER_ALIGNMENT`).
+- Document the precise trigger condition, architectural hazard, and canonical before/after code blocks.
+
+### Step 2: Ambient Type Registry Synchronization
+
+- If the fix introduced new classes, return structures, options payloads, or JSDoc typedefs, immediately define the strict TypeScript interface in:
+  - [`phoenix/phoenix.d.ts`](file:///c:/Users/Chris/Emberlight/phoenix/phoenix.d.ts) (for Phoenix Sovereign Engine & Web IDE types)
+  - [`types/globals.d.ts`](file:///c:/Users/Chris/Emberlight/types/globals.d.ts) (for Emberlight core engine & tenant types)
+- Ensure all parameters and return types are strongly typed with zero implicit `any` under `"checkJs": true`.
+
+### Step 3: Dual Skill Catalog Update
+
+- Append the new `[ERL-XX]` specification entry to both skill locations:
+  1. `.agent/skills/error-resolution-ledger/SKILL.md`
+  2. `.agents/skills/error-resolution-ledger/SKILL.md`
+- Increment the skill frontmatter version (e.g., `1.1.0` $\to$ `1.2.0`).
+
+### Step 4: Runtime NDJSON Ledger Persistence
+
+- In the Phoenix IDE runtime substrate, register the pattern via `PhoenixERLLedger.record({ ... })` so that client-side and in-browser AI agents immediately resolve future occurrences in $<1\text{ms}$ via `executeFastPath()`.
+- Synchronize with `error-resolution-ledger.ndjson`.
+
+### Step 5: Anti-Theater Mutation Crucible Gate
+
+- If the error represents a critical architectural invariant (e.g., state rollback, security boundary, or PRNG determinism), add a fault-injection trial to [`testing/test_mutation.js`](file:///c:/Users/Chris/Emberlight/testing/test_mutation.js).
+- Verify that a deliberate mutation in that domain causes the test runner to reject the mutant (100% kill rate / 0 surviving mutants).

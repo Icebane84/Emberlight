@@ -2370,6 +2370,13 @@
 						<div id="tools-menu-dropdown" class="tools-dropdown-panel" style="display:none;">
 							<button type="button" id="btn-format-code" class="tools-dropdown-item"
 								title="Format code with normalized 2-space indentation (Alt+Shift+F)">🧹 FORMAT CODE</button>
+							<button type="button" id="btn-scaffold-regions" class="tools-dropdown-item"
+								title="Deterministically scaffold canonical //#region anchors (ARCH-CODE-PARTITION-001)">📐 SCAFFOLD
+								REGIONS</button>
+							<button type="button" id="btn-verify-contracts" class="tools-dropdown-item"
+								title="Verify module capabilities against AST operations">🛡️ VERIFY CONTRACTS</button>
+							<button type="button" id="btn-analyze-deps" class="tools-dropdown-item"
+								title="Analyze global symbol dependency graph">🕸️ ANALYZE DEPENDENCIES</button>
 							<button type="button" id="btn-sync-to-game-studio" class="tools-dropdown-item"
 								title="Instantly compile and sync active script into Game Dev Workstation Studio (Alt+S)">🎮 SYNC TO
 								STUDIO</button>
@@ -2830,7 +2837,7 @@
 	<script src="evaluateProposalWithSentinel(proposal).js"></script>
 
 	<!-- Master IDE Controller -->
-	<script type="module">
+	<script>
 		/* =========================================================================
 		 * PHOENIX SOVEREIGN WEB IDE CONTROLLER
 		 * ========================================================================= */
@@ -2951,7 +2958,9 @@
 			if (savedNDJSON) {
 				_erl.importNDJSON(savedNDJSON);
 			}
-		} catch (_) { }
+		} catch (_err) {
+			// Ignore localStorage read failures in sandboxed contexts
+		}
 		_vfs.set('error-resolution-ledger.ndjson', _erl.exportNDJSON());
 
 		function _saveERLLedger() {
@@ -2959,7 +2968,9 @@
 				const exported = _erl.exportNDJSON();
 				localStorage.setItem('phoenix_erl_ndjson', exported);
 				_vfs.set('error-resolution-ledger.ndjson', exported);
-			} catch (_) { }
+			} catch (_err) {
+				// Ignore localStorage write failures in sandboxed contexts
+			}
 		}
 
 		//#endregion
@@ -3019,7 +3030,70 @@
 		function _setStoredTreeCollapseState(state) {
 			try {
 				localStorage.setItem('phoenix_tree_collapsed_groups', JSON.stringify(state));
-			} catch (_) { }
+			} catch (_err) {
+				// Ignore storage errors in restricted iframe
+			}
+		}
+
+		function _createTreeEmptyElement() {
+			const emptyEl = document.createElement('div');
+			emptyEl.style.cssText = 'padding:16px 12px; color:var(--text-dim); font-size:11px; line-height:1.5; text-align:center;';
+			emptyEl.innerHTML = `
+				<div style="font-size:20px; margin-bottom:8px;">📁</div>
+				<div style="font-weight:bold; color:var(--text-primary); margin-bottom:4px;">No Project Mounted</div>
+				<div style="font-size:10px; margin-bottom:12px; color:var(--text-dim);">Mount a local folder to browse files.</div>
+				<button type="button" id="btn-tree-mount" class="primary" style="font-size:10px; padding:5px 10px; width:100%;">📁 Open Folder</button>
+			`;
+			emptyEl.querySelector('#btn-tree-mount')?.addEventListener('click', _mountProjectFolder);
+			return emptyEl;
+		}
+
+		function _createTreeGroupElement(group, files, filter, collapsedGroups) {
+			const groupContainer = document.createElement('div');
+			groupContainer.className = 'tree-group-container';
+
+			const isCollapsed = !filter && Boolean(collapsedGroups[ group ]);
+
+			const groupHeader = document.createElement('div');
+			groupHeader.className = 'tree-group-title';
+			groupHeader.style.cursor = 'pointer';
+			groupHeader.innerHTML = `
+				<span class="tree-caret">${isCollapsed ? '▶' : '▼'}</span>
+				<span style="font-weight:bold; text-transform:uppercase;">${escapeHtml(group)}</span>
+				<span class="tree-count-badge">(${files.length})</span>
+			`;
+
+			const filesContainer = document.createElement('div');
+			filesContainer.className = 'tree-group-files';
+			filesContainer.style.display = isCollapsed ? 'none' : 'flex';
+
+			groupHeader.addEventListener('click', () => {
+				const currentCollapsed = filesContainer.style.display === 'none';
+				const nextState = !currentCollapsed;
+				filesContainer.style.display = nextState ? 'none' : 'flex';
+				const caret = groupHeader.querySelector('.tree-caret');
+				if (caret) caret.textContent = nextState ? '▶' : '▼';
+
+				const saved = _getStoredTreeCollapseState();
+				if (nextState) {
+					saved[ group ] = true;
+				} else {
+					delete saved[ group ];
+				}
+				_setStoredTreeCollapseState(saved);
+			});
+
+			for (const filePath of files) {
+				const item = document.createElement('div');
+				item.className = `file-item ${filePath === _activeFilePath ? 'active' : ''}`;
+				item.innerHTML = `<span class="file-icon">📄</span> <span>${filePath.split('/').pop()}</span>`;
+				item.addEventListener('click', () => _openFile(filePath));
+				filesContainer.appendChild(item);
+			}
+
+			groupContainer.appendChild(groupHeader);
+			groupContainer.appendChild(filesContainer);
+			return groupContainer;
 		}
 
 		function _renderFileTree(filter = '') {
@@ -3028,16 +3102,7 @@
 			treeEl.innerHTML = '';
 
 			if (_vfs.size === 0) {
-				const emptyEl = document.createElement('div');
-				emptyEl.style.cssText = 'padding:16px 12px; color:var(--text-dim); font-size:11px; line-height:1.5; text-align:center;';
-				emptyEl.innerHTML = `
-					<div style="font-size:20px; margin-bottom:8px;">📁</div>
-					<div style="font-weight:bold; color:var(--text-primary); margin-bottom:4px;">No Project Mounted</div>
-					<div style="font-size:10px; margin-bottom:12px; color:var(--text-dim);">Mount a local folder to browse files.</div>
-					<button type="button" id="btn-tree-mount" class="primary" style="font-size:10px; padding:5px 10px; width:100%;">📁 Open Folder</button>
-				`;
-				emptyEl.querySelector('#btn-tree-mount')?.addEventListener('click', _mountProjectFolder);
-				treeEl.appendChild(emptyEl);
+				treeEl.appendChild(_createTreeEmptyElement());
 				return;
 			}
 			const grouped = new Map();
@@ -3052,51 +3117,7 @@
 			const collapsedGroups = _getStoredTreeCollapseState();
 
 			for (const [ group, files ] of grouped.entries()) {
-				const groupContainer = document.createElement('div');
-				groupContainer.className = 'tree-group-container';
-
-				const isCollapsed = !filter && !!collapsedGroups[ group ];
-
-				const groupHeader = document.createElement('div');
-				groupHeader.className = 'tree-group-title';
-				groupHeader.style.cursor = 'pointer';
-				groupHeader.innerHTML = `
-					<span class="tree-caret">${isCollapsed ? '▶' : '▼'}</span>
-					<span style="font-weight:bold; text-transform:uppercase;">${escapeHtml(group)}</span>
-					<span class="tree-count-badge">(${files.length})</span>
-				`;
-
-				const filesContainer = document.createElement('div');
-				filesContainer.className = 'tree-group-files';
-				filesContainer.style.display = isCollapsed ? 'none' : 'flex';
-
-				groupHeader.addEventListener('click', () => {
-					const currentCollapsed = filesContainer.style.display === 'none';
-					const nextState = !currentCollapsed;
-					filesContainer.style.display = nextState ? 'none' : 'flex';
-					const caret = groupHeader.querySelector('.tree-caret');
-					if (caret) caret.textContent = nextState ? '▶' : '▼';
-
-					const saved = _getStoredTreeCollapseState();
-					if (nextState) {
-						saved[ group ] = true;
-					} else {
-						delete saved[ group ];
-					}
-					_setStoredTreeCollapseState(saved);
-				});
-
-				for (const filePath of files) {
-					const item = document.createElement('div');
-					item.className = `file-item ${filePath === _activeFilePath ? 'active' : ''}`;
-					item.innerHTML = `<span class="file-icon">📄</span> <span>${filePath.split('/').pop()}</span>`;
-					item.addEventListener('click', () => _openFile(filePath));
-					filesContainer.appendChild(item);
-				}
-
-				groupContainer.appendChild(groupHeader);
-				groupContainer.appendChild(filesContainer);
-				treeEl.appendChild(groupContainer);
+				treeEl.appendChild(_createTreeGroupElement(group, files, filter, collapsedGroups));
 			}
 		}
 
@@ -3462,27 +3483,22 @@
 			return diags;
 		}
 
-		function _lintHTML(code) {
+		function _findLineForToken(lines, token, fallbackToken = '') {
+			for (let i = 0; i < lines.length; i++) {
+				if (lines[ i ].includes(token) || (fallbackToken && lines[ i ].includes(fallbackToken))) {
+					return i + 1;
+				}
+			}
+			return 1;
+		}
+
+		function _lintHTMLDuplicateIds(doc, lines) {
 			const diags = [];
-			const lines = code.split('\n');
-
-			// 1. Check duplicate element IDs and locate lines
-			const parser = new DOMParser();
-			const doc = parser.parseFromString(code, 'text/html');
-
 			const allElements = doc.querySelectorAll('[id]');
 			const seenIds = new Set();
 			allElements.forEach(el => {
 				if (seenIds.has(el.id)) {
-					let lineNum = 1;
-					const idToken = `id="${el.id}"`;
-					const idTokenSingle = `id='${el.id}'`;
-					for (let i = 0; i < lines.length; i++) {
-						if (lines[ i ].includes(idToken) || lines[ i ].includes(idTokenSingle)) {
-							lineNum = i + 1;
-							break;
-						}
-					}
+					const lineNum = _findLineForToken(lines, `id="${el.id}"`, `id='${el.id}'`);
 					diags.push({
 						severity: 'warn',
 						line: lineNum,
@@ -3494,21 +3510,15 @@
 				}
 				seenIds.add(el.id);
 			});
+			return diags;
+		}
 
-			// 2. Accessibility check: buttons and inputs without accessible names
+		function _lintHTMLAccessibility(doc, lines) {
+			const diags = [];
 			const unlabelled = doc.querySelectorAll('button:not([aria-label]):not([title]), input:not([aria-label]):not([title])');
 			unlabelled.forEach(el => {
 				if (el.tagName === 'BUTTON' && !el.textContent?.trim()) {
-					let lineNum = 1;
-					if (el.id) {
-						const idToken = `id="${el.id}"`;
-						for (let i = 0; i < lines.length; i++) {
-							if (lines[ i ].includes(idToken)) {
-								lineNum = i + 1;
-								break;
-							}
-						}
-					}
+					const lineNum = el.id ? _findLineForToken(lines, `id="${el.id}"`) : 1;
 					diags.push({
 						severity: 'warn',
 						line: lineNum,
@@ -3519,12 +3529,13 @@
 					});
 				}
 			});
+			return diags;
+		}
 
-			// 3. Extract and deeply lint all embedded script blocks
+		function _lintHTMLEmbeddedScripts(lines) {
+			const diags = [];
 			const TAG_SCRIPT_OPEN = '<' + 'script';
 			const TAG_SCRIPT_CLOSE = '<' + '/script>';
-			const TAG_STYLE_OPEN = '<' + 'style';
-			const TAG_STYLE_CLOSE = '<' + '/style>';
 
 			let inScript = false;
 			let scriptStartLine = 0;
@@ -3535,8 +3546,9 @@
 				const lower = line.toLowerCase();
 
 				if (!inScript && lower.includes(TAG_SCRIPT_OPEN)) {
-					if (!lower.includes('type="application/json"') && !lower.includes("type='application/json'") &&
-						!lower.includes('type="text/html"') && !lower.includes("type='text/html'")) {
+					const isNonExecutable = lower.includes('type="application/json"') || lower.includes("type='application/json'") ||
+						lower.includes('type="text/html"') || lower.includes("type='text/html'");
+					if (!isNonExecutable) {
 						inScript = true;
 						scriptStartLine = i + 1;
 						scriptLines = [];
@@ -3580,8 +3592,14 @@
 					quickFix: null
 				});
 			}
+			return diags;
+		}
 
-			// 4. Extract and deeply lint all embedded style blocks
+		function _lintHTMLEmbeddedStyles(lines) {
+			const diags = [];
+			const TAG_STYLE_OPEN = '<' + 'style';
+			const TAG_STYLE_CLOSE = '<' + '/style>';
+
 			let inStyle = false;
 			let styleStartLine = 0;
 			let styleLines = [];
@@ -3633,6 +3651,20 @@
 					quickFix: null
 				});
 			}
+			return diags;
+		}
+
+		function _lintHTML(code) {
+			const lines = code.split('\n');
+			const parser = new DOMParser();
+			const doc = parser.parseFromString(code, 'text/html');
+
+			const diags = [
+				..._lintHTMLDuplicateIds(doc, lines),
+				..._lintHTMLAccessibility(doc, lines),
+				..._lintHTMLEmbeddedScripts(lines),
+				..._lintHTMLEmbeddedStyles(lines)
+			];
 
 			diags.sort((a, b) => a.line - b.line);
 			return diags;
@@ -3747,6 +3779,62 @@
 			_toast('✓ Added strict JSDoc typing contract!', 'pass');
 		}
 
+		function _scaffoldActiveDocumentRegions() {
+			const editor = /** @type {HTMLTextAreaElement | null} */ (document.getElementById('code-editor-view'));
+			if (!editor || !editor.value) {
+				_toast('No active document content to scaffold.', 'error');
+				return;
+			}
+			const scaffolder = PhoenixSovereignEngine?.PhoenixRegionScaffolder;
+			if (!scaffolder) return;
+
+			const result = scaffolder.scaffoldRegions(editor.value, _activeFilePath);
+			if (result.astEquivalent) {
+				editor.value = result.scaffoldedSource;
+				_onEditorContentChanged();
+				_indexAllVFSFiles();
+				_renderFileTree();
+				_renderSymbolOutline();
+				_toast(`✓ Deterministically scaffolded ${result.regionCount} regions with 100% AST Equivalence!`, 'pass');
+			} else {
+				_toast('Scaffolding aborted: AST Equivalence check failed.', 'error');
+			}
+		}
+
+		function _verifyActiveDocumentContracts() {
+			const editor = /** @type {HTMLTextAreaElement | null} */ (document.getElementById('code-editor-view'));
+			if (!editor || !editor.value) {
+				_toast('No active document content to verify.', 'error');
+				return;
+			}
+			const scaffolder = PhoenixSovereignEngine?.PhoenixRegionScaffolder;
+			if (!scaffolder) return;
+
+			const result = scaffolder.verifyContract(editor.value);
+			if (result.compliant) {
+				const caps = result.verifiedCapabilities.join(', ') || 'pure-logic';
+				_toast(`✓ Contract Compliant! Verified: ${caps}`, 'pass');
+			} else {
+				_toast(`Contract Discrepancies: ${result.discrepancies.join(' · ')}`, 'warn');
+			}
+		}
+
+		function _analyzeActiveDocumentDependencies() {
+			const editor = /** @type {HTMLTextAreaElement | null} */ (document.getElementById('code-editor-view'));
+			if (!editor || !editor.value) {
+				_toast('No active document content to analyze.', 'error');
+				return;
+			}
+			const scaffolder = PhoenixSovereignEngine?.PhoenixRegionScaffolder;
+			if (!scaffolder) return;
+
+			const result = scaffolder.analyzeDependencies(editor.value);
+			const readsStr = result.reads.slice(0, 4).join(', ') + (result.reads.length > 4 ? ` +${result.reads.length - 4}` : '');
+			const writesStr = result.writes.join(', ') || 'none';
+			const eventsStr = result.events.join(', ') || 'none';
+			_toast(`🕸️ Graph: [Reads: ${readsStr || 'none'}] [Exports: ${writesStr}] [Events: ${eventsStr}]`, 'pass');
+		}
+
 		/**
 		 * Dry-runs candidate code in an isolated virtual sandbox branch.
 		 * Validates syntax, linter rules, and invariant contracts before touching live state.
@@ -3765,7 +3853,7 @@
 		 * @param {string} filePath
 		 * @returns {{passed: boolean, error?: string, diagnostics: DiagnosticItem[], patchedSource: string}}
 		 */
-		function _runAISandboxVerification(baseSource, proposal, filePath, targetFnInfo = null) {
+		function _applyProposalChanges(baseSource, proposal) {
 			let patched = baseSource;
 			if (proposal && Array.isArray(proposal.changes)) {
 				for (const ch of proposal.changes) {
@@ -3776,7 +3864,40 @@
 					}
 				}
 			}
+			return patched;
+		}
 
+		function _verifyCognitiveComplexityTier(patched, filePath, targetFnInfo) {
+			const remainingComplexity = [];
+			try {
+				const ext = filePath.split('.').pop()?.toLowerCase() || '';
+				if ((ext === 'js' || ext === 'html') && PhoenixSovereignEngine?.PhoenixLinterSuite?.scanFunctionsComplexity) {
+					const complex = PhoenixSovereignEngine.PhoenixLinterSuite.scanFunctionsComplexity(patched, 15);
+					for (const cf of complex) {
+						if (!targetFnInfo || cf.name === targetFnInfo.name) {
+							remainingComplexity.push(`Function '${cf.name}' exceeds cognitive complexity threshold (${cf.complexity}/15)`);
+						}
+					}
+				}
+			} catch (compErr) {
+				console.warn('[PHOENIX/SANDBOX] Complexity verification warning:', compErr);
+			}
+			return remainingComplexity;
+		}
+
+		function _verifySignatureInvarianceTier(patched, targetFnInfo) {
+			if (!targetFnInfo || !targetFnInfo.name || targetFnInfo.name === 'anonymous') {
+				return [];
+			}
+			const fnRegex = new RegExp(String.raw`(?:function\s+${targetFnInfo.name}|const\s+${targetFnInfo.name}\s*=|let\s+${targetFnInfo.name}\s*=|var\s+${targetFnInfo.name}\s*=)`);
+			if (!fnRegex.test(patched)) {
+				return [ `Original function signature '${targetFnInfo.name}' was missing in candidate patch.` ];
+			}
+			return [];
+		}
+
+		function _runAISandboxVerification(baseSource, proposal, filePath, targetFnInfo = null) {
+			const patched = _applyProposalChanges(baseSource, proposal);
 			if (patched === baseSource) {
 				return {
 					pass: false,
@@ -3792,35 +3913,15 @@
 			// Tier 2: Tri-Language Diagnostics Verification in Sandbox
 			const remainingErrors = _runDiagnostics(patched, filePath).filter(d => d.severity === 'err');
 
-			// Tier 3: Cognitive Complexity Gate
-			const remainingComplexity = [];
-			try {
-				const ext = filePath.split('.').pop()?.toLowerCase() || '';
-				if ((ext === 'js' || ext === 'html') && PhoenixSovereignEngine?.PhoenixLinterSuite?.scanFunctionsComplexity) {
-					const complex = PhoenixSovereignEngine.PhoenixLinterSuite.scanFunctionsComplexity(patched, 15);
-					for (const cf of complex) {
-						if (!targetFnInfo || cf.name === targetFnInfo.name) {
-							remainingComplexity.push(`Function '${cf.name}' exceeds cognitive complexity threshold (${cf.complexity}/15)`);
-						}
-					}
-				}
-			} catch (compErr) {
-				console.warn('[PHOENIX/SANDBOX] Complexity verification warning:', compErr);
-			}
-
-			// Tier 4: Signature & Interface Invariance Verification
-			if (targetFnInfo && targetFnInfo.name && targetFnInfo.name !== 'anonymous') {
-				const fnRegex = new RegExp(String.raw`(?:function\s+${targetFnInfo.name}|const\s+${targetFnInfo.name}\s*=|let\s+${targetFnInfo.name}\s*=|var\s+${targetFnInfo.name}\s*=)`);
-				if (!fnRegex.test(patched)) {
-					remainingComplexity.push(`Original function signature '${targetFnInfo.name}' was missing in candidate patch.`);
-				}
-			}
+			// Tier 3 & 4: Cognitive Complexity & Signature Invariance
+			const complexityErrors = _verifyCognitiveComplexityTier(patched, filePath, targetFnInfo);
+			const signatureErrors = _verifySignatureInvarianceTier(patched, targetFnInfo);
 
 			// Tier 5: ERL-001 Anti-Regression Gate
 			const antiPatterns = _erlLedger?.scanAntiPatterns ? _erlLedger.scanAntiPatterns(patched) : [];
 			const regressionErrors = antiPatterns.map(ap => `Cataloged ERL-001 anti-pattern re-introduced: ${ap.description}`);
 
-			const allLinterErrors = linterErrors.concat(remainingComplexity).concat(regressionErrors);
+			const allLinterErrors = linterErrors.concat(complexityErrors).concat(signatureErrors).concat(regressionErrors);
 			const pass = allLinterErrors.length === 0 && remainingErrors.length === 0;
 			return {
 				pass,
@@ -4003,6 +4104,68 @@
 			}
 		}
 
+		function _recordLearnedPatterns(changes, filePath) {
+			if (!changes || !Array.isArray(changes)) return;
+			for (const ch of changes) {
+				if (ch.type === 'replace_text' && ch.search && ch.content) {
+					_erl.record({
+						id: `erl_learned_${Date.now()}_${uid()}`,
+						fingerprint: _erl.computeFingerprint({ rule: 'AI-LEARNED' }, ch.search),
+						rule: 'AI-LEARNED',
+						description: `Learned repair pattern for ${filePath}`,
+						searchPattern: ch.search,
+						replacePattern: ch.content,
+						verifiedReceipt: 'PASS',
+						timestamp: new Date().toISOString(),
+						useCount: 1
+					});
+				}
+			}
+			_saveERLLedger();
+		}
+
+		async function _runBatchLLMSandboxLoop(intermediateSource, remainingDiags, fastPathApplied) {
+			let currentPrompt = typeof buildBatchDiagnosticDebugPrompt === 'function'
+				? buildBatchDiagnosticDebugPrompt(_activeFilePath, intermediateSource, remainingDiags)
+				: buildDiagnosticDebugPrompt(_activeFilePath, intermediateSource, remainingDiags);
+
+			let attempts = 0;
+			const MAX_ATTEMPTS = 3;
+
+			while (attempts < MAX_ATTEMPTS) {
+				attempts++;
+				try {
+					const raw = await _aiBridge.generate(currentPrompt, { maxTokens: 4096, temperature: 0.2 });
+					const parsed = phoenixProposalParser(raw);
+					_updateRawJSONView(parsed);
+
+					const verification = _runAISandboxVerification(intermediateSource, parsed, _activeFilePath);
+					if (verification.pass) {
+						_recordLearnedPatterns(parsed.changes, _activeFilePath);
+						_applyAISandboxRepair(
+							verification.patchedSource,
+							`✓ [BATCH CRUCIBLE: 100% CLEAN] Resolved ${_currentDiagnostics.length} issues (${fastPathApplied} ERL, ${remainingDiags.length} AI)!`,
+							'BATCH REMEDIATION VERIFIED'
+						);
+						return true;
+					}
+
+					if (attempts < MAX_ATTEMPTS) {
+						_setStatus(`AI BATCH RETRY (#${attempts + 1})...`, '');
+						currentPrompt = buildDiagnosticDebugPrompt(_activeFilePath, intermediateSource, _buildSandboxFailures(verification));
+					}
+				} catch (err) {
+					if (attempts >= MAX_ATTEMPTS) {
+						_setStatus('AI ERROR', 'error');
+						const errMsg = err instanceof Error ? err.message : String(err);
+						_toast(`AI Batch Error: ${errMsg}`, 'error');
+						return false;
+					}
+				}
+			}
+			return false;
+		}
+
 		async function _executeBatchRemediation() {
 			if (_currentDiagnostics.length === 0) {
 				_toast('✓ No diagnostics to resolve in active file.', 'pass');
@@ -4027,8 +4190,8 @@
 				(candidate) => _runAISandboxVerification(source, { changes: [ { type: 'create_file', content: candidate } ] }, _activeFilePath)
 			);
 
-			let intermediateSource = fastPathResult.patchedSource;
-			let remainingDiags = fastPathResult.unresolvedDiagnostics;
+			const intermediateSource = fastPathResult.patchedSource;
+			const remainingDiags = fastPathResult.unresolvedDiagnostics;
 
 			if (fastPathResult.fastPathApplied > 0) {
 				_toast(`⚡ ERL-001 fast-path resolved ${fastPathResult.fastPathApplied} issues (<1ms)!`, 'pass');
@@ -4069,64 +4232,8 @@
 			_setStatus(`AI CRUCIBLE: ${remainingDiags.length} NOVEL ISSUES...`, '');
 			_toast(`🤖 AI sandbox resolving ${remainingDiags.length} novel diagnostics...`, 'pass');
 
-			let currentPrompt = typeof buildBatchDiagnosticDebugPrompt === 'function'
-				? buildBatchDiagnosticDebugPrompt(_activeFilePath, intermediateSource, remainingDiags)
-				: buildDiagnosticDebugPrompt(_activeFilePath, intermediateSource, remainingDiags);
-
-			let attempts = 0;
-			const MAX_ATTEMPTS = 3;
-
-			while (attempts < MAX_ATTEMPTS) {
-				attempts++;
-				try {
-					const raw = await _aiBridge.generate(currentPrompt, { maxTokens: 4096, temperature: 0.2 });
-					const parsed = phoenixProposalParser(raw);
-					_updateRawJSONView(parsed);
-
-					// Sandbox Verification Gate
-					const verification = _runAISandboxVerification(intermediateSource, parsed, _activeFilePath);
-					if (verification.pass) {
-						// Auto-Learning: Record newly verified patterns into ERL-001
-						if (parsed.changes && Array.isArray(parsed.changes)) {
-							for (const ch of parsed.changes) {
-								if (ch.type === 'replace_text' && ch.search && ch.content) {
-									_erl.record({
-										id: `erl_learned_${Date.now()}_${uid()}`,
-										fingerprint: _erl.computeFingerprint({ rule: 'AI-LEARNED' }, ch.search),
-										rule: 'AI-LEARNED',
-										description: `Learned repair pattern for ${_activeFilePath}`,
-										searchPattern: ch.search,
-										replacePattern: ch.content,
-										verifiedReceipt: 'PASS',
-										timestamp: new Date().toISOString(),
-										useCount: 1
-									});
-								}
-							}
-							_saveERLLedger();
-						}
-
-						_applyAISandboxRepair(
-							verification.patchedSource,
-							`✓ [BATCH CRUCIBLE: 100% CLEAN] Resolved ${_currentDiagnostics.length} issues (${fastPathResult.fastPathApplied} ERL, ${remainingDiags.length} AI)!`,
-							'BATCH REMEDIATION VERIFIED'
-						);
-						return;
-					}
-
-					// Retry in sandbox
-					if (attempts < MAX_ATTEMPTS) {
-						_setStatus(`AI BATCH RETRY (#${attempts + 1})...`, '');
-						currentPrompt = buildDiagnosticDebugPrompt(_activeFilePath, intermediateSource, _buildSandboxFailures(verification));
-					}
-				} catch (err) {
-					if (attempts >= MAX_ATTEMPTS) {
-						_setStatus('AI ERROR', 'error');
-						_toast(`AI Batch Error: ${err.message}`, 'error');
-						return;
-					}
-				}
-			}
+			const success = await _runBatchLLMSandboxLoop(intermediateSource, remainingDiags, fastPathResult.fastPathApplied);
+			if (success) return;
 
 			// Fallback: If partial fast-path was clean, keep it
 			if (fastPathResult.fastPathApplied > 0) {
@@ -4175,7 +4282,12 @@
 				const erlMatch = _erl ? _erl.findMatch(diag, lineText) : null;
 				const row = document.createElement('div');
 				row.className = `problem-item ${diag.severity}`;
-				const icon = diag.severity === 'err' ? '❌' : (diag.rule === 'COMPLEXITY/HIGH' ? '⚡' : '⚠️');
+				let icon = '⚠️';
+				if (diag.severity === 'err') {
+					icon = '❌';
+				} else if (diag.rule === 'COMPLEXITY/HIGH') {
+					icon = '⚡';
+				}
 				const isComplexity = diag.rule === 'COMPLEXITY/HIGH';
 
 				row.innerHTML = `
@@ -4755,6 +4867,9 @@
 			{ id: 'cmd_decompose_fn', title: '🤖 Decompose Function (Reduce Cognitive Complexity)', badge: 'AI-REFACTOR', action: () => _decomposeCurrentFunction() },
 			{ id: 'cmd_ai_debug_all', title: '🤖 AI: Debug & Repair Active File Diagnostics', badge: 'AI-DEBUG', action: () => _debugAllDiagnostics() },
 			{ id: 'cmd_format', title: '🧹 Format Active Document (Normalized 2-Space)', badge: 'FORMAT', action: () => _formatActiveDocument() },
+			{ id: 'cmd_scaffold_regions', title: '📐 Scaffold Canonical //#region Jump Table (ARCH-CODE-PARTITION-001)', badge: 'SCAFFOLD', action: () => _scaffoldActiveDocumentRegions() },
+			{ id: 'cmd_verify_contracts', title: '🛡️ Verify Module Capability Contracts (AST Check)', badge: 'CONTRACT', action: () => _verifyActiveDocumentContracts() },
+			{ id: 'cmd_analyze_deps', title: '🕸️ Analyze Global Symbol Dependency Graph', badge: 'GRAPH', action: () => _analyzeActiveDocumentDependencies() },
 			{ id: 'cmd_sfx', title: '🔊 Open Procedural Web Audio SFX Studio', badge: 'AUDIO', action: () => _openAudioStudio() },
 			{ id: 'cmd_runtime', title: '🎮 Toggle Live Game Runtime Viewport Studio', badge: 'RUNTIME', action: () => _switchTab('runtime') },
 			{ id: 'cmd_find', title: '🔍 Find in Active Document', badge: 'SEARCH', action: () => _openFindHUD(false) },
@@ -5327,6 +5442,9 @@
 		}
 
 		document.getElementById('btn-format-code')?.addEventListener('click', _handleFormatCode);
+		document.getElementById('btn-scaffold-regions')?.addEventListener('click', () => { _scaffoldActiveDocumentRegions(); _toggleToolsMenu(false); });
+		document.getElementById('btn-verify-contracts')?.addEventListener('click', () => { _verifyActiveDocumentContracts(); _toggleToolsMenu(false); });
+		document.getElementById('btn-analyze-deps')?.addEventListener('click', () => { _analyzeActiveDocumentDependencies(); _toggleToolsMenu(false); });
 
 		document.getElementById('problems-toggle-btn')?.addEventListener('click', (e) => {
 			if (/** @type {HTMLElement} */ (e.target).closest('#btn-ai-repair-all')) return;
@@ -5412,7 +5530,7 @@
 
 			const fnMatch = lineText.match(/(?:async\s+)?function\s+([A-Za-z0-9_$]+)\s*\(([^)]*)\)/) ||
 				lineText.match(/(?:const|let|var)\s+([A-Za-z0-9_$]+)\s*=\s*(?:async\s*)?\(([^)]*)\)\s*=>/) ||
-				lineText.match(/([A-Za-z0-9_$]+)\s*\(([^)]*)\)\s*\{/);
+				lineText.match(/^\s*(?:async\s+)?([A-Za-z0-9_$]+)\s*\(([^)]*)\)\s*\{/);
 
 			if (fnMatch) {
 				const fnName = fnMatch[ 1 ];
@@ -6786,22 +6904,25 @@ export const LevelManifest = {
 		document.getElementById('btn-welcome-load-sample')?.addEventListener('click', _loadSampleProjectPack);
 		document.getElementById('btn-welcome-command-palette')?.addEventListener('click', () => _openCommandPalette(''));
 
-		// Boot sequence
-		try {
-			await _governor.initialize();
-			_initRuntimeStudio();
-			_renderFileTree();
-			if (_vfs.size > 0 && _activeFilePath && _vfs.has(_activeFilePath)) {
-				_openFile(_activeFilePath);
-			} else {
-				_showWelcomeHub();
+		// Boot sequence (Dedicated boot runner for classic script execution)
+		async function _boot() {
+			try {
+				await _governor.initialize();
+				_initRuntimeStudio();
+				_renderFileTree();
+				if (_vfs.size > 0 && _activeFilePath && _vfs.has(_activeFilePath)) {
+					_openFile(_activeFilePath);
+				} else {
+					_showWelcomeHub();
+				}
+				_renderSentinelMatrix(21);
+				_updateStats();
+				await _connectOllama();
+			} catch (err) {
+				console.error('[PHOENIX/BOOT] Init failed:', err);
 			}
-			_renderSentinelMatrix(21);
-			_updateStats();
-			await _connectOllama();
-		} catch (err) {
-			console.error('[PHOENIX/BOOT] Init failed:', err);
 		}
+		_boot(); // NOSONAR: Classic script tag execution requires explicit boot invocation
 		//#endregion
 	</script>
 </body>

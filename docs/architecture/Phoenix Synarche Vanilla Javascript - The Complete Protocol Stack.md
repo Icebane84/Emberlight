@@ -111,7 +111,8 @@ PMIP-001 defines the standardized protocols and envelope schemas for all asynchr
 #### **How**
 
 * **Standardized Envelope Schema:** All cross-boundary communications conform to structured, validated envelopes:
-  JavaScript
+
+```JavaScript
   {
   &nbsp;&nbsp;topic: "combat:resolved",
   &nbsp;&nbsp;source: "combat\_core",
@@ -119,6 +120,7 @@ PMIP-001 defines the standardized protocols and envelope schemas for all asynchr
   &nbsp;&nbsp;timestamp: "2026-09-09T22:16:06-04:00",
   &nbsp;&nbsp;payload: { outcome: "VICTORY", goldDelta: 50, expDelta: 120 }
   }
+```
 
 * **Tokenized Subscriptions:** EventBus.subscribe() returns an explicit, idempotent unbind function to guarantee zero listener leaks during tenant destruction.
 * **Transaction Flow:** Cross-boundary state mutations leave tenants as delta envelopes committed authoritatively by the host SessionStore.

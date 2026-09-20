@@ -27,7 +27,8 @@ describe('Emberlight Sovereign Engine - Static Syntax Compilation Battery', () =
 
 			// Instantiating vm.Script parses the full JavaScript AST without executing side effects
 			assert.doesNotThrow(() => {
-				new vm.Script(sourceCode, { filename: relativePath });
+				const script = new vm.Script(sourceCode, { filename: relativePath }); // NOSONAR: Parses script AST for headless syntax check
+				assert.ok(script, 'Compiled script instance must be defined');
 			}, `Syntax error encountered while compiling ${relativePath}`);
 
 			passCount++;
