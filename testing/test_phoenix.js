@@ -767,6 +767,24 @@ function check(label, condition, detail) {
   const batchPrompt = buildBatchPrompt('combat.js', rawSampleCode, batchFastResult.unresolvedDiagnostics);
   check('buildBatchDiagnosticDebugPrompt contains BATCH REMEDIATION DIRECTIVE', batchPrompt.includes('BATCH ERROR REMEDIATION DIRECTIVE') && batchPrompt.includes('combat.js'));
 
+  // Test Tier 5 ERL Anti-Pattern Scanner
+  const antiPatterns = erl.scanAntiPatterns('const x = Math.random(); debugger;');
+  check('scanAntiPatterns detects cataloged anti-patterns', antiPatterns.length === 2 && antiPatterns.some(a => a.rule.startsWith('MATH/RANDOM')) && antiPatterns.some(a => a.rule === 'DEBUGGER'));
+
+  // Test Upstream Placeholder Rejection in Parser
+  const parser = context.window.phoenixProposalParser;
+  let caughtPlaceholder = false;
+  try {
+    parser('```json\n{ "schemaVersion": "PGE-DSL-1", "changes": [{ "type": "replace_text", "search": "foo", "content": "// ... rest of code" }] }\n```');
+  } catch (err) {
+    caughtPlaceholder = err.message.includes('forbidden placeholder token');
+  }
+  check('phoenixProposalParser rejects lazy // ... truncations upstream', caughtPlaceholder);
+
+  // Test Upstream Self-Healing on Worker Bridge
+  const testBridge = new context.window.PhoenixWebLLMWorkerBridge();
+  check('generateProposalWithSelfHealing is defined on bridge', typeof testBridge.generateProposalWithSelfHealing === 'function');
+
   /* =========================================================================
    * SUMMARY
    * ========================================================================= */

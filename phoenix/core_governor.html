@@ -8,26 +8,26 @@
  Classification: Immutable AI Collaboration & Anti-Entropy Manifest & Routing Map
  Sovereign Mask: The Hierophant wielding @[sovereign-artificer]
  Version: 8.0.0-ULTIMATE-FUSION
- 
+
  [P-01] ZERO-TOOLING & FILE:// INVARIANCE:
    - Absolute zero npm packages, bundlers, or build tools required.
    - Zero ES Module external fetches. Single-file self-contained execution.
    - Runs cleanly over local file:/// origin or local HTTP endpoints.
- 
+
  [P-02] 3-PLANE VIRTUAL LEXICAL TOPOLOGY (VLT-003):
    - Plane 0: Presentation, tokens, layout, canvas & audio DAC drivers.
    - Plane 1: Isolated Worker Kernel, simulation substrate & ambient types.
    - Plane 2: Main Thread Coordinator, capability attenuation & Sentinel auditor.
- 
+
  [P-03] DETERMINISTIC ENTROPY & GOVERNANCE:
    - Zero Math.random() in authoritative state. Seeded PRNG stream.
    - Constitutional PEVM state transactions pass pre-flight Sentinel audits.
- 
+
  [P-04] LESSONS LEARNED & ANTI-PATTERNS:
    - Avoid unescaped inline script/style tags in string literals.
    - Avoid cross-plane reference leakage; use transferable message envelopes.
    - Keep hot execution paths zero-allocation to eliminate GC stutter.
- 
+
  [P-05] AI REFACTORING ROUTING MAP (Ctrl+F Jump Anchors):
    - CSS Tokens & Layout           -> Jump to [CSS-01] through [CSS-12]
    - DOM Structural Containers     -> Jump to [DOM-01] through [DOM-09]
@@ -59,7 +59,7 @@
 	<meta name="description"
 		content="Zero-dependency sovereign browser IDE with native File System Access, visual diff staging, 21-pass Sentinel audit gates, and constitutional local AI copilot.">
 	<style>
-				/* #region [CSS-01] DESIGN TOKENS & CSS VARIABLE DOCSTRINGS
+		/* #region [CSS-01] DESIGN TOKENS & CSS VARIABLE DOCSTRINGS
 		 * Centralized HSL and hex design tokens, glow filters, and typography.
 		 * --bg-base: Deep abyssal viewport background (#060b0f)
 		 * --bg-surface: Structural panel container background (#0a0f16)
@@ -118,19 +118,14 @@
 		#app {
 			display: grid;
 			grid-template-rows: 46px 1fr 28px;
-			grid-template-columns: 260px 1fr 360px;
+			grid-template-columns: 260px 1fr;
 			grid-template-areas:
-				"header  header  header"
-				"sidebar editor  ledger"
-				"footer  footer  footer";
+				"header  header"
+				"sidebar editor"
+				"footer  footer";
 			height: 100vh;
 			gap: 1px;
 			background: var(--border);
-			transition: grid-template-columns 0.2s ease;
-		}
-
-		#app.ledger-collapsed {
-			grid-template-columns: 260px 1fr 36px;
 		}
 
 		/* Sovereign Right-Click Context Menu */
@@ -189,7 +184,7 @@
 			margin: 3px 0;
 		}
 
-				/* #endregion */
+		/* #endregion */
 
 		/* #region [CSS-03] HEADER BAR & WORKSPACE MODE SWITCHER
 		 * Branding logo, system status pill, and workspace mode switcher pills.
@@ -287,7 +282,7 @@
 			color: var(--warn);
 		}
 
-				/* #endregion */
+		/* #endregion */
 
 		/* #region [CSS-04] LEFT SIDEBAR, TREE ACCORDIONS & SYMBOL OUTLINE
 		 * Collapsible project module groupings, search bar, and AST symbol navigation.
@@ -492,7 +487,7 @@
 		}
 
 		/* ── Center Pane: Visual Code & Diff Studio ─────────────────── */
-				/* #endregion */
+		/* #endregion */
 
 		/* #region [CSS-05] CENTER EDITOR, TABS & SYNTAX BACKDROP
 		 * Tab selector bar, line-numbered gutter, textarea, and syntax canvas.
@@ -615,7 +610,7 @@
 			font-size: 7px;
 		}
 
-				/* #endregion */
+		/* #endregion */
 
 		/* #region [CSS-07] PROBLEMS & DIAGNOSTICS DRAWER
 		 * Collapsible bottom drawer for multi-language syntax & linter diagnostics.
@@ -725,6 +720,7 @@
 			left: 0;
 			width: 100%;
 			min-height: 100%;
+			height: max-content;
 			box-sizing: border-box;
 			padding: 10px 14px;
 			margin: 0;
@@ -734,7 +730,7 @@
 			line-height: 1.55;
 			white-space: pre;
 			tab-size: 2;
-			overflow: visible;
+			overflow: hidden;
 		}
 
 		#code-syntax-backdrop {
@@ -854,7 +850,7 @@
 			color: #ff9500;
 		}
 
-				/* #endregion */
+		/* #endregion */
 
 		/* #region [CSS-08] CONSOLIDATED ACTION TOOLBAR & TOOLS DROPDOWN
 		 * Bottom patch action bar, widened AI prompt input, and Tools popover.
@@ -943,7 +939,7 @@
 			color: var(--accent);
 		}
 
-				/* #endregion */
+		/* #endregion */
 
 		/* #region [CSS-09] INLINE AI PALETTE & COMMAND SPOTLIGHT MODALS
 		 * Floating Ctrl+K AI copilot prompt modal and global Spotlight palette.
@@ -1013,7 +1009,7 @@
 			box-shadow: 0 0 8px rgba(0, 255, 204, 0.3);
 		}
 
-				/* #endregion */
+		/* #endregion */
 
 		/* #region [CSS-10] VISUAL STAGING DRAWER & AUDIO SFX STUDIO
 		 * Diff patch staging drawer and Web Audio procedural synthesis controls.
@@ -1229,7 +1225,7 @@
 			border-top: 1px solid var(--border);
 		}
 
-				/* #endregion */
+		/* #endregion */
 
 		/* #region [CSS-11] RIGHT TELEMETRY SIDEBAR, SENTINEL MATRIX & COLLAPSIBLE RAIL
 		 * 21-Pass Sentinel matrix, OPFS receipt journal, and mini vertical rail.
@@ -1247,71 +1243,112 @@
 
 		#ledger-panel.collapsed .sentinel-matrix-block,
 		#ledger-panel.collapsed .stats-row,
-		#ledger-panel.collapsed .ledger-title-bar,
-		#ledger-panel.collapsed #ledger-scroll {
-			display: none !important;
+		/* Slide-Over Telemetry & Sentinel Audit Panel */
+		#ledger-panel {
+			position: fixed;
+			top: 46px;
+			right: -400px;
+			width: 380px;
+			height: calc(100vh - 74px);
+			background: rgba(10, 16, 23, 0.98);
+			backdrop-filter: blur(20px);
+			-webkit-backdrop-filter: blur(20px);
+			border-left: 1px solid var(--border-bright);
+			box-shadow: -8px 0 32px rgba(0, 0, 0, 0.8);
+			z-index: 900;
+			display: flex;
+			flex-direction: column;
+			transition: right 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 		}
 
-		#ledger-collapsed-rail {
-			display: none;
+		#ledger-panel.open {
+			right: 0;
+		}
+
+		/* Welcome Workspace Hub Stage */
+		.welcome-stage {
+			flex: 1;
+			display: flex;
 			flex-direction: column;
 			align-items: center;
-			justify-content: flex-start;
-			height: 100%;
-			cursor: pointer;
-			background: var(--bg-panel);
-			padding: 8px 4px;
-			gap: 14px;
+			justify-content: center;
+			background: radial-gradient(circle at center, #0e1a26 0%, #060b10 100%);
+			padding: 40px 20px;
+			text-align: center;
 			user-select: none;
+			z-index: 10;
 		}
 
-		#ledger-panel.collapsed #ledger-collapsed-rail {
-			display: flex;
-		}
-
-		.ledger-rail-toggle {
-			background: transparent;
-			border: 1px solid var(--border);
-			color: var(--accent);
-			width: 26px;
-			height: 26px;
+		.welcome-logo {
+			width: 48px;
+			height: 48px;
+			border-radius: 50%;
+			background: var(--accent);
+			box-shadow: 0 0 32px rgba(0, 255, 204, 0.4);
+			margin-bottom: 16px;
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			border-radius: var(--radius);
+			font-size: 24px;
+		}
+
+		.welcome-title {
+			font-size: 18px;
+			font-weight: 700;
+			color: var(--text-primary);
+			letter-spacing: 0.08em;
+			margin-bottom: 8px;
+		}
+
+		.welcome-subtitle {
+			font-size: 12px;
+			color: var(--text-dim);
+			max-width: 520px;
+			line-height: 1.6;
+			margin-bottom: 28px;
+		}
+
+		.welcome-actions-grid {
+			display: grid;
+			grid-template-columns: repeat(2, 220px);
+			gap: 12px;
+		}
+
+		.welcome-card-btn {
+			background: var(--bg-panel);
+			border: 1px solid var(--border-bright);
+			border-radius: 6px;
+			padding: 14px;
+			display: flex;
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 6px;
 			cursor: pointer;
-			font-size: 10px;
-			transition: all 0.15s;
+			text-align: left;
+			transition: all 0.2s;
+			color: var(--text-primary);
 		}
 
-		.ledger-rail-toggle:hover {
+		.welcome-card-btn:hover {
 			border-color: var(--accent);
-			box-shadow: var(--glow);
+			background: var(--bg-hover);
+			box-shadow: 0 4px 16px rgba(0, 255, 204, 0.15);
+			transform: translateY(-2px);
 		}
 
-		.ledger-vertical-label {
-			writing-mode: vertical-rl;
-			transform: rotate(180deg);
+		.welcome-card-icon {
+			font-size: 18px;
+		}
+
+		.welcome-card-title {
+			font-size: 12px;
+			font-weight: bold;
 			color: var(--accent);
-			font-size: 10px;
-			font-weight: bold;
-			letter-spacing: 0.14em;
-			text-transform: uppercase;
-			white-space: nowrap;
-			margin-top: 10px;
 		}
 
-		.ledger-vertical-badge {
-			writing-mode: vertical-rl;
-			transform: rotate(180deg);
-			color: var(--success);
-			font-size: 9px;
-			font-weight: bold;
-			background: #00382b;
-			border: 1px solid #00e5a3;
-			padding: 6px 3px;
-			border-radius: 3px;
-			white-space: nowrap;
+		.welcome-card-desc {
+			font-size: 10px;
+			color: var(--text-dim);
 		}
 
 		.sentinel-matrix-block {
@@ -1656,7 +1693,7 @@
 			border-radius: 2px;
 		}
 
-				/* #endregion */
+		/* #endregion */
 
 		/* #region [CSS-06] FIND & REPLACE STUDIO HUD
 		 * Floating search HUD with regex, whole-word, match case, and batch replacement.
@@ -1896,7 +1933,7 @@
 			letter-spacing: 0.05em;
 		}
 
-				/* #endregion */
+		/* #endregion */
 
 		/* #region [CSS-12] GAME DEV WORKSTATION VIEWPORT & TILEMAP STUDIO
 		 * Full-screen 2D/3D graphics engine stage, scene inspector, and tile palette.
@@ -2034,7 +2071,7 @@
 			display: flex;
 			flex-direction: column;
 			gap: 2px;
-			box-shadow: 0 0 10px rgba(0,0,0,0.5);
+			box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
 		}
 
 		.studio-stage-tools {
@@ -2073,14 +2110,15 @@
 			padding: 6px 10px;
 			font-size: 11px;
 			color: var(--text-primary);
-			border-bottom: 1px solid rgba(255,255,255,0.03);
+			border-bottom: 1px solid rgba(255, 255, 255, 0.03);
 			cursor: pointer;
 			display: flex;
 			align-items: center;
 			justify-content: space-between;
 		}
 
-		.studio-entity-item:hover, .studio-entity-item.active {
+		.studio-entity-item:hover,
+		.studio-entity-item.active {
 			background: #04241e;
 			color: #00ffd5;
 		}
@@ -2109,20 +2147,25 @@
 			color: var(--accent);
 			font-weight: bold;
 		}
+
 		/* #endregion */
 	</style>
 </head>
 
 <body>
 	<div id="app">
-			<!-- #region [DOM-01] MASTER HEADER & WORKSPACE CONTROLS -->
+		<!-- #region [DOM-01] MASTER HEADER & WORKSPACE CONTROLS -->
 		<header id="header">
 			<div class="brand-group">
 				<div class="brand-logo"></div>
 				<h1>Phoenix Sovereign Web IDE & AI Studio</h1>
 			</div>
 			<div class="header-actions">
-				<button type="button" id="btn-switch-workspace-mode" class="workspace-mode-btn" title="Toggle between Code IDE and Game Dev Workstation (Ctrl+G / Alt+W)">🎮 GAME DEV WORKSTATION</button>
+				<button type="button" id="btn-telemetry-badge" class="hud-btn"
+					style="color:var(--accent); font-weight:bold; border-color:var(--accent-muted);"
+					title="Toggle Sentinel 21-Pass Audit Telemetry & OPFS Receipts (Ctrl+B / Alt+T)">🛡️ 134/134 PASS</button>
+				<button type="button" id="btn-switch-workspace-mode" class="workspace-mode-btn"
+					title="Toggle between Code IDE and Game Dev Workstation (Ctrl+G / Alt+W)">🎮 GAME DEV WORKSTATION</button>
 				<button type="button" id="btn-mount-folder"
 					title="Mount local project directory using File System Access API">📁 OPEN PROJECT FOLDER</button>
 				<button type="button" id="btn-export-monolith" title="Export standalone single-file HTML monolith bundle">📦
@@ -2133,7 +2176,7 @@
 			</div>
 		</header>
 
-			<!-- #endregion -->
+		<!-- #endregion -->
 
 		<!-- #region [DOM-02] LEFT EXPLORER & SYMBOL OUTLINE ASIDE -->
 		<aside id="sidebar-panel" aria-label="Project Explorer">
@@ -2152,7 +2195,7 @@
 			</div>
 		</aside>
 
-			<!-- #endregion -->
+		<!-- #endregion -->
 
 		<!-- #region [DOM-03] EDITOR MAIN CONTAINER & TABS -->
 		<main id="editor-panel" aria-label="Editor Studio">
@@ -2171,7 +2214,8 @@
 			<!-- Integrated Find & Replace Studio HUD (Ctrl+F / Ctrl+H) -->
 			<div id="find-replace-hud" aria-label="Find and Replace Studio">
 				<div class="hud-row">
-					<input type="text" id="find-input" class="hud-input" placeholder="Find in document (Enter for next)..." aria-label="Find Text" />
+					<input type="text" id="find-input" class="hud-input" placeholder="Find in document (Enter for next)..."
+						aria-label="Find Text" />
 					<span id="find-count-badge" class="hud-count">0 of 0</span>
 					<button type="button" id="btn-find-prev" class="hud-btn" title="Previous match (Shift+Enter)">▲</button>
 					<button type="button" id="btn-find-next" class="hud-btn" title="Next match (Enter)">▼</button>
@@ -2182,7 +2226,8 @@
 					<button type="button" id="btn-close-find" class="hud-btn" title="Close Find Bar (Esc)">✖</button>
 				</div>
 				<div class="hud-row" id="replace-row" style="display:none;">
-					<input type="text" id="replace-input" class="hud-input" placeholder="Replace with..." aria-label="Replacement Text" />
+					<input type="text" id="replace-input" class="hud-input" placeholder="Replace with..."
+						aria-label="Replacement Text" />
 					<button type="button" id="btn-replace-one" class="hud-btn">Replace</button>
 					<button type="button" id="btn-replace-all" class="hud-btn primary">Replace All</button>
 				</div>
@@ -2192,16 +2237,50 @@
 			<div id="autocomplete-popup" aria-label="IntelliSense Autocomplete Suggestions"></div>
 			<div id="hover-doc-card" aria-live="polite"></div>
 
-					<!-- #region [DOM-04] CODE SYNTAX BACKDROP, TEXTAREA & RUNTIME VIEWPORT -->
+			<!-- #region [DOM-04] CODE SYNTAX BACKDROP, TEXTAREA & RUNTIME VIEWPORT -->
 			<div class="editor-stage">
+				<!-- Sovereign Welcome Workspace Hub -->
+				<div id="welcome-hub" class="welcome-stage" style="display:none;">
+					<div class="welcome-logo">⚡</div>
+					<h2 class="welcome-title">PHOENIX SOVEREIGN WORKBENCH</h2>
+					<p class="welcome-subtitle">Zero-dependency, browser-native development environment with 21-pass Sentinel
+						audit gates, Faraday tenant isolation, and local AI copilot.</p>
+					<div class="welcome-actions-grid">
+						<button type="button" id="btn-welcome-open-folder" class="welcome-card-btn">
+							<span class="welcome-card-icon">📁</span>
+							<span class="welcome-card-title">Open Project Folder</span>
+							<span class="welcome-card-desc">Mount local workspace via File System Access API</span>
+						</button>
+						<button type="button" id="btn-welcome-launch-studio" class="welcome-card-btn">
+							<span class="welcome-card-icon">🎮</span>
+							<span class="welcome-card-title">Game Dev Studio</span>
+							<span class="welcome-card-desc">Launch WebGL/3D viewport, tile painter & SFX lab</span>
+						</button>
+						<button type="button" id="btn-welcome-load-sample" class="welcome-card-btn">
+							<span class="welcome-card-icon">⚡</span>
+							<span class="welcome-card-title">Load Sample Pack</span>
+							<span class="welcome-card-desc">Load Emberlight combat actions & runtime pack</span>
+						</button>
+						<button type="button" id="btn-welcome-command-palette" class="welcome-card-btn">
+							<span class="welcome-card-icon">🎯</span>
+							<span class="welcome-card-title">Command Palette</span>
+							<span class="welcome-card-desc">Fuzzy search commands and symbols (Ctrl+P)</span>
+						</button>
+					</div>
+				</div>
+
 				<!-- Inline Floating AI Command Palette (Ctrl+K) -->
-				<div id="inline-ai-prompt-box" class="inline-ai-palette" style="display:none;" aria-label="Inline AI Command Palette">
+				<div id="inline-ai-prompt-box" class="inline-ai-palette" style="display:none;"
+					aria-label="Inline AI Command Palette">
 					<div class="inline-ai-header">
 						<span>🤖 INLINE AI PROMPT & CODE ASSIST (Ctrl+K)</span>
-						<button type="button" id="btn-close-inline-ai" class="inline-ai-close" aria-label="Close Inline AI Palette">✖</button>
+						<button type="button" id="btn-close-inline-ai" class="inline-ai-close"
+							aria-label="Close Inline AI Palette">✖</button>
 					</div>
 					<div class="inline-ai-body">
-						<input type="text" id="inline-ai-input" class="inline-ai-input" placeholder="Prompt AI on active file (e.g. 'Refactor damage logic to use status multipliers')... Press Enter to generate" aria-label="Inline AI prompt input" />
+						<input type="text" id="inline-ai-input" class="inline-ai-input"
+							placeholder="Prompt AI on active file (e.g. 'Refactor damage logic to use status multipliers')... Press Enter to generate"
+							aria-label="Inline AI prompt input" />
 						<button type="button" id="btn-inline-ai-submit" class="hud-btn primary">✨ GENERATE</button>
 					</div>
 				</div>
@@ -2217,12 +2296,13 @@
 				<div id="diff-preview-view"></div>
 				<textarea id="raw-json-view" spellcheck="false" aria-label="JSON Proposal Payload"
 					placeholder="PGE-DSL-1 JSON Proposal Payload..."></textarea>
-				
+
 				<!-- Live Game Runtime Split-Viewport Studio -->
 				<div id="runtime-studio-view" aria-label="Live Game Runtime Studio">
 					<div class="runtime-toolbar">
 						<div style="display:flex; align-items:center; gap:8px;">
-							<button type="button" id="btn-runtime-play" class="primary" style="background:#00ffa3; color:#060b0f; font-weight:bold;">▶ PLAY</button>
+							<button type="button" id="btn-runtime-play" class="primary"
+								style="background:#00ffa3; color:#060b0f; font-weight:bold;">▶ PLAY</button>
 							<button type="button" id="btn-runtime-pause">⏸ PAUSE</button>
 							<button type="button" id="btn-runtime-step">⏭ STEP TICK</button>
 							<button type="button" id="btn-runtime-reload">🔄 HOT RELOAD</button>
@@ -2230,7 +2310,9 @@
 						<div style="display:flex; align-items:center; gap:10px;">
 							<span id="runtime-fps" class="fps-badge">60 FPS · Frame #0</span>
 							<label for="runtime-res-select" style="font-size:9px; color:var(--text-dim);">VIEWPORT:</label>
-							<select id="runtime-res-select" style="background:var(--bg-input); color:var(--text-primary); border:1px solid var(--border); font-size:10px; padding:2px 4px; border-radius:2px;" aria-label="Viewport Resolution">
+							<select id="runtime-res-select"
+								style="background:var(--bg-input); color:var(--text-primary); border:1px solid var(--border); font-size:10px; padding:2px 4px; border-radius:2px;"
+								aria-label="Viewport Resolution">
 								<option value="640x480">640 x 480 (Retro)</option>
 								<option value="800x600">800 x 600 (SVGA)</option>
 								<option value="1280x720">1280 x 720 (HD 720p)</option>
@@ -2238,7 +2320,8 @@
 						</div>
 					</div>
 					<div class="runtime-viewport-wrap">
-						<iframe id="runtime-frame" title="Live Game Runtime Frame" src="about:blank" sandbox="allow-scripts allow-modals allow-pointer-lock"></iframe>
+						<iframe id="runtime-frame" title="Live Game Runtime Frame" src="about:blank"
+							sandbox="allow-scripts allow-modals allow-pointer-lock"></iframe>
 					</div>
 				</div>
 
@@ -2247,12 +2330,12 @@
 					<span id="editor-active-region">Region: None</span>
 					<span id="editor-linter-status" class="hud-status-clean">✓ Linter: Clean</span>
 				</div>
-						<!-- #endregion -->
+				<!-- #endregion -->
 
-		<!-- #region [DOM-05] PROBLEMS & DIAGNOSTICS DRAWER -->
+				<!-- #region [DOM-05] PROBLEMS & DIAGNOSTICS DRAWER -->
 				<div id="problems-panel" class="collapsed" aria-label="Problems and Diagnostics Panel">
-					<div class="problems-header" id="problems-toggle-btn" aria-expanded="false"
-						aria-controls="problems-list" style="display:flex; align-items:center; cursor:pointer;">
+					<div class="problems-header" id="problems-toggle-btn" aria-expanded="false" aria-controls="problems-list"
+						style="display:flex; align-items:center; cursor:pointer;">
 						<span style="display:flex; align-items:center; gap:6px;">
 							<span>⚡ PROBLEMS & DIAGNOSTICS</span>
 							<span id="problems-count-badge" class="line-badge" style="color:var(--accent);">0 PROBLEMS</span>
@@ -2268,7 +2351,7 @@
 				</div>
 			</div>
 
-					<!-- #endregion -->
+			<!-- #endregion -->
 
 			<!-- #region [DOM-06] CONSOLIDATED ACTION TOOLBAR & TOOLS DROPDOWN -->
 			<div class="patch-action-bar">
@@ -2276,23 +2359,30 @@
 					<input type="text" id="ai-copilot-input" class="ai-copilot-input" aria-label="AI Copilot Prompt"
 						placeholder="AI Copilot: e.g. 'Increase Malakor Phase 2 boss speed by 20% and add fury aura'" />
 					<button type="button" id="btn-ai-generate">🤖 AI PROPOSAL</button>
-					<button type="button" id="btn-stage-selection" title="Stage currently selected text as search-replace patch">⚡ STAGE SELECTION</button>
+					<button type="button" id="btn-stage-selection" title="Stage currently selected text as search-replace patch">⚡
+						STAGE SELECTION</button>
 					<button type="button" id="btn-submit-proposal" class="primary">🚀 SUBMIT TO GOVERNOR</button>
 				</div>
 				<div class="patch-action-group-right">
 					<div class="tools-menu-container">
-						<button type="button" id="btn-tools-menu" class="hud-btn" title="Open Studio Utilities & Tools">🛠️ TOOLS ▾</button>
+						<button type="button" id="btn-tools-menu" class="hud-btn" title="Open Studio Utilities & Tools">🛠️ TOOLS
+							▾</button>
 						<div id="tools-menu-dropdown" class="tools-dropdown-panel" style="display:none;">
-							<button type="button" id="btn-format-code" class="tools-dropdown-item" title="Format code with normalized 2-space indentation (Alt+Shift+F)">🧹 FORMAT CODE</button>
-							<button type="button" id="btn-sync-to-game-studio" class="tools-dropdown-item" title="Instantly compile and sync active script into Game Dev Workstation Studio (Alt+S)">🎮 SYNC TO STUDIO</button>
-							<button type="button" id="btn-open-sfx-studio" class="tools-dropdown-item" title="Open Procedural Web Audio Synthesizer & SFX Studio">🔊 SFX STUDIO</button>
-							<button type="button" id="btn-load-example" class="tools-dropdown-item" title="Load sample patch into diff preview">📋 LOAD EXAMPLE</button>
+							<button type="button" id="btn-format-code" class="tools-dropdown-item"
+								title="Format code with normalized 2-space indentation (Alt+Shift+F)">🧹 FORMAT CODE</button>
+							<button type="button" id="btn-sync-to-game-studio" class="tools-dropdown-item"
+								title="Instantly compile and sync active script into Game Dev Workstation Studio (Alt+S)">🎮 SYNC TO
+								STUDIO</button>
+							<button type="button" id="btn-open-sfx-studio" class="tools-dropdown-item"
+								title="Open Procedural Web Audio Synthesizer & SFX Studio">🔊 SFX STUDIO</button>
+							<button type="button" id="btn-load-example" class="tools-dropdown-item"
+								title="Load sample patch into diff preview">📋 LOAD EXAMPLE</button>
 						</div>
 					</div>
 				</div>
 			</div>
 
-						<!-- #endregion -->
+			<!-- #endregion -->
 
 			<!-- #region [DOM-07] PGE-DSL-1 STAGING DRAWER & SFX AUDIO STUDIO -->
 			<div id="staging-studio-drawer" aria-label="PGE-DSL-1 Staging Studio">
@@ -2439,7 +2529,7 @@
 					</div>
 				</div>
 			</div>
-				<!-- #endregion -->
+			<!-- #endregion -->
 		</main>
 
 		<!-- #region [DOM-08] GAME DEV WORKSTATION WORKSPACE -->
@@ -2455,17 +2545,25 @@
 					</div>
 				</div>
 				<div style="display:flex; align-items:center; gap:8px;">
-					<button type="button" id="btn-studio-play" class="primary" style="background:#00ffa3; color:#060b0f; font-weight:bold; font-size:10px; padding:4px 8px;">▶ PLAY</button>
+					<button type="button" id="btn-studio-play" class="primary"
+						style="background:#00ffa3; color:#060b0f; font-weight:bold; font-size:10px; padding:4px 8px;">▶
+						PLAY</button>
 					<button type="button" id="btn-studio-pause" style="font-size:10px; padding:4px 8px;">⏸ PAUSE</button>
 					<button type="button" id="btn-studio-step" style="font-size:10px; padding:4px 8px;">⏭ STEP</button>
 					<button type="button" id="btn-studio-reload" style="font-size:10px; padding:4px 8px;">🔄 RELOAD</button>
-					<button type="button" id="btn-studio-spawn-particles" style="font-size:10px; padding:4px 8px;">✨ PARTICLES</button>
-					<button type="button" id="btn-export-game-script" style="font-size:10px; padding:4px 8px; background:rgba(0,255,163,0.15); border:1px solid var(--accent); color:var(--accent); font-weight:bold;" title="Synthesize complete game level & entity state into an executable JS module for Code IDE">📜 EXPORT TO JS SCRIPT</button>
+					<button type="button" id="btn-studio-spawn-particles" style="font-size:10px; padding:4px 8px;">✨
+						PARTICLES</button>
+					<button type="button" id="btn-export-game-script"
+						style="font-size:10px; padding:4px 8px; background:rgba(0,255,163,0.15); border:1px solid var(--accent); color:var(--accent); font-weight:bold;"
+						title="Synthesize complete game level & entity state into an executable JS module for Code IDE">📜 EXPORT TO
+						JS SCRIPT</button>
 				</div>
 				<div style="display:flex; align-items:center; gap:10px;">
 					<span id="studio-fps-badge" class="fps-badge">60 FPS · Frame #0</span>
 					<label for="studio-res-select" style="font-size:9px; color:var(--text-dim);">RESOLUTION:</label>
-					<select id="studio-res-select" style="background:var(--bg-input); color:var(--text-primary); border:1px solid var(--border); font-size:10px; padding:2px 4px; border-radius:2px;" aria-label="Game Studio Resolution">
+					<select id="studio-res-select"
+						style="background:var(--bg-input); color:var(--text-primary); border:1px solid var(--border); font-size:10px; padding:2px 4px; border-radius:2px;"
+						aria-label="Game Studio Resolution">
 						<option value="640x480">640 x 480 (Retro 4:3)</option>
 						<option value="800x600">800 x 600 (SVGA)</option>
 						<option value="960x540">960 x 540 (qHD 16:9)</option>
@@ -2503,7 +2601,8 @@
 					<div class="studio-panel-header" style="border-top:1px solid var(--border);">
 						<span>ENTITY PROPERTY INSPECTOR</span>
 					</div>
-					<div id="studio-entity-props" style="padding:10px; font-size:10px; display:flex; flex-direction:column; gap:8px;">
+					<div id="studio-entity-props"
+						style="padding:10px; font-size:10px; display:flex; flex-direction:column; gap:8px;">
 						<div style="display:flex; justify-content:space-between;">
 							<span style="color:var(--text-dim);">ENTITY ID:</span>
 							<span id="prop-entity-id" style="color:var(--accent); font-weight:bold;">player</span>
@@ -2511,21 +2610,29 @@
 						<div style="display:flex; justify-content:space-between; align-items:center;">
 							<label for="prop-pos-x" style="color:var(--text-dim);">POSITION (X, Y):</label>
 							<div style="display:flex; gap:4px;">
-								<input type="number" id="prop-pos-x" value="120" style="width:50px; font-size:10px; background:var(--bg-input); border:1px solid var(--border); color:var(--text-primary); padding:1px 3px;" aria-label="Position X" />
-								<input type="number" id="prop-pos-y" value="120" style="width:50px; font-size:10px; background:var(--bg-input); border:1px solid var(--border); color:var(--text-primary); padding:1px 3px;" aria-label="Position Y" />
+								<input type="number" id="prop-pos-x" value="120"
+									style="width:50px; font-size:10px; background:var(--bg-input); border:1px solid var(--border); color:var(--text-primary); padding:1px 3px;"
+									aria-label="Position X" />
+								<input type="number" id="prop-pos-y" value="120"
+									style="width:50px; font-size:10px; background:var(--bg-input); border:1px solid var(--border); color:var(--text-primary); padding:1px 3px;"
+									aria-label="Position Y" />
 							</div>
 						</div>
 						<div style="display:flex; justify-content:space-between; align-items:center;">
 							<label for="prop-speed" style="color:var(--text-dim);">SPEED / FORCE:</label>
-							<input type="number" id="prop-speed" value="3.5" step="0.5" style="width:50px; font-size:10px; background:var(--bg-input); border:1px solid var(--border); color:var(--text-primary); padding:1px 3px;" aria-label="Entity Speed" />
+							<input type="number" id="prop-speed" value="3.5" step="0.5"
+								style="width:50px; font-size:10px; background:var(--bg-input); border:1px solid var(--border); color:var(--text-primary); padding:1px 3px;"
+								aria-label="Entity Speed" />
 						</div>
 						<div style="display:flex; justify-content:space-between; align-items:center;">
 							<label for="prop-camera-zoom" style="color:var(--text-dim);">CAMERA ZOOM:</label>
-							<input type="range" id="prop-camera-zoom" min="0.5" max="3" step="0.1" value="1.5" style="width:80px;" aria-label="Camera Zoom" />
+							<input type="range" id="prop-camera-zoom" min="0.5" max="3" step="0.1" value="1.5" style="width:80px;"
+								aria-label="Camera Zoom" />
 						</div>
 						<div style="display:flex; justify-content:space-between; align-items:center;">
 							<span style="color:var(--text-dim);">SCREEN SHAKE:</span>
-							<button type="button" id="btn-trigger-shake" style="font-size:9px; padding:2px 6px;">💥 ADD TRAUMA</button>
+							<button type="button" id="btn-trigger-shake" style="font-size:9px; padding:2px 6px;">💥 ADD
+								TRAUMA</button>
 						</div>
 					</div>
 				</div>
@@ -2545,8 +2652,10 @@
 					<div class="studio-stage-tools">
 						<div style="display:flex; align-items:center; gap:8px;">
 							<span style="color:var(--text-dim);">BRUSH TOOL:</span>
-							<button type="button" id="tool-select" class="palette-tile-btn active" style="padding:2px 6px;">🖱 SELECT</button>
-							<button type="button" id="tool-paint" class="palette-tile-btn" style="padding:2px 6px;">🖌 PAINT TILE</button>
+							<button type="button" id="tool-select" class="palette-tile-btn active" style="padding:2px 6px;">🖱
+								SELECT</button>
+							<button type="button" id="tool-paint" class="palette-tile-btn" style="padding:2px 6px;">🖌 PAINT
+								TILE</button>
 							<button type="button" id="tool-erase" class="palette-tile-btn" style="padding:2px 6px;">🧹 ERASE</button>
 						</div>
 						<div style="display:flex; align-items:center; gap:8px;">
@@ -2563,7 +2672,8 @@
 						<span>TILEMAP BRUSH PALETTE</span>
 					</div>
 					<div class="studio-palette-picker">
-						<button type="button" class="palette-tile-btn active" data-tile-id="1" data-tile-name="WALL">🧱 Wall</button>
+						<button type="button" class="palette-tile-btn active" data-tile-id="1" data-tile-name="WALL">🧱
+							Wall</button>
 						<button type="button" class="palette-tile-btn" data-tile-id="2" data-tile-name="FLOOR">🟫 Floor</button>
 						<button type="button" class="palette-tile-btn" data-tile-id="3" data-tile-name="WATER">🌊 Water</button>
 						<button type="button" class="palette-tile-btn" data-tile-id="4" data-tile-name="LAVA">🔥 Lava</button>
@@ -2591,10 +2701,15 @@
 						<span>GAME SIMULATION DISPATCHER</span>
 					</div>
 					<div style="padding:10px; display:flex; flex-direction:column; gap:6px; font-size:10px;">
-						<button type="button" id="btn-sim-event-damage" style="font-size:10px; padding:4px;">💥 Simulate Player Damage (EventBus)</button>
-						<button type="button" id="btn-sim-event-loot" style="font-size:10px; padding:4px;">🪙 Simulate Item Loot Pickup</button>
-						<button type="button" id="btn-sim-event-wave" style="font-size:10px; padding:4px;">👾 Spawn Enemy Wave</button>
-						<button type="button" id="btn-save-level-vfs" class="primary" style="margin-top:6px; font-size:10px; padding:6px; background:#00ffa3; color:#060b0f; font-weight:bold;">💾 COMMIT LEVEL TO VFS</button>
+						<button type="button" id="btn-sim-event-damage" style="font-size:10px; padding:4px;">💥 Simulate Player
+							Damage (EventBus)</button>
+						<button type="button" id="btn-sim-event-loot" style="font-size:10px; padding:4px;">🪙 Simulate Item Loot
+							Pickup</button>
+						<button type="button" id="btn-sim-event-wave" style="font-size:10px; padding:4px;">👾 Spawn Enemy
+							Wave</button>
+						<button type="button" id="btn-save-level-vfs" class="primary"
+							style="margin-top:6px; font-size:10px; padding:6px; background:#00ffa3; color:#060b0f; font-weight:bold;">💾
+							COMMIT LEVEL TO VFS</button>
 					</div>
 				</div>
 			</div>
@@ -2603,22 +2718,17 @@
 		<!-- #endregion -->
 
 		<!-- #region [DOM-09] RIGHT TELEMETRY SIDEBAR, OPFS JOURNAL & MODALS -->
-		<!-- Collapsed Mini Rail for Right Sidebar -->
-		<div id="ledger-collapsed-rail" class="ledger-collapsed-rail" style="display:none;" aria-label="Expand Telemetry Panel">
-			<button type="button" id="btn-expand-ledger" class="ledger-rail-btn" title="Expand Telemetry Panel (Ctrl+B / Alt+T)">◀</button>
-			<div class="ledger-vertical-label">TELEMETRY & AUDIT</div>
-			<div class="ledger-vertical-badge" id="ledger-rail-badge">134 PASS</div>
-		</div>
-
-		<!-- Right Sidebar: Sentinel Matrix & Receipt Ledger -->
+		<!-- Slide-Over Telemetry Panel: Sentinel Matrix & Receipt Ledger -->
 		<aside id="ledger-panel" aria-label="Governance Matrix">
 			<!-- Sentinel 21-Pass Matrix Visualizer -->
 			<div class="sentinel-matrix-block">
 				<div style="display:flex; justify-content:space-between; align-items:center;">
 					<span class="tree-group-title" style="padding:0;">SENTINEL 21-PASS AUDIT MATRIX</span>
 					<div style="display:flex; align-items:center; gap:6px;">
-						<span id="sentinel-score-badge" style="color:var(--accent); font-size:10px; font-weight:bold;">134/134 PASS</span>
-						<button type="button" id="btn-collapse-ledger" class="hud-btn" style="padding:1px 5px; font-size:9px;" title="Collapse Telemetry Panel (Ctrl+B / Alt+T)">▶</button>
+						<span id="sentinel-score-badge" style="color:var(--accent); font-size:10px; font-weight:bold;">134/134
+							PASS</span>
+						<button type="button" id="btn-collapse-ledger" class="hud-btn" style="padding:1px 5px; font-size:9px;"
+							title="Close Telemetry Panel (Esc)">✖</button>
 					</div>
 				</div>
 				<div class="sentinel-grid" id="sentinel-grid">
@@ -2674,20 +2784,40 @@
 
 	<!-- Sovereign Right-Click Context Menu -->
 	<div id="editor-context-menu" class="sovereign-context-menu" style="display:none;" aria-label="Editor Context Menu">
-		<div class="context-menu-item" id="ctx-erl-fix"><span class="ctx-icon">⚡</span><span>Instant ERL-001 Fix</span><span class="ctx-shortcut">Alt+E</span></div>
-		<div class="context-menu-item" id="ctx-decompose-fn"><span class="ctx-icon">🧩</span><span>Decompose Complex Function</span><span class="ctx-shortcut">Alt+X</span></div>
-		<div class="context-menu-item" id="ctx-ai-fix"><span class="ctx-icon">🤖</span><span>Fix Selected / Current Line (AI)</span><span class="ctx-shortcut">Ctrl+K</span></div>
+		<div id="ctx-diag-section"
+			style="display:none; flex-direction:column; gap:4px; padding-bottom:4px; border-bottom:1px solid var(--border);">
+			<div id="ctx-diag-title" style="color:var(--warn); font-weight:bold; font-size:11px; padding:2px 6px;"></div>
+			<div id="ctx-diag-desc" style="color:var(--text-dim); font-size:10px; padding:0 6px 4px;"></div>
+			<div class="context-menu-item" id="ctx-erl-fix"
+				style="background:rgba(0,255,204,0.12); color:var(--accent); font-weight:bold;"><span
+					class="ctx-icon">⚡</span><span id="ctx-erl-fix-label">Instant Fix</span><span
+					class="ctx-shortcut">Alt+E</span></div>
+			<div class="context-menu-item" id="ctx-decompose-fn" style="display:none;"><span
+					class="ctx-icon">🧩</span><span>Decompose Complex Function</span><span class="ctx-shortcut">Alt+X</span></div>
+			<div class="context-menu-item" id="ctx-ai-fix"><span class="ctx-icon">🤖</span><span>Fix Line with Local
+					AI</span><span class="ctx-shortcut">Ctrl+K</span></div>
+			<div class="context-menu-separator"></div>
+		</div>
+		<div class="context-menu-item" id="ctx-scaffold-jsdoc"><span class="ctx-icon">📜</span><span>Scaffold Strict JSDoc
+				Contract</span><span class="ctx-shortcut">Alt+J</span></div>
+		<div class="context-menu-item" id="ctx-format"><span class="ctx-icon">🧹</span><span>Format Document</span><span
+				class="ctx-shortcut">Alt+Shift+F</span></div>
+		<div class="context-menu-item" id="ctx-find"><span class="ctx-icon">🔍</span><span>Find in Document</span><span
+				class="ctx-shortcut">Ctrl+F</span></div>
+		<div class="context-menu-item" id="ctx-replace"><span class="ctx-icon">⇄</span><span>Find & Replace</span><span
+				class="ctx-shortcut">Ctrl+H</span></div>
 		<div class="context-menu-separator"></div>
-		<div class="context-menu-item" id="ctx-format"><span class="ctx-icon">🧹</span><span>Format Document</span><span class="ctx-shortcut">Alt+Shift+F</span></div>
-		<div class="context-menu-item" id="ctx-find"><span class="ctx-icon">🔍</span><span>Find in Document</span><span class="ctx-shortcut">Ctrl+F</span></div>
-		<div class="context-menu-item" id="ctx-replace"><span class="ctx-icon">⇄</span><span>Find & Replace</span><span class="ctx-shortcut">Ctrl+H</span></div>
+		<div class="context-menu-item" id="ctx-stage"><span class="ctx-icon">📦</span><span>Stage Selection to
+				PGE-DSL-1</span><span class="ctx-shortcut">Alt+S</span></div>
+		<div class="context-menu-item" id="ctx-submit"><span class="ctx-icon">🚀</span><span>Submit Proposal to
+				Governor</span><span class="ctx-shortcut">Ctrl+Enter</span></div>
 		<div class="context-menu-separator"></div>
-		<div class="context-menu-item" id="ctx-stage"><span class="ctx-icon">📦</span><span>Stage Selection to PGE-DSL-1</span><span class="ctx-shortcut">Alt+S</span></div>
-		<div class="context-menu-item" id="ctx-submit"><span class="ctx-icon">🚀</span><span>Submit Proposal to Governor</span><span class="ctx-shortcut">Ctrl+Enter</span></div>
-		<div class="context-menu-separator"></div>
-		<div class="context-menu-item" id="ctx-sentinel"><span class="ctx-icon">🛡️</span><span>Run Sentinel Pre-Flight Audit</span><span class="ctx-shortcut">Ctrl+Shift+A</span></div>
-		<div class="context-menu-item" id="ctx-toggle-problems"><span class="ctx-icon">⚡</span><span>Toggle Problems Drawer</span><span class="ctx-shortcut">Alt+P</span></div>
-		<div class="context-menu-item" id="ctx-command-palette"><span class="ctx-icon">🎯</span><span>Spotlight Command Palette</span><span class="ctx-shortcut">Ctrl+P</span></div>
+		<div class="context-menu-item" id="ctx-sentinel"><span class="ctx-icon">🛡️</span><span>Sentinel Telemetry
+				Drawer</span><span class="ctx-shortcut">Ctrl+B</span></div>
+		<div class="context-menu-item" id="ctx-toggle-problems"><span class="ctx-icon">⚡</span><span>Toggle Problems
+				Drawer</span><span class="ctx-shortcut">Alt+P</span></div>
+		<div class="context-menu-item" id="ctx-command-palette"><span class="ctx-icon">🎯</span><span>Spotlight Command
+				Palette</span><span class="ctx-shortcut">Ctrl+P</span></div>
 	</div>
 
 	<div id="toast-container"></div>
@@ -2769,28 +2899,32 @@
 
 		// Virtual File System State
 		const _vfs = new Map();
-		let _activeFilePath = 'combat/combat_actions.js';
+		let _activeFilePath = '';
 		let _directoryHandle = null;
 
-		// Initialize VFS with default catalog
-		CANONICAL_MODULES.forEach(m => _vfs.set(m.path, m.source));
+		function _loadSampleProjectPack() {
+			CANONICAL_MODULES.forEach(m => {
+				_vfs.set(m.path, m.source);
+				_governor.registerSource(m.path, m.source);
+				_spec.registerTarget(m.path, {
+					tenant: m.domain.toUpperCase(),
+					path: m.path,
+					writable: true,
+					allowedOperations: [ 'MODIFY', 'REPLACE' ],
+					capabilities: [],
+					dependencies: []
+				});
+			});
+			_indexAllVFSFiles();
+			_renderFileTree();
+			_openFile('combat/combat_actions.js');
+			_toast('⚡ Emberlight Sample Project Pack loaded into VFS!', 'pass');
+		}
 
 		//#endregion
 
 		//#region [SEC-02] GOVERNOR & SENTINEL SPECIFICATION REGISTRY
 		const _spec = new PhoenixSovereignEngine.SpecificationRegistry();
-
-		// Register targets for all modules
-		CANONICAL_MODULES.forEach(m => {
-			_spec.registerTarget(m.path, {
-				tenant: m.domain.toUpperCase(),
-				path: m.path,
-				writable: true,
-				allowedOperations: [ 'MODIFY', 'REPLACE' ],
-				capabilities: [],
-				dependencies: []
-			});
-		});
 
 		_spec.registerInvariant('damage.nonnegative', (state) => (state?.damage === undefined || state.damage >= 0));
 		_spec.registerTest('sentinel.headless', () => true);
@@ -2800,9 +2934,6 @@
 			initialState: { damage: 10 }
 		});
 		window.PhoenixGovernor = _governor;
-
-		// Seed Governor in-memory sources
-		CANONICAL_MODULES.forEach(m => _governor.registerSource(m.path, m.source));
 
 		// Persistent HUD capability grant
 		const _origHas = _governor.capabilities.has.bind(_governor.capabilities);
@@ -2820,7 +2951,7 @@
 			if (savedNDJSON) {
 				_erl.importNDJSON(savedNDJSON);
 			}
-		} catch (_) {}
+		} catch (_) { }
 		_vfs.set('error-resolution-ledger.ndjson', _erl.exportNDJSON());
 
 		function _saveERLLedger() {
@@ -2828,7 +2959,7 @@
 				const exported = _erl.exportNDJSON();
 				localStorage.setItem('phoenix_erl_ndjson', exported);
 				_vfs.set('error-resolution-ledger.ndjson', exported);
-			} catch (_) {}
+			} catch (_) { }
 		}
 
 		//#endregion
@@ -2888,7 +3019,7 @@
 		function _setStoredTreeCollapseState(state) {
 			try {
 				localStorage.setItem('phoenix_tree_collapsed_groups', JSON.stringify(state));
-			} catch (_) {}
+			} catch (_) { }
 		}
 
 		function _renderFileTree(filter = '') {
@@ -2896,6 +3027,19 @@
 			if (!treeEl) return;
 			treeEl.innerHTML = '';
 
+			if (_vfs.size === 0) {
+				const emptyEl = document.createElement('div');
+				emptyEl.style.cssText = 'padding:16px 12px; color:var(--text-dim); font-size:11px; line-height:1.5; text-align:center;';
+				emptyEl.innerHTML = `
+					<div style="font-size:20px; margin-bottom:8px;">📁</div>
+					<div style="font-weight:bold; color:var(--text-primary); margin-bottom:4px;">No Project Mounted</div>
+					<div style="font-size:10px; margin-bottom:12px; color:var(--text-dim);">Mount a local folder to browse files.</div>
+					<button type="button" id="btn-tree-mount" class="primary" style="font-size:10px; padding:5px 10px; width:100%;">📁 Open Folder</button>
+				`;
+				emptyEl.querySelector('#btn-tree-mount')?.addEventListener('click', _mountProjectFolder);
+				treeEl.appendChild(emptyEl);
+				return;
+			}
 			const grouped = new Map();
 			for (const path of _vfs.keys()) {
 				if (filter && !path.toLowerCase().includes(filter.toLowerCase())) continue;
@@ -3070,8 +3214,25 @@
 			_updateEditorHUD();
 		}
 
+		function _showWelcomeHub() {
+			const hub = document.getElementById('welcome-hub');
+			const codeContainer = document.getElementById('code-editor-container');
+			const fileLabel = document.getElementById('current-file-label');
+			if (hub) hub.style.display = 'flex';
+			if (codeContainer) codeContainer.style.display = 'none';
+			if (fileLabel) fileLabel.textContent = 'Welcome Hub';
+		}
+
+		function _hideWelcomeHub() {
+			const hub = document.getElementById('welcome-hub');
+			const codeContainer = document.getElementById('code-editor-container');
+			if (hub) hub.style.display = 'none';
+			if (codeContainer) codeContainer.style.display = 'flex';
+		}
+
 		function _openFile(filePath) {
 			_activeFilePath = filePath;
+			_hideWelcomeHub();
 			const label = document.getElementById('current-file-label');
 			if (label) label.textContent = filePath;
 
@@ -3135,7 +3296,7 @@
 				.replace(_SYNTAX_REGEX.word, (w) => _JS_KEYWORDS.has(w) ? saveToken(`<span class="tok-kw">${w}</span>`) : w);
 
 			// 3. Restore all protected tokens
-			return text.replace(/___TOK_(\d+)___/g, (_, idx) => tokens[Number(idx)]);
+			return text.replace(/___TOK_(\d+)___/g, (_, idx) => tokens[ Number(idx) ]);
 		}
 
 		/* =========================================================================
@@ -3375,7 +3536,7 @@
 
 				if (!inScript && lower.includes(TAG_SCRIPT_OPEN)) {
 					if (!lower.includes('type="application/json"') && !lower.includes("type='application/json'") &&
-					    !lower.includes('type="text/html"') && !lower.includes("type='text/html'")) {
+						!lower.includes('type="text/html"') && !lower.includes("type='text/html'")) {
 						inScript = true;
 						scriptStartLine = i + 1;
 						scriptLines = [];
@@ -3620,8 +3781,8 @@
 				return {
 					pass: false,
 					patchedSource: baseSource,
-					remainingErrors: [{ rule: 'AI/NO-PATCH', message: 'Candidate patch did not match any source anchors.' }],
-					linterErrors: ['No matching patch anchors found.']
+					remainingErrors: [ { rule: 'AI/NO-PATCH', message: 'Candidate patch did not match any source anchors.' } ],
+					linterErrors: [ 'No matching patch anchors found.' ]
 				};
 			}
 
@@ -3649,13 +3810,17 @@
 
 			// Tier 4: Signature & Interface Invariance Verification
 			if (targetFnInfo && targetFnInfo.name && targetFnInfo.name !== 'anonymous') {
-				const fnRegex = new RegExp(`(?:function\\s+${targetFnInfo.name}|const\\s+${targetFnInfo.name}\\s*=|let\\s+${targetFnInfo.name}\\s*=|var\\s+${targetFnInfo.name}\\s*=)`);
+				const fnRegex = new RegExp(String.raw`(?:function\s+${targetFnInfo.name}|const\s+${targetFnInfo.name}\s*=|let\s+${targetFnInfo.name}\s*=|var\s+${targetFnInfo.name}\s*=)`);
 				if (!fnRegex.test(patched)) {
 					remainingComplexity.push(`Original function signature '${targetFnInfo.name}' was missing in candidate patch.`);
 				}
 			}
 
-			const allLinterErrors = linterErrors.concat(remainingComplexity);
+			// Tier 5: ERL-001 Anti-Regression Gate
+			const antiPatterns = _erlLedger?.scanAntiPatterns ? _erlLedger.scanAntiPatterns(patched) : [];
+			const regressionErrors = antiPatterns.map(ap => `Cataloged ERL-001 anti-pattern re-introduced: ${ap.description}`);
+
+			const allLinterErrors = linterErrors.concat(remainingComplexity).concat(regressionErrors);
 			const pass = allLinterErrors.length === 0 && remainingErrors.length === 0;
 			return {
 				pass,
@@ -3707,7 +3872,7 @@
 			_setStatus(`AI DEBUGGING [Line ${diag.line}]...`, '');
 			_toast(`🤖 AI analyzing diagnostic in Sandbox: ${diag.rule}...`, 'pass');
 
-			let currentPrompt = buildDiagnosticDebugPrompt(_activeFilePath, source, [diag], diag.line);
+			let currentPrompt = buildDiagnosticDebugPrompt(_activeFilePath, source, [ diag ], diag.line);
 			let attempts = 0;
 			const MAX_ATTEMPTS = 3;
 
@@ -3771,7 +3936,7 @@
 
 			let currentPrompt = typeof buildCognitiveDecompositionPrompt === 'function'
 				? buildCognitiveDecompositionPrompt(_activeFilePath, source, fnInfo)
-				: buildDiagnosticDebugPrompt(_activeFilePath, source, [diag], diag.line);
+				: buildDiagnosticDebugPrompt(_activeFilePath, source, [ diag ], diag.line);
 
 			let attempts = 0;
 			const MAX_ATTEMPTS = 3;
@@ -3822,7 +3987,7 @@
 			const complexFns = PhoenixSovereignEngine?.PhoenixLinterSuite?.scanFunctionsComplexity
 				? PhoenixSovereignEngine.PhoenixLinterSuite.scanFunctionsComplexity(text, 15)
 				: [];
-			const targetFn = complexFns.find(f => currentLine >= f.line && currentLine <= (f.endLine || f.line + 50)) || complexFns[0];
+			const targetFn = complexFns.find(f => currentLine >= f.line && currentLine <= (f.endLine || f.line + 50)) || complexFns[ 0 ];
 
 			if (targetFn) {
 				_decomposeFunctionWithAI({
@@ -3859,7 +4024,7 @@
 				_currentDiagnostics,
 				_activeFilePath,
 				_erl,
-				(candidate) => _runAISandboxVerification(source, { changes: [{ type: 'create_file', content: candidate }] }, _activeFilePath)
+				(candidate) => _runAISandboxVerification(source, { changes: [ { type: 'create_file', content: candidate } ] }, _activeFilePath)
 			);
 
 			let intermediateSource = fastPathResult.patchedSource;
@@ -3993,7 +4158,7 @@
 			countBadge.textContent = `${diags.length} PROBLEMS (${errCount} Errors, ${warnCount} Warnings)`;
 
 			const currentLines = (_vfs.get(_activeFilePath) || '').split('\n');
-			const cachedCount = diags.filter(d => _erl && _erl.findMatch(d, currentLines[(d.line || 1) - 1] || '')).length;
+			const cachedCount = diags.filter(d => _erl && _erl.findMatch(d, currentLines[ (d.line || 1) - 1 ] || '')).length;
 
 			if (repairAllBtn) {
 				repairAllBtn.style.display = diags.length > 0 ? 'inline-block' : 'none';
@@ -4006,7 +4171,7 @@
 			}
 
 			diags.forEach(diag => {
-				const lineText = currentLines[(diag.line || 1) - 1] || '';
+				const lineText = currentLines[ (diag.line || 1) - 1 ] || '';
 				const erlMatch = _erl ? _erl.findMatch(diag, lineText) : null;
 				const row = document.createElement('div');
 				row.className = `problem-item ${diag.severity}`;
@@ -4038,7 +4203,7 @@
 					const curSource = _vfs.get(_activeFilePath) || '';
 					if (erlMatch && erlMatch.searchPattern && curSource.includes(erlMatch.searchPattern)) {
 						const patched = curSource.replace(erlMatch.searchPattern, erlMatch.replacePattern);
-						const verification = _runAISandboxVerification(curSource, { changes: [{ type: 'create_file', content: patched }] }, _activeFilePath);
+						const verification = _runAISandboxVerification(curSource, { changes: [ { type: 'create_file', content: patched } ] }, _activeFilePath);
 						if (verification.pass) {
 							_applyAISandboxRepair(patched, `✓ [ERL-001 FAST FIX] Applied verified template for [${diag.rule}]!`, 'ERL FIX VERIFIED');
 						} else {
@@ -5186,13 +5351,47 @@
 		/* =========================================================================
 		 * SOVEREIGN RIGHT-CLICK CONTEXT MENU CONTROLLER
 		 * ========================================================================= */
+		let _ctxLineNum = 1;
+		let _ctxActiveDiag = null;
+
 		function _showContextMenu(e) {
 			e.preventDefault();
 			const menu = document.getElementById('editor-context-menu');
 			if (!menu) return;
 
+			const editor = /** @type {HTMLTextAreaElement | null} */ (document.getElementById('code-editor-view'));
+			if (editor) {
+				const rect = editor.getBoundingClientRect();
+				const offsetY = e.clientY - rect.top + (document.getElementById('code-editor-wrapper')?.scrollTop || 0);
+				const clickedLine = Math.max(1, Math.floor(offsetY / 20.15) + 1);
+				_ctxLineNum = clickedLine;
+			}
+
+			// Check for diagnostics on clicked line
+			const diagSection = document.getElementById('ctx-diag-section');
+			const diagTitle = document.getElementById('ctx-diag-title');
+			const diagDesc = document.getElementById('ctx-diag-desc');
+			const erlFixLabel = document.getElementById('ctx-erl-fix-label');
+			const decomposeBtn = document.getElementById('ctx-decompose-fn');
+
+			_ctxActiveDiag = _currentDiagnostics.find(d => d.line === _ctxLineNum) || _currentDiagnostics[ 0 ] || null;
+
+			if (_ctxActiveDiag && diagSection && diagTitle && diagDesc) {
+				diagSection.style.display = 'flex';
+				diagTitle.textContent = `⚡ [${_ctxActiveDiag.rule}] on Line ${_ctxActiveDiag.line}`;
+				diagDesc.textContent = _ctxActiveDiag.message || 'Diagnostic detected';
+				if (erlFixLabel) {
+					erlFixLabel.textContent = _ctxActiveDiag.quickFix?.label || `Instant Fix: ${_ctxActiveDiag.rule}`;
+				}
+				if (decomposeBtn) {
+					decomposeBtn.style.display = _ctxActiveDiag.rule === 'COMPLEXITY/HIGH' ? 'flex' : 'none';
+				}
+			} else if (diagSection) {
+				diagSection.style.display = 'none';
+			}
+
 			const x = Math.min(e.clientX, window.innerWidth - 270);
-			const y = Math.min(e.clientY, window.innerHeight - 340);
+			const y = Math.min(e.clientY, window.innerHeight - 380);
 
 			menu.style.left = `${Math.max(10, x)}px`;
 			menu.style.top = `${Math.max(10, y)}px`;
@@ -5202,6 +5401,28 @@
 		function _hideContextMenu() {
 			const menu = document.getElementById('editor-context-menu');
 			if (menu) menu.style.display = 'none';
+		}
+
+		function _scaffoldJSDocAtCursor() {
+			const editor = /** @type {HTMLTextAreaElement | null} */ (document.getElementById('code-editor-view'));
+			if (!editor) return;
+			const lines = editor.value.split('\n');
+			const lineNum = _ctxLineNum || 1;
+			const lineText = lines[ lineNum - 1 ] || '';
+
+			const fnMatch = lineText.match(/(?:async\s+)?function\s+([A-Za-z0-9_$]+)\s*\(([^)]*)\)/) ||
+				lineText.match(/(?:const|let|var)\s+([A-Za-z0-9_$]+)\s*=\s*(?:async\s*)?\(([^)]*)\)\s*=>/) ||
+				lineText.match(/([A-Za-z0-9_$]+)\s*\(([^)]*)\)\s*\{/);
+
+			if (fnMatch) {
+				const fnName = fnMatch[ 1 ];
+				const params = (fnMatch[ 2 ] || '').split(',').map(p => p.trim().split('=')[ 0 ].trim()).filter(Boolean);
+				_scaffoldJSDoc(lineNum, params);
+				_toast(`✓ Scaffolded JSDoc type contracts for '${fnName}'`, 'pass');
+			} else {
+				_scaffoldJSDoc(lineNum, [ 'param1', 'options' ]);
+				_toast('✓ Added JSDoc template at cursor position.', 'pass');
+			}
 		}
 
 		_editorView?.addEventListener('contextmenu', _showContextMenu);
@@ -5217,17 +5438,34 @@
 
 		document.getElementById('ctx-erl-fix')?.addEventListener('click', () => {
 			_hideContextMenu();
-			_debugAllDiagnostics();
+			if (_ctxActiveDiag?.quickFix?.action) {
+				_ctxActiveDiag.quickFix.action();
+			} else {
+				_debugAllDiagnostics();
+			}
 		});
 
 		document.getElementById('ctx-decompose-fn')?.addEventListener('click', () => {
 			_hideContextMenu();
-			_decomposeCurrentFunction();
+			if (_ctxActiveDiag?.rule === 'COMPLEXITY/HIGH') {
+				_decomposeFunctionWithAI(_ctxActiveDiag);
+			} else {
+				_decomposeCurrentFunction();
+			}
 		});
 
 		document.getElementById('ctx-ai-fix')?.addEventListener('click', () => {
 			_hideContextMenu();
-			_openInlineAIPrompt();
+			if (_ctxActiveDiag) {
+				_debugAndFixDiagnostic(_ctxActiveDiag);
+			} else {
+				_openInlineAIPrompt();
+			}
+		});
+
+		document.getElementById('ctx-scaffold-jsdoc')?.addEventListener('click', () => {
+			_hideContextMenu();
+			_scaffoldJSDocAtCursor();
 		});
 
 		document.getElementById('ctx-format')?.addEventListener('click', () => {
@@ -5257,8 +5495,7 @@
 
 		document.getElementById('ctx-sentinel')?.addEventListener('click', () => {
 			_hideContextMenu();
-			_renderSentinelMatrix(21);
-			_toast('🛡️ Sentinel 21-Pass Audit Re-verified: 134/134 Checks Clean.', 'pass');
+			_toggleLedgerPanel(true);
 		});
 
 		document.getElementById('ctx-toggle-problems')?.addEventListener('click', () => {
@@ -5739,17 +5976,17 @@
 		let _isPaintingGrid = false;
 
 		const _studioLevelGrid = [
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-			[1, 0, 2, 2, 2, 0, 1, 0, 3, 3, 3, 0, 6, 0, 0, 1],
-			[1, 0, 2, 2, 2, 0, 5, 0, 3, 3, 3, 0, 0, 0, 0, 1],
-			[1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 4, 4, 1],
-			[1, 1, 1, 5, 1, 1, 1, 0, 0, 0, 0, 0, 0, 4, 4, 1],
-			[1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1],
-			[1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 7, 7, 0, 0, 1],
-			[1, 0, 3, 3, 0, 0, 0, 0, 0, 0, 0, 7, 7, 0, 0, 1],
-			[1, 0, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+			[ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 ],
+			[ 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1 ],
+			[ 1, 0, 2, 2, 2, 0, 1, 0, 3, 3, 3, 0, 6, 0, 0, 1 ],
+			[ 1, 0, 2, 2, 2, 0, 5, 0, 3, 3, 3, 0, 0, 0, 0, 1 ],
+			[ 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 4, 4, 1 ],
+			[ 1, 1, 1, 5, 1, 1, 1, 0, 0, 0, 0, 0, 0, 4, 4, 1 ],
+			[ 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1 ],
+			[ 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 7, 7, 0, 0, 1 ],
+			[ 1, 0, 3, 3, 0, 0, 0, 0, 0, 0, 0, 7, 7, 0, 0, 1 ],
+			[ 1, 0, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 ],
+			[ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 ]
 		];
 
 		const _studioPalette = {
@@ -6012,7 +6249,7 @@
 export const LevelManifest = {
   version: "1.0.0-PROD",
   engine: "${_activeStudioEngine}",
-  dimensions: { width: ${_studioLevelGrid[0].length}, height: ${_studioLevelGrid.length} },
+  dimensions: { width: ${_studioLevelGrid[ 0 ].length}, height: ${_studioLevelGrid.length} },
   entities: ${JSON.stringify(_studioEntities, null, 2)},
   grid: ${JSON.stringify(_studioLevelGrid)}
 };
@@ -6100,9 +6337,9 @@ export const LevelManifest = {
 			if (!hit.hit) return;
 
 			if (_studioActiveTool === 'paint') {
-				const nx = hit.x + hit.normal[0];
-				const ny = hit.y + hit.normal[1];
-				const nz = hit.z + hit.normal[2];
+				const nx = hit.x + hit.normal[ 0 ];
+				const ny = hit.y + hit.normal[ 1 ];
+				const nz = hit.z + hit.normal[ 2 ];
 				PhoenixSovereignEngine.PhoenixVoxel3DEngine.setVoxel(_studioVoxelVolume, nx, ny, nz, _studioActiveBrushTile);
 				_toast(`🧊 Placed Voxel #${_studioActiveBrushTile} at (${nx}, ${ny}, ${nz})`, 'pass');
 			} else if (_studioActiveTool === 'erase') {
@@ -6351,26 +6588,18 @@ export const LevelManifest = {
 		});
 
 		/* =========================================================================
-		 * TELEMETRY PANEL COLLAPSE / EXPAND
+		 * TELEMETRY PANEL SLIDE-OVER DRAWER (PROGRESSIVE DISCLOSURE)
 		 * ========================================================================= */
-		function _toggleLedgerPanel(forceCollapsed = null) {
-			const app = document.getElementById('app');
-			const rail = document.getElementById('ledger-collapsed-rail');
-			if (!app || !rail) return;
-
-			const currentlyCollapsed = app.classList.contains('ledger-collapsed');
-			const willCollapse = forceCollapsed !== null ? forceCollapsed : !currentlyCollapsed;
-
-			app.classList.toggle('ledger-collapsed', willCollapse);
-			rail.style.display = willCollapse ? 'flex' : 'none';
-
-			try {
-				localStorage.setItem('phoenix_ledger_collapsed', willCollapse ? 'true' : 'false');
-			} catch (_) {}
+		function _toggleLedgerPanel(forceOpen = null) {
+			const panel = document.getElementById('ledger-panel');
+			if (!panel) return;
+			const isOpen = panel.classList.contains('open');
+			const willOpen = forceOpen !== null ? forceOpen : !isOpen;
+			panel.classList.toggle('open', willOpen);
 		}
 
-		document.getElementById('btn-collapse-ledger')?.addEventListener('click', () => _toggleLedgerPanel(true));
-		document.getElementById('btn-expand-ledger')?.addEventListener('click', () => _toggleLedgerPanel(false));
+		document.getElementById('btn-telemetry-badge')?.addEventListener('click', () => _toggleLedgerPanel());
+		document.getElementById('btn-collapse-ledger')?.addEventListener('click', () => _toggleLedgerPanel(false));
 
 		/* =========================================================================
 		 * INLINE FLOATING AI COMMAND PALETTE (Ctrl+K)
@@ -6551,21 +6780,24 @@ export const LevelManifest = {
 			_handleGlobalShortcuts(e);
 		});
 
+		// Welcome Hub Event Bindings
+		document.getElementById('btn-welcome-open-folder')?.addEventListener('click', _mountProjectFolder);
+		document.getElementById('btn-welcome-launch-studio')?.addEventListener('click', () => _toggleWorkspaceMode('gamedev'));
+		document.getElementById('btn-welcome-load-sample')?.addEventListener('click', _loadSampleProjectPack);
+		document.getElementById('btn-welcome-command-palette')?.addEventListener('click', () => _openCommandPalette(''));
+
 		// Boot sequence
 		try {
 			await _governor.initialize();
-			_indexAllVFSFiles();
 			_initRuntimeStudio();
 			_renderFileTree();
-			_openFile(_activeFilePath);
+			if (_vfs.size > 0 && _activeFilePath && _vfs.has(_activeFilePath)) {
+				_openFile(_activeFilePath);
+			} else {
+				_showWelcomeHub();
+			}
 			_renderSentinelMatrix(21);
 			_updateStats();
-			
-			// Restore collapsed ledger state
-			if (localStorage.getItem('phoenix_ledger_collapsed') === 'true') {
-				_toggleLedgerPanel(true);
-			}
-
 			await _connectOllama();
 		} catch (err) {
 			console.error('[PHOENIX/BOOT] Init failed:', err);

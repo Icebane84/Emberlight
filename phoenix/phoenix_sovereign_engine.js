@@ -157,10 +157,10 @@
 	/** Monotonic ID generator. Prefix + timestamp (base-36) + auto-increment */
 	let _seq = 0;
 	/**
-	 * @param {string} prefix
+	 * @param {string} [prefix='id']
 	 * @returns {string}
 	 */
-	function uid(prefix) {
+	function uid(prefix = 'id') {
 		return `${prefix}-${Date.now().toString(36)}-${(++_seq).toString(36)}`;
 	}
 
@@ -2790,7 +2790,7 @@ void main() {
 				const hasLoop = /\b(for|while|do)\b/.test(line);
 				const hasCatch = /\bcatch\s*\(/.test(line);
 				const hasSwitch = /\bswitch\s*\(/.test(line);
-				const hasTernary = /\?.*:/.test(line);
+				const hasTernary = line.includes('?') && line.includes(':');
 
 				let structuralHits = 0;
 				if (hasIf || hasElseIf || hasLoop || hasCatch || hasSwitch) structuralHits++;
@@ -2822,36 +2822,49 @@ void main() {
 			if (typeof source !== 'string') return [];
 			const lines = source.split(/\r?\n/);
 			const results = [];
+			const FN_DECL_REGEX = /(?:async\s+)?function(?:\s+([A-Za-z0-9_$]+))?\s*\(/;
+			const ARROW_FN_REGEX = /(?:const|let|var)\s+([A-Za-z0-9_$]+)\s*=\s*(?:async\s+)?(?:\([^)]*\)|[A-Za-z0-9_$]+)\s*=>/;
 
 			for (let i = 0; i < lines.length; i++) {
 				const line = lines[ i ];
-				const fnMatch = line.match(/(?:async\s+)?function\s*([A-Za-z0-9_$]+)?\s*\(([^)]*)\)|(?:const|let|var)\s+([A-Za-z0-9_$]+)\s*=\s*(?:async\s+)?(?:\([^)]*\)|[A-Za-z0-9_$]+)\s*=>/);
-				if (fnMatch && line.includes('{')) {
-					const fnName = fnMatch[ 1 ] || fnMatch[ 3 ] || 'anonymous';
-					let open = 0;
-					let endLine = i;
-					const fnLines = [];
-					for (let j = i; j < lines.length; j++) {
-						fnLines.push(lines[ j ]);
-						open += (lines[ j ].match(/\{/g) || []).length;
-						open -= (lines[ j ].match(/\}/g) || []).length;
-						if (open <= 0 && j > i) {
-							endLine = j;
-							break;
-						}
+				if (!line.includes('{')) continue;
+
+				let fnName = '';
+				const declMatch = FN_DECL_REGEX.exec(line);
+				if (declMatch) {
+					fnName = declMatch[ 1 ] || 'anonymous';
+				} else {
+					const arrowMatch = ARROW_FN_REGEX.exec(line);
+					if (arrowMatch) {
+						fnName = arrowMatch[ 1 ] || 'anonymous';
 					}
-					const fnBody = fnLines.join('\n');
-					const score = this.calculateCognitiveComplexity(fnBody);
-					if (score > threshold) {
-						results.push({
-							name: fnName,
-							line: i + 1,
-							endLine: endLine + 1,
-							complexity: score,
-							score,
-							codeSlice: fnBody
-						});
+				}
+
+				if (!fnName) continue;
+
+				let open = 0;
+				let endLine = i;
+				const fnLines = [];
+				for (let j = i; j < lines.length; j++) {
+					fnLines.push(lines[ j ]);
+					open += (lines[ j ].match(/\{/g) || []).length;
+					open -= (lines[ j ].match(/\}/g) || []).length;
+					if (open <= 0 && j > i) {
+						endLine = j;
+						break;
 					}
+				}
+				const fnBody = fnLines.join('\n');
+				const score = this.calculateCognitiveComplexity(fnBody);
+				if (score > threshold) {
+					results.push({
+						name: fnName,
+						line: i + 1,
+						endLine: endLine + 1,
+						complexity: score,
+						score,
+						codeSlice: fnBody
+					});
 				}
 			}
 			return results;
@@ -2979,7 +2992,7 @@ void main() {
 			const exact = this.lookup(fp);
 			if (exact) return exact;
 			if (diag?.rule && this._entries.has(diag.rule)) {
-				return this._entries.get(diag.rule);
+				return this._entries.get(diag.rule) || null;
 			}
 			return null;
 		}
@@ -2993,7 +3006,7 @@ void main() {
 			const existing = this._entries.get(entry.fingerprint);
 			const useCount = (existing ? existing.useCount : 0) + (entry.useCount || 1);
 			const finalized = {
-				id: entry.id || `erl_${Date.now()}_${uid()}`,
+				id: entry.id || `erl_${Date.now()}_${uid('erl')}`,
 				fingerprint: entry.fingerprint,
 				rule: entry.rule || 'UNKNOWN',
 				description: entry.description || 'Verified error repair template',
@@ -3004,6 +3017,39 @@ void main() {
 				useCount
 			};
 			this._entries.set(entry.fingerprint, finalized);
+		}
+
+		/**
+		 * Scans source code for known cataloged anti-patterns in the ledger.
+		 * @param {string} sourceCode
+		 * @returns {Array<{ rule: string; description: string; pattern: string }>}
+		 */
+		scanAntiPatterns(sourceCode) {
+			if (!sourceCode) return [];
+			const found = [];
+			const seenRules = new Set();
+			for (const entry of this._entries.values()) {
+				if (entry.searchPattern && entry.rule?.startsWith('MATH/RANDOM')) {
+					if (sourceCode.includes('Math.random()') && !seenRules.has('MATH/RANDOM')) {
+						seenRules.add('MATH/RANDOM');
+						found.push({
+							rule: entry.rule,
+							description: 'Unseeded Math.random() detected (violates PRNG authority invariant)',
+							pattern: entry.searchPattern
+						});
+					}
+				} else if (entry.searchPattern && entry.rule === 'DEBUGGER') {
+					if (sourceCode.includes('debugger;') && !seenRules.has('DEBUGGER')) {
+						seenRules.add('DEBUGGER');
+						found.push({
+							rule: entry.rule,
+							description: 'Explicit debugger statement left in source code',
+							pattern: entry.searchPattern
+						});
+					}
+				}
+			}
+			return found;
 		}
 
 		/**

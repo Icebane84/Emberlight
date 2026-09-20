@@ -1,5 +1,4 @@
-# **Document Identifier:** GUCA-CMD-SPEC-002-COMPLETE
-
+**Document Identifier:** GUCA-CMD-SPEC-002-COMPLETE
 **Timestamp:** 2026-09-11T07:30:00-04:00
 **Governing Standard:** GUCA-002 / VSRP-001 / PMIP-001 / ARCH-001-EMBERLIGHT / PRS-001 / MPFS-001
 **Index Anchor:** PRS-001

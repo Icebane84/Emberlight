@@ -1605,6 +1605,41 @@ declare interface PhoenixLinterSuiteFacade {
   lintCode(source: string, filename?: string): Array<{ line: number; col: number; message: string; severity: 'error' | 'warning' }>;
 }
 
+declare interface ERLResolutionTemplate {
+  id: string;
+  fingerprint: string;
+  rule: string;
+  description: string;
+  searchPattern: string;
+  replacePattern: string;
+  verifiedReceipt?: string;
+  timestamp?: string;
+  useCount?: number;
+}
+
+declare interface PhoenixErrorResolutionLedgerInstance {
+  computeFingerprint(diag: { rule?: string; message?: string; line?: number; fnName?: string }, lineText?: string): string;
+  lookup(fingerprint: string): ERLResolutionTemplate | null;
+  findMatch(diag: { rule?: string; message?: string; line?: number; fnName?: string }, lineText?: string): ERLResolutionTemplate | null;
+  record(entry: ERLResolutionTemplate): void;
+  exportNDJSON(): string;
+  importNDJSON(ndjson: string): number;
+  getAll(): ERLResolutionTemplate[];
+  clear(): void;
+}
+
+declare interface PhoenixErrorResolutionLedgerFacade {
+  new (): PhoenixErrorResolutionLedgerInstance;
+}
+
+declare interface PhoenixBatchRemediationPipelineFacade {
+  remediateFileWithFastPath(
+    source: string,
+    diagnostics: Array<{ rule?: string; message?: string; line?: number; col?: number; severity?: string; fnName?: string }>,
+    erl: PhoenixErrorResolutionLedgerInstance
+  ): { patchedSource: string; resolvedCount: number; unresolved: Array<{ rule?: string; message?: string; line?: number; col?: number; severity?: string; fnName?: string }> };
+}
+
 declare interface PhoenixSovereignEngineFacade {
   VERSION: string;
   PROTOCOLS: readonly string[];
@@ -1623,12 +1658,13 @@ declare interface PhoenixSovereignEngineFacade {
   lintSource(source: string): string[];
   stable(value: unknown): string;
   hash(text: string): string;
-  uid(prefix: string): string;
+  uid(prefix?: string): string;
   hashBuffer(buffer: ArrayLike<number>): string;
   computeFramebufferHash(target: ImageData | HTMLCanvasElement | OffscreenCanvas | ArrayLike<number> | null): string;
   validateFramebufferSignature(renderFn: Function, goldenHash: string, width?: number, height?: number): { pass: boolean; hash: string; expected: string };
   executeWithTimeout(fn: Function, timeoutMs?: number, context?: unknown): Promise<unknown>;
   extractFaultSlice(source: string, change: unknown, failure: unknown): { targetPath: string; scopeName: string; failureReason: string; faultSlice: string };
+  scanAntiPatterns(source: string): Array<{ line: number; col: number; rule: string; message: string; severity: 'error' | 'warning' }>;
   PhoenixAudioSynthesizer: PhoenixAudioSynthesizerFacade;
   PhoenixSymbolIndexer: PhoenixSymbolIndexerFacade;
   PhoenixFuzzySearch: PhoenixFuzzySearchFacade;
@@ -1642,6 +1678,8 @@ declare interface PhoenixSovereignEngineFacade {
   PhoenixTerrainRaymarcher: PhoenixTerrainRaymarcherFacade;
   PhoenixCodeFormatter: PhoenixCodeFormatterFacade;
   PhoenixLinterSuite: PhoenixLinterSuiteFacade;
+  PhoenixErrorResolutionLedger: PhoenixErrorResolutionLedgerFacade;
+  PhoenixBatchRemediationPipeline: PhoenixBatchRemediationPipelineFacade;
 }
 
 declare var PhoenixSovereignEngine: PhoenixSovereignEngineFacade;

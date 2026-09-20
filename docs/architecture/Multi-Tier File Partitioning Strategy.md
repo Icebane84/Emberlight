@@ -1,4 +1,5 @@
-**Document Identifier:** ARCH-CODE-PARTITION-001
+# **Document Identifier:** ARCH-CODE-PARTITION-001
+
 **Timestamp:** 2026-09-06T12:28:45-04:00
 **Governing Standard:** VSRP-001 / PMIP-001 / PRS-ARC-020
 **Index Anchor:** PRS-001
@@ -24,7 +25,7 @@ Plaintext
 │ in VS Code Outline │ │ jumps via Ctrl+F │ │ checkJs: true │
 └──────────────────────┘ └──────────────────────┘ └──────────────────────┘
 
-## ---
+---
 
 **2\. Structural Layer 1: Native VS Code \#region Folding**
 
@@ -58,7 +59,7 @@ VS Code has built-in parser support for explicit folding regions across JavaScri
   - Use Ctrl \+ Shift \+ O to open the VS Code Symbol/Outline menu, or view the **Outline** view in the Explorer pane to click directly between regions.
 - **Why:** It eliminates manual scrolling fatigue and lets you inspect and modify a single architectural subsystem in isolation without visually wading through 2,900 unrelated lines.
 
-## ---
+---
 
 **3\. Structural Layer 2: Table of Contents & Regex Jump Anchors**
 
@@ -72,7 +73,7 @@ Navigating code by scrolling breaks cognitive flow. An architectural banner at l
 
 - **Why:** To jump to the damage formulas from anywhere in a 3,000-line file, press Ctrl \+ F, type \[SEC-03\], and press Enter. You arrive at the exact section header instantly, bypassing manual search terms like calculateDamage that might appear dozens of times throughout the file.
 
-## ---
+---
 
 **4\. Structural Layer 3: Extraction-Ready JSDoc Contracts**
 
@@ -101,6 +102,7 @@ How to write JSDoc in HTML example:
     </script>
 </body>
 </html>
+
 ```
 
 "Docstrings" and Documentation in .css Files:
@@ -197,7 +199,7 @@ affinity: 'NEUTRAL'
   - **IntelliSense in Large Files:** When typing attacker. anywhere in the 3,000-line file, VS Code provides autocomplete for .hp, .agi, and .row.
   - **Zero-Friction Extraction:** When you decide to move \[SEC-03\] into combat_calc.js, you simply cut and paste the entire \#region. Because the function accesses zero parent closure state, it functions immediately in the new file without syntax breaks.
 
-## ---
+---
 
 **5\. Master Monolith File Template**
 
@@ -235,9 +237,9 @@ function update(dt, context) {
 
 //\#endregion
 
-### ---
+---
 
-**Honest Thoughts**
+## **Honest Thoughts**
 
 Large 3,000+ line files are often criticized, but in a zero-dependency, flat-directory vanilla JavaScript architecture, having a self-contained module (like a complete combat or overworld engine) in one file avoids the overhead of circular imports and script-tag management.
 The real danger of a 3,000-line file isn't its size; it is **invisible coupling**—functions buried at line 2,400 reaching up to mutate variables declared at line 40\.

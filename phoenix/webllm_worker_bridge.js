@@ -174,11 +174,11 @@
 		if (typeof json.response === "string") {
 			return json.response;
 		}
-		const delta = json.choices?.[0]?.delta?.content;
+		const delta = json.choices?.[ 0 ]?.delta?.content;
 		if (typeof delta === "string") {
 			return delta;
 		}
-		const text = json.choices?.[0]?.text;
+		const text = json.choices?.[ 0 ]?.text;
 		if (typeof text === "string") {
 			return text;
 		}
@@ -244,12 +244,12 @@
 		let buffer = "";
 
 		const onAbort = () => {
-			reader.cancel().catch(() => {});
+			reader.cancel().catch(() => { });
 		};
 
 		if (signal) {
 			if (signal.aborted) {
-				reader.cancel().catch(() => {});
+				reader.cancel().catch(() => { });
 				throw new Error("[PHOENIX/AI] Inference stream aborted by signal.");
 			}
 			signal.addEventListener("abort", onAbort, { once: true });
@@ -342,7 +342,7 @@
 		}
 
 		const data = await res.json();
-		return data.choices?.[0]?.message?.content || "";
+		return data.choices?.[ 0 ]?.message?.content || "";
 	}
 
 	/**
@@ -506,7 +506,7 @@
 	 * @returns {string}
 	 */
 	function buildDiagnosticDebugPrompt(targetFile, sourceCode, diagnostics, activeLine) {
-		const diagList = (diagnostics || []).map((d, i) => 
+		const diagList = (diagnostics || []).map((d, i) =>
 			`${i + 1}. [${d.severity || "err"}] Line ${d.line || "?"}, Col ${d.col || "?"}: (${d.rule || "ERROR"}) ${d.message || "Unknown error"}`
 		).join("\n");
 
@@ -570,7 +570,8 @@
 			"3. STRICT JSDOC CONTRACTS: Decorate every extracted helper function with explicit JSDoc typing (@param, @returns).",
 			"4. CONTRACT & SIGNATURE INVARIANCE: Preserve the EXACT name, parameter list, return type, and external state mutations of the original function.",
 			"5. ZERO DEPENDENCIES: Use only standard browser-native JavaScript ES2022+ with no external npm packages or placeholders.",
-			"6. SEARCH ANCHOR INTEGRITY: Ensure the 'search' block in the PGE-DSL-1 change matches the exact target function in the source code.",
+			"6. SEARCH ANCHOR INTEGRITY: The 'search' property MUST be the EXACT verbatim text of the target function from the source code above. NEVER invent placeholder comments or fictional comments.",
+			"7. INVARIANTS & TESTS REGISTRY: Set \"expectedInvariants\": [] and \"testsRequested\": [] to empty arrays [] (do not write English sentences in these arrays; they are reserved for registered test IDs).",
 			"",
 			"Output ONLY a valid PGE-DSL-1 JSON proposal enclosed in ```json ``` code fences."
 		].join("\n");
@@ -621,6 +622,21 @@
 	 * Extracts and validates a PGE-DSL-1 proposal from raw LLM output.
 	 * ========================================================================= */
 	/**
+	 * Validates that proposal change blocks do not contain lazy truncation tokens.
+	 * @param {Record<string, any>} proposal
+	 */
+	function validateProposalStructuralCompleteness(proposal) {
+		if (!proposal || !Array.isArray(proposal.changes)) return;
+		for (let i = 0; i < proposal.changes.length; i++) {
+			const ch = proposal.changes[ i ];
+			const content = ch?.content || '';
+			if (content.includes('// ...') || content.includes('/* ... */') || content.includes('TODO(impl)')) {
+				throw new Error(`[PHOENIX/parser] Change #${i + 1} contains forbidden placeholder token ('// ...' or '/* ... */'). Full un-truncated code is strictly required.`);
+			}
+		}
+	}
+
+	/**
 	 * @param {string} rawText
 	 * @returns {Record<string, any>}
 	 */
@@ -653,6 +669,20 @@
 		if (!parsed || typeof parsed !== "object") {
 			throw new Error("[PHOENIX/parser] Parsed result is not an object.");
 		}
+		validateProposalStructuralCompleteness(parsed);
+
+		// Sanitize expectedInvariants & testsRequested: filter out natural language prose sentences
+		if (Array.isArray(parsed.expectedInvariants)) {
+			parsed.expectedInvariants = parsed.expectedInvariants.filter(
+				(/** @type {string} */ inv) => typeof inv === 'string' && /^[A-Za-z0-9_$:-]+$/.test(inv.trim())
+			);
+		}
+		if (Array.isArray(parsed.testsRequested)) {
+			parsed.testsRequested = parsed.testsRequested.filter(
+				(/** @type {string} */ t) => typeof t === 'string' && /^[A-Za-z0-9_$:-]+$/.test(t.trim())
+			);
+		}
+
 		return parsed;
 	}
 
@@ -745,6 +775,32 @@
 				onToken,
 				signal,
 			);
+		}
+
+		/**
+		 * Generates and validates a PGE-DSL-1 proposal with upstream self-healing.
+		 * @param {string} prompt
+		 * @param {Record<string, any>} [options]
+		 * @param {number} [maxTrials=3]
+		 * @returns {Promise<{ proposal: Record<string, any>; rawText: string; trials: number }>}
+		 */
+		async generateProposalWithSelfHealing(prompt, options, maxTrials = 3) {
+			let currentPrompt = prompt;
+			let lastError = null;
+			for (let trial = 1; trial <= maxTrials; trial++) {
+				try {
+					const rawText = await this.generate(currentPrompt, options);
+					const proposal = phoenixProposalParser(rawText);
+					return { proposal, rawText, trials: trial };
+				} catch (err) {
+					lastError = err;
+					if (trial < maxTrials) {
+						const errMsg = err instanceof Error ? err.message : String(err);
+						currentPrompt = `${prompt}\n\nCRITICAL SELF-REVISION ERROR (Trial ${trial}):\n${errMsg}\nYou MUST emit 100% complete replacement code with NO abbreviations or '// ...' tokens. Output strictly valid PGE-DSL-1 JSON:\n`;
+					}
+				}
+			}
+			throw lastError || new Error("[PHOENIX/bridge] Self-healing failed to produce a valid proposal.");
 		}
 
 		/* --- Liveness --------------------------------------------------------- */

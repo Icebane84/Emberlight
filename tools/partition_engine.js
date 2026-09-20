@@ -1,5 +1,5 @@
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const targetPath = path.resolve('c:/Users/Chris/Emberlight/phoenix/core_governor.html');
 let content = fs.readFileSync(targetPath, 'utf8');
@@ -13,26 +13,26 @@ const TOP_BANNER = `<!--
  Classification: Immutable AI Collaboration & Anti-Entropy Manifest & Routing Map
  Sovereign Mask: The Hierophant wielding @[sovereign-artificer]
  Version: 8.0.0-ULTIMATE-FUSION
- 
+
  [P-01] ZERO-TOOLING & FILE:// INVARIANCE:
    - Absolute zero npm packages, bundlers, or build tools required.
    - Zero ES Module external fetches. Single-file self-contained execution.
    - Runs cleanly over local file:/// origin or local HTTP endpoints.
- 
+
  [P-02] 3-PLANE VIRTUAL LEXICAL TOPOLOGY (VLT-003):
    - Plane 0: Presentation, tokens, layout, canvas & audio DAC drivers.
    - Plane 1: Isolated Worker Kernel, simulation substrate & ambient types.
    - Plane 2: Main Thread Coordinator, capability attenuation & Sentinel auditor.
- 
+
  [P-03] DETERMINISTIC ENTROPY & GOVERNANCE:
    - Zero Math.random() in authoritative state. Seeded PRNG stream.
    - Constitutional PEVM state transactions pass pre-flight Sentinel audits.
- 
+
  [P-04] LESSONS LEARNED & ANTI-PATTERNS:
    - Avoid unescaped inline script/style tags in string literals.
    - Avoid cross-plane reference leakage; use transferable message envelopes.
    - Keep hot execution paths zero-allocation to eliminate GC stutter.
- 
+
  [P-05] AI REFACTORING ROUTING MAP (Ctrl+F Jump Anchors):
    - CSS Tokens & Layout           -> Jump to [CSS-01] through [CSS-12]
    - DOM Structural Containers     -> Jump to [DOM-01] through [DOM-09]
@@ -57,7 +57,7 @@ const TOP_BANNER = `<!--
 
 // Replace DOCTYPE and insert top banner
 if (!content.includes('LEDGER-PHOENIX-SOVEREIGN-001')) {
-    content = content.replace('<!DOCTYPE html>', '<!DOCTYPE html>\n' + TOP_BANNER);
+	content = content.replace('<!DOCTYPE html>', '<!DOCTYPE html>\n' + TOP_BANNER);
 }
 
 // -----------------------------------------------------------------------------
