@@ -1,8 +1,9 @@
-/* evaluateProposalWithSentinel — Integration Glue v2.0.0-ULTIMATE-FUSION
+/* sentinel_evaluator.js — Phoenix Sentinel Proposal Evaluator v2.0.0
  * Protocols: VSRP-001 / PMIP-001 / SDCP-001 / PERSIST-001
+ * Authority: Host SSOT | Governance & Proposal Evaluation Pipeline
  *
  * Full pipeline:
- *   1. Synchronous linter (Layer 1) — structural source audit
+ *   1. Synchronous linter (Layer 1) — structural source audit & placeholder rejection
  *   2. Phoenix 3-tier governor (Layer 2) — STRUCTURAL → CAPABILITY → BEHAVIOR → COMMIT
  *   3. OPFS append-only journal (Layer 3) — receipt persisted after every gate
  *   4. AI repair loop (Layer 3) — rejected receipts routed back through WebLLM bridge
@@ -165,7 +166,13 @@ async function evaluateProposalWithSentinel(
 	return governorReceipt;
 }
 
-/* ── Module export for Node test harness ────────────────────────────────── */
+/* ── Global & Module export ─────────────────────────────────────────────── */
+if (typeof window !== "undefined") {
+	window.evaluateProposalWithSentinel = evaluateProposalWithSentinel;
+}
+if (typeof globalThis !== "undefined") {
+	globalThis.evaluateProposalWithSentinel = evaluateProposalWithSentinel;
+}
 if (typeof module !== "undefined" && module.exports) {
 	module.exports = evaluateProposalWithSentinel;
 }

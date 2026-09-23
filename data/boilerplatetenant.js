@@ -5,231 +5,231 @@
  */
 
 const UniversalTenantModule = (() => {
-  'use strict';
+	'use strict';
 
-  // ===========================================================================
-  // FORMAL LIFECYCLE STATES (VSRP-001 Standard)
-  // ===========================================================================
-  const State = {
-    UNCONFIGURED: 'UNCONFIGURED',
-    CONFIGURED: 'CONFIGURED',
-    INITIALIZED: 'INITIALIZED',
-    READY: 'READY',
-    RUNNING: 'RUNNING',
-    DESTROYED: 'DESTROYED',
-  };
+	// ===========================================================================
+	// FORMAL LIFECYCLE STATES (VSRP-001 Standard)
+	// ===========================================================================
+	const State = {
+		UNCONFIGURED: 'UNCONFIGURED',
+		CONFIGURED: 'CONFIGURED',
+		INITIALIZED: 'INITIALIZED',
+		READY: 'READY',
+		RUNNING: 'RUNNING',
+		DESTROYED: 'DESTROYED',
+	};
 
-  let lifecycleState = State.UNCONFIGURED;
+	let lifecycleState = State.UNCONFIGURED;
 
-  // ===========================================================================
-  // PRIVATE STORAGE VAULT (Encapsulated Scoped Memory - Core Black Box)
-  // ===========================================================================
-  let hostConfig = null;
-  let hostContext = null;
-  let eventBusRef = null;
+	// ===========================================================================
+	// PRIVATE STORAGE VAULT (Encapsulated Scoped Memory - Core Black Box)
+	// ===========================================================================
+	let hostConfig = null;
+	let hostContext = null;
+	let eventBusRef = null;
 
-  // Internal Isolated Simulation State
-  let sim = null;
+	// Internal Isolated Simulation State
+	let sim = null;
 
-  // Performance Diagnostics Metrics Cache (Prevents runtime heap allocation)
-  const diagnostics = {
-    executionTimeMs: 0,
-    allocatedBuffers: 2,
-    activeEventHooks: 0,
-    internalCacheSize: 0
-  };
+	// Performance Diagnostics Metrics Cache (Prevents runtime heap allocation)
+	const diagnostics = {
+		executionTimeMs: 0,
+		allocatedBuffers: 2,
+		activeEventHooks: 0,
+		internalCacheSize: 0
+	};
 
-  // Lifecycle Guard Method
-  function assertLifecycle(...allowed) {
-    if (!allowed.includes(lifecycleState)) {
-      throw new Error(
-        `[VSRP-001:district_boilerplate] Lifecycle Error: Invoked while in state "${lifecycleState}". ` +
-        `Required: ${allowed.join(' | ')}`
-      );
-    }
-  }
+	// Lifecycle Guard Method
+	function assertLifecycle(...allowed) {
+		if (!allowed.includes(lifecycleState)) {
+			throw new Error(
+				`[VSRP-001:district_boilerplate] Lifecycle Error: Invoked while in state "${lifecycleState}". ` +
+				`Required: ${allowed.join(' | ')}`
+			);
+		}
+	}
 
-  // ===========================================================================
-  // CONSTITUTIONAL LIFECYCLE METHODS (The 9-Method Contract)[cite: 4]
-  // ===========================================================================
+	// ===========================================================================
+	// CONSTITUTIONAL LIFECYCLE METHODS (The 9-Method Contract):
+	// ===========================================================================
 
-  function configure(cfg) {
-    assertLifecycle(State.UNCONFIGURED);
-    if (!cfg || typeof cfg !== 'object') {
-      throw new TypeError("[VSRP-001] configure() requires a non-null configuration dictionary.");
-    }
-    
-    hostConfig = cfg; 
-    lifecycleState = State.CONFIGURED;
-  }
+	function configure(cfg) {
+		assertLifecycle(State.UNCONFIGURED);
+		if (!cfg || typeof cfg !== 'object') {
+			throw new TypeError("[VSRP-001] configure() requires a non-null configuration dictionary.");
+		}
 
-  function init(ctx) {
-    assertLifecycle(State.CONFIGURED);
-    if (!ctx?.eventBus) {
-      throw new Error("[VSRP-001] Capability Error: Missing eventBus handle.");
-    }
+		hostConfig = cfg;
+		lifecycleState = State.CONFIGURED;
+	}
 
-    hostContext = ctx;
-    eventBusRef = ctx.eventBus;
-    lifecycleState = State.INITIALIZED;
-  }
+	function init(ctx) {
+		assertLifecycle(State.CONFIGURED);
+		if (!ctx?.eventBus) {
+			throw new Error("[VSRP-001] Capability Error: Missing eventBus handle.");
+		}
 
-  function reset(snapshot) {
-    assertLifecycle(State.INITIALIZED, State.READY, State.RUNNING);
+		hostContext = ctx;
+		eventBusRef = ctx.eventBus;
+		lifecycleState = State.INITIALIZED;
+	}
 
-    // The Faraday Rule Execution: Deep clone the host runtime state snapshot
-    const incoming = snapshot ? structuredClone(snapshot) : {};
+	function reset(snapshot) {
+		assertLifecycle(State.INITIALIZED, State.READY, State.RUNNING);
 
-    sim = {
-      workingParty: incoming.party ? structuredClone(incoming.party) : [],
-      workingInventory: incoming.inventory ? structuredClone(incoming.inventory) : {},
-      workingGold: incoming.gold || 0,
-      currentFloor: incoming.activeFloor || 0,
-      stepCounter: 0,
-      isActive: true,
-      pendingDeltas: {
-        partyDelta: [],
-        inventoryDelta: {},
-        goldDelta: 0,
-        flagsDelta: {}
-      }
-    };
+		// The Faraday Rule Execution: Deep clone the host runtime state snapshot
+		const incoming = snapshot ? structuredClone(snapshot) : {};
 
-    lifecycleState = State.READY;
-  }
+		sim = {
+			workingParty: incoming.party ? structuredClone(incoming.party) : [],
+			workingInventory: incoming.inventory ? structuredClone(incoming.inventory) : {},
+			workingGold: incoming.gold || 0,
+			currentFloor: incoming.activeFloor || 0,
+			stepCounter: 0,
+			isActive: true,
+			pendingDeltas: {
+				partyDelta: [],
+				inventoryDelta: {},
+				goldDelta: 0,
+				flagsDelta: {}
+			}
+		};
 
-  function update(dt, ctx) {
-    assertLifecycle(State.READY, State.RUNNING);
-    lifecycleState = State.RUNNING;
-    if (!sim?.isActive) return;
+		lifecycleState = State.READY;
+	}
 
-    const startTime = performance.now();
+	function update(dt, ctx) {
+		assertLifecycle(State.READY, State.RUNNING);
+		lifecycleState = State.RUNNING;
+		if (!sim?.isActive) return;
 
-    // Enforce Sub-Tick Synchronous Determinism
-    const activeCtx = ctx || hostContext;
-    if (activeCtx && Array.isArray(activeCtx.inputBuffer)) {
-      for (const element of activeCtx.inputBuffer) {
-        processInputToken(element);
-      }
-    }
+		const startTime = performance.now();
 
-    if (sim.stepCounter > 0) {
-      sim.stepCounter++;
-    }
+		// Enforce Sub-Tick Synchronous Determinism
+		const activeCtx = ctx || hostContext;
+		if (activeCtx && Array.isArray(activeCtx.inputBuffer)) {
+			for (const element of activeCtx.inputBuffer) {
+				processInputToken(element);
+			}
+		}
 
-    diagnostics.executionTimeMs = performance.now() - startTime;
-  }
+		if (sim.stepCounter > 0) {
+			sim.stepCounter++;
+		}
 
-  function render(renderer, ctx) {
-    assertLifecycle(State.READY, State.RUNNING);
-    if (!sim?.isActive || !renderer) return;
+		diagnostics.executionTimeMs = performance.now() - startTime;
+	}
 
-    // Read calculations only. Absolutely zero mutations here.
-    const renderTarget = renderer.pixelBuf || renderer.context;
-    if (!renderTarget) return;
-  }
+	function render(renderer, ctx) {
+		assertLifecycle(State.READY, State.RUNNING);
+		if (!sim?.isActive || !renderer) return;
 
-  function getState() {
-    assertLifecycle(State.READY, State.RUNNING);
-    return structuredClone({
-      party: sim.workingParty,
-      inventory: sim.workingInventory,
-      gold: sim.workingGold,
-      stepCounter: sim.stepCounter
-    });
-  }
+		// Read calculations only. Absolutely zero mutations here.
+		const renderTarget = renderer.pixelBuf || renderer.context;
+		if (!renderTarget) return;
+	}
 
-  function getDiagnostics() {
-    if (lifecycleState === State.DESTROYED) {
-      throw new Error("[VSRP-001] Cannot read diagnostics on a DESTROYED instance.");
-    }
-    return {
-      executionTimeMs: diagnostics.executionTimeMs,
-      allocatedBuffers: diagnostics.allocatedBuffers,
-      activeEventHooks: diagnostics.activeEventHooks,
-      internalCacheSize: diagnostics.internalCacheSize
-    };
-  }
+	function getState() {
+		assertLifecycle(State.READY, State.RUNNING);
+		return structuredClone({
+			party: sim.workingParty,
+			inventory: sim.workingInventory,
+			gold: sim.workingGold,
+			stepCounter: sim.stepCounter
+		});
+	}
 
-  // FIXED: Conforms strictly to the canonical { moduleId, version, protocolVersion, capabilities } schema[cite: 4]
-  function getModuleInfo() {
-    return {
-      moduleId: "district_boilerplate_slice",
-      version: "1.0.0",
-      protocolVersion: "VSRP-001",
-      dependencies: ["manifest"],
-      capabilities: ["FIELD_DISPEL", "events.district_resolved"]
-    };
-  }
+	function getDiagnostics() {
+		if (lifecycleState === State.DESTROYED) {
+			throw new Error("[VSRP-001] Cannot read diagnostics on a DESTROYED instance.");
+		}
+		return {
+			executionTimeMs: diagnostics.executionTimeMs,
+			allocatedBuffers: diagnostics.allocatedBuffers,
+			activeEventHooks: diagnostics.activeEventHooks,
+			internalCacheSize: diagnostics.internalCacheSize
+		};
+	}
 
-  function destroy() {
-    if (lifecycleState === State.DESTROYED) return;
-    
-    sim = null;
-    eventBusRef = null;
-    hostConfig = null;
-    hostContext = null;
-    
-    lifecycleState = State.DESTROYED;
-  }
+	// FIXED: Conforms strictly to the canonical { moduleId, version, protocolVersion, capabilities } schema
+	function getModuleInfo() {
+		return {
+			moduleId: "district_boilerplate_slice",
+			version: "1.0.0",
+			protocolVersion: "VSRP-001",
+			dependencies: [ "manifest" ],
+			capabilities: [ "FIELD_DISPEL", "events.district_resolved" ]
+		};
+	}
 
-  // ===========================================================================
-  // INTERNAL PROCEDURAL HELPER METHODS
-  // ===========================================================================
-  function processInputToken(actionToken) {
-    switch (actionToken) {
-      case "CONFIRM":
-        executeActionResolution();
-        break;
-      case "CANCEL":
-        if (sim) sim.stepCounter = 0;
-        break;
-      case "FIELD_DISPEL":
-        if (eventBusRef) {
-          eventBusRef.publish("overworld:transmute_request", {
-            type: "FIELD_DISPEL",
-            timestamp: Date.now()
-          });
-        }
-        break;
-      default:
-        break;
-    }
-  }
+	function destroy() {
+		if (lifecycleState === State.DESTROYED) return;
 
-  function executeActionResolution() {
-    if (!sim) return;
-    sim.stepCounter++;
-    
-    const deltaEnvelope = {
-      outcome: "SUCCESS",
-      goldDelta: sim.pendingDeltas.goldDelta,
-      inventoryDelta: sim.pendingDeltas.inventoryDelta,
-      party: structuredClone(sim.workingParty)
-    };
+		sim = null;
+		eventBusRef = null;
+		hostConfig = null;
+		hostContext = null;
 
-    if (eventBusRef) {
-      eventBusRef.publish("district_boilerplate:resolved", deltaEnvelope);
-    }
-  }
+		lifecycleState = State.DESTROYED;
+	}
 
-  // ===========================================================================
-  // CANONICAL 9-METHOD INTERFACE EXPORT[cite: 4]
-  // ===========================================================================
-  return {
-    configure,
-    init,
-    reset,
-    update,
-    render,
-    getState,
-    getDiagnostics,
-    getModuleInfo,
-    destroy
-  };
+	// ===========================================================================
+	// INTERNAL PROCEDURAL HELPER METHODS
+	// ===========================================================================
+	function processInputToken(actionToken) {
+		switch (actionToken) {
+			case "CONFIRM":
+				executeActionResolution();
+				break;
+			case "CANCEL":
+				if (sim) sim.stepCounter = 0;
+				break;
+			case "FIELD_DISPEL":
+				if (eventBusRef) {
+					eventBusRef.publish("overworld:transmute_request", {
+						type: "FIELD_DISPEL",
+						timestamp: Date.now()
+					});
+				}
+				break;
+			default:
+				break;
+		}
+	}
+
+	function executeActionResolution() {
+		if (!sim) return;
+		sim.stepCounter++;
+
+		const deltaEnvelope = {
+			outcome: "SUCCESS",
+			goldDelta: sim.pendingDeltas.goldDelta,
+			inventoryDelta: sim.pendingDeltas.inventoryDelta,
+			party: structuredClone(sim.workingParty)
+		};
+
+		if (eventBusRef) {
+			eventBusRef.publish("district_boilerplate:resolved", deltaEnvelope);
+		}
+	}
+
+	// ===========================================================================
+	// CANONICAL 9-METHOD INTERFACE EXPORT
+	// ===========================================================================
+	return {
+		configure,
+		init,
+		reset,
+		update,
+		render,
+		getState,
+		getDiagnostics,
+		getModuleInfo,
+		destroy
+	};
 })();
 
 // Export definition matching target architecture conventions
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = UniversalTenantModule;
+	module.exports = UniversalTenantModule;
 }

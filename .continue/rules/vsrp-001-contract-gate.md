@@ -13,6 +13,7 @@ All code changes must strictly maintain the **4-Tier Sovereign Architecture** an
 ---
 
 ## ⛔ HARD PRE-CODE EXECUTION CONTRACT
+
 You MUST NOT generate or refactor any implementation code until you output the following verification gate:
 
 ```text

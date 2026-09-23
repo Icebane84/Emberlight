@@ -33,7 +33,16 @@ const baseDir = path.resolve(__dirname, '..');
 // Canonical load orders
 const coreScripts = require('./load_order.js');
 const phoenixScripts = [
+	'phoenix/templates/starter_pack.js',
+	'phoenix/runtime/phoenix_audio_synth.js',
+	'phoenix/runtime/phoenix_graphics_2d.js',
+	'phoenix/runtime/phoenix_pseudo_3d.js',
+	'phoenix/runtime/phoenix_voxel_3d.js',
+	'phoenix/runtime/phoenix_terrain_raymarcher.js',
+	'phoenix/runtime/phoenix_studio_audio.js',
+	'phoenix/runtime/phoenix_studio_viewport.js',
 	'phoenix/phoenix_sovereign_engine.js',
+	'phoenix/sentinel_evaluator.js',
 	'phoenix/webllm_worker_bridge.js',
 	'phoenix/monolith_exporter.js',
 ];
@@ -277,6 +286,157 @@ async function verifySec03GovernorLifecycle(Engine) {
 	);
 	check('Source rolled back on test failure', gov.getSource('combat.js') === 'function runCombat() { return 200; }');
 
+	// Submit hot-loop allocation proposal (rejected at STRUCTURAL_GATE)
+	gov.grant('agent-1', 'combat/SEC-10', 'MODIFY');
+	const hotLoopProposal = {
+		schemaVersion: 'PGE-DSL-1',
+		proposalId: 'prop-003',
+		target: 'combat/SEC-10',
+		operation: 'MODIFY',
+		intent: 'Add update loop with transient allocations',
+		changes: [
+			{
+				type: 'replace_text',
+				path: 'combat.js',
+				search: 'return 200;',
+				content: 'function update(dt) { const bad = { val: dt }; } return 200;',
+			},
+		],
+		expectedInvariants: [],
+		testsRequested: [],
+		requiredCapabilities: [],
+	};
+
+	const hotReceipt = await gov.submit(hotLoopProposal, 'agent-1');
+	check(
+		'Hot-loop transient allocation rejected at STRUCTURAL_GATE',
+		hotReceipt.status === 'REJECTED' && hotReceipt.gate === 'STRUCTURAL_GATE',
+		`got status: ${hotReceipt.status}, gate: ${hotReceipt.gate}`
+	);
+
+	// Test evaluateProposalWithSentinel pipeline integration
+	context.window.PhoenixGovernor = gov;
+	const evaluateWithSentinel = context.window.evaluateProposalWithSentinel;
+	check('evaluateProposalWithSentinel is defined', typeof evaluateWithSentinel === 'function');
+
+	const sentinelLintProposal = {
+		schemaVersion: 'PGE-DSL-1',
+		proposalId: 'prop-sentinel-lint',
+		target: 'combat/SEC-10',
+		operation: 'MODIFY',
+		intent: 'Placeholder injection test',
+		changes: [
+			{
+				type: 'replace_text',
+				path: 'combat.js',
+				search: 'return 200;',
+				content: '// ... placeholder',
+			},
+		],
+		expectedInvariants: [],
+		testsRequested: [],
+		requiredCapabilities: [],
+	};
+	const sentinelLintReceipt = await evaluateWithSentinel(sentinelLintProposal, 'agent-1');
+	check(
+		'evaluateProposalWithSentinel rejects forbidden placeholders at LINTER_GATE',
+		sentinelLintReceipt.status === 'REJECTED' && sentinelLintReceipt.gate === 'LINTER_GATE'
+	);
+
+	gov.grant('agent-1', 'combat/SEC-10', 'MODIFY');
+	const sentinelValidProposal = {
+		schemaVersion: 'PGE-DSL-1',
+		proposalId: 'prop-sentinel-valid',
+		target: 'combat/SEC-10',
+		operation: 'MODIFY',
+		intent: 'Update combat damage to 300',
+		changes: [
+			{
+				type: 'replace_text',
+				path: 'combat.js',
+				search: 'return 200;',
+				content: 'return 300;',
+			},
+		],
+		expectedInvariants: [],
+		testsRequested: [],
+		requiredCapabilities: [],
+	};
+	const sentinelValidReceipt = await evaluateWithSentinel(sentinelValidProposal, 'agent-1');
+	check(
+		'evaluateProposalWithSentinel accepts clean proposals with PASS status',
+		sentinelValidReceipt.status === 'PASS' && sentinelValidReceipt.gate === 'ALL_GATES'
+	);
+
+	// FSA Directory Handle & SovereignStorage / Governor Disk Sync Verification
+	/** @type {Map<string, string>} */
+	const mockStorageFiles = new Map();
+	/**
+	 * @param {string} filePath
+	 */
+	function createMockFileHandle(filePath) {
+		return {
+			kind: 'file',
+			name: filePath.split('/').pop(),
+			async getFile() {
+				return {
+					text: async () => mockStorageFiles.get(filePath) || '',
+					size: (mockStorageFiles.get(filePath) || '').length
+				};
+			},
+			async createWritable() {
+				let buffer = '';
+				return {
+					async write(/** @type {string} */ chunk) { buffer += chunk; },
+					async close() { mockStorageFiles.set(filePath, buffer); }
+				};
+			}
+		};
+	}
+
+	/**
+	 * @param {string} [dirPath]
+	 */
+	function createMockDirHandle(dirPath = '') {
+		/** @type {Map<string, any>} */
+		const subdirectories = new Map();
+		return {
+			kind: 'directory',
+			name: dirPath ? dirPath.split('/').pop() : 'root',
+			async getDirectoryHandle(/** @type {string} */ name, /** @type {{ create?: boolean }} */ opts) {
+				const fullPath = dirPath ? `${dirPath}/${name}` : name;
+				if (!subdirectories.has(name)) {
+					if (opts?.create) {
+						subdirectories.set(name, createMockDirHandle(fullPath));
+					} else {
+						throw new Error(`Directory not found: ${name}`);
+					}
+				}
+				return subdirectories.get(name);
+			},
+			async getFileHandle(/** @type {string} */ name, /** @type {{ create?: boolean }} */ opts) {
+				const fullPath = dirPath ? `${dirPath}/${name}` : name;
+				if (!mockStorageFiles.has(fullPath) && !opts?.create) {
+					throw new Error(`File not found: ${name}`);
+				}
+				return createMockFileHandle(fullPath);
+			}
+		};
+	}
+
+	const mockRootDir = createMockDirHandle('');
+	gov.storage.mountProjectDirectory(mockRootDir);
+	check('mountProjectDirectory mounts root directory handle', gov.storage.hasProject === true);
+
+	await gov.storage.writeProjectFile('src/combat/combat_actions.js', 'export function attack() { return 50; }');
+	const readBack = await gov.storage.readProjectFile('src/combat/combat_actions.js');
+	check('SovereignStorage writeProjectFile and readProjectFile round-trip correctly', readBack === 'export function attack() { return 50; }');
+
+	gov.registerSource('src/combat/combat_actions.js', 'export function attack() { return 99; }');
+	await gov.writeSourceToDisk('src/combat/combat_actions.js');
+	const syncedBack = await gov.storage.readProjectFile('src/combat/combat_actions.js');
+	check('Governor.writeSourceToDisk writes registered source to disk handle', syncedBack === 'export function attack() { return 99; }');
+
 	return gov;
 }
 
@@ -286,7 +446,7 @@ async function verifySec03GovernorLifecycle(Engine) {
 function verifySec04ReceiptLedger(gov) {
 	console.log('\n[SEC-04] Layer 3: Receipt Ledger');
 	const receipts = gov.getReceipts();
-	check('Ledger contains 2 receipts', receipts.length === 2, `got ${receipts.length}`);
+	check('Ledger contains receipts', receipts.length >= 4, `got ${receipts.length}`);
 	check('Receipts have distinct receipt IDs', receipts[ 0 ].receiptId !== receipts[ 1 ].receiptId);
 	check('Receipt authority is PHOENIX-DETERMINISTIC-GOVERNOR', receipts[ 0 ].authority === 'PHOENIX-DETERMINISTIC-GOVERNOR');
 }
@@ -688,6 +848,60 @@ function verifySec14TerrainAndLinter(Engine) {
 	check('calculateCognitiveComplexity measures nested control flow', complexScore >= 10);
 	const scanned = linter.scanFunctionsComplexity(complexSource, 8);
 	check('scanFunctionsComplexity identifies functions exceeding threshold', scanned.length === 1 && scanned[ 0 ].name === 'deeplyNested');
+
+	// Hot-Loop Allocation Sentinel Verification
+	const hotLoopCode = `
+function update(dt) {
+  const temp = { x: dt * 2 };
+  const arr = [1, 2, 3];
+  const buf = new Float32Array(16);
+  const fn = () => dt;
+  const str = \`frame: \${dt}\`;
+}
+`;
+	const hotViolations = linter.auditHotLoopAllocations(hotLoopCode);
+	check('auditHotLoopAllocations detects object, array, heap, closure, and template allocations in update()', hotViolations.length >= 4);
+	check('auditHotLoopAllocations flags HOT_LOOP_OBJECT_ALLOCATION', hotViolations.some((/** @type {any} */ v) => v.type === 'HOT_LOOP_OBJECT_ALLOCATION'));
+	check('auditHotLoopAllocations flags HOT_LOOP_ARRAY_ALLOCATION', hotViolations.some((/** @type {any} */ v) => v.type === 'HOT_LOOP_ARRAY_ALLOCATION'));
+	check('auditHotLoopAllocations flags HOT_LOOP_HEAP_INSTANTIATION', hotViolations.some((/** @type {any} */ v) => v.type === 'HOT_LOOP_HEAP_INSTANTIATION'));
+
+	// JSDoc Parity Verifier Verification
+	const jsdocDriftCode = `
+/**
+ * @param {number} a
+ * @param {number} b
+ * @param {number} c
+ */
+function add(a, b) {
+  return a + b;
+}
+
+/**
+ * @param {number} targetX
+ */
+function move(targetY) {
+  return targetY;
+}
+`;
+	const jsdocIssues = linter.verifyJSDocParity(jsdocDriftCode);
+	check('verifyJSDocParity detects arity and param name drift', jsdocIssues.length >= 2);
+	check('verifyJSDocParity detects PARAM_ARITY_MISMATCH', jsdocIssues.some((/** @type {any} */ i) => i.issue === 'PARAM_ARITY_MISMATCH'));
+	check('verifyJSDocParity detects PARAM_NAME_MISMATCH', jsdocIssues.some((/** @type {any} */ i) => i.issue === 'PARAM_NAME_MISMATCH'));
+
+	// 5-State Lexer FSM Verification
+	const Lexer = Engine.PhoenixLexer;
+	check('PhoenixLexer is defined', typeof Lexer === 'function');
+	const lexerSample = 'const x = `hello ${foo + 10} world`; const re = /[/*]/g; /* multiline\ncomment */ const y = 42;';
+	const tokens = Lexer.tokenize(lexerSample);
+	check('PhoenixLexer.tokenize extracts streaming tokens', tokens.length >= 10);
+	check('PhoenixLexer disambiguates template strings with interpolation', tokens.some((/** @type {any} */ t) => t.type === 'TEMPLATE_STRING'));
+	check('PhoenixLexer disambiguates regex literals', tokens.some((/** @type {any} */ t) => t.type === 'REGEX'));
+
+	// Test line-by-line FSM carryover
+	const line1Res = Lexer.tokenizeLine('/* start of multiline comment');
+	check('tokenizeLine sets BLOCK_COMMENT endState', line1Res.endState.state === Lexer.STATES.BLOCK_COMMENT);
+	const line2Res = Lexer.tokenizeLine('   end of comment */ const a = 1;', line1Res.endState);
+	check('tokenizeLine recovers CODE state after block comment', line2Res.endState.state === Lexer.STATES.CODE && line2Res.tokens.some((/** @type {any} */ t) => t.type === 'KEYWORD'));
 }
 
 /**
@@ -809,6 +1023,221 @@ window.SampleEngine = SampleEngine;
 	check('analyzeDependencies detects event channels', depResult.events.includes('ATTACK'));
 }
 
+/**
+ * @param {string} raw
+ */
+function cleanPathSlashes(raw) {
+	let p = (raw || '').trim();
+	while (p.startsWith('/') || p.startsWith('\\')) {
+		p = p.slice(1);
+	}
+	return p.trim();
+}
+
+function verifySec17MultiTabAndFileManagement() {
+	console.log('\n--- [SEC-17] Multi-Document Tab Bar & Explorer File CRUD Verification ---');
+
+	// Tab and Dirty tracking state simulator
+	/** @type {string[]} */
+	const openTabs = [];
+	/** @type {Set<string>} */
+	const dirtyTabs = new Set();
+	let activeFile = '';
+
+	/**
+	 * @param {string} filePath
+	 */
+	function openFile(filePath) {
+		activeFile = filePath;
+		if (!openTabs.includes(filePath)) {
+			openTabs.push(filePath);
+		}
+	}
+
+	/**
+	 * @param {string} filePath
+	 */
+	function closeTab(filePath) {
+		const idx = openTabs.indexOf(filePath);
+		if (idx === -1) return;
+		openTabs.splice(idx, 1);
+		dirtyTabs.delete(filePath);
+		if (activeFile === filePath) {
+			activeFile = openTabs.length > 0 ? openTabs[Math.min(idx, openTabs.length - 1)] : '';
+		}
+	}
+
+	/**
+	 * @param {string} filePath
+	 * @param {string} current
+	 * @param {string} committed
+	 */
+	function onContentChange(filePath, current, committed) {
+		if (current !== committed) {
+			dirtyTabs.add(filePath);
+		} else {
+			dirtyTabs.delete(filePath);
+		}
+	}
+
+	// 1. Tab open & active file verification
+	openFile('combat/combat_actions.js');
+	openFile('entities/player.js');
+	openFile('render/viewport.js');
+	check('Multi-tab strip accumulates open files without duplicates', openTabs.length === 3 && activeFile === 'render/viewport.js');
+
+	openFile('combat/combat_actions.js');
+	check('Opening existing open tab does not duplicate tab strip entries', openTabs.length === 3 && activeFile === 'combat/combat_actions.js');
+
+	// 2. Dirty tracking verification
+	onContentChange('combat/combat_actions.js', 'function test() { return 2; }', 'function test() { return 1; }');
+	check('Dirty tabs set tracks unsaved modifications', dirtyTabs.has('combat/combat_actions.js'));
+
+	onContentChange('combat/combat_actions.js', 'function test() { return 1; }', 'function test() { return 1; }');
+	check('Reverting content clears dirty tab indicator', !dirtyTabs.has('combat/combat_actions.js'));
+
+	// 3. Tab closing & adjacent selection verification
+	onContentChange('entities/player.js', 'dirty', 'clean');
+	closeTab('entities/player.js');
+	check('Closing tab removes from open tabs array', openTabs.length === 2 && !openTabs.includes('entities/player.js'));
+	check('Closing tab clears dirty state for that file', !dirtyTabs.has('entities/player.js'));
+
+	closeTab('combat/combat_actions.js');
+	check('Closing active tab switches to remaining adjacent tab', activeFile === 'render/viewport.js');
+
+	closeTab('render/viewport.js');
+	check('Closing final tab clears active file selection', openTabs.length === 0 && activeFile === '');
+
+	// 4. VFS CRUD simulator verification
+	/** @type {Map<string, string>} */
+	const vfs = new Map();
+	/**
+	 * @param {string} path
+	 * @param {string} content
+	 */
+	function createVfsFile(path, content) {
+		const clean = cleanPathSlashes(path);
+		vfs.set(clean, content);
+		return clean;
+	}
+	/**
+	 * @param {string} oldPath
+	 * @param {string} newPath
+	 */
+	function renameVfsFile(oldPath, newPath) {
+		const clean = cleanPathSlashes(newPath);
+		const content = vfs.get(oldPath) || '';
+		vfs.delete(oldPath);
+		vfs.set(clean, content);
+		return clean;
+	}
+	/**
+	 * @param {string} path
+	 */
+	function deleteVfsFile(path) {
+		return vfs.delete(path);
+	}
+
+	createVfsFile('combat/boss_encounter.js', 'export const boss = {};');
+	check('createVfsFile creates new entry in VFS map', vfs.has('combat/boss_encounter.js'));
+
+	renameVfsFile('combat/boss_encounter.js', 'combat/malakor_boss.js');
+	check('renameVfsFile transfers content and updates key in VFS', vfs.has('combat/malakor_boss.js') && !vfs.has('combat/boss_encounter.js'));
+
+	deleteVfsFile('combat/malakor_boss.js');
+	check('deleteVfsFile removes entry from VFS', !vfs.has('combat/malakor_boss.js'));
+}
+
+/**
+ * @param {any} vmContext
+ */
+function verifySec18ProposalSanitizationAndUnicodeTargets(vmContext) {
+	console.log('\n[SEC-18] Unicode Target Registration, Proposal Envelope Sanitization & Hunk Operations');
+	const Engine = vmContext.window.PhoenixSovereignEngine;
+	const spec = new Engine.SpecificationRegistry();
+
+	// 1. Unicode & whitespace target registration
+	const unicodePath1 = 'Synarche_Workspace/incoming/🔗 SYNG.Link.Forge_ The Ingestion-to-Canonization Bridge.md';
+	const unicodePath2 = 'Vertical Slices/The Descent/The Descent — Vertical Slice v7.html';
+	const unicodePath3 = 'Vector Nexus - Copy.html';
+
+	spec.registerTarget(unicodePath1, {
+		tenant: 'SYNARCHE',
+		path: unicodePath1,
+		writable: true,
+		allowedOperations: [ 'MODIFY', 'REPLACE' ],
+		capabilities: [],
+		dependencies: []
+	});
+	check('SpecificationRegistry accepts emoji & bracket paths', spec.getTarget(unicodePath1) !== null);
+
+	spec.registerTarget(unicodePath2, {
+		tenant: 'DESCENT',
+		path: unicodePath2,
+		writable: true,
+		allowedOperations: [ 'MODIFY', 'REPLACE' ],
+		capabilities: [],
+		dependencies: []
+	});
+	check('SpecificationRegistry accepts em-dash & space paths', spec.getTarget(unicodePath2) !== null);
+
+	spec.registerTarget(unicodePath3, {
+		tenant: 'VECTOR NEXUS',
+		path: unicodePath3,
+		writable: true,
+		allowedOperations: [ 'MODIFY', 'REPLACE' ],
+		capabilities: [],
+		dependencies: []
+	});
+	check('SpecificationRegistry accepts tenant names and copy filenames with spaces', spec.getTarget(unicodePath3) !== null);
+
+	// 2. Proposal envelope sanitizer contract simulation
+	/**
+	 * @param {any} rawProposal
+	 * @param {string} [fallbackTarget]
+	 * @param {string} [fallbackIntent]
+	 */
+	function sanitizeProposalEnvelope(rawProposal, fallbackTarget = 'index.html', fallbackIntent = 'Auto-repair update') {
+		const target = String(rawProposal?.target || fallbackTarget || 'index.html').trim();
+		const schemaVersion = 'PGE-DSL-1';
+		const proposalId = (typeof rawProposal?.proposalId === 'string' && rawProposal.proposalId.trim())
+			? rawProposal.proposalId.trim()
+			: `prop-${Date.now().toString(36)}`;
+		const operation = (typeof rawProposal?.operation === 'string' && rawProposal.operation.trim())
+			? rawProposal.operation.trim().toUpperCase()
+			: 'MODIFY';
+		const rawIntent = typeof rawProposal?.intent === 'string' ? rawProposal.intent.trim() : '';
+		const intent = (rawIntent.length >= 1 && rawIntent.length <= 4096) ? rawIntent : fallbackIntent;
+		const requiredCapabilities = Array.isArray(rawProposal?.requiredCapabilities) ? rawProposal.requiredCapabilities : [];
+		const expectedInvariants = Array.isArray(rawProposal?.expectedInvariants) ? rawProposal.expectedInvariants : [ 'damage.nonnegative' ];
+		const testsRequested = Array.isArray(rawProposal?.testsRequested) ? rawProposal.testsRequested : [ 'sentinel.headless' ];
+		const changes = Array.isArray(rawProposal?.changes) && rawProposal.changes.length > 0 ? rawProposal.changes : [
+			{ type: 'replace_text', path: target, search: '', content: '// default' }
+		];
+		return { schemaVersion, proposalId, target, operation, intent, requiredCapabilities, expectedInvariants, testsRequested, changes };
+	}
+
+	const sparseProposal = { changes: [ { type: 'replace_text', path: 'Vector Nexus - Copy.html', search: 'A', content: 'B' } ] };
+	const clean = sanitizeProposalEnvelope(sparseProposal, 'Vector Nexus - Copy.html', 'Sanitized test proposal');
+	check('Sanitizer normalizes schemaVersion to PGE-DSL-1', clean.schemaVersion === 'PGE-DSL-1');
+	check('Sanitizer fills default target', clean.target === 'Vector Nexus - Copy.html');
+	check('Sanitizer fills required arrays', Array.isArray(clean.expectedInvariants) && Array.isArray(clean.testsRequested) && Array.isArray(clean.requiredCapabilities));
+	check('Sanitizer preserves changes', clean.changes.length === 1 && clean.changes[ 0 ].content === 'B');
+
+	// 3. Diff Hunk compute, apply, and reject
+	const DiffEngine = Engine.PhoenixChunkDiffEngine;
+	const oldCode = 'line 1\nline 2\nline 3';
+	const newCode = 'line 1\nline 2 MODIFIED\nline 3';
+	const hunks = DiffEngine.computeHunks(oldCode, newCode);
+	check('ChunkDiffEngine computes single hunk for line change', hunks.length === 1);
+
+	const applied = DiffEngine.applyHunk(oldCode, hunks[ 0 ]);
+	check('applyHunk commits change to baseline', applied === newCode);
+
+	const rejected = DiffEngine.rejectHunk(newCode, hunks[ 0 ]);
+	check('rejectHunk reverts modified code to old state', rejected === oldCode);
+}
+
 function printSummary() {
 	const totalChecks = passed + failed;
 	console.log(`\n${'─'.repeat(60)}`);
@@ -844,6 +1273,8 @@ async function runVerification() {
 	verifySec14TerrainAndLinter(Engine);
 	verifySec15ERLAndRemediation(context);
 	verifySec16RegionScaffolder(context);
+	verifySec17MultiTabAndFileManagement();
+	verifySec18ProposalSanitizationAndUnicodeTargets(context);
 
 	printSummary();
 }

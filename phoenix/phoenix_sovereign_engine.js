@@ -75,8 +75,8 @@
 	/** Default capability expiry in governor ticks (proposals processed) */
 	const DEFAULT_CAP_EXPIRY = 16;
 
-	/** Regex: valid identifier for IDs, targets, capability names */
-	const RE_ID = /^[A-Za-z0-9_.:/()[\]@\s&+#%,'"!$-]{1,256}$/;
+	/** Regex: valid identifier for IDs, targets, capability names (supports full Unicode, emojis, spaces, em-dashes) */
+	const RE_ID = /^[\p{L}\p{N}\p{P}\p{S}\p{M}\s./_@&#+%,'"!()[\]$-]{1,512}$/u;
 	const RE_CAP = /^[A-Za-z0-9_.:-]{1,128}$/;
 
 	/**
@@ -427,303 +427,29 @@
 	}
 	//#endregion
 
-	//#region [SEC-03] Procedural Web Audio Synthesizer Subsystem
-	const SFX_PRESETS = Object.freeze({
-		LASER: Object.freeze({
-			name: "Laser",
-			wave: "sawtooth",
-			freqStart: 950,
-			freqEnd: 120,
-			attack: 0.005,
-			decay: 0.12,
-			sustain: 0.01,
-			release: 0.05,
-			volume: 0.35,
-			sweepType: "exponential",
-		}),
-		EXPLOSION: Object.freeze({
-			name: "Explosion",
-			wave: "noise",
-			freqStart: 220,
-			freqEnd: 30,
-			attack: 0.01,
-			decay: 0.45,
-			sustain: 0.05,
-			release: 0.25,
-			volume: 0.5,
-			sweepType: "linear",
-		}),
-		JUMP: Object.freeze({
-			name: "Jump",
-			wave: "square",
-			freqStart: 180,
-			freqEnd: 620,
-			attack: 0.01,
-			decay: 0.16,
-			sustain: 0.02,
-			release: 0.06,
-			volume: 0.3,
-			sweepType: "exponential",
-		}),
-		HIT: Object.freeze({
-			name: "Hit",
-			wave: "triangle",
-			freqStart: 320,
-			freqEnd: 60,
-			attack: 0.005,
-			decay: 0.1,
-			sustain: 0.0,
-			release: 0.04,
-			volume: 0.45,
-			sweepType: "exponential",
-		}),
-		COIN: Object.freeze({
-			name: "Coin",
-			wave: "sine",
-			freqStart: 987,
-			freqEnd: 1318,
-			attack: 0.01,
-			decay: 0.25,
-			sustain: 0.15,
-			release: 0.1,
-			volume: 0.35,
-			sweepType: "step",
-		}),
-		POWERUP: Object.freeze({
-			name: "Powerup",
-			wave: "sawtooth",
-			freqStart: 220,
-			freqEnd: 880,
-			attack: 0.02,
-			decay: 0.35,
-			sustain: 0.2,
-			release: 0.15,
-			volume: 0.35,
-			sweepType: "exponential",
-		}),
-		FOOTSTEP: Object.freeze({
-			name: "Footstep",
-			wave: "triangle",
-			freqStart: 120,
-			freqEnd: 40,
-			attack: 0.005,
-			decay: 0.06,
-			sustain: 0.0,
-			release: 0.02,
-			volume: 0.2,
-			sweepType: "linear",
-		}),
-		DEFLECT: Object.freeze({
-			name: "Deflect",
-			wave: "square",
-			freqStart: 1400,
-			freqEnd: 700,
-			attack: 0.002,
-			decay: 0.08,
-			sustain: 0.02,
-			release: 0.04,
-			volume: 0.35,
-			sweepType: "exponential",
-		}),
-	});
-
+	//#region [SEC-03] Procedural Web Audio Synthesizer Bridge (VSRP-001-RUNTIME-DELEGATE)
 	/**
-	 * @type {AudioContext | null}
+	 * Procedural Web Audio Synthesizer Bridge.
+	 * Implementation partitioned into modular runtime: phoenix/runtime/phoenix_audio_synth.js
 	 */
-	let _sharedAudioCtx = null;
-
-	function getAudioContext() {
-		if (!_sharedAudioCtx) {
-			/** @type {typeof AudioContext | null} */
-			let AudioContextClass = null;
-			const g = /** @type {Record<string, any>} */ (global);
-			if (typeof g.AudioContext === "function") {
-				AudioContextClass = g.AudioContext;
-			} else if (typeof g.webkitAudioContext === "function") {
-				AudioContextClass = g.webkitAudioContext;
-			}
-			if (AudioContextClass) {
-				_sharedAudioCtx = new AudioContextClass();
-			}
-		}
-		if (_sharedAudioCtx?.state === "suspended") {
-			_sharedAudioCtx.resume().catch(() => { });
-		}
-		return _sharedAudioCtx;
-	}
-
-	/**
-	 * Creates a white-noise audio buffer
-	 * @param {AudioContext | BaseAudioContext} ctx
-	 * @param {number} [durationSec=0.5]
-	 * @returns {AudioBuffer}
-	 */
-	function createNoiseBuffer(ctx, durationSec = 0.5) {
-		const sampleRate = ctx.sampleRate || 44100;
-		const bufferSize = Math.floor(sampleRate * durationSec);
-		const buffer = ctx.createBuffer(1, bufferSize, sampleRate);
-		const output = buffer.getChannelData(0);
-		let noiseSeed = 0x853c49e6;
-		for (let i = 0; i < bufferSize; i++) {
-			noiseSeed = (noiseSeed * 1664525 + 1013904223) >>> 0;
-			output[ i ] = (noiseSeed / 2147483648) - 1;
-		}
-		return buffer;
-	}
-
-	/**
-	 * Synthesizes and plays a procedural sound effect
-	 * @param {Record<string, unknown>} params
-	 * @param {AudioContext | BaseAudioContext | null} [audioCtx]
-	 * @returns {Promise<boolean>}
-	 */
-	async function playProceduralSFX(params, audioCtx) {
-		const ctx = audioCtx || getAudioContext();
-		if (!ctx) return false;
-
-		const wave = typeof params.wave === "string" ? params.wave : "sine";
-		const freqStart = Math.max(20, Number(params.freqStart) || 440);
-		const freqEnd = Math.max(20, Number(params.freqEnd) || 220);
-		const attack = Math.max(0.001, Number(params.attack) || 0.01);
-		const decay = Math.max(0.01, Number(params.decay) || 0.15);
-		const sustain = Math.max(0, Math.min(1, Number(params.sustain) || 0.1));
-		const release = Math.max(0.01, Number(params.release) || 0.05);
-		const volume = Math.max(0, Math.min(1, Number(params.volume) || 0.3));
-		const sweepType = typeof params.sweepType === "string" ? params.sweepType : "exponential";
-
-		const now = ctx.currentTime;
-		const totalDuration = attack + decay + release;
-
-		const masterGain = ctx.createGain();
-		masterGain.gain.setValueAtTime(0.0001, now);
-		masterGain.gain.exponentialRampToValueAtTime(volume, now + attack);
-		masterGain.gain.exponentialRampToValueAtTime(Math.max(0.0001, volume * sustain), now + attack + decay);
-		masterGain.gain.exponentialRampToValueAtTime(0.0001, now + totalDuration);
-		masterGain.connect(ctx.destination);
-
-		if (wave === "noise") {
-			const noiseBuffer = createNoiseBuffer(ctx, totalDuration);
-			const noiseSource = ctx.createBufferSource();
-			noiseSource.buffer = noiseBuffer;
-
-			const filter = ctx.createBiquadFilter();
-			filter.type = "lowpass";
-			filter.frequency.setValueAtTime(freqStart, now);
-			if (sweepType === "exponential") {
-				filter.frequency.exponentialRampToValueAtTime(Math.max(20, freqEnd), now + totalDuration);
-			} else {
-				filter.frequency.linearRampToValueAtTime(freqEnd, now + totalDuration);
-			}
-
-			noiseSource.connect(filter);
-			filter.connect(masterGain);
-			noiseSource.start(now);
-			noiseSource.stop(now + totalDuration);
-		} else {
-			const osc = ctx.createOscillator();
-			osc.type = /** @type {OscillatorType} */ (wave);
-			osc.frequency.setValueAtTime(freqStart, now);
-
-			if (sweepType === "exponential") {
-				osc.frequency.exponentialRampToValueAtTime(Math.max(20, freqEnd), now + totalDuration);
-			} else if (sweepType === "step") {
-				osc.frequency.setValueAtTime(freqStart, now);
-				osc.frequency.setValueAtTime(freqEnd, now + (attack + decay) * 0.5);
-			} else {
-				osc.frequency.linearRampToValueAtTime(freqEnd, now + totalDuration);
-			}
-
-			osc.connect(masterGain);
-			osc.start(now);
-			osc.stop(now + totalDuration);
-		}
-
-		return true;
-	}
-
-	/**
-	 * Generates standalone or EventBus-wired JavaScript code for a sound preset
-	 * @param {Record<string, unknown>} params
-	 * @param {"standalone" | "eventbus"} [format="standalone"]
-	 * @param {string} [eventName="SFX_TRIGGERED"]
-	 * @returns {string}
-	 */
-	function generateSFXCode(params, format = "standalone", eventName = "SFX_TRIGGERED") {
-		const sfxName = typeof params.name === "string" ? params.name : "Custom";
-		const sfxConfig = {
-			name: sfxName,
-			wave: typeof params.wave === "string" ? params.wave : "sine",
-			freqStart: Number(params.freqStart) || 440,
-			freqEnd: Number(params.freqEnd) || 220,
-			attack: Number(params.attack) || 0.01,
-			decay: Number(params.decay) || 0.15,
-			sustain: Number(params.sustain) || 0.1,
-			release: Number(params.release) || 0.05,
-			volume: Number(params.volume) || 0.3,
-			sweepType: typeof params.sweepType === "string" ? params.sweepType : "exponential",
-		};
-
-		if (format === "eventbus") {
-			return `// [SEC-AUDIO] Procedural SFX EventBus Listener (${sfxName})
-if (typeof EmberlightEventBus !== 'undefined') {
-  EmberlightEventBus.subscribe('${eventName}', () => {
-    PhoenixAudioSynthesizer.playProceduralSFX(${JSON.stringify(sfxConfig, null, 2)});
-  });
-}`;
-		}
-
-		const fnName = `play${sfxName.replace(/[^A-Za-z0-9]/g, "")}SFX`;
-		return `/**
- * Procedural SFX: ${sfxName}
- * Protocol: VSRP-001 / Pure Web Audio Synthesis (0KB Assets)
- * @param {AudioContext | BaseAudioContext} [audioCtx]
- */
-function ${fnName}(audioCtx) {
-  const ctx = audioCtx || (typeof AudioContext !== 'undefined' ? new AudioContext() : null);
-  if (!ctx) return;
-  const cfg = ${JSON.stringify(sfxConfig)};
-  const now = ctx.currentTime;
-  const totalDuration = cfg.attack + cfg.decay + cfg.release;
-  const masterGain = ctx.createGain();
-  masterGain.gain.setValueAtTime(0.0001, now);
-  masterGain.gain.exponentialRampToValueAtTime(cfg.volume, now + cfg.attack);
-  masterGain.gain.exponentialRampToValueAtTime(Math.max(0.0001, cfg.volume * cfg.sustain), now + cfg.attack + cfg.decay);
-  masterGain.gain.exponentialRampToValueAtTime(0.0001, now + totalDuration);
-  masterGain.connect(ctx.destination);
-
-  if (cfg.wave === 'noise') {
-    const bufferSize = Math.floor((ctx.sampleRate || 44100) * totalDuration);
-    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate || 44100);
-    const data = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-    const noise = ctx.createBufferSource();
-    noise.buffer = noiseBuffer;
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(cfg.freqStart, now);
-    filter.frequency.exponentialRampToValueAtTime(Math.max(20, cfg.freqEnd), now + totalDuration);
-    noise.connect(filter);
-    filter.connect(masterGain);
-    noise.start(now);
-    noise.stop(now + totalDuration);
-  } else {
-    const osc = ctx.createOscillator();
-    osc.type = cfg.wave;
-    osc.frequency.setValueAtTime(cfg.freqStart, now);
-    osc.frequency.exponentialRampToValueAtTime(Math.max(20, cfg.freqEnd), now + totalDuration);
-    osc.connect(masterGain);
-    osc.start(now);
-    osc.stop(now + totalDuration);
-  }
-}`;
-	}
-
 	const PhoenixAudioSynthesizer = Object.freeze({
-		PRESETS: SFX_PRESETS,
-		getAudioContext,
-		createNoiseBuffer,
-		playProceduralSFX,
-		generateSFXCode,
+		get PRESETS() { return global.PhoenixAudioSynthesizer ? global.PhoenixAudioSynthesizer.PRESETS : {}; },
+		/**
+		 * @param {any[]} args
+		 */
+		getAudioContext(...args) { return global.PhoenixAudioSynthesizer?.getAudioContext?.(...args); },
+		/**
+		 * @param {any[]} args
+		 */
+		createNoiseBuffer(...args) { return global.PhoenixAudioSynthesizer?.createNoiseBuffer?.(...args); },
+		/**
+		 * @param {any[]} args
+		 */
+		playProceduralSFX(...args) { return global.PhoenixAudioSynthesizer?.playProceduralSFX?.(...args); },
+		/**
+		 * @param {any[]} args
+		 */
+		generateSFXCode(...args) { return global.PhoenixAudioSynthesizer?.generateSFXCode?.(...args); },
 	});
 	//#endregion
 
@@ -936,6 +662,493 @@ function ${fnName}(audioCtx) {
 		clear() {
 			this._fileSymbols.clear();
 			this._symbolTable.clear();
+		}
+	}
+
+	/* =========================================================================
+	 * [SEC-05B] CONTEXTUAL 5-STATE LEXICAL SCANNER & STREAMING TOKENIZER (VLT-003)
+	 * ========================================================================= */
+	/**
+	 * Lexer State Constants
+	 * @type {Record<string, number>}
+	 */
+	const LEXER_STATE = Object.freeze({
+		CODE: 0,
+		BLOCK_COMMENT: 1,
+		TEMPLATE_LITERAL: 2,
+		TEMPLATE_INTERPOLATION: 3,
+		REGEX: 4,
+	});
+
+	const OP3_SET = new Set([ "===", "!==", ">>>", "...", "??=", "&&=", "||=" ]);
+	const OP2_SET = new Set([
+		"==", "!=", "<=", ">=", "&&", "||", "??", "=>",
+		"+=", "-=", "*=", "/=", "%=", "++", "--", "<<",
+		">>", "&=", "|=", "^="
+	]);
+
+	const LEXER_KEYWORDS = new Set([
+		"const", "let", "var", "function", "return", "if", "else", "for", "while", "do",
+		"switch", "case", "default", "break", "continue", "class", "extends", "new",
+		"this", "super", "try", "catch", "finally", "throw", "async", "await", "yield",
+		"import", "export", "from", "as", "typeof", "instanceof", "in", "of", "void",
+		"delete", "static", "get", "set", "debugger"
+	]);
+
+	const LEXER_BUILTINS = new Set([
+		"true", "false", "null", "undefined", "NaN", "Infinity",
+		"Object", "Array", "String", "Number", "Boolean", "Math", "JSON", "Promise",
+		"Set", "Map", "WeakSet", "WeakMap", "Uint8Array", "Float32Array", "Int32Array",
+		"Uint16Array", "Int16Array", "Uint32Array", "Float64Array", "ArrayBuffer", "DataView",
+		"OffscreenCanvas", "ImageBitmap", "Error", "TypeError", "RangeError", "SyntaxError",
+		"Symbol", "BigInt", "RegExp", "Date", "Console", "console", "window", "globalThis",
+		"document", "crypto", "performance", "requestAnimationFrame", "cancelAnimationFrame"
+	]);
+
+	/**
+	 * Single-Pass Contextual Lexer FSM for JavaScript and Sovereign DSLs
+	 */
+	class PhoenixLexer {
+		static get STATES() {
+			return LEXER_STATE;
+		}
+
+		/**
+		 * @param {string} code
+		 * @returns {Array<{ type: string; value: string; line: number; col: number; start: number; end: number }>}
+		 */
+		static tokenize(code) {
+			if (typeof code !== "string") return [];
+			/** @type {Array<{ type: string; value: string; line: number; col: number; start: number; end: number }>} */
+			const tokens = [];
+			const lines = code.split(/\r?\n/);
+			/** @type {{ state: number; braceDepth: number; depthStack: number[] }} */
+			let state = { state: LEXER_STATE.CODE, braceDepth: 0, depthStack: [] };
+			let charOffset = 0;
+
+			for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+				const lineText = lines[ lineIdx ];
+				const result = this.tokenizeLine(lineText, state);
+				let colOffset = 0;
+
+				for (const tok of result.tokens) {
+					tokens.push({
+						type: tok.type,
+						value: tok.value,
+						line: lineIdx + 1,
+						col: colOffset + 1,
+						start: charOffset + colOffset,
+						end: charOffset + colOffset + tok.value.length,
+					});
+					colOffset += tok.value.length;
+				}
+
+				state = result.endState;
+				charOffset += lineText.length + 1; // +1 for newline
+			}
+
+			return tokens;
+		}
+
+		/**
+		 * @param {string} line
+		 * @param {number} startIdx
+		 * @returns {{ token: string; nextIdx: number; endState: number }}
+		 */
+		static _readBlockComment(line, startIdx) {
+			const closeIdx = line.indexOf("*/", startIdx);
+			if (closeIdx === -1) {
+				return { token: line.slice(startIdx), nextIdx: line.length, endState: LEXER_STATE.BLOCK_COMMENT };
+			}
+			return { token: line.slice(startIdx, closeIdx + 2), nextIdx: closeIdx + 2, endState: LEXER_STATE.CODE };
+		}
+
+		/**
+		 * @param {string} line
+		 * @param {number} startIdx
+		 * @param {number} currentBraceDepth
+		 * @param {number[]} depthStack
+		 * @returns {{ tokens: Array<{ type: string; value: string }>; nextIdx: number; endState: number; braceDepth: number }}
+		 */
+		static _readTemplateLiteral(line, startIdx, currentBraceDepth, depthStack) {
+			/** @type {Array<{ type: string; value: string }>} */
+			const resultTokens = [];
+			let str = "";
+			let i = startIdx;
+			const len = line.length;
+			let endState = Number(LEXER_STATE.TEMPLATE_LITERAL);
+			let braceDepth = currentBraceDepth;
+
+			while (i < len) {
+				const ch = line[ i ];
+				if (ch === "\\" && i + 1 < len) {
+					str += ch + line[ i + 1 ];
+					i += 2;
+				} else if (ch === "`") {
+					str += ch;
+					i++;
+					endState = depthStack.length > 0 ? LEXER_STATE.TEMPLATE_INTERPOLATION : LEXER_STATE.CODE;
+					break;
+				} else if (ch === "$" && i + 1 < len && line[ i + 1 ] === "{") {
+					if (str) resultTokens.push({ type: "TEMPLATE_STRING", value: str });
+					resultTokens.push({ type: "PUNCTUATION", value: "${" });
+					i += 2;
+					depthStack.push(braceDepth);
+					braceDepth = 0;
+					endState = LEXER_STATE.TEMPLATE_INTERPOLATION;
+					str = "";
+					break;
+				} else {
+					str += ch;
+					i++;
+				}
+			}
+			if (str) resultTokens.push({ type: "TEMPLATE_STRING", value: str });
+			return { tokens: resultTokens, nextIdx: i, endState, braceDepth };
+		}
+
+		/**
+		 * @param {string} line
+		 * @param {number} startIdx
+		 * @param {string} quote
+		 * @returns {{ token: string; nextIdx: number }}
+		 */
+		static _readString(line, startIdx, quote) {
+			let str = quote;
+			let i = startIdx + 1;
+			const len = line.length;
+			while (i < len) {
+				const c = line[ i ];
+				if (c === "\\" && i + 1 < len) {
+					str += c + line[ i + 1 ];
+					i += 2;
+				} else if (c === quote) {
+					str += quote;
+					i++;
+					break;
+				} else {
+					str += c;
+					i++;
+				}
+			}
+			return { token: str, nextIdx: i };
+		}
+
+		/**
+		 * @param {string} line
+		 * @param {number} startIdx
+		 * @returns {{ token: string; nextIdx: number }}
+		 */
+		static _readRegex(line, startIdx) {
+			let regexStr = "/";
+			let i = startIdx + 1;
+			const len = line.length;
+			let inClass = false;
+			let escaped = false;
+			while (i < len) {
+				const c = line[ i ];
+				if (escaped) {
+					regexStr += c;
+					escaped = false;
+					i++;
+				} else if (c === "\\") {
+					regexStr += c;
+					escaped = true;
+					i++;
+				} else if (c === "[") {
+					inClass = true;
+					regexStr += c;
+					i++;
+				} else if (c === "]" && inClass) {
+					inClass = false;
+					regexStr += c;
+					i++;
+				} else if (c === "/" && !inClass) {
+					regexStr += c;
+					i++;
+					while (i < len && /[a-z]/i.test(line[ i ])) {
+						regexStr += line[ i++ ];
+					}
+					break;
+				} else {
+					regexStr += c;
+					i++;
+				}
+			}
+			return { token: regexStr, nextIdx: i };
+		}
+
+		/**
+		 * @param {string} line
+		 * @param {number} startIdx
+		 * @returns {{ token: string; nextIdx: number }}
+		 */
+		static _readNumber(line, startIdx) {
+			const sub = line.slice(startIdx);
+			const hexOrBin = /^0[xXbB][0-9a-fA-F_]+/.exec(sub);
+			if (hexOrBin) return { token: hexOrBin[ 0 ], nextIdx: startIdx + hexOrBin[ 0 ].length };
+			const dec = /^\d[\d_]*(?:\.[\d_]*)?(?:[eE][+-]?\d+)?/.exec(sub);
+			if (dec) return { token: dec[ 0 ], nextIdx: startIdx + dec[ 0 ].length };
+			return { token: line[ startIdx ], nextIdx: startIdx + 1 };
+		}
+
+		/**
+		 * @param {string} line
+		 * @param {number} startIdx
+		 * @returns {{ token: string; nextIdx: number; isOp: boolean } | null}
+		 */
+		static _readOperator(line, startIdx) {
+			const sub3 = line.slice(startIdx, startIdx + 3);
+			if (OP3_SET.has(sub3)) {
+				return { token: sub3, nextIdx: startIdx + 3, isOp: true };
+			}
+			const sub2 = line.slice(startIdx, startIdx + 2);
+			if (OP2_SET.has(sub2)) {
+				return { token: sub2, nextIdx: startIdx + 2, isOp: true };
+			}
+			const ch = line[ startIdx ];
+			if ("+-*%^&|!~<>?=".includes(ch)) {
+				return { token: ch, nextIdx: startIdx + 1, isOp: true };
+			}
+			if ("(){}[],;.:".includes(ch)) {
+				return { token: ch, nextIdx: startIdx + 1, isOp: false };
+			}
+			return null;
+		}
+
+		/**
+		 * @param {string} line
+		 * @param {number} startIdx
+		 * @param {Set<string>} keywords
+		 * @param {Set<string>} builtins
+		 * @returns {{ type: string; token: string; nextIdx: number }}
+		 */
+		static _readIdentifier(line, startIdx, keywords, builtins) {
+			let ident = "";
+			let i = startIdx;
+			const len = line.length;
+			while (i < len && /[a-zA-Z0-9_$]/.test(line[ i ])) ident += line[ i++ ];
+
+			let nextNonWs = "";
+			let j = i;
+			while (j < len && (line[ j ] === " " || line[ j ] === "\t")) j++;
+			if (j < len) nextNonWs = line[ j ];
+
+			let type = "IDENTIFIER";
+			if (keywords.has(ident)) type = "KEYWORD";
+			else if (builtins.has(ident)) type = "BUILTIN";
+			else if (nextNonWs === "(") type = "FUNCTION";
+
+			return { type, token: ident, nextIdx: i };
+		}
+
+		/**
+		 * @param {string | null} type
+		 * @returns {boolean}
+		 */
+		static _isRegexContext(type) {
+			return !type || type === "OPERATOR" || type === "PUNCTUATION" || type === "KEYWORD";
+		}
+
+		/**
+		 * @param {string} ch
+		 * @param {number} braceDepth
+		 * @param {number[]} depthStack
+		 * @returns {{ braceDepth: number; nextState: number }}
+		 */
+		static _stepInterpolationBrace(ch, braceDepth, depthStack) {
+			if (ch === "{") {
+				return { braceDepth: braceDepth + 1, nextState: LEXER_STATE.TEMPLATE_INTERPOLATION };
+			}
+			if (braceDepth > 0) {
+				return { braceDepth: braceDepth - 1, nextState: LEXER_STATE.TEMPLATE_INTERPOLATION };
+			}
+			return { braceDepth: depthStack.pop() || 0, nextState: LEXER_STATE.TEMPLATE_LITERAL };
+		}
+
+		/**
+		 * @param {string} line
+		 * @param {number} i
+		 * @param {number} len
+		 * @param {string} ch
+		 * @returns {{ type: string; token: string; nextIdx: number }}
+		 */
+		static _readNextToken(line, i, len, ch) {
+			if (/\d/.test(ch) || (ch === "." && i + 1 < len && /\d/.test(line[ i + 1 ]))) {
+				const res = PhoenixLexer._readNumber(line, i);
+				return { type: "NUMBER", token: res.token, nextIdx: res.nextIdx };
+			}
+			if (/[a-zA-Z_$]/.test(ch)) {
+				return PhoenixLexer._readIdentifier(line, i, LEXER_KEYWORDS, LEXER_BUILTINS);
+			}
+			const opRes = PhoenixLexer._readOperator(line, i);
+			if (opRes) {
+				return { type: opRes.isOp ? "OPERATOR" : "PUNCTUATION", token: opRes.token, nextIdx: opRes.nextIdx };
+			}
+			return { type: "IDENTIFIER", token: ch, nextIdx: i + 1 };
+		}
+
+		/**
+		 * @param {string} line
+		 * @param {number} startIdx
+		 * @param {number} len
+		 * @returns {{ token: string; nextIdx: number }}
+		 */
+		static _consumeWhitespace(line, startIdx, len) {
+			let ws = "";
+			let i = startIdx;
+			while (i < len) {
+				const c = line[ i ];
+				if (c !== " " && c !== "\t" && c !== "\r") break;
+				ws += c;
+				i++;
+			}
+			return { token: ws, nextIdx: i };
+		}
+
+		/**
+		 * @param {string} line
+		 * @param {number} i
+		 * @param {number} len
+		 * @param {string | null} prevType
+		 * @returns {{ type: string; token: string; nextIdx: number; endState?: number } | null}
+		 */
+		static _readSlashToken(line, i, len, prevType) {
+			const nextChar = i + 1 < len ? line[ i + 1 ] : "";
+			if (nextChar === "/") return { type: "COMMENT", token: line.slice(i), nextIdx: len };
+			if (nextChar === "*") {
+				const res = PhoenixLexer._readBlockComment(line, i);
+				return { type: "COMMENT", token: res.token, nextIdx: res.nextIdx, endState: res.endState };
+			}
+			if (PhoenixLexer._isRegexContext(prevType)) {
+				const res = PhoenixLexer._readRegex(line, i);
+				return { type: "REGEX", token: res.token, nextIdx: res.nextIdx };
+			}
+			return null;
+		}
+
+		/**
+		 * @param {string} line
+		 * @param {number} i
+		 * @param {number} len
+		 * @param {{ currentState: number; braceDepth: number; depthStack: number[]; prevType: string | null }} ctx
+		 * @returns {{ type: string; token: string; nextIdx: number; tokens?: Array<{ type: string; value: string }>; endState?: number; braceDepth?: number }}
+		 */
+		static _dispatchLineToken(line, i, len, ctx) {
+			const ch = line[ i ];
+			if (ch === " " || ch === "\t" || ch === "\r") {
+				const ws = PhoenixLexer._consumeWhitespace(line, i, len);
+				return { type: "WHITESPACE", token: ws.token, nextIdx: ws.nextIdx };
+			}
+			if (ch === "/") {
+				const slashTok = PhoenixLexer._readSlashToken(line, i, len, ctx.prevType);
+				if (slashTok) return slashTok;
+			}
+			if (ch === "`") {
+				const res = PhoenixLexer._readTemplateLiteral(line, i + 1, ctx.braceDepth, ctx.depthStack);
+				return { type: "TEMPLATE_HEAD", token: "`", tokens: res.tokens, nextIdx: res.nextIdx, endState: res.endState, braceDepth: res.braceDepth };
+			}
+			if (ch === '"' || ch === "'") {
+				const res = PhoenixLexer._readString(line, i, ch);
+				return { type: "STRING", token: res.token, nextIdx: res.nextIdx };
+			}
+			if (ctx.currentState === LEXER_STATE.TEMPLATE_INTERPOLATION && (ch === "{" || ch === "}")) {
+				const interp = PhoenixLexer._stepInterpolationBrace(ch, ctx.braceDepth, ctx.depthStack);
+				return { type: "PUNCTUATION", token: ch, nextIdx: i + 1, endState: interp.nextState, braceDepth: interp.braceDepth };
+			}
+			return PhoenixLexer._readNextToken(line, i, len, ch);
+		}
+
+		/**
+		 * @param {Array<{ type: string; value: string }>} tokens
+		 * @param {{ prevType: string | null }} stateHolder
+		 * @param {string} type
+		 * @param {string} value
+		 */
+		static _emitToken(tokens, stateHolder, type, value) {
+			if (!value) return;
+			tokens.push({ type, value });
+			if (type !== "WHITESPACE") stateHolder.prevType = type;
+		}
+
+		/**
+		 * @param {Array<{ type: string; value: string }>} tokens
+		 * @param {{ prevType: string | null }} stateHolder
+		 * @param {{ type: string; token?: string; tokens?: Array<{ type: string; value: string }> }} step
+		 */
+		static _pushStepTokens(tokens, stateHolder, step) {
+			if (step.tokens) {
+				PhoenixLexer._emitToken(tokens, stateHolder, step.type === "TEMPLATE_HEAD" ? "TEMPLATE_STRING" : step.type, step.token || "");
+				for (const tok of step.tokens) PhoenixLexer._emitToken(tokens, stateHolder, tok.type, tok.value);
+			} else if (step.token) {
+				PhoenixLexer._emitToken(tokens, stateHolder, step.type, step.token);
+			}
+		}
+
+		/**
+		 * @param {string} line
+		 * @param {number} i
+		 * @param {number} currentState
+		 * @param {number} braceDepth
+		 * @param {number[]} depthStack
+		 * @returns {{ type: string; token: string; tokens?: Array<{ type: string; value: string }>; nextIdx: number; endState: number; braceDepth: number } | null}
+		 */
+		static _handleCarryoverState(line, i, currentState, braceDepth, depthStack) {
+			if (currentState === LEXER_STATE.BLOCK_COMMENT) {
+				const res = PhoenixLexer._readBlockComment(line, i);
+				return { type: "COMMENT", token: res.token, nextIdx: res.nextIdx, endState: res.endState, braceDepth };
+			}
+			if (currentState === LEXER_STATE.TEMPLATE_LITERAL) {
+				const res = PhoenixLexer._readTemplateLiteral(line, i, braceDepth, depthStack);
+				return { type: "TEMPLATE_STRING", token: "", tokens: res.tokens, nextIdx: res.nextIdx, endState: res.endState, braceDepth: res.braceDepth };
+			}
+			return null;
+		}
+
+		/**
+		 * Tokenizes a single line given a carry-over FSM state.
+		 * @param {string} line
+		 * @param {{ state: number; braceDepth?: number; depthStack?: number[] } | null} [startState]
+		 * @returns {{ tokens: Array<{ type: string; value: string }>; endState: { state: number; braceDepth: number; depthStack: number[] } }}
+		 */
+		static tokenizeLine(line, startState = null) {
+			/** @type {Array<{ type: string; value: string }>} */
+			const tokens = [];
+			let currentState = startState ? startState.state : LEXER_STATE.CODE;
+			let braceDepth = startState && typeof startState.braceDepth === "number" ? startState.braceDepth : 0;
+			const depthStack = startState && Array.isArray(startState.depthStack) ? startState.depthStack.slice() : [];
+
+			let i = 0;
+			const len = line.length;
+			const stateHolder = { prevType: /** @type {string | null} */ (null) };
+
+			while (i < len) {
+				const carry = PhoenixLexer._handleCarryoverState(line, i, currentState, braceDepth, depthStack);
+				if (carry) {
+					PhoenixLexer._pushStepTokens(tokens, stateHolder, carry);
+					i = carry.nextIdx;
+					currentState = carry.endState;
+					braceDepth = carry.braceDepth;
+					continue;
+				}
+
+				const ctx = { currentState, braceDepth, depthStack, prevType: stateHolder.prevType };
+				const step = PhoenixLexer._dispatchLineToken(line, i, len, ctx);
+				PhoenixLexer._pushStepTokens(tokens, stateHolder, step);
+
+				i = step.nextIdx;
+				if (typeof step.endState === "number") currentState = step.endState;
+				if (typeof step.braceDepth === "number") braceDepth = step.braceDepth;
+			}
+
+			return {
+				tokens,
+				endState: {
+					state: currentState,
+					braceDepth,
+					depthStack,
+				}
+			};
 		}
 	}
 
@@ -1496,1222 +1709,132 @@ function ${fnName}(audioCtx) {
 	});
 	//#endregion
 
-	//#region [SEC-05] Graphics Tier 1 & 2: WebGL 2D Batcher & Canvas 2D Layer Engine
+	//#region [SEC-05] Graphics Tier 1 & 2: WebGL 2D Batcher & Canvas 2D Layer Engine Bridge
+	/**
+	 * WebGL 2D Quad Batcher and Canvas 2D Layer Engine Bridge.
+	 * Implementation partitioned into modular runtime: phoenix/runtime/phoenix_graphics_2d.js
+	 */
 	const PhoenixWebGLBatcher = Object.freeze({
-		DEFAULT_VS: `#version 300 es
-in vec2 a_pos;
-in vec2 a_uv;
-in vec4 a_color;
-uniform vec2 u_resolution;
-out vec2 v_uv;
-out vec4 v_color;
-void main() {
-	vec2 zeroToOne = a_pos / u_resolution;
-	vec2 zeroToTwo = zeroToOne * 2.0;
-	vec2 clipSpace = zeroToTwo - 1.0;
-	gl_Position = vec4(clipSpace * vec2(1.0, -1.0), 0.0, 1.0);
-	v_uv = a_uv;
-	v_color = a_color;
-}`,
-		DEFAULT_FS: `#version 300 es
-precision mediump float;
-in vec2 v_uv;
-in vec4 v_color;
-uniform sampler2D u_texture;
-uniform int u_useTexture;
-out vec4 fragColor;
-void main() {
-	vec4 texColor = (u_useTexture == 1) ? texture(u_texture, v_uv) : vec4(1.0);
-	fragColor = texColor * v_color;
-}`,
-		POST_CRT_FS: `#version 300 es
-precision mediump float;
-in vec2 v_uv;
-uniform sampler2D u_screen;
-uniform float u_time;
-uniform float u_scanlineIntensity;
-out vec4 fragColor;
-void main() {
-	vec2 uv = v_uv;
-	vec4 col = texture(u_screen, uv);
-	float scanline = sin(uv.y * 480.0 * 3.14159) * u_scanlineIntensity;
-	col.rgb -= scanline;
-	fragColor = col;
-}`,
-
+		get DEFAULT_VS() { return global.PhoenixWebGLBatcher ? global.PhoenixWebGLBatcher.DEFAULT_VS : ''; },
+		get DEFAULT_FS() { return global.PhoenixWebGLBatcher ? global.PhoenixWebGLBatcher.DEFAULT_FS : ''; },
 		/**
-		 * @param {WebGL2RenderingContext | WebGLRenderingContext | null} gl
-		 * @param {number} type
-		 * @param {string} source
+		 * @param {any[]} args
 		 */
-		compileShader(gl, type, source) {
-			if (!gl) return null;
-			const shader = gl.createShader(type);
-			if (!shader) return null;
-			gl.shaderSource(shader, source);
-			gl.compileShader(shader);
-			if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-				const info = gl.getShaderInfoLog(shader);
-				gl.deleteShader(shader);
-				throw new Error("Shader compile error: " + info);
-			}
-			return shader;
-		},
-
+		compileShader(...args) { return global.PhoenixWebGLBatcher?.compileShader?.(...args); },
 		/**
-		 * @param {WebGL2RenderingContext | WebGLRenderingContext | null} gl
-		 * @param {string} vsSource
-		 * @param {string} fsSource
+		 * @param {any[]} args
 		 */
-		createProgram(gl, vsSource, fsSource) {
-			if (!gl) return null;
-			const vs = this.compileShader(gl, gl.VERTEX_SHADER, vsSource);
-			const fs = this.compileShader(gl, gl.FRAGMENT_SHADER, fsSource);
-			if (!vs || !fs) return null;
-			const program = gl.createProgram();
-			if (!program) return null;
-			gl.attachShader(program, vs);
-			gl.attachShader(program, fs);
-			gl.linkProgram(program);
-			if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-				const info = gl.getProgramInfoLog(program);
-				gl.deleteProgram(program);
-				throw new Error("Program link error: " + info);
-			}
-			return program;
-		},
-
+		createProgram(...args) { return global.PhoenixWebGLBatcher?.createProgram?.(...args); },
 		/**
-		 * @param {WebGL2RenderingContext | WebGLRenderingContext | null} gl
-		 * @param {number} [maxQuads=2000]
+		 * @param {any[]} args
 		 */
-		createBatcher(gl, maxQuads = 2000) {
-			if (!gl) {
-				return {
-					begin() { },
-					drawQuad() { },
-					flush() { return 0; },
-					destroy() { }
-				};
-			}
-
-			const program = this.createProgram(gl, this.DEFAULT_VS, this.DEFAULT_FS);
-			if (!program) {
-				return {
-					begin() { },
-					drawQuad() { },
-					flush() { return 0; },
-					destroy() { }
-				};
-			}
-			const uResLoc = gl.getUniformLocation(program, "u_resolution");
-			const uUseTexLoc = gl.getUniformLocation(program, "u_useTexture");
-
-			const aPosLoc = gl.getAttribLocation(program, "a_pos");
-			const aUvLoc = gl.getAttribLocation(program, "a_uv");
-			const aColorLoc = gl.getAttribLocation(program, "a_color");
-
-			const FLOATS_PER_VERTEX = 8;
-			const VERTICES_PER_QUAD = 6;
-			const bufferData = new Float32Array(maxQuads * VERTICES_PER_QUAD * FLOATS_PER_VERTEX);
-			let quadCount = 0;
-
-			const gl2 = /** @type {WebGL2RenderingContext} */ (/** @type {unknown} */ (gl));
-			const vbo = gl.createBuffer();
-			const vao = typeof gl2.createVertexArray === "function" ? gl2.createVertexArray() : null;
-
-			if (vao && typeof gl2.bindVertexArray === "function") gl2.bindVertexArray(vao);
-			gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-			gl.bufferData(gl.ARRAY_BUFFER, bufferData.byteLength, gl.DYNAMIC_DRAW);
-
-			const stride = FLOATS_PER_VERTEX * 4;
-			if (aPosLoc !== -1) {
-				gl.enableVertexAttribArray(aPosLoc);
-				gl.vertexAttribPointer(aPosLoc, 2, gl.FLOAT, false, stride, 0);
-			}
-			if (aUvLoc !== -1) {
-				gl.enableVertexAttribArray(aUvLoc);
-				gl.vertexAttribPointer(aUvLoc, 2, gl.FLOAT, false, stride, 2 * 4);
-			}
-			if (aColorLoc !== -1) {
-				gl.enableVertexAttribArray(aColorLoc);
-				gl.vertexAttribPointer(aColorLoc, 4, gl.FLOAT, false, stride, 4 * 4);
-			}
-
-			return {
-				/**
-				 * @param {number} width
-				 * @param {number} height
-				 */
-				begin(width, height) {
-					quadCount = 0;
-					gl.useProgram(program);
-					if (uResLoc) gl.uniform2f(uResLoc, width, height);
-					if (uUseTexLoc) gl.uniform1i(uUseTexLoc, 0);
-					if (vao && typeof gl2.bindVertexArray === "function") gl2.bindVertexArray(vao);
-					else gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-				},
-
-				/**
-				 * @param {number} x
-				 * @param {number} y
-				 * @param {number} w
-				 * @param {number} h
-				 * @param {number[] | { u0?: number; v0?: number; u1?: number; v1?: number }} [uvs]
-				 * @param {number[] | { r?: number; g?: number; b?: number; a?: number }} [color]
-				 */
-				drawQuad(x, y, w, h, uvs = [ 0, 0, 1, 1 ], color = [ 1, 1, 1, 1 ]) {
-					if (quadCount >= maxQuads) this.flush();
-
-					let u0 = 0, v0 = 0, u1 = 1, v1 = 1;
-					if (Array.isArray(uvs)) {
-						[ u0 = 0, v0 = 0, u1 = 1, v1 = 1 ] = uvs;
-					} else if (uvs && typeof uvs === "object") {
-						({ u0 = 0, v0 = 0, u1 = 1, v1 = 1 } = uvs);
-					}
-
-					let r = 1, g = 1, b = 1, a = 1;
-					if (Array.isArray(color)) {
-						[ r = 1, g = 1, b = 1, a = 1 ] = color;
-					} else if (color && typeof color === "object") {
-						({ r = 1, g = 1, b = 1, a = 1 } = color);
-					}
-
-					const offset = quadCount * VERTICES_PER_QUAD * FLOATS_PER_VERTEX;
-					const x2 = x + w;
-					const y2 = y + h;
-
-					bufferData[ offset ] = x; bufferData[ offset + 1 ] = y; bufferData[ offset + 2 ] = u0; bufferData[ offset + 3 ] = v0;
-					bufferData[ offset + 4 ] = r; bufferData[ offset + 5 ] = g; bufferData[ offset + 6 ] = b; bufferData[ offset + 7 ] = a;
-
-					bufferData[ offset + 8 ] = x2; bufferData[ offset + 9 ] = y; bufferData[ offset + 10 ] = u1; bufferData[ offset + 11 ] = v0;
-					bufferData[ offset + 12 ] = r; bufferData[ offset + 13 ] = g; bufferData[ offset + 14 ] = b; bufferData[ offset + 15 ] = a;
-
-					bufferData[ offset + 16 ] = x; bufferData[ offset + 17 ] = y2; bufferData[ offset + 18 ] = u0; bufferData[ offset + 19 ] = v1;
-					bufferData[ offset + 20 ] = r; bufferData[ offset + 21 ] = g; bufferData[ offset + 22 ] = b; bufferData[ offset + 23 ] = a;
-
-					bufferData[ offset + 24 ] = x2; bufferData[ offset + 25 ] = y; bufferData[ offset + 26 ] = u1; bufferData[ offset + 27 ] = v0;
-					bufferData[ offset + 28 ] = r; bufferData[ offset + 29 ] = g; bufferData[ offset + 30 ] = b; bufferData[ offset + 31 ] = a;
-
-					bufferData[ offset + 32 ] = x2; bufferData[ offset + 33 ] = y2; bufferData[ offset + 34 ] = u1; bufferData[ offset + 35 ] = v1;
-					bufferData[ offset + 36 ] = r; bufferData[ offset + 37 ] = g; bufferData[ offset + 38 ] = b; bufferData[ offset + 39 ] = a;
-
-					bufferData[ offset + 40 ] = x; bufferData[ offset + 41 ] = y2; bufferData[ offset + 42 ] = u0; bufferData[ offset + 43 ] = v1;
-					bufferData[ offset + 44 ] = r; bufferData[ offset + 45 ] = g; bufferData[ offset + 46 ] = b; bufferData[ offset + 47 ] = a;
-
-					quadCount++;
-				},
-
-				flush() {
-					if (quadCount === 0) return 0;
-					const count = quadCount;
-					gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-					gl.bufferSubData(gl.ARRAY_BUFFER, 0, bufferData.subarray(0, quadCount * VERTICES_PER_QUAD * FLOATS_PER_VERTEX));
-					gl.drawArrays(gl.TRIANGLES, 0, quadCount * VERTICES_PER_QUAD);
-					quadCount = 0;
-					return count;
-				},
-
-				destroy() {
-					if (vbo) gl.deleteBuffer(vbo);
-					if (program) gl.deleteProgram(program);
-					if (vao && typeof gl2.deleteVertexArray === "function") gl2.deleteVertexArray(vao);
-				}
-			};
-		},
-
-		createParticleSystem(maxParticles = 500) {
-			/** @type {Array<{ x: number; y: number; vx: number; vy: number; life: number; maxLife: number; color: number[]; size: number }>} */
-			const particles = [];
-			let prngSeed = 0x12345678;
-			function nextFloat() {
-				prngSeed = (prngSeed * 1664525 + 1013904223) >>> 0;
-				return prngSeed / 4294967296;
-			}
-
-			return {
-				/**
-				 * @param {number} x
-				 * @param {number} y
-				 * @param {number} [count=10]
-				 * @param {{ color?: number[]; speed?: number; life?: number; size?: number }} [config]
-				 */
-				emit(x, y, count = 10, { color = [ 0, 1, 0.8, 1 ], speed = 2, life = 1.0, size = 4 } = {}) {
-					for (let i = 0; i < count && particles.length < maxParticles; i++) {
-						const angle = nextFloat() * Math.PI * 2;
-						const spd = (nextFloat() * 0.8 + 0.2) * speed;
-						particles.push({
-							x,
-							y,
-							vx: Math.cos(angle) * spd,
-							vy: Math.sin(angle) * spd,
-							life,
-							maxLife: life,
-							size,
-							color: color.slice()
-						});
-					}
-				},
-
-				/**
-				 * @param {number} dt
-				 */
-				update(dt) {
-					for (let i = particles.length - 1; i >= 0; i--) {
-						const p = particles[ i ];
-						p.x += p.vx;
-						p.y += p.vy;
-						p.life -= dt;
-						if (p.life <= 0) {
-							particles.splice(i, 1);
-						}
-					}
-				},
-
-				/**
-				 * @param {{ drawQuad: (arg0: number, arg1: number, arg2: number, arg3: number, arg4?: number[] | { u0?: number; v0?: number; u1?: number; v1?: number }, arg5?: number[] | { r?: number; g?: number; b?: number; a?: number }) => void; }} batcher
-				 */
-				render(batcher) {
-					for (const p of particles) {
-						const alpha = Math.max(0, p.life / p.maxLife) * (p.color[ 3 ] || 1);
-						batcher.drawQuad(
-							p.x - p.size / 2,
-							p.y - p.size / 2,
-							p.size,
-							p.size,
-							[ 0, 0, 1, 1 ],
-							[ p.color[ 0 ], p.color[ 1 ], p.color[ 2 ], alpha ]
-						);
-					}
-				},
-
-				getCount() {
-					return particles.length;
-				},
-
-				clear() {
-					particles.length = 0;
-				}
-			};
-		}
+		createBatcher(...args) { return global.PhoenixWebGLBatcher?.createBatcher?.(...args); },
 	});
-
-	// =========================================================================
-	// [GRAPHICS TIER 2] Canvas 2D Viewport Matrix & Tilemap Layer Engine
-	// =========================================================================
 	const PhoenixCanvas2DLayerEngine = Object.freeze({
-		createCamera({ x = 0, y = 0, zoom = 1, minZoom = 0.25, maxZoom = 4 } = {}) {
-			let trauma = 0;
-			let rot = 0;
-			let prngSeed = 0x98765432;
-			function nextFloat() {
-				prngSeed = (prngSeed * 1664525 + 1013904223) >>> 0;
-				return prngSeed / 4294967296;
-			}
-
-			return {
-				x,
-				y,
-				zoom,
-				rotation: rot,
-				/**
-				 * @param {number} amount
-				 */
-				addTrauma(amount) {
-					trauma = Math.min(1.0, trauma + amount);
-				},
-				/**
-				 * @param {number} dt
-				 */
-				update(dt) {
-					if (trauma > 0) {
-						trauma = Math.max(0, trauma - dt * 1.5);
-					}
-				},
-				/**
-				 * @param {number} targetX
-				 * @param {number} targetY
-				 */
-				lookAt(targetX, targetY, lerp = 0.1) {
-					this.x += (targetX - this.x) * lerp;
-					this.y += (targetY - this.y) * lerp;
-				},
-				/**
-				 * @param {number} z
-				 */
-				setZoom(z) {
-					this.zoom = Math.max(minZoom, Math.min(maxZoom, z));
-				},
-				getShakeOffset() {
-					const shake = trauma * trauma;
-					const offsetX = (nextFloat() * 2 - 1) * shake * 16;
-					const offsetY = (nextFloat() * 2 - 1) * shake * 16;
-					const offsetAngle = (nextFloat() * 2 - 1) * shake * 0.1;
-					return { offsetX, offsetY, offsetAngle };
-				},
-				/**
-				 * @param {{ save: () => void; translate: (arg0: number, arg1: number) => void; rotate: (arg0: number) => void; scale: (arg0: number, arg1: number) => void; }} ctx
-				 * @param {number} viewportW
-				 * @param {number} viewportH
-				 */
-				applyTransform(ctx, viewportW, viewportH) {
-					const { offsetX, offsetY, offsetAngle } = this.getShakeOffset();
-					ctx.save();
-					ctx.translate((viewportW / 2) + offsetX, (viewportH / 2) + offsetY);
-					ctx.rotate(this.rotation + offsetAngle);
-					ctx.scale(this.zoom, this.zoom);
-					ctx.translate(-this.x, -this.y);
-				},
-				/**
-				 * @param {{ restore: () => void; }} ctx
-				 */
-				resetTransform(ctx) {
-					ctx.restore();
-				},
-				/**
-				 * @param {number} worldX
-				 * @param {number} worldY
-				 * @param {number} viewportW
-				 * @param {number} viewportH
-				 */
-				worldToScreen(worldX, worldY, viewportW, viewportH) {
-					return {
-						x: (worldX - this.x) * this.zoom + (viewportW / 2),
-						y: (worldY - this.y) * this.zoom + (viewportH / 2)
-					};
-				},
-				/**
-				 * @param {number} screenX
-				 * @param {number} screenY
-				 * @param {number} viewportW
-				 * @param {number} viewportH
-				 */
-				screenToWorld(screenX, screenY, viewportW, viewportH) {
-					return {
-						x: (screenX - (viewportW / 2)) / this.zoom + this.x,
-						y: (screenY - (viewportH / 2)) / this.zoom + this.y
-					};
-				}
-			};
-		},
-
 		/**
-		 * @param {CanvasRenderingContext2D} ctx
-		 * @param {(number | string)[][]} grid
-		 * @param {number} tileSize
-		 * @param {Record<string | number, string | { color: string }>} tilePalette
-		 * @param {{ screenToWorld: (sx: number, sy: number, vw: number, vh: number) => { x: number; y: number } }} camera
-		 * @param {number} viewportW
-		 * @param {number} viewportH
+		 * @param {any[]} args
 		 */
-		renderTilemap(ctx, grid, tileSize, tilePalette, camera, viewportW, viewportH) {
-			if (!grid || !Array.isArray(grid) || grid.length === 0) return 0;
-			const rows = grid.length;
-			const cols = grid[ 0 ].length;
-
-			const topLeft = camera.screenToWorld(0, 0, viewportW, viewportH);
-			const botRight = camera.screenToWorld(viewportW, viewportH, viewportW, viewportH);
-
-			const minCol = Math.max(0, Math.floor(topLeft.x / tileSize));
-			const maxCol = Math.min(cols - 1, Math.floor(botRight.x / tileSize) + 1);
-			const minRow = Math.max(0, Math.floor(topLeft.y / tileSize));
-			const maxRow = Math.min(rows - 1, Math.floor(botRight.y / tileSize) + 1);
-
-			let renderedTiles = 0;
-			for (let r = minRow; r <= maxRow; r++) {
-				const rowData = grid[ r ];
-				if (!rowData) continue;
-				for (let c = minCol; c <= maxCol; c++) {
-					const tileId = rowData[ c ];
-					if (tileId === undefined || tileId === null || tileId === 0 || tileId === " " || tileId === ".") continue;
-
-					const drawX = c * tileSize;
-					const drawY = r * tileSize;
-					const paletteEntry = tilePalette[ tileId ];
-
-					if (typeof paletteEntry === "string") {
-						ctx.fillStyle = paletteEntry;
-						ctx.fillRect(drawX, drawY, tileSize, tileSize);
-					} else if (paletteEntry?.color) {
-						ctx.fillStyle = paletteEntry.color;
-						ctx.fillRect(drawX, drawY, tileSize, tileSize);
-					}
-					renderedTiles++;
-				}
-			}
-			return renderedTiles;
-		},
-
+		createLayerStack(...args) { return global.PhoenixCanvas2DLayerEngine?.createLayerStack?.(...args); },
 		/**
-		 * @param {CanvasRenderingContext2D} ctx
-		 * @param {string | HTMLCanvasElement | ImageBitmap} colorOrCanvas
-		 * @param {number} speedRatio
-		 * @param {{ x: number; y: number; }} camera
-		 * @param {number} viewportW
-		 * @param {number} viewportH
+		 * @param {any[]} args
 		 */
-		renderParallax(ctx, colorOrCanvas, speedRatio, camera, viewportW, viewportH) {
-			ctx.save();
-			const offsetX = -(camera.x * speedRatio) % viewportW;
-			const offsetY = -(camera.y * speedRatio) % viewportH;
-
-			if (typeof colorOrCanvas === "string") {
-				ctx.fillStyle = colorOrCanvas;
-				ctx.fillRect(0, 0, viewportW, viewportH);
-			} else if (colorOrCanvas?.width) {
-				for (let x = offsetX - viewportW; x < viewportW * 2; x += colorOrCanvas.width) {
-					for (let y = offsetY - viewportH; y < viewportH * 2; y += colorOrCanvas.height) {
-						ctx.drawImage(colorOrCanvas, x, y);
-					}
-				}
-			}
-			ctx.restore();
-		}
+		worldToScreen(...args) { return global.PhoenixCanvas2DLayerEngine?.worldToScreen?.(...args); },
+		/**
+		 * @param {any[]} args
+		 */
+		screenToWorld(...args) { return global.PhoenixCanvas2DLayerEngine?.screenToWorld?.(...args); },
+		/**
+		 * @param {any[]} args
+		 */
+		drawSprite(...args) { return global.PhoenixCanvas2DLayerEngine?.drawSprite?.(...args); },
 	});
 	//#endregion
 
-	//#region [SEC-06] Graphics Tier 3: Retro Pseudo-3D DDA Raycaster
+	//#region [SEC-06] Graphics Tier 3: Retro Pseudo-3D DDA Raycaster Bridge
 	/**
-	 * @param {(number | string)[][]} mapGrid
-	 * @param {number} mapX
-	 * @param {number} mapY
-	 * @returns {number}
+	 * Retro Pseudo-3D DDA Raycaster Bridge.
+	 * Implementation partitioned into modular runtime: phoenix/runtime/phoenix_pseudo_3d.js
 	 */
-	function _checkCellHit(mapGrid, mapX, mapY) {
-		if (mapY < 0 || mapY >= mapGrid.length) return 1;
-		const row = mapGrid[ mapY ];
-		if (!row || mapX < 0 || mapX >= row.length) return 1;
-		const cell = row[ mapX ];
-		if (!cell || cell === " " || cell === ".") return 0;
-		const num = typeof cell === "number" ? cell : Number(cell);
-		return Number.isNaN(num) ? 1 : num;
-	}
-
-	/**
-	 * @param {(number | string)[][]} mapGrid
-	 * @param {{ angle: number; x: number; y: number; }} player
-	 * @param {number} rayAngle
-	 * @param {number} rayIndex
-	 */
-	function _castSingleRay(mapGrid, player, rayAngle, rayIndex) {
-		const rayDirX = Math.cos(rayAngle);
-		const rayDirY = Math.sin(rayAngle);
-
-		let mapX = Math.floor(player.x);
-		let mapY = Math.floor(player.y);
-
-		const deltaDistX = Math.abs(1 / (rayDirX || 0.00001));
-		const deltaDistY = Math.abs(1 / (rayDirY || 0.00001));
-
-		const stepX = rayDirX < 0 ? -1 : 1;
-		let sideDistX = rayDirX < 0 ? (player.x - mapX) * deltaDistX : (mapX + 1.0 - player.x) * deltaDistX;
-
-		const stepY = rayDirY < 0 ? -1 : 1;
-		let sideDistY = rayDirY < 0 ? (player.y - mapY) * deltaDistY : (mapY + 1.0 - player.y) * deltaDistY;
-
-		let hit = 0;
-		let side = 0;
-		let maxSteps = 64;
-
-		while (hit === 0 && maxSteps > 0) {
-			maxSteps--;
-			if (sideDistX < sideDistY) {
-				sideDistX += deltaDistX;
-				mapX += stepX;
-				side = 0;
-			} else {
-				sideDistY += deltaDistY;
-				mapY += stepY;
-				side = 1;
-			}
-
-			hit = _checkCellHit(mapGrid, mapX, mapY);
-		}
-
-		const perpWallDist = side === 0
-			? (mapX - player.x + (1 - stepX) / 2) / (rayDirX || 0.00001)
-			: (mapY - player.y + (1 - stepY) / 2) / (rayDirY || 0.00001);
-
-		// Fish-eye lens correction
-		const correctedDist = Math.max(0.1, perpWallDist * Math.cos(rayAngle - player.angle));
-
-		let wallX = side === 0 ? player.y + perpWallDist * rayDirY : player.x + perpWallDist * rayDirX;
-		wallX -= Math.floor(wallX);
-
-		return {
-			rayIndex,
-			rayAngle,
-			distance: correctedDist,
-			hitTile: hit,
-			side,
-			wallX,
-			mapX,
-			mapY
-		};
-	}
-
-	// =========================================================================
-	// [GRAPHICS TIER 3] Retro Pseudo-3D DDA Raycaster & Mode-7 Engine
-	// =========================================================================
 	const PhoenixPseudo3DRaycaster = Object.freeze({
 		/**
-		 * @param {(number | string)[][]} mapGrid
-		 * @param {{ angle: number; x: number; y: number; }} player
+		 * @param {any[]} args
 		 */
-		castRays(mapGrid, player, fov = Math.PI / 3, numRays = 320) {
-			if (!mapGrid || !player) return [];
-			const results = [];
-			const halfFov = fov / 2;
-
-			for (let i = 0; i < numRays; i++) {
-				const rayAngle = player.angle - halfFov + (i / numRays) * fov;
-				results.push(_castSingleRay(mapGrid, player, rayAngle, i));
-			}
-
-			return results;
-		},
-
+		castRay(...args) { return global.PhoenixPseudo3DRaycaster?.castRay?.(...args); },
 		/**
-		 * @param {CanvasRenderingContext2D} ctx
-		 * @param {Array<{ rayIndex: number; rayAngle: number; distance: number; hitTile: number | string; side: number; wallX: number; mapX: number; mapY: number }>} rayResults
-		 * @param {number} screenW
-		 * @param {number} screenH
+		 * @param {any[]} args
 		 */
-		render3DView(ctx, rayResults, screenW, screenH, {
-			ceilingColor = "#0d131a",
-			floorColor = "#06090d",
-			wallColor = "#00ffcc",
-			fogDensity = 0.12
-		} = {}) {
-			if (!ctx || !rayResults || rayResults.length === 0) return;
-
-			// Draw ceiling and floor
-			ctx.fillStyle = ceilingColor;
-			ctx.fillRect(0, 0, screenW, screenH / 2);
-			ctx.fillStyle = floorColor;
-			ctx.fillRect(0, screenH / 2, screenW, screenH / 2);
-
-			const sliceWidth = screenW / rayResults.length;
-
-			for (let i = 0; i < rayResults.length; i++) {
-				const ray = rayResults[ i ];
-				const lineHeight = Math.min(screenH * 4, (screenH / ray.distance));
-				const drawStart = Math.max(0, -lineHeight / 2 + screenH / 2);
-				const drawEnd = Math.min(screenH, lineHeight / 2 + screenH / 2);
-
-				// Darken horizontal walls
-				const sideFactor = ray.side === 1 ? 0.7 : 1.0;
-				const fog = Math.min(1.0, ray.distance * fogDensity);
-
-				ctx.fillStyle = wallColor;
-				ctx.globalAlpha = (1.0 - fog) * sideFactor;
-				ctx.fillRect(i * sliceWidth, drawStart, sliceWidth + 0.5, drawEnd - drawStart);
-			}
-			ctx.globalAlpha = 1.0;
-		},
-
+		renderScene(...args) { return global.PhoenixPseudo3DRaycaster?.renderScene?.(...args); },
 		/**
-		 * @param {Array<{ x: number; y: number; [key: string]: unknown }>} sprites
-		 * @param {{ angle: number; x: number; y: number; }} player
-		 * @param {number} [fov]
-		 * @param {number} [screenW]
-		 * @param {number} [screenH]
+		 * @param {any[]} args
 		 */
-		projectSprites(sprites, player, fov = Math.PI / 3, screenW = 640, screenH = 480) {
-			if (!sprites || !player) return [];
-			const projected = [];
-
-			for (const spr of sprites) {
-				const spriteX = spr.x - player.x;
-				const spriteY = spr.y - player.y;
-
-				const dirX = Math.cos(player.angle);
-				const dirY = Math.sin(player.angle);
-				const planeX = -dirY * Math.tan(fov / 2);
-				const planeY = dirX * Math.tan(fov / 2);
-
-				const invMat = 1.0 / (planeX * dirY - dirX * planeY || 0.00001);
-				const transformX = invMat * (dirY * spriteX - dirX * spriteY);
-				const transformY = invMat * (-planeY * spriteX + planeX * spriteY);
-
-				if (transformY > 0.1) {
-					const screenX = (screenW / 2) * (1 + transformX / transformY);
-					const spriteHeight = Math.abs(screenH / transformY);
-					const spriteWidth = Math.abs(screenH / transformY);
-					projected.push({
-						sprite: spr,
-						distance: transformY,
-						screenX,
-						screenY: screenH / 2,
-						width: spriteWidth,
-						height: spriteHeight
-					});
-				}
-			}
-
-			// Sort back-to-front
-			return projected.sort((a, b) => b.distance - a.distance);
-		}
+		projectSprites(...args) { return global.PhoenixPseudo3DRaycaster?.projectSprites?.(...args); },
 	});
 	//#endregion
 
-	//#region [SEC-07] Graphics Tier 4: 3D Fast Voxel DDA World Engine
+	//#region [SEC-07] Graphics Tier 4: 3D Fast Voxel DDA World Engine Bridge
 	/**
-	 * Pure Helper: Resolve face name and normal vector from hit side and ray step
-	 * @param {number} side
-	 * @param {number} stepX
-	 * @param {number} stepY
-	 * @param {number} stepZ
-	 * @returns {{ normal: [number, number, number]; face: string }}
+	 * 3D Fast Voxel DDA World Engine Bridge.
+	 * Implementation partitioned into modular runtime: phoenix/runtime/phoenix_voxel_3d.js
 	 */
-	function _resolveHitFaceAndNormal(side, stepX, stepY, stepZ) {
-		if (side === 0) {
-			return {
-				normal: [ -stepX, 0, 0 ],
-				face: stepX < 0 ? 'east' : 'west'
-			};
-		}
-		if (side === 1) {
-			return {
-				normal: [ 0, -stepY, 0 ],
-				face: stepY < 0 ? 'top' : 'bottom'
-			};
-		}
-		return {
-			normal: [ 0, 0, -stepZ ],
-			face: stepZ < 0 ? 'south' : 'north'
-		};
-	}
-
-	/**
-	 * Pure Helper: Carve a perimeter wall column
-	 * @param {{ sizeX: number; sizeY: number; sizeZ: number; data: Uint8Array }} vol
-	 * @param {number} x
-	 * @param {number} z
-	 * @param {number} sizeY
-	 */
-	function _carvePerimeterWall(vol, x, z, sizeY) {
-		for (let y = 1; y < sizeY - 1; y++) {
-			vol.data[ (y * vol.sizeZ + z) * vol.sizeX + x ] = 2;
-		}
-	}
-
-	/**
-	 * Pure Helper: Carve interior dungeon pillar or pedestal
-	 * @param {{ sizeX: number; sizeY: number; sizeZ: number; data: Uint8Array }} vol
-	 * @param {number} x
-	 * @param {number} z
-	 * @param {number} sizeY
-	 */
-	function _carveInteriorFeature(vol, x, z, sizeY) {
-		if ((x % 4 === 0) && (z % 4 === 0)) {
-			for (let y = 1; y < sizeY - 1; y++) {
-				vol.data[ (y * vol.sizeZ + z) * vol.sizeX + x ] = 3;
-			}
-		} else if ((x === 4 && z === 4) || (x === 11 && z === 11)) {
-			vol.data[ (1 * vol.sizeZ + z) * vol.sizeX + x ] = 4;
-		}
-	}
-
 	const PhoenixVoxel3DEngine = Object.freeze({
+		get VOXEL_TYPES() { return global.PhoenixVoxel3DEngine ? global.PhoenixVoxel3DEngine.VOXEL_TYPES : {}; },
 		/**
-		 * Create a new 3D Voxel Volume Chunk
-		 * @param {number} [sizeX=16]
-		 * @param {number} [sizeY=8]
-		 * @param {number} [sizeZ=16]
-		 * @param {number} [defaultVoxel=0]
+		 * @param {any[]} args
 		 */
-		createVolume(sizeX = 16, sizeY = 8, sizeZ = 16, defaultVoxel = 0) {
-			const data = new Uint8Array(sizeX * sizeY * sizeZ);
-			if (defaultVoxel > 0) data.fill(defaultVoxel);
-			return {
-				sizeX,
-				sizeY,
-				sizeZ,
-				data
-			};
-		},
-
+		createChunkBuffer(...args) { return global.PhoenixVoxel3DEngine?.createChunkBuffer?.(...args); },
 		/**
-		 * @param {{ sizeX: number; sizeY: number; sizeZ: number; data: Uint8Array }} volume
-		 * @param {number} x
-		 * @param {number} y
-		 * @param {number} z
+		 * @param {any[]} args
 		 */
-		getVoxel(volume, x, y, z) {
-			if (!volume?.data) return 0;
-			const ix = Math.floor(x);
-			const iy = Math.floor(y);
-			const iz = Math.floor(z);
-			if (ix < 0 || ix >= volume.sizeX || iy < 0 || iy >= volume.sizeY || iz < 0 || iz >= volume.sizeZ) {
-				return 0;
-			}
-			return volume.data[ (iy * volume.sizeZ + iz) * volume.sizeX + ix ];
-		},
-
+		setVoxel(...args) { return global.PhoenixVoxel3DEngine?.setVoxel?.(...args); },
 		/**
-		 * @param {{ sizeX: number; sizeY: number; sizeZ: number; data: Uint8Array }} volume
-		 * @param {number} x
-		 * @param {number} y
-		 * @param {number} z
-		 * @param {number} voxelType
+		 * @param {any[]} args
 		 */
-		setVoxel(volume, x, y, z, voxelType) {
-			if (!volume?.data) return false;
-			const ix = Math.floor(x);
-			const iy = Math.floor(y);
-			const iz = Math.floor(z);
-			if (ix < 0 || ix >= volume.sizeX || iy < 0 || iy >= volume.sizeY || iz < 0 || iz >= volume.sizeZ) {
-				return false;
-			}
-			volume.data[ (iy * volume.sizeZ + iz) * volume.sizeX + ix ] = Math.max(0, Math.min(255, voxelType));
-			return true;
-		},
-
+		getVoxel(...args) { return global.PhoenixVoxel3DEngine?.getVoxel?.(...args); },
 		/**
-		 * Fast 3D Amanatides & Woo DDA Raycaster
-		 * @param {{ sizeX: number; sizeY: number; sizeZ: number; data: Uint8Array }} volume
-		 * @param {{ x: number; y: number; z: number }} origin
-		 * @param {{ x: number; y: number; z: number }} dir
-		 * @param {number} [maxDist=32]
+		 * @param {any[]} args
 		 */
-		castRay3D(volume, origin, dir, maxDist = 32) {
-			const len = Math.hypot(dir.x, dir.y, dir.z) || 1.0;
-			const dx = dir.x / len;
-			const dy = dir.y / len;
-			const dz = dir.z / len;
-
-			let mapX = Math.floor(origin.x);
-			let mapY = Math.floor(origin.y);
-			let mapZ = Math.floor(origin.z);
-
-			const stepX = dx < 0 ? -1 : 1;
-			const stepY = dy < 0 ? -1 : 1;
-			const stepZ = dz < 0 ? -1 : 1;
-
-			const deltaDistX = Math.abs(1 / (dx || 1e-6));
-			const deltaDistY = Math.abs(1 / (dy || 1e-6));
-			const deltaDistZ = Math.abs(1 / (dz || 1e-6));
-
-			let sideDistX = dx < 0 ? (origin.x - mapX) * deltaDistX : (mapX + 1.0 - origin.x) * deltaDistX;
-			let sideDistY = dy < 0 ? (origin.y - mapY) * deltaDistY : (mapY + 1.0 - origin.y) * deltaDistY;
-			let sideDistZ = dz < 0 ? (origin.z - mapZ) * deltaDistZ : (mapZ + 1.0 - origin.z) * deltaDistZ;
-
-			let hit = 0;
-			let side = 0;
-			let distance = 0;
-			let maxSteps = 96;
-
-			while (hit === 0 && distance < maxDist && maxSteps > 0) {
-				maxSteps--;
-				if (sideDistX < sideDistY && sideDistX < sideDistZ) {
-					distance = sideDistX;
-					sideDistX += deltaDistX;
-					mapX += stepX;
-					side = 0;
-				} else if (sideDistY < sideDistZ) {
-					distance = sideDistY;
-					sideDistY += deltaDistY;
-					mapY += stepY;
-					side = 1;
-				} else {
-					distance = sideDistZ;
-					sideDistZ += deltaDistZ;
-					mapZ += stepZ;
-					side = 2;
-				}
-
-				hit = this.getVoxel(volume, mapX, mapY, mapZ);
-			}
-
-			if (hit === 0 || distance >= maxDist) {
-				return { hit: false, distance: maxDist, x: mapX, y: mapY, z: mapZ, voxel: 0, face: 'none', normal: [ 0, 0, 0 ] };
-			}
-
-			const { normal, face } = _resolveHitFaceAndNormal(side, stepX, stepY, stepZ);
-
-			return {
-				hit: true,
-				distance,
-				x: mapX,
-				y: mapY,
-				z: mapZ,
-				voxel: hit,
-				side,
-				face,
-				normal
-			};
-		},
-
+		castVoxelRay(...args) { return global.PhoenixVoxel3DEngine?.castVoxelRay?.(...args); },
 		/**
-		 * Procedural 3D Voxel Dungeon Generator
-		 * @param {number} [sizeX=16]
-		 * @param {number} [sizeY=6]
-		 * @param {number} [sizeZ=16]
+		 * @param {any[]} args
 		 */
-		generateDungeonVolume(sizeX = 16, sizeY = 6, sizeZ = 16) {
-			const vol = this.createVolume(sizeX, sizeY, sizeZ, 0);
-
-			for (let x = 0; x < sizeX; x++) {
-				for (let z = 0; z < sizeZ; z++) {
-					this.setVoxel(vol, x, 0, z, 1);
-					this.setVoxel(vol, x, sizeY - 1, z, 1);
-
-					const isPerimeter = x === 0 || x === sizeX - 1 || z === 0 || z === sizeZ - 1;
-					if (isPerimeter) {
-						_carvePerimeterWall(vol, x, z, sizeY);
-					} else {
-						_carveInteriorFeature(vol, x, z, sizeY);
-					}
-				}
-			}
-			return vol;
-		},
-
+		generateDungeonVolume(...args) { return global.PhoenixVoxel3DEngine?.generateDungeonVolume?.(...args); },
 		/**
-		 * Render 3D Voxel Perspective View to 2D Canvas
-		 * @param {CanvasRenderingContext2D} ctx
-		 * @param {{ sizeX: number; sizeY: number; sizeZ: number; data: Uint8Array }} volume
-		 * @param {{ x: number; y: number; z: number; yaw: number; pitch: number }} camera
-		 * @param {number} screenW
-		 * @param {number} screenH
-		 * @param {{ fov?: number; numRays?: number; fogDensity?: number; palette?: Record<number, string> }} [options]
+		 * @param {any[]} args
 		 */
-		renderVoxelView(ctx, volume, camera, screenW, screenH, {
-			fov = Math.PI / 3,
-			numRays = 160,
-			fogDensity = 0.08,
-			palette = {
-				1: '#3a4750', // Floor/Ceiling Stone
-				2: '#00ffa3', // Boundary Wall Cyan/Emerald
-				3: '#00b4d8', // Pillar Azure
-				4: '#ffd166', // Gold/Pedestal
-				5: '#ff006e'  // Lava/Ruby
-			}
-		} = {}) {
-			if (!ctx || !volume) return;
-
-			const gradCeiling = ctx.createLinearGradient(0, 0, 0, screenH / 2);
-			gradCeiling.addColorStop(0, '#04070a');
-			gradCeiling.addColorStop(1, '#0c131a');
-			ctx.fillStyle = gradCeiling;
-			ctx.fillRect(0, 0, screenW, screenH / 2);
-
-			const gradFloor = ctx.createLinearGradient(0, screenH / 2, 0, screenH);
-			gradFloor.addColorStop(0, '#080d12');
-			gradFloor.addColorStop(1, '#020406');
-			ctx.fillStyle = gradFloor;
-			ctx.fillRect(0, screenH / 2, screenW, screenH / 2);
-
-			const sliceW = screenW / numRays;
-			const cosPitch = Math.cos(camera.pitch || 0);
-			const sinPitch = Math.sin(camera.pitch || 0);
-
-			for (let i = 0; i < numRays; i++) {
-				const rayYaw = (camera.yaw || 0) - fov / 2 + (i / numRays) * fov;
-				const rayDir = {
-					x: Math.cos(rayYaw) * cosPitch,
-					y: sinPitch,
-					z: Math.sin(rayYaw) * cosPitch
-				};
-
-				const result = this.castRay3D(volume, camera, rayDir, 28);
-				if (result.hit) {
-					const correctedDist = Math.max(0.1, result.distance * Math.cos(rayYaw - (camera.yaw || 0)));
-					const sliceHeight = Math.min(screenH * 3, (screenH / correctedDist) * 1.2);
-					const horizonOffset = sinPitch * (screenH / 2);
-					const drawTop = (screenH / 2) - (sliceHeight / 2) + horizonOffset;
-
-					const baseColor = palette[ result.voxel ] || '#00ffcc';
-					let brightness = 0.7;
-					if (result.face === 'top') brightness = 1.2;
-					else if (result.face === 'bottom') brightness = 0.5;
-					else if (result.face === 'east' || result.face === 'west') brightness = 0.85;
-
-					const fog = Math.min(1.0, correctedDist * fogDensity);
-
-					ctx.save();
-					ctx.fillStyle = baseColor;
-					ctx.globalAlpha = Math.max(0.05, (1.0 - fog) * brightness);
-					ctx.fillRect(i * sliceW, drawTop, sliceW + 0.5, sliceHeight);
-
-					ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-					ctx.fillRect(i * sliceW, drawTop, sliceW + 0.5, 2);
-					ctx.restore();
-				}
-			}
-		}
+		renderVoxelViewport(...args) { return global.PhoenixVoxel3DEngine?.renderVoxelViewport?.(...args); },
 	});
 	//#endregion
 
-	//#region [SEC-08] Graphics Tier 5: Demoscene Procedural Terrain Raymarcher
+	//#region [SEC-08] Graphics Tier 5: Demoscene Procedural Terrain Raymarcher Bridge
+	/**
+	 * Demoscene Procedural Terrain Raymarcher Bridge.
+	 * Implementation partitioned into modular runtime: phoenix/runtime/phoenix_terrain_raymarcher.js
+	 */
 	const PhoenixTerrainRaymarcher = Object.freeze({
 		/**
-		 * Deterministic 2D PRNG Hash
-		 * @param {number} x
-		 * @param {number} z
+		 * @param {any[]} args
 		 */
-		hash2(x, z) {
-			const n = Math.sin(x * 127.1 + z * 311.7) * 43758.5453123;
-			return n - Math.floor(n);
-		},
-
+		hash2(...args) { return global.PhoenixTerrainRaymarcher?.hash2?.(...args); },
 		/**
-		 * Smooth 2D Interpolated Value Noise
-		 * @param {number} x
-		 * @param {number} z
+		 * @param {any[]} args
 		 */
-		noise2(x, z) {
-			const ix = Math.floor(x);
-			const iz = Math.floor(z);
-			const fx = x - ix;
-			const fz = z - iz;
-
-			const ux = fx * fx * fx * (fx * (fx * 6 - 15) + 10);
-			const uz = fz * fz * fz * (fz * (fz * 6 - 15) + 10);
-
-			const a = this.hash2(ix, iz);
-			const b = this.hash2(ix + 1, iz);
-			const c = this.hash2(ix, iz + 1);
-			const d = this.hash2(ix + 1, iz + 1);
-
-			return a + (b - a) * ux + (c - a) * uz + (a - b - c + d) * ux * uz;
-		},
-
+		noise2(...args) { return global.PhoenixTerrainRaymarcher?.noise2?.(...args); },
 		/**
-		 * Fractional Brownian Motion (FBM) Multi-Octave Noise
-		 * @param {number} x
-		 * @param {number} z
-		 * @param {number} [octaves=5]
+		 * @param {any[]} args
 		 */
-		fbm(x, z, octaves = 5) {
-			let total = 0.0;
-			let amplitude = 0.5;
-			let frequency = 1.0;
-
-			for (let i = 0; i < octaves; i++) {
-				total += amplitude * this.noise2(x * frequency, z * frequency);
-				frequency *= 2.02;
-				amplitude *= 0.5;
-			}
-			return total;
-		},
-
+		terrainFBM(...args) { return global.PhoenixTerrainRaymarcher?.terrainFBM?.(...args); },
 		/**
-		 * Sample elevation height at world coordinate (x, z)
-		 * @param {number} x
-		 * @param {number} z
-		 * @param {number} [scale=0.035]
-		 * @param {number} [maxHeight=24]
+		 * @param {any[]} args
 		 */
-		sampleHeight(x, z, scale = 0.035, maxHeight = 24) {
-			const raw = this.fbm(x * scale, z * scale, 5);
-			const elevation = Math.pow(raw, 1.4) * maxHeight;
-			return Math.max(0.5, elevation);
-		},
-
+		raymarchHeightmap(...args) { return global.PhoenixTerrainRaymarcher?.raymarchHeightmap?.(...args); },
 		/**
-		 * Compute analytical surface normal at world coordinate (x, z)
-		 * @param {number} x
-		 * @param {number} z
-		 * @param {number} [eps=0.15]
+		 * @param {any[]} args
 		 */
-		computeNormal(x, z, eps = 0.15) {
-			const hL = this.sampleHeight(x - eps, z);
-			const hR = this.sampleHeight(x + eps, z);
-			const hD = this.sampleHeight(x, z - eps);
-			const hU = this.sampleHeight(x, z + eps);
-
-			const nx = hL - hR;
-			const ny = 2.0 * eps;
-			const nz = hD - hU;
-			const len = Math.hypot(nx, ny, nz) || 1.0;
-
-			return [ nx / len, ny / len, nz / len ];
-		},
-
+		renderSoftwareTerrain(...args) { return global.PhoenixTerrainRaymarcher?.renderSoftwareTerrain?.(...args); },
 		/**
-		 * Raymarch across procedural heightmap terrain
-		 * @param {{ x: number; y: number; z: number }} origin
-		 * @param {{ x: number; y: number; z: number }} dir
-		 * @param {number} [maxDist=120]
-		 * @param {number} [stepSize=0.6]
+		 * @param {any[]} args
 		 */
-		castTerrainRay(origin, dir, maxDist = 120, stepSize = 0.6) {
-			let t = 0.5;
-			let hit = false;
-			let px = origin.x;
-			let py = origin.y;
-			let pz = origin.z;
-			let currentHeight = 0;
-
-			while (t < maxDist) {
-				px = origin.x + dir.x * t;
-				py = origin.y + dir.y * t;
-				pz = origin.z + dir.z * t;
-
-				currentHeight = this.sampleHeight(px, pz);
-				if (py <= currentHeight) {
-					hit = true;
-					break;
-				}
-
-				const distAboveTerrain = py - currentHeight;
-				t += Math.max(stepSize, distAboveTerrain * 0.4);
-			}
-
-			if (!hit) {
-				return { hit: false, distance: maxDist, x: px, y: py, z: pz, height: 0, normal: [ 0, 1, 0 ], material: 'sky' };
-			}
-
-			const normal = this.computeNormal(px, pz);
-			let material = 'grass';
-			if (currentHeight < 2.0) material = 'water';
-			else if (currentHeight > 16.0) material = 'snow';
-			else if (normal[ 1 ] < 0.65) material = 'rock';
-
-			return {
-				hit: true,
-				distance: t,
-				x: px,
-				y: py,
-				z: pz,
-				height: currentHeight,
-				normal,
-				material
-			};
-		},
-
-		/**
-		 * Render Procedural Landscape with Sun Lighting & Atmosphere to 2D Canvas
-		 * @param {CanvasRenderingContext2D} ctx
-		 * @param {{ x: number; y: number; z: number; yaw: number; pitch: number }} camera
-		 * @param {number} screenW
-		 * @param {number} screenH
-		 * @param {{ fov?: number; numRays?: number; sunAngle?: number; fogDensity?: number }} [options]
-		 */
-		renderTerrainView(ctx, camera, screenW, screenH, {
-			fov = Math.PI / 3,
-			numRays = 160,
-			sunAngle = 0.8,
-			fogDensity = 0.015
-		} = {}) {
-			if (!ctx) return;
-
-			const sunX = Math.cos(sunAngle);
-			const sunY = Math.sin(sunAngle);
-			const sunZ = 0.5;
-
-			const skyGrad = ctx.createLinearGradient(0, 0, 0, screenH);
-			skyGrad.addColorStop(0.0, '#030814');
-			skyGrad.addColorStop(0.5, '#0b1d3a');
-			skyGrad.addColorStop(0.7, '#1b3b6f');
-			skyGrad.addColorStop(1.0, '#468faf');
-			ctx.fillStyle = skyGrad;
-			ctx.fillRect(0, 0, screenW, screenH);
-
-			const sunScreenY = screenH * 0.35 - (camera.pitch || 0) * (screenH / 2);
-			const sunScreenX = screenW * 0.65 - (camera.yaw || 0) * 120;
-			const sunGlow = ctx.createRadialGradient(sunScreenX, sunScreenY, 5, sunScreenX, sunScreenY, 80);
-			sunGlow.addColorStop(0.0, 'rgba(255, 235, 180, 0.9)');
-			sunGlow.addColorStop(0.3, 'rgba(255, 180, 80, 0.4)');
-			sunGlow.addColorStop(1.0, 'rgba(255, 120, 50, 0.0)');
-			ctx.fillStyle = sunGlow;
-			ctx.beginPath();
-			ctx.arc(sunScreenX, sunScreenY, 80, 0, Math.PI * 2);
-			ctx.fill();
-
-			const sliceW = screenW / numRays;
-			const cosPitch = Math.cos(camera.pitch || 0);
-			const sinPitch = Math.sin(camera.pitch || 0);
-
-			for (let i = 0; i < numRays; i++) {
-				const rayYaw = (camera.yaw || 0) - fov / 2 + (i / numRays) * fov;
-				const rayDir = {
-					x: Math.cos(rayYaw) * cosPitch,
-					y: sinPitch - 0.15,
-					z: Math.sin(rayYaw) * cosPitch
-				};
-
-				const result = this.castTerrainRay(camera, rayDir, 90);
-				if (result.hit) {
-					const correctedDist = Math.max(0.1, result.distance * Math.cos(rayYaw - (camera.yaw || 0)));
-					const horizonOffset = sinPitch * (screenH / 2);
-					const drawTop = (screenH / 2) + horizonOffset - (result.height * 2.5);
-
-					const dotSun = Math.max(0.1, result.normal[ 0 ] * sunX + result.normal[ 1 ] * sunY + result.normal[ 2 ] * sunZ);
-
-					let r = 20, g = 140, b = 60;
-					if (result.material === 'snow') { r = 220; g = 235; b = 255; }
-					else if (result.material === 'rock') { r = 90; g = 95; b = 105; }
-					else if (result.material === 'water') { r = 0; g = 120; b = 210; }
-
-					const fog = Math.min(1.0, correctedDist * fogDensity);
-					const finalR = Math.round(r * dotSun * (1.0 - fog) + 27 * fog);
-					const finalG = Math.round(g * dotSun * (1.0 - fog) + 59 * fog);
-					const finalB = Math.round(b * dotSun * (1.0 - fog) + 111 * fog);
-
-					ctx.fillStyle = `rgb(${finalR}, ${finalG}, ${finalB})`;
-					ctx.fillRect(i * sliceW, Math.max(0, drawTop), sliceW + 0.5, screenH - drawTop);
-				}
-			}
-		},
-
-		/**
-		 * Standalone Demoscene GLSL Raymarching Fragment Shader (< 4KB)
-		 */
-		getWebGLTerrainShaderSource() {
-			return `precision highp float;
-uniform vec2 u_resolution;
-uniform float u_time;
-uniform vec3 u_cam_pos;
-uniform vec2 u_cam_angle;
-
-float hash2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
-float noise2(vec2 p) {
-    vec2 i = floor(p); vec2 f = fract(p);
-    vec2 u = f*f*(3.0-2.0*f);
-    return mix(mix(hash2(i + vec2(0,0)), hash2(i + vec2(1,0)), u.x),
-               mix(hash2(i + vec2(0,1)), hash2(i + vec2(1,1)), u.x), u.y);
-}
-float fbm(vec2 p) {
-    float v = 0.0; float a = 0.5;
-    for (int i = 0; i < 5; i++) { v += a * noise2(p); p *= 2.03; a *= 0.5; }
-    return v;
-}
-float mapTerrain(vec3 p) {
-    float h = pow(fbm(p.xz * 0.04), 1.5) * 20.0;
-    return p.y - h;
-}
-vec3 calcNormal(vec3 p) {
-    float d = mapTerrain(p);
-    vec2 e = vec2(0.05, 0.0);
-    return normalize(vec3(mapTerrain(p + e.xyy) - d, e.x, mapTerrain(p + e.yyx) - d));
-}
-void main() {
-    vec2 uv = (gl_FragCoord.xy - 0.5 * u_resolution) / u_resolution.y;
-    vec3 rayDir = normalize(vec3(uv.x, uv.y - 0.2, 1.0));
-    vec3 rayPos = u_cam_pos;
-    float t = 0.2;
-    vec3 col = mix(vec3(0.05, 0.1, 0.25), vec3(0.3, 0.6, 0.8), uv.y + 0.5);
-    for (int i = 0; i < 64; i++) {
-        vec3 p = rayPos + rayDir * t;
-        float dist = mapTerrain(p);
-        if (dist < 0.02) {
-            vec3 n = calcNormal(p);
-            vec3 sunDir = normalize(vec3(0.8, 0.6, 0.4));
-            float diff = max(dot(n, sunDir), 0.1);
-            vec3 matCol = p.y < 1.0 ? vec3(0.0, 0.5, 0.9) : (p.y > 14.0 ? vec3(0.9, 0.95, 1.0) : vec3(0.1, 0.6, 0.25));
-            float fog = 1.0 - exp(-t * 0.018);
-            col = mix(matCol * diff, col, fog);
-            break;
-        }
-        t += max(0.2, dist * 0.5);
-        if (t > 100.0) break;
-    }
-    gl_FragColor = vec4(col, 1.0);
-}`;
-		}
+		generateRaymarchShader(...args) { return global.PhoenixTerrainRaymarcher?.generateRaymarchShader?.(...args); },
 	});
 	//#endregion
 
@@ -2802,6 +1925,214 @@ void main() {
 		return { endLine, fnBody: fnLines.join('\n') };
 	}
 
+	/**
+	 * @param {string} trimmed
+	 * @param {string} rawLine
+	 * @param {number} lineNum
+	 * @param {string} funcName
+	 * @returns {HotLoopViolationDTO | null}
+	 */
+	function _checkHotLoopAllocationOnLine(trimmed, rawLine, lineNum, funcName) {
+		if (trimmed.startsWith('//') || trimmed.startsWith('/*') || trimmed.startsWith('*')) return null;
+
+		// 1. Transient Object Literal allocations
+		if (/(?:=\s*\{|:\s*\{|return\s+\{|\(\s*\{|,\s*\{)/.test(trimmed) &&
+			!/(?:if|for|while|switch|catch)\s*\(.*?\)\s*\{/.test(trimmed)) {
+			return {
+				line: lineNum,
+				col: rawLine.indexOf('{') + 1,
+				type: 'HOT_LOOP_OBJECT_ALLOCATION',
+				message: `Transient Object literal allocated inside hot path '${funcName}'. Pre-allocate into fixed pool or persistent state.`,
+				severity: 'error',
+				snippet: trimmed
+			};
+		}
+
+		// 2. Transient Array Literal allocations
+		if (/(?:=\s*\[|:\s*\[|return\s+\[|\(\s*\[|,\s*\[)/.test(trimmed)) {
+			return {
+				line: lineNum,
+				col: rawLine.indexOf('[') + 1,
+				type: 'HOT_LOOP_ARRAY_ALLOCATION',
+				message: `Transient Array literal allocated inside hot path '${funcName}'. Pre-allocate fixed TypedArray or reusable buffer.`,
+				severity: 'error',
+				snippet: trimmed
+			};
+		}
+
+		// 3. Dynamic Heap Instantiations
+		const newMatch = /new\s+(?:Array|Object|Set|Map|WeakMap|WeakSet|Float32Array|Uint8Array|Int32Array|ArrayBuffer|Error)\s*\(/.exec(trimmed);
+		if (newMatch) {
+			return {
+				line: lineNum,
+				col: rawLine.indexOf(newMatch[ 0 ]) + 1,
+				type: 'HOT_LOOP_HEAP_INSTANTIATION',
+				message: `Dynamic heap instantiation '${newMatch[ 0 ]}' inside hot path '${funcName}'. Allocation forbidden at 60 FPS.`,
+				severity: 'error',
+				snippet: trimmed
+			};
+		}
+
+		// 4. Closures instantiated in hot loop
+		if (/(?:=\s*(?:async\s*)?\([^)]*\)\s*=>|function\s*\()/.test(trimmed) &&
+			!/^(?:async\s+)?function\s+/.test(trimmed)) {
+			return {
+				line: lineNum,
+				col: 1,
+				type: 'HOT_LOOP_CLOSURE_ALLOCATION',
+				message: `Inline closure instantiated inside hot path '${funcName}'. Hoist function to module or class scope.`,
+				severity: 'warning',
+				snippet: trimmed
+			};
+		}
+
+		// 5. Dynamic Template String / String Concatenation in hot loop
+		if (/\$\{[^}]+\}/.test(trimmed) && trimmed.includes('`')) {
+			return {
+				line: lineNum,
+				col: rawLine.indexOf('`') + 1,
+				type: 'HOT_LOOP_STRING_ALLOCATION',
+				message: `Dynamic template string formatted inside hot path '${funcName}'. Avoid transient string heap allocation.`,
+				severity: 'warning',
+				snippet: trimmed
+			};
+		}
+
+		return null;
+	}
+
+	/**
+	 * @param {string} signatureLine
+	 * @returns {{ name: string; params: string[] } | null}
+	 */
+	function _extractFnSignatureInfo(signatureLine) {
+		const trimmed = signatureLine.trim();
+		const fnDeclRegex = /^(?:async\s+)?function(?:\s+([A-Za-z0-9_$]+))?\s*\(([^)]*)\)/;
+		const arrowRegex = /^(?:const|let|var)\s+([A-Za-z0-9_$]+)\s*=\s*(?:async\s+)?(?:\(([^)]*)\)|([A-Za-z0-9_$]+))\s*=>/;
+		const methodRegex = /^([A-Za-z0-9_$]+)\s*\(([^)]*)\)\s*\{/;
+
+		const match = fnDeclRegex.exec(trimmed) || arrowRegex.exec(trimmed) || methodRegex.exec(trimmed);
+		if (!match) return null;
+
+		const fnName = match[ 1 ] || 'anonymous';
+		const rawParams = (match[ 2 ] !== undefined ? match[ 2 ] : (match[ 3 ] || '')).trim();
+		const params = rawParams ? rawParams.split(',').map(p => {
+			let clean = p.trim().replace(/\/\*.*?\*\//g, '').split('=')[ 0 ].trim();
+			if (clean.startsWith('{') || clean.startsWith('[')) clean = 'destructured';
+			return clean;
+		}).filter(Boolean) : [];
+
+		return { name: fnName, params };
+	}
+
+	/**
+	 * @param {string[]} expected
+	 * @param {string[]} actual
+	 * @param {string} fnName
+	 * @param {number} lineNum
+	 * @returns {JSDocParityResultDTO | null}
+	 */
+	function _compareJSDocAndSignatureParams(expected, actual, fnName, lineNum) {
+		if (expected.length === 0 && actual.length === 0) return null;
+
+		if (expected.length !== actual.length) {
+			return {
+				line: lineNum,
+				functionName: fnName,
+				issue: 'PARAM_ARITY_MISMATCH',
+				message: `Function '${fnName}' has ${actual.length} parameter(s) (${actual.join(', ') || 'none'}) but JSDoc specifies ${expected.length} (${expected.join(', ') || 'none'}).`,
+				expectedParams: expected,
+				actualParams: actual
+			};
+		}
+
+		for (let pIdx = 0; pIdx < actual.length; pIdx++) {
+			if (actual[ pIdx ] !== 'destructured' && actual[ pIdx ] !== expected[ pIdx ]) {
+				return {
+					line: lineNum,
+					functionName: fnName,
+					issue: 'PARAM_NAME_MISMATCH',
+					message: `Function '${fnName}' parameter ${pIdx + 1} is named '${actual[ pIdx ]}' but JSDoc documents '${expected[ pIdx ]}'.`,
+					expectedParams: expected,
+					actualParams: actual
+				};
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * @param {string} line
+	 * @returns {{ structuralHits: number; logicalOps: number; openBraces: number; closeBraces: number }}
+	 */
+	function _scoreLineComplexity(line) {
+		const closeBraces = (line.match(/\}/g) || []).length;
+		const openBraces = (line.match(/\{/g) || []).length;
+
+		let structuralHits = 0;
+		if (/\b(if|for|while|do|catch|switch)\b/.test(line)) structuralHits++;
+		if (/\belse\b/.test(line) || (line.includes('?') && line.includes(':'))) structuralHits++;
+
+		const logicalOps = (line.match(/(&&|\|\||\?\?)/g) || []).length;
+		return { structuralHits, logicalOps, openBraces, closeBraces };
+	}
+
+	/**
+	 * @param {string[]} lines
+	 * @param {number} startIdx
+	 * @param {string} fnName
+	 * @param {Array<{ line: number; col: number; type: string; message: string; severity: 'error' | 'warning'; snippet: string }>} violations
+	 */
+	function _auditHotFunctionBody(lines, startIdx, fnName, violations) {
+		const { fnBody } = _extractFunctionSlice(lines, startIdx);
+		const bodyLines = fnBody.split(/\r?\n/);
+
+		for (let b = 0; b < bodyLines.length; b++) {
+			let testLine = bodyLines[ b ];
+			if (b === 0) {
+				const braceIdx = testLine.indexOf('{');
+				if (braceIdx >= 0) testLine = testLine.slice(braceIdx + 1);
+				else continue;
+			}
+			const v = _checkHotLoopAllocationOnLine(testLine.trim(), testLine, startIdx + b + 1, fnName);
+			if (v) violations.push(v);
+		}
+	}
+
+	/**
+	 * @param {string[]} lines
+	 * @param {(name: string) => boolean} isHotName
+	 * @param {Array<{ line: number; col: number; type: string; message: string; severity: 'error' | 'warning'; snippet: string }>} violations
+	 */
+	function _scanHotFunctions(lines, isHotName, violations) {
+		for (let i = 0; i < lines.length; i++) {
+			const sig = _extractFnSignatureInfo(lines[ i ]);
+			if (!sig || !isHotName(sig.name)) continue;
+			_auditHotFunctionBody(lines, i, sig.name, violations);
+		}
+	}
+
+	/**
+	 * @param {string[]} lines
+	 * @param {number} startIdx
+	 * @param {string[]} jsdocParams
+	 * @param {Array<{ line: number; functionName: string; issue: string; message: string; expectedParams: string[]; actualParams: string[] }>} issues
+	 */
+	function _checkJSDocSignatureParity(lines, startIdx, jsdocParams, issues) {
+		for (let k = startIdx + 1; k < Math.min(lines.length, startIdx + 4); k++) {
+			const nextL = lines[ k ].trim();
+			if (nextL && !nextL.startsWith('//')) {
+				const sigInfo = _extractFnSignatureInfo(nextL);
+				if (sigInfo) {
+					const issue = _compareJSDocAndSignatureParams(jsdocParams, sigInfo.params, sigInfo.name, k + 1);
+					if (issue) issues.push(issue);
+				}
+				break;
+			}
+		}
+	}
+
 	const PhoenixLinterSuite = Object.freeze({
 		/**
 		 * Computes the cognitive complexity score of a JavaScript code block or function.
@@ -2818,32 +2149,14 @@ void main() {
 				const line = rawLine.replace(/\/\/.*/, '').replace(/\/\*.*?\*\//g, '').trim();
 				if (!line) continue;
 
-				const closeBraces = (line.match(/\}/g) || []).length;
-				const openBraces = (line.match(/\{/g) || []).length;
-
-				const hasIf = /\bif\s*\(/.test(line);
-				const hasElseIf = /\belse\s+if\s*\(/.test(line);
-				const hasElse = /\belse\b/.test(line) && !hasElseIf;
-				const hasLoop = /\b(for|while|do)\b/.test(line);
-				const hasCatch = /\bcatch\s*\(/.test(line);
-				const hasSwitch = /\bswitch\s*\(/.test(line);
-				const hasTernary = line.includes('?') && line.includes(':');
-
-				let structuralHits = 0;
-				if (hasIf || hasElseIf || hasLoop || hasCatch || hasSwitch) structuralHits++;
-				if (hasElse || hasTernary) structuralHits++;
-
-				const logicalOps = (line.match(/(&&|\|\||\?\?)/g) || []).length;
-
+				const { structuralHits, logicalOps, openBraces, closeBraces } = _scoreLineComplexity(line);
 				if (structuralHits > 0) {
 					complexity += structuralHits * (1 + nesting);
 				}
 				complexity += logicalOps;
 
-				if (openBraces > closeBraces) {
-					nesting += (openBraces - closeBraces);
-				} else if (closeBraces > openBraces) {
-					nesting = Math.max(0, nesting - (closeBraces - openBraces));
+				if (openBraces !== closeBraces) {
+					nesting = Math.max(0, nesting + openBraces - closeBraces);
 				}
 			}
 			return complexity;
@@ -2916,6 +2229,80 @@ void main() {
 				}
 			}
 			return issues;
+		},
+
+		/**
+		 * Zero-Allocation Hot-Loop Sentinel
+		 * Scans source code for transient garbage collection allocations in 60Hz hot paths (update, render, tick, step, etc.)
+		 * @param {string} source
+		 * @param {string} [contextName='update']
+		 * @returns {Array<{ line: number; col: number; type: string; message: string; severity: 'error' | 'warning'; snippet: string }>}
+		 */
+		// AFTER (Only inspects bodies of hot functions):
+		auditHotLoopAllocations(source, contextName = null) {
+			/**
+			 * @type {{ line: number; col: number; type: string; message: string; severity: "error" | "warning"; snippet: string; }[]}
+			 */
+			const violations = [];
+			if (typeof source !== 'string' || !source) return violations;
+
+			const isHotName = (/** @type {string} */ name) => /(?:update|render|tick|step|_render|draw|animate|loop)/i.test(name);
+			const lines = source.split(/\r?\n/);
+
+			if (contextName && isHotName(contextName)) {
+				for (let i = 0; i < lines.length; i++) {
+					const v = _checkHotLoopAllocationOnLine(lines[ i ].trim(), lines[ i ], i + 1, contextName);
+					if (v) violations.push(v);
+				}
+				return violations;
+			}
+
+			_scanHotFunctions(lines, isHotName, violations);
+			return violations;
+		},
+
+		/**
+		 * JSDoc-to-Signature Contract Parity Verifier
+		 * Detects arity drift, missing parameters, parameter name mismatches, and return contract drift.
+		 * @param {string} source
+		 * @returns {Array<{ line: number; functionName: string; issue: string; message: string; expectedParams: string[]; actualParams: string[] }>}
+		 */
+		verifyJSDocParity(source) {
+			/** @type {Array<{ line: number; functionName: string; issue: string; message: string; expectedParams: string[]; actualParams: string[] }>} */
+			const issues = [];
+			if (typeof source !== 'string' || !source) return issues;
+
+			const lines = source.split(/\r?\n/);
+			let inJSDoc = false;
+			/** @type {string[]} */
+			let jsdocParams = [];
+			const paramRegex = /@param\s+(?:\{[^}]+\}\s+)?\[?([A-Za-z0-9_$.]+)\]?/;
+
+			for (let i = 0; i < lines.length; i++) {
+				const line = lines[ i ].trim();
+
+				if (line.startsWith('/**')) {
+					inJSDoc = true;
+					jsdocParams = [];
+				}
+
+				if (!inJSDoc) continue;
+
+				const paramMatch = paramRegex.exec(line);
+				if (paramMatch) {
+					const paramName = paramMatch[ 1 ].split('.')[ 0 ].split('=')[ 0 ];
+					if (!jsdocParams.includes(paramName)) {
+						jsdocParams.push(paramName);
+					}
+				}
+
+				if (line.endsWith('*/')) {
+					inJSDoc = false;
+					_checkJSDocSignatureParity(lines, i, jsdocParams, issues);
+				}
+			}
+
+			return issues;
 		}
 	});
 
@@ -2963,6 +2350,18 @@ void main() {
 				description: 'Strip leftover debugger statements',
 				searchPattern: 'debugger;',
 				replacePattern: '',
+				verifiedReceipt: 'PASS',
+				timestamp: '2026-01-01T00:00:00.000Z',
+				useCount: 1
+			});
+
+			this.record({
+				id: 'erl_seed_proposal_schema',
+				fingerprint: 'GOVERNOR/PROPOSAL_SCHEMA_MISMATCH',
+				rule: 'GOVERNOR/PROPOSAL_SCHEMA_MISMATCH',
+				description: 'Sanitize proposal envelope to PGE-DSL-1 specification and register target',
+				searchPattern: '_governor.submit(proposal',
+				replacePattern: '_governor.submit(_sanitizeProposalEnvelope(proposal)',
 				verifiedReceipt: 'PASS',
 				timestamp: '2026-01-01T00:00:00.000Z',
 				useCount: 1
@@ -3690,6 +3089,14 @@ void main() {
 			this._tests.set(name, fn);
 		}
 
+		/**
+		 * @param {string} name
+		 * @returns {any}
+		 */
+		getTarget(name) {
+			return this._targets.get(name) || null;
+		}
+
 		get targets() {
 			return this._targets;
 		}
@@ -4030,6 +3437,14 @@ void main() {
 		}
 
 		/**
+		 * @param {FileSystemDirectoryHandle} dirHandle
+		 */
+		mountProjectDirectory(dirHandle) {
+			this._projectDir = dirHandle;
+			return this._projectDir;
+		}
+
+		/**
 		 * @param {string} filePath
 		 */
 		async readProjectFile(filePath) {
@@ -4168,6 +3583,18 @@ void main() {
 		}
 
 		/**
+		 * @param {string} filePath
+		 * @param {string} [content]
+		 */
+		async writeSourceToDisk(filePath, content) {
+			const text = content !== undefined ? content : this.getSource(filePath);
+			if (typeof text !== "string") {
+				throw new TypeError(`writeSourceToDisk: no content registered for '${filePath}'`);
+			}
+			return this._storage.writeProjectFile(filePath, text);
+		}
+
+		/**
 		 * @param {string} subject
 		 * @param {string} target
 		 * @param {string} operation
@@ -4215,12 +3642,30 @@ void main() {
 			const t = this._spec.targets.get(targetName);
 			if (!t) {
 				errors.push(`unknown target: ${targetName}`);
-			} else {
-				if (!t.writable) errors.push(`target is read-only: ${targetName}`);
-				if (!t.allowedOperations.includes(String(proposal.operation || "")))
-					errors.push(`operation not permitted: ${proposal.operation}`);
+				return errors;
 			}
+			if (!t.writable) errors.push(`target is read-only: ${targetName}`);
+			if (!t.allowedOperations.includes(String(proposal.operation || "")))
+				errors.push(`operation not permitted: ${proposal.operation}`);
+
+			this._checkHotLoopViolations(proposal, targetName, errors);
 			return errors;
+		}
+
+		/**
+		 * @param {PhoenixProposalDTO} proposal
+		 * @param {string} targetName
+		 * @param {string[]} errors
+		 */
+		_checkHotLoopViolations(proposal, targetName, errors) {
+			if (!proposal.changes || !Array.isArray(proposal.changes)) return;
+			for (const c of proposal.changes) {
+				const codeToCheck = typeof c.content === "string" ? c.content : "";
+				const hotViolations = PhoenixLinterSuite.auditHotLoopAllocations(codeToCheck, targetName);
+				if (hotViolations.length > 0) {
+					errors.push(`[GATE_FAIL_HOT_LOOP_ALLOCATION] Target '${targetName}' violates zero-allocation hot-loop invariant: ${hotViolations[ 0 ].message}`);
+				}
+			}
 		}
 
 		/**
@@ -4712,17 +4157,18 @@ void main() {
 		validateFramebufferSignature,
 		executeWithTimeout,
 		extractFaultSlice,
-		PhoenixAudioSynthesizer,
+		get PhoenixAudioSynthesizer() { return global.PhoenixAudioSynthesizer || PhoenixAudioSynthesizer; },
 		PhoenixSymbolIndexer,
+		PhoenixLexer,
 		PhoenixFuzzySearch,
 		PhoenixSearchEngine,
 		PhoenixChunkDiffEngine,
 		PhoenixRuntimeSandbox,
-		PhoenixWebGLBatcher,
-		PhoenixCanvas2DLayerEngine,
-		PhoenixPseudo3DRaycaster,
-		PhoenixVoxel3DEngine,
-		PhoenixTerrainRaymarcher,
+		get PhoenixWebGLBatcher() { return global.PhoenixWebGLBatcher || PhoenixWebGLBatcher; },
+		get PhoenixCanvas2DLayerEngine() { return global.PhoenixCanvas2DLayerEngine || PhoenixCanvas2DLayerEngine; },
+		get PhoenixPseudo3DRaycaster() { return global.PhoenixPseudo3DRaycaster || PhoenixPseudo3DRaycaster; },
+		get PhoenixVoxel3DEngine() { return global.PhoenixVoxel3DEngine || PhoenixVoxel3DEngine; },
+		get PhoenixTerrainRaymarcher() { return global.PhoenixTerrainRaymarcher || PhoenixTerrainRaymarcher; },
 		PhoenixCodeFormatter,
 		PhoenixLinterSuite,
 		PhoenixErrorResolutionLedger,

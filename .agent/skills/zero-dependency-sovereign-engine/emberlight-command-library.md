@@ -149,14 +149,12 @@ Execution Directives:
 2. Invoke `CMD-SYNC-TOPOLOGY` to register the new sub-module in `testing/load_order.js` and `index.html`.
 3. Verify with `node testing/gen_html_scripts.js` and `node testing/test_sentinel.js`.
 
-````
-
 ---
 
 ### **CMD-SYNC-TOPOLOGY: SSOT Script Load-Order Synchronization**
 
-* **Purpose:** Synchronizes sequential script load orders in `testing/load_order.js` (SSOT) and `index.html`.
-* **Template Prompt:**
+- **Purpose:** Synchronizes sequential script load orders in `testing/load_order.js` (SSOT) and `index.html`.
+- **Template Prompt:**
 
 ```text
 Script to Register: [PATH_TO_SCRIPT.js]
@@ -168,7 +166,7 @@ Execution Directives:
 2. Insert `<script src="[PATH_TO_SCRIPT.js]"></script>` into `index.html` at the corresponding location.
 3. Run `node testing/gen_html_scripts.js` to assert zero drift.
 4. Run `node testing/test_sentinel.js` to assert 100% test pass.
-````
+```
 
 ---
 
@@ -201,7 +199,7 @@ Instructions:
 - **Purpose:** Generates or synchronizes an architectural file header, numbered section tags (`[SEC-XX]`), and collapsible region boundaries across large flat-directory modules.
 - **Template Prompt:**
 
-````text
+```text
 Target File: [FILE_NAME.js]
 Target Protocol: [VSRP-001-DISTRICT-X or COMPONENT_PROTOCOL]
 Task: Construct architectural Table of Contents and jump anchors.
@@ -224,20 +222,17 @@ Instructions:
     *   ...
     * ============================================================================
     */
-````
 
 1. Wrap each functional section in the corresponding native folding region:
    `//#region [SEC-XX] [SECTION_NAME]` ... `//#endregion`.
 2. Ensure every anchor in the Table of Contents matches its `#region` tag exactly to enable zero-latency search via Ctrl + F.
 
-````
-
 ---
 
 ### **CMD-DOC-JSDOC: Strict Type Contract Annotation (`checkJs: true`)**
 
-* **Purpose:** Generates comprehensive JSDoc `@typedef`, `@param`, and `@returns` definitions so VS Code's internal language service provides static type checking without a TypeScript compiler.
-* **Template Prompt:**
+- **Purpose:** Generates comprehensive JSDoc `@typedef`, `@param`, and `@returns` definitions so VS Code's internal language service provides static type checking without a TypeScript compiler.
+- **Template Prompt:**
 
 ```text
 Target File: [FILE_NAME.js]
@@ -252,7 +247,6 @@ Requirements:
    - `@returns` with explicit return shapes (use `@returns {void}` if no return).
 3. If an input or parameter is optional, mark it as `[paramName]`.
 4. Ensure all parameter types align with `jsconfig.json` rules so VS Code flags type errors under `"checkJs": true` without requiring any npm packages.
-````
 
 ---
 

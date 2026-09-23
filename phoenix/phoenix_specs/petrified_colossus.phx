@@ -1,0 +1,143 @@
+@cartridge "PetrifiedColossus"
+@version "1.0.0"
+@author "Phoenix Synarche Foundry"
+@tier 2
+
+capabilities {
+    CAP_RENDER_CANVAS2D,
+    CAP_AUDIO_SYNTH,
+    CAP_INPUT_FIFO
+}
+
+memory PERSIST_001 {
+    metronome_timer: f32;
+    systole_duration: f32;
+    diastole_duration: f32;
+    cardiac_phase: u8;
+    current_depth: u8;
+    transition_active: u8;
+    boss_shield_active: u8;
+    transition_timer: f32;
+    screenshake_intensity: f32;
+    boss_laser_angle: f32;
+    reserved_cardiac: u32;
+
+    player_x: f32;
+    player_y: f32;
+    player_vx: f32;
+    player_vy: f32;
+    vital_marrow: f32;
+    max_marrow: f32;
+    titan_ward: f32;
+    dash_cooldown: f32;
+    iframe_timer: f32;
+    lance_charge: f32;
+    bio_trophies: u8;
+    rank_osteo_splinter: u8;
+    rank_synaptic_arc: u8;
+    rank_ichor_siphon: u8;
+    total_marrow_harvested: u32;
+
+    active_nodes_mask: u16;
+    overloaded_nodes_mask: u16;
+    grid_feedback_cooldown: f32;
+    stalactite_drop_timer: f32;
+}
+
+state {
+    isConfigured: boolean = false;
+    isAwake: boolean = false;
+    victoryStateAchieved: boolean = false;
+    terminalDebriefOpen: boolean = false;
+}
+
+on configure(ctx) {
+    this.memory.systole_duration = 1.6;
+    this.memory.diastole_duration = 2.4;
+    this.memory.cardiac_phase = 0;
+    this.memory.current_depth = 1;
+    this.memory.max_marrow = 100.0;
+    this.memory.vital_marrow = 100.0;
+    this.state.isConfigured = true;
+}
+
+on activate() {
+    this.state.isAwake = true;
+}
+
+on update(tick, input) {
+    if (!this.state.isAwake) return;
+
+    // 1. CARDIAC METRONOME OSCILLATOR
+    this.memory.metronome_timer += tick.deltaTime;
+    if (this.memory.cardiac_phase == 0) {
+        // DIASTOLIC RELAXATION
+        if (this.memory.metronome_timer >= this.memory.diastole_duration) {
+            this.memory.metronome_timer = 0.0;
+            this.memory.cardiac_phase = 1;
+            this.memory.screenshake_intensity = 6.0;
+        }
+    } else {
+        // SYSTOLIC CONTRACTION
+        if (this.memory.metronome_timer >= this.memory.systole_duration) {
+            this.memory.metronome_timer = 0.0;
+            this.memory.cardiac_phase = 0;
+        }
+    }
+
+    // 2. KINEMATIC INTEGRATION & FLOOR DRAG (P-05 EXPONENTIAL DECAY)
+    let moveMod = 1.0;
+    if (this.memory.cardiac_phase == 1) {
+        moveMod = 1.35; // Systolic floor hardening
+    } else {
+        moveMod = 0.78; // Diastolic ichor viscosity
+    }
+
+    let inputX = input.axisPrimaryX;
+    let inputY = input.axisPrimaryY;
+    let targetVX = inputX * 220.0 * moveMod;
+    let targetVY = inputY * 220.0 * moveMod;
+
+    let decay = 1.0 - Math.pow(0.001, tick.deltaTime);
+    this.memory.player_vx += (targetVX - this.memory.player_vx) * decay;
+    this.memory.player_vy += (targetVY - this.memory.player_vy) * decay;
+
+    this.memory.player_x += this.memory.player_vx * tick.deltaTime;
+    this.memory.player_y += this.memory.player_vy * tick.deltaTime;
+
+    // 3. MARROW DASH EXECUTION & I-FRAMES
+    if (this.memory.dash_cooldown > 0.0) {
+        this.memory.dash_cooldown -= tick.deltaTime;
+    }
+    if (this.memory.iframe_timer > 0.0) {
+        this.memory.iframe_timer -= tick.deltaTime;
+    }
+
+    if (input.isDown(0x20) && this.memory.dash_cooldown <= 0.0) { // Space
+        this.memory.iframe_timer = 0.25;
+        this.memory.dash_cooldown = 1.2;
+        this.memory.player_vx = inputX * 520.0;
+        this.memory.player_vy = inputY * 520.0;
+    }
+}
+
+on render(ctx) {
+    // Zero-allocation diegetic rendering via offscreen context
+}
+
+on suspend() {
+    this.state.isAwake = false;
+}
+
+on serialize() {
+    // Returns contiguous binary snapshot
+}
+
+on deserialize(buffer) {
+    // Rehydrates across 8-Gate verification matrix
+}
+
+on destroy() {
+    this.state.isConfigured = false;
+    this.state.isAwake = false;
+}

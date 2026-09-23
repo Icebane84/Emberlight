@@ -34,6 +34,10 @@ const testSuites = [
     name: 'Sentinel Anti-Theater Mutation Crucible',
     file: 'testing/test_mutation.js',
   },
+  {
+    name: 'STCP Transduction & Synarche Parser Suite',
+    file: 'testing/test_synarche_parser.js',
+  },
 ];
 
 console.log('╔══════════════════════════════════════════════════════════════╗');

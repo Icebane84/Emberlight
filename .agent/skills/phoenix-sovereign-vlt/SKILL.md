@@ -1,15 +1,18 @@
 ---
 name: phoenix-sovereign-vlt
-description: Master operational specification for building zero-dependency, single-file 3-Plane VLT-003 Sovereign Engines with fixed 2048-byte binary heaps (PERSIST-001), 60Hz accumulator loop, OffscreenCanvas, and 20-pass Sentinel governance.
+description: Master operational specification for building zero-dependency, single-file VLT-003/VLT-004 Sovereign Engines governed by the Phoenix Sovereign Grand Constitution (PSGC-001). Covers 2048-byte binary heaps (PERSIST-001), VSRP-001 9-Method FSM, PMIP-001 causal envelopes, SDCP-001 capability attenuation, OSLM topological DAG with Hopcroft-Tarjan cut-vertex detection, Sentinel AC-01–AC-10 mutation crucible, and 14.5ms DCLB load shedder.
 globs: "**/*.html, **/*.js, phoenix/**/*.js, phoenix/**/*.html"
 alwaysApply: false
-version: 3.0.0
+version: 5.0.0-PRO
 ---
 
-# AGENT OPERATIONAL SPECIFICATION: Phoenix Sovereign VLT-003 Runtime Substrate
+# AGENT OPERATIONAL SPECIFICATION: Phoenix Sovereign VLT-003/VLT-004 Runtime Substrate
 
-**Document Identifier:** SKILL-PHOENIX-SOVEREIGN-VLT003
-**Protocol Version:** VLT-003 / PERSIST-001 / SDCP-001 / VSRP-001 / PMIP-001 / MVP-001
+**Document Identifier:** SKILL-PHOENIX-SOVEREIGN-VLT003-PRO  
+**Protocol Version:** VLT-003 / VLT-004 / PERSIST-001 / VSRP-001 / SDCP-001 / PMIP-001 / MPFS-001 / OSLM-001  
+**Constitutional Authority:** [`PHOENIX_SOVEREIGN_GRAND_CONSTITUTION (PSGC-001)`](../PHOENIX_SOVEREIGN_CONSTITUTION.md) — **PSGC-001 is the supreme normative standard. This skill is a operational summary. On any conflict, PSGC-001 governs.**  
+**Version:** `5.0.0-PRO` (upgraded from 3.0.0 — Batch 5 synchronization, 2026-09-22)  
+**Status:** `NORMATIVE OPERATIONAL REFERENCE`
 **Classification:** Normative Kernel Runtime Standard & AI Agent Operational Directive
 
 ---
@@ -56,6 +59,7 @@ A single `.html` container is architecturally partitioned into 3 isolated execut
 | **PERSIST-001** | State Authority & Binary Memory | Contiguous `ArrayBuffer` state; 32-byte header with CRC32; OPFS/IndexedDB storage. | Deserialization mismatch; GC frame spikes. |
 | **VSRP-001** | Universal 9-Method Lifecycle | Canonical 9-method finite state machine (`configure` $\to$ `destroy`); pure `update()`. | Unasserted state invocation; rendering inside `update()`. |
 | **PMIP-001** | Inter-Plane Message Envelopes | Validated, immutable message envelopes across threads; tokenized teardown unbinds. | Telepathic state coupling; unhandled listener leaks. |
+| **STCP-001** | Transduction & Compilation | Semantic Tri-Planar Compilation Protocol (`.phx`/`.syn` DSL $\to$ VSRP-001 Cartridge IIFE via `synarche_parser.js`). | Syntax error (`ERR_0x14`); unmapped capability (`ERR_0x15`). |
 | **MVP-001** | Automated Sentinel Governance | 20-pass pre-flight hardware assertion battery and AST lexical linter. | System boot halt; visual failure barrier. |
 
 ---
@@ -72,7 +76,7 @@ A single `.html` container is architecturally partitioned into 3 isolated execut
 | **`[SEC-04]`** | Cryptographic Provenance Ledger | Plane 1 (Worker) | SHA-256 state hashing (`crypto.subtle`) and timeline chaining. |
 | **`[SEC-05]`** | 32-Byte Header Packing Engine | Plane 1 (Worker) | Binary serializer writing little-endian header (`0x5053594E`, tick, seed, CRC). |
 | **`[SEC-06]`** | PEVM Constitution & Governance Ledger | Plane 1 (Worker) | Hardcoded domain invariants, 64-byte ledger, AI proposal validator. |
-| **`[SEC-07]`** | Prestige Progression Calculus | Plane 1 (Worker) | Non-linear mastery curve: $\text{level} = \lfloor(xp/100)^{1/1.5}\rfloor + 1$. |
+| **`[SEC-07]`** | OSLM DAG & Deferred Invariant Verifier | Plane 1 (Worker) | Topological sort (Kahn's), Hopcroft-Tarjan cut-vertex detection, EBNF Invariant DSL (`no_call`, `assert`) deferred call-window verifier. *[INV-01]: Domain progression formulas are banned from this section.* |
 | **`[SEC-08]`** | High-Frequency Input Ring Buffer | Plane 1 (Worker) | Zero-allocation circular FIFO (`Int32Array`) queuing input tokens. |
 | **`[SEC-09]`** | Contiguous Entity Heap & Memory Map | Plane 1 (Worker) | Linear `ArrayBuffer` partition with fixed strides and byte offsets. |
 | **`[SEC-10]`** | VSRP-001 9-Method Tenant Core | Plane 1 (Worker) | Canonical tenant implementation with strict lifecycle FSM enforcement. |
@@ -266,3 +270,4 @@ When an autonomous AI agent inspects, modifies, or refactors a file governed by 
 3. **Preserve Section Demarcations:** All edits must remain strictly inside `//#region [SEC-XX]` and `//#endregion`.
 4. **Enforce Zero-Allocation Math:** Never introduce `new Object()`, `new Array()`, or string concatenation inside `update()` or `render()`. Write directly to typed views.
 5. **Pre-Flight Verification:** Ensure the code passes all 20 Sentinel assertions without error.
+6. **STCP Transduction Toolchain:** Author domain logic in `.phx`/`.syn` DSL format and compile via `synarche_parser.js` for zero-dependency VSRP-001 cartridge generation.

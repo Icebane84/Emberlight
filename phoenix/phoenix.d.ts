@@ -130,19 +130,29 @@ declare interface PhoenixSearchEngineFacade {
   replaceAll(source: string, query: string, replacement: string, options?: { matchCase?: boolean; matchWholeWord?: boolean; useRegex?: boolean }): { result: string; count: number };
 }
 
+declare interface DiffHunkLine {
+  type: "ctx" | "del" | "add";
+  text: string;
+  oldLine: number | null;
+  newLine: number | null;
+}
+
 declare interface DiffHunk {
-  id: string;
-  startLine: number;
-  endLine: number;
-  originalText: string;
-  newText: string;
-  accepted: boolean;
+  id: number | string;
+  oldStart: number;
+  oldCount: number;
+  newStart: number;
+  newCount: number;
+  delLines: string[];
+  addLines: string[];
+  lines: DiffHunkLine[];
+  header: string;
 }
 
 declare interface PhoenixChunkDiffEngineFacade {
-  computeHunks(original: string, modified: string): DiffHunk[];
-  applyHunk(source: string, hunk: DiffHunk): string;
-  rejectHunk(source: string, hunk: DiffHunk): string;
+  computeHunks(original: string, modified: string, contextLines?: number): DiffHunk[];
+  applyHunk(source: string, hunk: DiffHunk | { oldStart: number; delLines?: string[]; oldCount?: number; addLines?: string[] }): string;
+  rejectHunk(source: string, hunk: DiffHunk | { newStart: number; addLines?: string[]; newCount?: number; delLines?: string[] }): string;
 }
 
 declare interface PhoenixRuntimeSandboxFacade {
@@ -213,10 +223,56 @@ declare interface PhoenixCodeFormatterFacade {
   formatJSON(jsonStr: string): string;
 }
 
+declare interface LexerTokenDTO {
+  type: string;
+  value: string;
+  line?: number;
+  col?: number;
+  start?: number;
+  end?: number;
+}
+
+declare interface LexerLineResultDTO {
+  tokens: Array<{ type: string; value: string }>;
+  endState: { state: number; braceDepth: number; depthStack: number[] };
+}
+
+declare interface PhoenixLexerFacade {
+  STATES: {
+    CODE: number;
+    BLOCK_COMMENT: number;
+    TEMPLATE_LITERAL: number;
+    TEMPLATE_INTERPOLATION: number;
+    REGEX: number;
+  };
+  tokenize(code: string): LexerTokenDTO[];
+  tokenizeLine(line: string, startState?: { state: number; braceDepth?: number; depthStack?: number[] } | null): LexerLineResultDTO;
+}
+
+declare interface HotLoopViolationDTO {
+  line: number;
+  col: number;
+  type: string;
+  message: string;
+  severity: "error" | "warning";
+  snippet: string;
+}
+
+declare interface JSDocParityResultDTO {
+  line: number;
+  functionName: string;
+  issue: string;
+  message: string;
+  expectedParams: string[];
+  actualParams: string[];
+}
+
 declare interface PhoenixLinterSuiteFacade {
   calculateCognitiveComplexity(code: string): number;
   scanFunctionsComplexity(code: string, threshold?: number): Array<{ name: string; line: number; endLine: number; complexity: number; score: number; codeSlice: string }>;
   lintCode(source: string, filename?: string): Array<{ line: number; col: number; message: string; severity: "error" | "warning" }>;
+  auditHotLoopAllocations(source: string, contextName?: string): HotLoopViolationDTO[];
+  verifyJSDocParity(source: string): JSDocParityResultDTO[];
 }
 
 declare interface ERLResolutionTemplate {
@@ -283,6 +339,10 @@ declare interface PhoenixSovereignStorageInstance {
   initialize(): Promise<PhoenixSovereignStorageInstance>;
   write(name: string, value: unknown): Promise<boolean>;
   read(name: string): Promise<unknown>;
+  selectProjectDirectory(): Promise<FileSystemDirectoryHandle>;
+  mountProjectDirectory(dirHandle: FileSystemDirectoryHandle): FileSystemDirectoryHandle;
+  readProjectFile(filePath: string): Promise<string>;
+  writeProjectFile(filePath: string, text: string): Promise<boolean>;
   hasOPFS: boolean;
   hasProject: boolean;
 }
@@ -291,10 +351,16 @@ declare interface PhoenixGovernorInstance {
   initialize(): Promise<PhoenixGovernorInstance>;
   registerSource(path: string, content: string): void;
   getSource(path: string): string | null;
+  writeSourceToDisk(filePath: string, content?: string): Promise<boolean>;
   submitProposal(proposal: PhoenixProposalDTO | Record<string, unknown>, subject?: string): Promise<PhoenixReceiptDTO>;
+  submit(proposal: PhoenixProposalDTO | Record<string, unknown>, subject?: string): Promise<PhoenixReceiptDTO>;
   getReceipts(): PhoenixReceiptDTO[];
   diagnostics(): Record<string, unknown>;
   destroy(): void;
+  storage: PhoenixSovereignStorageInstance;
+  spec: PhoenixSpecificationRegistryInstance;
+  capabilities: PhoenixCapabilityRegistryInstance;
+  receipts: PhoenixReceiptLedgerInstance;
 }
 
 declare interface PhoenixMonolithExporterFacade {
@@ -344,6 +410,7 @@ declare interface PhoenixSovereignEngineFacade {
   extractFaultSlice(source: string, change: unknown, failure: unknown): { targetPath: string; scopeName: string; failureReason: string; faultSlice: string };
   PhoenixAudioSynthesizer: PhoenixAudioSynthesizerFacade;
   PhoenixSymbolIndexer: PhoenixSymbolIndexerFacade;
+  PhoenixLexer: PhoenixLexerFacade;
   PhoenixFuzzySearch: PhoenixFuzzySearchFacade;
   PhoenixSearchEngine: PhoenixSearchEngineFacade;
   PhoenixChunkDiffEngine: PhoenixChunkDiffEngineFacade;
@@ -358,4 +425,31 @@ declare interface PhoenixSovereignEngineFacade {
   PhoenixErrorResolutionLedger: PhoenixErrorResolutionLedgerFacade;
   PhoenixBatchRemediationPipeline: PhoenixBatchRemediationPipelineFacade;
   PhoenixRegionScaffolder: PhoenixRegionScaffolderFacade;
+}
+
+declare interface PhoenixStudioAudioFacade {
+  open(): void;
+  close(): void;
+  loadPreset(presetKey: string): void;
+  updateBadges(): void;
+  getParams(): Record<string, unknown>;
+  preview(): void;
+  renderOscilloscope(): void;
+  randomize(): void;
+  exportCode(): void;
+}
+
+declare interface PhoenixStudioViewportFacade {
+  init(): void;
+  toggleWorkspaceMode(mode: string): void;
+  switchTier(tierKey: string): void;
+  selectEntity(entId: string): void;
+  renderSceneTree(): void;
+  updateProperties(entId: string): void;
+  renderActiveEngine(): void;
+}
+
+declare interface PhoenixStarterPackFacade {
+  MODULES: ReadonlyArray<{ path: string; domain: string; source: string }>;
+  getModule(path: string): { path: string; domain: string; source: string } | null;
 }

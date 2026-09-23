@@ -60,6 +60,7 @@ All code generated or modified within this engine must strictly comply with the 
 | **PERSIST-001** | State Authority & Persistence | Contiguous `ArrayBuffer` state; 32-byte header with CRC32; OPFS/IndexedDB storage. | Deserialization mismatch; garbage collection frame spikes. |
 | **VSRP-001** | Lifecycle Execution & FSM | Canonical 9-method finite state machine (`configure` $\to$ `destroy`); pure math `update()`. | Unasserted state invocation; rendering mutation inside `update()`. |
 | **PMIP-001** | Decoupled Inter-Tenant Routing | Validated, immutable message envelopes across threads; tokenized teardown. | Telepathic state coupling; detached unhandled event listeners. |
+| **STCP-001** | Transduction & Compilation | Semantic Tri-Planar Compilation Protocol (`.phx`/`.syn` DSL $\to$ VSRP-001 Cartridge IIFE via `synarche_parser.js`). | Syntax error (`ERR_0x14`); unmapped capability (`ERR_0x15`). |
 | **MVP-001** | Automated Sentinel Governance | 20-pass pre-flight hardware assertion battery and AST-aware source code linter. | System execution halt on boot; red visual failure barrier. |
 
 ---

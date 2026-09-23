@@ -1,6 +1,6 @@
 # ⚡ EMBERLIGHT — Tactical War Table
 
-> **A zero-dependency, browser-native sovereign game engine.**  
+> **A zero-dependency, browser-native sovereign game engine.**
 > Pure ES2022+ · Vanilla CSS · No npm · No bundler · No build step.
 
 [![Sentinel](https://img.shields.io/badge/Sentinel-127%2F127%20PASS-brightgreen?style=flat-square)](#-sentinel-verification-gate)
@@ -88,12 +88,12 @@ Expected output for all suites: **exit code 0**.
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-| Tier | Authority | Key Invariant |
-|:---|:---|:---|
-| **T1 Host Harness** | Persistent SSOT ownership, lifecycle | Never runs combat math or renders DOM directly |
-| **T2 Simulation Tenants** | Authoritative game state within a session | Zero DOM · Zero `Math.random()` · Zero autonomous clocks |
-| **T3 Peripheral Drivers** | Presentation, audio, hardware input | Zero simulation authority · Never mutates canonical state |
-| **T4 Kernels & SSOT** | Pure math, frozen schema, procedural generation | Side-effect-free · `Object.freeze`d |
+| Tier                      | Authority                                       | Key Invariant                                             |
+| :------------------------ | :---------------------------------------------- | :-------------------------------------------------------- |
+| **T1 Host Harness**       | Persistent SSOT ownership, lifecycle            | Never runs combat math or renders DOM directly            |
+| **T2 Simulation Tenants** | Authoritative game state within a session       | Zero DOM · Zero `Math.random()` · Zero autonomous clocks  |
+| **T3 Peripheral Drivers** | Presentation, audio, hardware input             | Zero simulation authority · Never mutates canonical state |
+| **T4 Kernels & SSOT**     | Pure math, frozen schema, procedural generation | Side-effect-free · `Object.freeze`d                       |
 
 ---
 
@@ -145,57 +145,57 @@ if (typeof module !== 'undefined') module.exports = EmberlightMyDistrict;
 ```
 
 > [!IMPORTANT]
-> **AC-02:** `reset(snapshot)` MUST use `structuredClone(snapshot)` — never `{ ...snapshot }`. Shallow copies sever the Faraday isolation contract.  
-> **AC-05:** `Math.random()` is forbidden in all Tier 2 code. Use `EmberlightPRNG.create(seed)` exclusively.  
+> **AC-02:** `reset(snapshot)` MUST use `structuredClone(snapshot)` — never `{ ...snapshot }`. Shallow copies sever the Faraday isolation contract.
+> **AC-05:** `Math.random()` is forbidden in all Tier 2 code. Use `EmberlightPRNG.create(seed)` exclusively.
 > **AC-06:** `context.inputs` must be processed immutably (index iteration). Never `shift()`, `pop()`, or `splice()`.
 
 ---
 
 ## 🔬 Component Registry (37 Modules)
 
-| # | File | Tier | Role |
-|:---|:---|:---|:---|
-| 01 | [`manifest.js`](./manifest.js) | T4 SSOT | Game data, world map, stat calculators, item/enemy/quest catalog |
-| 02 | [`prng.js`](./prng.js) | T4 Kernel | Mulberry32 seeded PRNG — `nextFloat`, `nextInt`, `fork()` |
-| 02A | [`session_store.js`](./session_store.js) | T1 | Canonical session state, transactional mutators, persistence bridge |
-| 02B | [`event_bus.js`](./event_bus.js) | T1 | Synchronous pub/sub + SDCP-001 sealed capability registry |
-| 02C | [`world_ecology.js`](./world_ecology.js) | T1 | Map resolution, sparse tile mutations, dungeon bridging |
-| 02D | [`district_router.js`](./district_router.js) | T1 | District navigation, modal isolation, transition lifecycle |
-| 03 | [`acoustic_sfx.js`](./acoustic_sfx.js) | T3 | Web Audio engine — stereo panning, convolution reverb, 11 SFX |
-| 04 | [`synth_soundtrack.js`](./synth_soundtrack.js) | T3 | 4-channel FM procedural chiptune sequencer |
-| 05 | [`synthetic_voice.js`](./synthetic_voice.js) | T3 | Dual-formant procedural speech synthesizer |
-| 06 | [`input.js`](./input.js) | T3 | Hardware-to-action token translator + `clear()` gate |
-| 07 | [`icons.js`](./icons.js) | T3 | JIT 48px procedural icon baker — boss heat pulsation, glass refraction |
-| 08 | [`skill_icons.js`](./skill_icons.js) | T3 | 36px skill glyph baker for all 36 constellation nodes |
-| 09 | [`party_icons.js`](./party_icons.js) | T3 | Procedural character portrait generator |
-| 10 | [`sprite_baker.js`](./sprite_baker.js) | T3 | 32×32 overworld paper-doll synthesizer (4× supersampling) |
-| 11 | [`battler_baker.js`](./battler_baker.js) | T3 | 64×64 combat battler synthesizer — 11 archetypes, PBR lighting |
-| 12 | [`battle_backdrop.js`](./battle_backdrop.js) | T3 | Parallax combat stage renderer — 4 biomes with god-rays |
-| 13 | [`combat_vfx.js`](./combat_vfx.js) | T3 | Kinetic VFX overlay — particles, arcs, damage floaters, screen shake |
-| 13A | [`combat_renderer.js`](./combat_renderer.js) | T3 | Combat stage DOM presenter — CTB ribbon, wings, Command Hub |
-| 13B | [`map_renderer.js`](./map_renderer.js) | T3 | 2D canvas map + camera — LoS fog, HiDPI, Y-sorted entities |
-| 13C–I | `armory/chronicle/progression/market/status/relic_forge/cockpit_renderer.js` | T3 | District presentation drivers |
-| 14 | [`dynamic_lights.js`](./dynamic_lights.js) | T3 | Environmental lighting — lantern cone, shadow fins, crypt motes |
-| 15 | [`pseudo_3d_renderer.js`](./pseudo_3d_renderer.js) | T3 | DDA raycaster — textures, billboards, radar, compass |
-| 16 | [`shader_compositor.js`](./shader_compositor.js) | T3 | WebGL CRT — barrel distortion, chromatic aberration, scanlines |
-| 17 | [`threat_oracle.js`](./threat_oracle.js) | T3 | 12-turn CTB forecast + damage range telemetry |
-| 18 | [`overworld.js`](./overworld.js) | T2 D1 | Spatial grid sim — collision, danger rolls, encounter triggers |
-| 19 | [`combat.js`](./combat.js) | T2 D2 | CTB combat sim — formations, ailments, boss phases, displacement |
-| 20 | [`script.js`](./script.js) | T2 D3 | Branching dialogue runner — typewriter, choices, token interpolation |
-| 21 | [`armory.js`](./armory.js) | T2 D4 | Equipment district — stat-gated validation, equip deltas |
-| 22 | [`progression.js`](./progression.js) | T2 D5 | Aether Matrix — constellation SP allocation, respec |
-| 23 | [`status.js`](./status.js) | T2 D6 | Party status — row shifting, field healing, ailment tracking |
-| 24 | [`market.js`](./market.js) | T2 D7 | Commerce district — buy/sell, stock validation, purse deltas |
-| 25 | [`chronicle.js`](./chronicle.js) | T2 D8 | Quest journal — stage progression, flag registry |
-| 26 | [`relic_forge.js`](./relic_forge.js) | T2 D9 | Procedural relic synthesis — seed attunement, deterministic crafting |
-| 27 | [`lockpick.js`](./lockpick.js) | T2 D10 | Harmonic lockpick minigame — Lissajous waveforms, phase matching |
-| 28 | [`settings.js`](./settings.js) | T2 D11 | System config — audio, CRT, keymaps, save/eject |
-| 29 | [`dungeon_gen.js`](./dungeon_gen.js) | T4 | BSP + Drunkard's Walk floor carver — 100% path connectivity |
-| 30 | [`auditor.js`](./auditor.js) | T4 | 19-pass Sentinel gate — 127/127 anti-entropy checks |
-| 31 | [`save_manager.js`](./save_manager.js) | T1 | Persistence — sparse delta encoding (<2.5KB budget), migrations |
-| 32 | [`runtime.js`](./runtime.js) | T1 | Host lifecycle coordinator — frame tick, viewport, district dispatch |
-| 33 | [`index.css`](./index.css) | Style | 5-partition CSS aggregator → `css/` |
-| 34 | [`index.html`](./index.html) | Shell | Semantic DOM shell, 55-module ordered script bundle |
+| #     | File                                                                         | Tier      | Role                                                                   |
+| :---- | :--------------------------------------------------------------------------- | :-------- | :--------------------------------------------------------------------- |
+| 01    | [`manifest.js`](./manifest.js)                                               | T4 SSOT   | Game data, world map, stat calculators, item/enemy/quest catalog       |
+| 02    | [`prng.js`](./prng.js)                                                       | T4 Kernel | Mulberry32 seeded PRNG — `nextFloat`, `nextInt`, `fork()`              |
+| 02A   | [`session_store.js`](./session_store.js)                                     | T1        | Canonical session state, transactional mutators, persistence bridge    |
+| 02B   | [`event_bus.js`](./event_bus.js)                                             | T1        | Synchronous pub/sub + SDCP-001 sealed capability registry              |
+| 02C   | [`world_ecology.js`](./world_ecology.js)                                     | T1        | Map resolution, sparse tile mutations, dungeon bridging                |
+| 02D   | [`district_router.js`](./district_router.js)                                 | T1        | District navigation, modal isolation, transition lifecycle             |
+| 03    | [`acoustic_sfx.js`](./acoustic_sfx.js)                                       | T3        | Web Audio engine — stereo panning, convolution reverb, 11 SFX          |
+| 04    | [`synth_soundtrack.js`](./synth_soundtrack.js)                               | T3        | 4-channel FM procedural chiptune sequencer                             |
+| 05    | [`synthetic_voice.js`](./synthetic_voice.js)                                 | T3        | Dual-formant procedural speech synthesizer                             |
+| 06    | [`input.js`](./input.js)                                                     | T3        | Hardware-to-action token translator + `clear()` gate                   |
+| 07    | [`icons.js`](./icons.js)                                                     | T3        | JIT 48px procedural icon baker — boss heat pulsation, glass refraction |
+| 08    | [`skill_icons.js`](./skill_icons.js)                                         | T3        | 36px skill glyph baker for all 36 constellation nodes                  |
+| 09    | [`party_icons.js`](./party_icons.js)                                         | T3        | Procedural character portrait generator                                |
+| 10    | [`sprite_baker.js`](./sprite_baker.js)                                       | T3        | 32×32 overworld paper-doll synthesizer (4× supersampling)              |
+| 11    | [`battler_baker.js`](./battler_baker.js)                                     | T3        | 64×64 combat battler synthesizer — 11 archetypes, PBR lighting         |
+| 12    | [`battle_backdrop.js`](./battle_backdrop.js)                                 | T3        | Parallax combat stage renderer — 4 biomes with god-rays                |
+| 13    | [`combat_vfx.js`](./combat_vfx.js)                                           | T3        | Kinetic VFX overlay — particles, arcs, damage floaters, screen shake   |
+| 13A   | [`combat_renderer.js`](./combat_renderer.js)                                 | T3        | Combat stage DOM presenter — CTB ribbon, wings, Command Hub            |
+| 13B   | [`map_renderer.js`](./map_renderer.js)                                       | T3        | 2D canvas map + camera — LoS fog, HiDPI, Y-sorted entities             |
+| 13C–I | `armory/chronicle/progression/market/status/relic_forge/cockpit_renderer.js` | T3        | District presentation drivers                                          |
+| 14    | [`dynamic_lights.js`](./dynamic_lights.js)                                   | T3        | Environmental lighting — lantern cone, shadow fins, crypt motes        |
+| 15    | [`pseudo_3d_renderer.js`](./pseudo_3d_renderer.js)                           | T3        | DDA raycaster — textures, billboards, radar, compass                   |
+| 16    | [`shader_compositor.js`](./shader_compositor.js)                             | T3        | WebGL CRT — barrel distortion, chromatic aberration, scanlines         |
+| 17    | [`threat_oracle.js`](./threat_oracle.js)                                     | T3        | 12-turn CTB forecast + damage range telemetry                          |
+| 18    | [`overworld.js`](./overworld.js)                                             | T2 D1     | Spatial grid sim — collision, danger rolls, encounter triggers         |
+| 19    | [`combat.js`](./combat.js)                                                   | T2 D2     | CTB combat sim — formations, ailments, boss phases, displacement       |
+| 20    | [`script.js`](./script.js)                                                   | T2 D3     | Branching dialogue runner — typewriter, choices, token interpolation   |
+| 21    | [`armory.js`](./armory.js)                                                   | T2 D4     | Equipment district — stat-gated validation, equip deltas               |
+| 22    | [`progression.js`](./progression.js)                                         | T2 D5     | Aether Matrix — constellation SP allocation, respec                    |
+| 23    | [`status.js`](./status.js)                                                   | T2 D6     | Party status — row shifting, field healing, ailment tracking           |
+| 24    | [`market.js`](./market.js)                                                   | T2 D7     | Commerce district — buy/sell, stock validation, purse deltas           |
+| 25    | [`chronicle.js`](./chronicle.js)                                             | T2 D8     | Quest journal — stage progression, flag registry                       |
+| 26    | [`relic_forge.js`](./relic_forge.js)                                         | T2 D9     | Procedural relic synthesis — seed attunement, deterministic crafting   |
+| 27    | [`lockpick.js`](./lockpick.js)                                               | T2 D10    | Harmonic lockpick minigame — Lissajous waveforms, phase matching       |
+| 28    | [`settings.js`](./settings.js)                                               | T2 D11    | System config — audio, CRT, keymaps, save/eject                        |
+| 29    | [`dungeon_gen.js`](./dungeon_gen.js)                                         | T4        | BSP + Drunkard's Walk floor carver — 100% path connectivity            |
+| 30    | [`auditor.js`](./auditor.js)                                                 | T4        | 19-pass Sentinel gate — 127/127 anti-entropy checks                    |
+| 31    | [`save_manager.js`](./save_manager.js)                                       | T1        | Persistence — sparse delta encoding (<2.5KB budget), migrations        |
+| 32    | [`runtime.js`](./runtime.js)                                                 | T1        | Host lifecycle coordinator — frame tick, viewport, district dispatch   |
+| 33    | [`index.css`](./index.css)                                                   | Style     | 5-partition CSS aggregator → `css/`                                    |
+| 34    | [`index.html`](./index.html)                                                 | Shell     | Semantic DOM shell, 55-module ordered script bundle                    |
 
 ---
 
@@ -203,12 +203,12 @@ if (typeof module !== 'undefined') module.exports = EmberlightMyDistrict;
 
 This engine deliberately enforces a **zero-npm boundary**:
 
-| Forbidden | Reason |
-|:---|:---|
-| `npm`, `npx`, `yarn`, `pnpm` | No package manager surface |
-| `package.json`, `node_modules/` | No dependency tree |
-| `import … from` / `export default` | No ES module syntax — IIFE dual-binding only |
-| `Jest`, `Mocha`, `Vitest`, `JSDOM` | Test harnesses use native `node:vm` exclusively |
+| Forbidden                            | Reason                                                         |
+| :----------------------------------- | :------------------------------------------------------------- |
+| `npm`, `npx`, `yarn`, `pnpm`         | No package manager surface                                     |
+| `package.json`, `node_modules/`      | No dependency tree                                             |
+| `import … from` / `export default`   | No ES module syntax — IIFE dual-binding only                   |
+| `Jest`, `Mocha`, `Vitest`, `JSDOM`   | Test harnesses use native `node:vm` exclusively                |
 | `.eslintrc`, external linter configs | Static analysis via VS Code `checkJs: true` in `jsconfig.json` |
 
 All modules use the **Universal IIFE Dual-Binding Pattern**:
@@ -227,29 +227,29 @@ This allows every module to execute identically in the browser **and** inside th
 
 The Sentinel Auditor (`auditor.js`) runs a **19-pass, 127-check** anti-entropy battery at engine boot and in CI:
 
-| Pass | Domain |
-|:---|:---|
-| 1 | Lifecycle & Faraday Isolation Traps (AC-01 → AC-10) |
-| 2 | Combat Simulation & Damage Formulas |
-| 3 | Overworld Navigation & Collision |
-| 4 | Market Commerce & Purse Deltas |
-| 5 | Progression Constellation & Respec |
-| 6 | Harmonic Lockpick Waves |
-| 7 | Relic Forge Determinism |
-| 8 | Pseudo-3D Raycaster Buffer Telemetry |
-| 9 | SDCP-001 Capabilities & Anti-Entropy Seal |
-| 10 | Formation Shielding & Vanguard Interception |
-| 11 | Boss Enrage Phases & Status Ailment DOTs |
-| 12 | Peripheral Driver Lifecycle Contracts |
-| 13 | Persistence Compression (<2.5KB) & EventBus Teardown |
-| 14 | Battler Synthesis & Biome Backdrop Depth |
-| 15 | District Transition & Chest Collision Invariance |
-| 16 | Surfacing, Stat Projections & Field Pouch Targeting |
-| 17 | VSRP-001 Constitutional Compliance (AC-01 → AC-10, all 11 tenants) |
-| 18 | Tactical Displacement — Knockback / Pull Row Invariance |
-| 19 | Deep Analysis Workstation & ECG Oscilloscope Canvas |
+| Pass | Domain                                                             |
+| :--- | :----------------------------------------------------------------- |
+| 1    | Lifecycle & Faraday Isolation Traps (AC-01 → AC-10)                |
+| 2    | Combat Simulation & Damage Formulas                                |
+| 3    | Overworld Navigation & Collision                                   |
+| 4    | Market Commerce & Purse Deltas                                     |
+| 5    | Progression Constellation & Respec                                 |
+| 6    | Harmonic Lockpick Waves                                            |
+| 7    | Relic Forge Determinism                                            |
+| 8    | Pseudo-3D Raycaster Buffer Telemetry                               |
+| 9    | SDCP-001 Capabilities & Anti-Entropy Seal                          |
+| 10   | Formation Shielding & Vanguard Interception                        |
+| 11   | Boss Enrage Phases & Status Ailment DOTs                           |
+| 12   | Peripheral Driver Lifecycle Contracts                              |
+| 13   | Persistence Compression (<2.5KB) & EventBus Teardown               |
+| 14   | Battler Synthesis & Biome Backdrop Depth                           |
+| 15   | District Transition & Chest Collision Invariance                   |
+| 16   | Surfacing, Stat Projections & Field Pouch Targeting                |
+| 17   | VSRP-001 Constitutional Compliance (AC-01 → AC-10, all 11 tenants) |
+| 18   | Tactical Displacement — Knockback / Pull Row Invariance            |
+| 19   | Deep Analysis Workstation & ECG Oscilloscope Canvas                |
 
-**Acceptance:** `=== SENTINEL AUDIT 100% SUCCESS: 127/127 CHECKS PASSED ===` (exit 0).  
+**Acceptance:** `=== SENTINEL AUDIT 100% SUCCESS: 127/127 CHECKS PASSED ===` (exit 0).
 Any regression that breaks a single check fails the gate (exit 1).
 
 ---
@@ -287,36 +287,36 @@ Emberlight/
 
 ## 🎮 Key Hotkeys
 
-| Key | Action |
-|:---|:---|
-| `WASD` / Arrows | Navigate overworld (cardinal) or 3D crawler (relative when `[X]` active) |
-| `E` | Armory district |
-| `T` | Market district |
-| `C` | Chronicle journal |
-| `F` | Relic Forge |
-| `P` | Progression constellation |
-| `I` | Quick Field Pouch (in-situ item use) |
-| `X` | Toggle first-person 3D immersion (Q2 fullscreen) |
-| `Z` | Toggle Deep Analysis Workstation (Q4 fullscreen) |
-| `ESC` | Settings modal / cancel |
-| `SPACE` / `ENTER` | Confirm / advance dialogue |
-| `1–4` | Combat action choices / dialogue choices |
+| Key               | Action                                                                   |
+| :---------------- | :----------------------------------------------------------------------- |
+| `WASD` / Arrows   | Navigate overworld (cardinal) or 3D crawler (relative when `[X]` active) |
+| `E`               | Armory district                                                          |
+| `T`               | Market district                                                          |
+| `C`               | Chronicle journal                                                        |
+| `F`               | Relic Forge                                                              |
+| `P`               | Progression constellation                                                |
+| `I`               | Quick Field Pouch (in-situ item use)                                     |
+| `X`               | Toggle first-person 3D immersion (Q2 fullscreen)                         |
+| `Z`               | Toggle Deep Analysis Workstation (Q4 fullscreen)                         |
+| `ESC`             | Settings modal / cancel                                                  |
+| `SPACE` / `ENTER` | Confirm / advance dialogue                                               |
+| `1–4`             | Combat action choices / dialogue choices                                 |
 
 ---
 
 ## 📡 EventBus Channel Catalog
 
-| Topic | Producer | Consumer | Payload |
-|:---|:---|:---|:---|
-| `input:action` | `input.js` | `runtime.js`, active districts | Normalized action token |
-| `combat:sfx` | `combat.js` | `acoustic_sfx.js` | Audio cue identifier |
-| `combat:vfx` | `combat.js` | `combat_vfx.js` | VFX trigger descriptor |
-| `combat:banner` | `combat.js` | `combat_renderer.js` | Turn alert text & style |
-| `combat:resolved` | `combat.js` | `runtime.js` | `{ outcome, exp, loot, gold }` |
-| `stage:illuminate` | `combat.js` | `battle_backdrop.js` | Optical flash trigger |
-| `pouch:use_item` | `cockpit_renderer.js` | `runtime.js`, `status.js` | Item consumption target |
-| `<district>:resolved` | Any T2 tenant | `runtime.js` | Delta envelope |
-| `system:command` | `settings.js` | `runtime.js` | `SAVE_GAME \| LOAD_GAME \| EJECT_TITLE \| TOGGLE_MUTE` |
+| Topic                 | Producer              | Consumer                       | Payload                                                |
+| :-------------------- | :-------------------- | :----------------------------- | :----------------------------------------------------- |
+| `input:action`        | `input.js`            | `runtime.js`, active districts | Normalized action token                                |
+| `combat:sfx`          | `combat.js`           | `acoustic_sfx.js`              | Audio cue identifier                                   |
+| `combat:vfx`          | `combat.js`           | `combat_vfx.js`                | VFX trigger descriptor                                 |
+| `combat:banner`       | `combat.js`           | `combat_renderer.js`           | Turn alert text & style                                |
+| `combat:resolved`     | `combat.js`           | `runtime.js`                   | `{ outcome, exp, loot, gold }`                         |
+| `stage:illuminate`    | `combat.js`           | `battle_backdrop.js`           | Optical flash trigger                                  |
+| `pouch:use_item`      | `cockpit_renderer.js` | `runtime.js`, `status.js`      | Item consumption target                                |
+| `<district>:resolved` | Any T2 tenant         | `runtime.js`                   | Delta envelope                                         |
+| `system:command`      | `settings.js`         | `runtime.js`                   | `SAVE_GAME \| LOAD_GAME \| EJECT_TITLE \| TOGGLE_MUTE` |
 
 ---
 
@@ -328,7 +328,7 @@ Emberlight/
 
 <div align="center">
 
-**⚡ EMBERLIGHT // WAR TABLE ⚡**  
+**⚡ EMBERLIGHT // WAR TABLE ⚡**
 *Zero Entropy. Coherence through Confrontation.*
 
 </div>

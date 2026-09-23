@@ -98,6 +98,19 @@ async function runCrucible() {
 		return missedForbiddenToken === true; // We caught that the mutant silenced the linter!
 	});
 
+	// MUTANT 9: Hot-Loop Allocation Sentinel Silently Permits Dynamic Heap Allocation
+	await assertMutantKilled('Mutant 9: Hot-Loop Allocation Sentinel silently permits transient allocations in update()', () => {
+		const mutatedEngine = phoenixEngineCode.replace(
+			'const isHotName = (name) => /(?:update|render|tick|step|_render|draw|animate|loop)/i.test(name);',
+			'const isHotName = () => false; /* mutated */'
+		);
+		const ctx = createSandbox(mutatedEngine);
+		const linter = ctx.window.PhoenixSovereignEngine.PhoenixLinterSuite;
+		const violations = linter.auditHotLoopAllocations('function update(dt) { const bad = new Float32Array(16); }');
+		// The mutant disables hot loop detection so violations is empty. Catching this kills the mutant!
+		return violations.length === 0;
+	});
+
 	console.log('\n▶ [VECTOR 2] Governor State Rollback & Isolation Anti-Theater Tests');
 	console.log('─'.repeat(64));
 

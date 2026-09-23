@@ -3,7 +3,7 @@ name: phoenix-workbench
 description: Governs the Phoenix Sovereign Web IDE & Governance Workbench, 3-Plane Virtual Lexical Topology (VLT-003), 36 #region Jump Table ([CSS-01]..[SEC-15]), local Ollama AI copilot bridge, Monolith Exporter, and 4-tier Crucible Sandbox.
 globs: "phoenix/**/*.js, phoenix/**/*.html, tools/**/*.js"
 alwaysApply: false
-version: 1.0.0
+version: 1.1.0
 ---
 
 # AGENT OPERATIONAL SPECIFICATION: Phoenix Sovereign Web IDE & Governance Workbench
@@ -18,10 +18,10 @@ version: 1.0.0
 
 The Phoenix Workbench architecture enforces strict separation across 3 operational planes to prevent memory leaks, closure pollution, and UI freezing:
 
-| Plane | Scope | Responsibilities | Constraints |
-| :--- | :--- | :--- | :--- |
-| **Plane 0** | **Presentation & Viewport** | CSS Design Tokens, DOM Layout, 2D/3D Canvas stages, Audio DAC drivers | Never accesses private simulation variables directly. Reads detached state DTOs. |
-| **Plane 1** | **Worker Kernel & Engine** | `PhoenixSovereignEngine`, VFS, AST Symbol Indexer, Diff Preview, Game Studio 3D | Operates headless or in Web Workers. Zero DOM dependencies. |
+| Plane       | Scope                          | Responsibilities                                                                  | Constraints                                                                       |
+| :---------- | :----------------------------- | :-------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------- |
+| **Plane 0** | **Presentation & Viewport**    | CSS Design Tokens, DOM Layout, 2D/3D Canvas stages, Audio DAC drivers             | Never accesses private simulation variables directly. Reads detached state DTOs.  |
+| **Plane 1** | **Worker Kernel & Engine**     | `PhoenixSovereignEngine`, VFS, AST Symbol Indexer, Diff Preview, Game Studio 3D   | Operates headless or in Web Workers. Zero DOM dependencies.                       |
 | **Plane 2** | **Governor & Sentinel Matrix** | Capability attenuation, Invariant Registry, 21-Pass Sentinel runner, OPFS Journal | Deterministic authority. All mutations require cryptographically signed receipts. |
 
 ---
@@ -110,3 +110,18 @@ The workbench can export itself or any project into a single, self-contained, ze
 - Ingests all active VFS files into an embedded JSON manifest.
 - Embeds the WASM bytecode / WebGL shaders as Base64 strings.
 - Guarantees execution under `file:///` protocol with zero external CDN dependencies.
+
+---
+
+## 6. Native File System Access (FSA API) Direct Disk Sync & Save Pipeline
+
+The workbench synchronizes directly with the local physical workspace via the File System Access API:
+
+1. **Handle Caching (`_fileHandleMap`):**
+   - Directory scans populate `_fileHandleMap = new Map()` for direct $O(1)$ handle access during file saves.
+2. **Recursive Path Creation:**
+   - `_writeDiskFile(filePath, content)` traverses and creates missing subdirectories via `dirHandle.getDirectoryHandle(part, { create: true })`.
+3. **Sentinel-Gated Disk Flush:**
+   - Both proposal commits (`_submitActiveProposal`) and direct `Ctrl+S` saves (`_saveActiveDocument`) evaluate through the 4-gate Sentinel pipeline before writing to physical disk, preventing corrupted or incomplete code from touching the workspace.
+4. **On-Demand Disk Refresh:**
+   - The **🔄 SYNC DISK** toolbar button rescans the physical directory handle and updates the in-memory VFS and symbol outline without requiring a full remount.

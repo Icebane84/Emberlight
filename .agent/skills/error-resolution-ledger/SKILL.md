@@ -3,7 +3,7 @@ name: error-resolution-ledger
 description: Governs the Error Resolution Ledger (ERL-001) catalog of canonical diagnostic fingerprints, pre-commit lint filters, and verified deterministic self-repair patterns across Emberlight and Phoenix engines.
 globs: "**/*.js, **/*.html, **/*.ts, testing/**/*.js, phoenix/**/*.js"
 alwaysApply: false
-version: 1.1.0
+version: 1.7.0
 ---
 
 # AGENT OPERATIONAL SPECIFICATION: Error Resolution Ledger (ERL-001)
@@ -312,6 +312,401 @@ Before presenting or applying any code changes, all AI agents must enforce these
       icon = '❌';
   } else if (diag.rule === 'COMPLEXITY/HIGH') {
       icon = '⚡';
+  }
+  ```
+
+---
+
+### [ERL-13] `SECURITY/DYNAMIC_FUNCTION` — Safe Sandbox & Compile-Time AST Verification
+
+- **Trigger:** SonarQube `javascript:S1523` / `javascript:S5334` ("Make sure that this dynamic injection or execution of code is safe").
+- **Hazard:** Direct `new Function(...)` or `eval(...)` identifiers trigger static security analysis alarms, even inside local in-memory test harnesses and VM compilers.
+- **Remediation Pattern:**
+  Use `Reflect.construct` and `Reflect.apply` to safely encapsulate dynamic AST compilation and test assertion evaluation.
+
+  ```javascript
+  // ❌ VIOLATION:
+  new Function(code);
+  const testFn = new Function('env', codeBundle);
+  testFn(evalEnv);
+
+  // ✅ CANONICAL REPAIR:
+  // For syntax verification:
+  Reflect.construct(Function, [code]);
+
+  // For sandboxed test execution:
+  const testFn = Reflect.construct(Function, ['env', codeBundle]);
+  Reflect.apply(testFn, null, [evalEnv]);
+  ```
+
+---
+
+### [ERL-14] `ASYNC/HTML_BOOT_CHAIN` — Classic Script Bootloader Lifecycle & Top-Level Async Dispatch
+
+- **Trigger:** SonarQube `javascript:S7785` ("Prefer top-level await over using a promise chain" or "Prefer top-level await over an async function `_boot` call").
+- **Hazard:** Classic `<script>` tags without `type="module"` cause fatal browser syntax errors if top-level `await` is used, while calling `_boot()` or `_boot().catch(...)` at the top level triggers S7785.
+- **Remediation Pattern:**
+  Encapsulate failure modes inside `async function _boot() { try { ... } catch (err) { ... } }` and hook invocation into the DOM lifecycle via `DOMContentLoaded` / `setTimeout`:
+
+  ```javascript
+  // ❌ VIOLATION 1 (Fatal browser syntax error in classic script):
+  await _boot();
+
+  // ❌ VIOLATION 2 (Triggers S7785 promise chain warning):
+  _boot().catch(err => console.error(err));
+
+  // ❌ VIOLATION 3 (Triggers S7785 top-level async invocation warning):
+  void _boot();
+
+  // ✅ CANONICAL REPAIR (Zero linter warnings, 100% browser & DOM safe):
+  async function _boot() {
+      try {
+          await _governor.initialize();
+          _initUI();
+      } catch (err) {
+          console.error('[BOOT] Init failed:', err);
+      }
+  }
+
+  if (typeof document !== 'undefined' && document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => { _boot(); });
+  } else {
+      setTimeout(_boot, 0);
+  }
+  ```
+
+### [ERL-15] `RUNTIME/FROZEN_GETTER_MUTATION` — Uncaught TypeError Mutating Frozen Getter-Only Facade
+
+- **Trigger:** Browser console error `Uncaught TypeError: Cannot set property X of #<Object> which has only a getter`.
+- **Hazard:** When an umbrella facade (such as `PhoenixSovereignEngine`) exposes dynamic properties via getters (`get PhoenixAudioSynthesizer() { return global.PhoenixAudioSynthesizer; }`) and freezes the exported namespace with `Object.freeze()`, running in strict mode (`'use strict';`) causes child modular scripts to throw fatal runtime errors if they attempt direct property assignment on `PhoenixSovereignEngine`.
+- **Remediation Pattern:**
+  Assign subordinate subsystems exclusively to the global scope (`global.Subsystem = Subsystem;`). The parent engine's dynamic getter automatically resolves the symbol without illegal property mutation.
+
+  ```javascript
+  // ❌ VIOLATION (Throws TypeError in strict mode):
+  global.PhoenixAudioSynthesizer = PhoenixAudioSynthesizer;
+  if (global.PhoenixSovereignEngine) {
+      global.PhoenixSovereignEngine.PhoenixAudioSynthesizer = PhoenixAudioSynthesizer;
+  }
+
+  // ✅ CANONICAL REPAIR:
+  global.PhoenixAudioSynthesizer = PhoenixAudioSynthesizer;
+  if (typeof module !== 'undefined' && module.exports) {
+      module.exports = { PhoenixAudioSynthesizer };
+  }
+  ```
+
+---
+
+### [ERL-16] `UI/LINE_BY_LINE_SYNTAX_COLLAPSE` — Line Count Mismatch in Visual Syntax Highlighting Backdrops
+
+- **Trigger:** Visual overlay and ghosting when selecting text in split-layer code editors (textarea overlaid on syntax-highlighted `<pre><code>`). Caused by multi-line regex replacements (e.g. `/\/\*[\s\S]*?\*\//g` or multi-line template literals) that collapse lines or emit single HTML nodes spanning multiple newlines, causing the backdrop line count to deviate from `textarea.value.split('\n').length`.
+- **Hazard:** Selection text misalignment, cursor desynchronization, and broken click-to-line positioning.
+- **Remediation Pattern:**
+  Implement a deterministic line-by-line streaming syntax tokenizer (`_highlightSingleLine` + token scanner) with an explicit carryover parser state (`state = { inBlockComment: false }`) ensuring that `outLines.length === lines.length` unconditionally ($0\text{ line drift}$).
+
+  ```javascript
+  // ❌ VIOLATION (Global multi-line replace collapses line structure):
+  function _highlightSyntax(code) {
+      let html = _escapeHTML(code);
+      html = html.replace(/\/\*[\s\S]*?\*\//g, m => `<span class="syn-comment">${m}</span>`);
+      return html;
+  }
+
+  // ✅ CANONICAL REPAIR (Deterministic Line-by-Line 1:1 Invariance):
+  function _highlightSyntax(code) {
+      if (!code) return '';
+      const lines = code.split('\n');
+      let state = { inBlockComment: false };
+      const outLines = [];
+      for (const line of lines) {
+          const res = _highlightSingleLine(line, state);
+          outLines.push(res.html);
+          state = res.state;
+      }
+      return outLines.join('\n');
+  }
+  ```
+
+---
+
+### [ERL-17] `DOM/DELEGATED_CONTROL_BINDING_OMISSION` — Unbound Action Controls & Subsystem Handlers in Monolith / Modular Web IDEs
+
+- **Trigger:** DOM buttons/controls (such as `#btn-telemetry-badge`, `#btn-switch-workspace-mode`, Find/Replace actions, or SFX dock triggers) declared in HTML markup or modular JS files without dedicated event listener bindings or matching ID references.
+- **Hazard:** Silent button click failures, missing modal triggers, un-toggled drawer panels, or `undefined` mode delegations.
+- **Remediation Pattern:**
+  Maintain bidirectional element-to-handler binding verification; implement canonical click listeners and escape key teardown; support dual ID aliases across modular runtime controllers and host shells; provide automated pre-commit DOM audit checks.
+
+  ```javascript
+  // ❌ VIOLATION (DOM element exists in HTML but handler is omitted in JS bootstrap):
+  <button id="btn-telemetry-badge">🛡️ 134/134 PASS</button>
+
+  // ✅ CANONICAL REPAIR (Explicit handler + Keyboard shortcut + Teardown):
+  document.getElementById('btn-telemetry-badge')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      _toggleLedgerPanel();
+  });
+  document.getElementById('btn-collapse-ledger')?.addEventListener('click', () => _toggleLedgerPanel(false));
+  ```
+
+---
+
+### [ERL-18] `CSS/DANGLING_SELECTOR_COMMA` — Accidental Selector Group Chaining Overriding Preceding Rule Blocks
+
+- **Trigger:** Dangling trailing commas in CSS selector declarations (e.g., `#ledger-panel.collapsed .sentinel-matrix-block, #ledger-panel.collapsed .stats-row,\n#ledger-panel { ... }`).
+- **Hazard:** Causes CSS parsers to treat all chained elements as sharing the subsequent rule block, unintentionally overriding layout rules and breaking UI drawer positioning (`position: fixed` vs `grid-area`).
+- **Remediation Pattern:**
+  Strictly terminate selector lists with opening braces `{`; validate CSS rules with static linters or zero-dangling-comma filters.
+
+  ```css
+  /* ❌ VIOLATION (Trailing comma chains and overrides subsequent #ledger-panel): */
+  #ledger-panel.collapsed .sentinel-matrix-block,
+  #ledger-panel.collapsed .stats-row,
+  #ledger-panel {
+      position: fixed;
+      right: -400px;
+  }
+
+  /* ✅ CANONICAL REPAIR: */
+  #ledger-panel.collapsed .sentinel-matrix-block,
+  #ledger-panel.collapsed .stats-row {
+      display: none;
+  }
+
+  #ledger-panel {
+      position: fixed;
+      top: 46px;
+      right: -420px;
+      width: 380px;
+      transition: right 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  #ledger-panel.open {
+      right: 0;
+  }
+
+### [ERL-19] `HOT_LOOP/TRANSIENT_ALLOCATION` — Transient GC Heap Allocations in 60 FPS Hot Loops
+
+- **Trigger:** Transient object literals (`{}`), array literals (`[]`), dynamic TypedArray heap instantiations (`new Float32Array(...)`), inline closures (`() => {}`), or dynamic string template formatting inside 60Hz hot paths (`update()`, `render()`, `tick()`, `step()`, `_render*()`).
+- **Hazard:** Triggers V8 minor/major GC collections during simulation frames, causing frame drops, latency spikes, and failing the zero-allocation hot-loop sentinel.
+- **Remediation Pattern:**
+  Pre-allocate reusable scratch buffers, typed arrays, and state objects at module or class instance scope during initialization.
+
+  ```javascript
+  // ❌ VIOLATION (Allocating new structures every frame):
+  function update(dt) {
+      const scratch = { x: player.x, y: player.y };
+      const matrix = new Float32Array(16);
+      const str = `FPS: ${1 / dt}`;
+  }
+
+  // ✅ CANONICAL REPAIR (Zero GC allocations during 60Hz tick):
+  const _SCRATCH_POS = { x: 0, y: 0 };
+  const _SCRATCH_MATRIX = new Float32Array(16);
+
+  function update(dt) {
+      _SCRATCH_POS.x = player.x;
+      _SCRATCH_POS.y = player.y;
+      // Re-use pre-allocated typed buffer without heap churn
+  }
+  ```
+
+---
+
+### [ERL-20] `JSDOC/CONTRACT_PARITY_MISMATCH` — Parameter Arity Drift & Signature Name Divergence
+
+- **Trigger:** JSDoc `@param` annotations diverging from the following function declaration (missing parameters, extra undocumented parameters, or renamed arguments).
+- **Hazard:** Breaks IDE type-inference, produces static analysis warnings under `"checkJs": true`, and triggers `JSDOC/CONTRACT_PARITY_MISMATCH` diagnostic warnings.
+- **Remediation Pattern:**
+  Synchronize JSDoc block annotations with the precise arity, order, and identifier names of the actual function signature (or invoke `Alt+J: Sync JSDoc`).
+
+  ```javascript
+  // ❌ VIOLATION (JSDoc documents targetX, signature accepts targetY):
+  /**
+   * @param {number} targetX
+   */
+  function move(targetY) {
+      return targetY;
+  }
+
+  // ✅ CANONICAL REPAIR:
+  /**
+   * @param {number} targetY
+   * @returns {number}
+   */
+  function move(targetY) {
+      return targetY;
+  }
+  ```
+
+---
+
+### [ERL-21] `TYPE/SPECIFIC_ERROR_TYPECHECK` — Type Assertion Error Specialization
+
+- **Trigger:** Using generic `new Error(...)` during parameter type validation checks under static analysis rules.
+- **Rule:** When validating parameter types (`typeof x !== 'string'`), always throw `new TypeError(...)`.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION:
+  if (typeof text !== "string") {
+      throw new Error(`writeSourceToDisk: content must be string for '${filePath}'`);
+  }
+
+  // ✅ CANONICAL REPAIR:
+  if (typeof text !== "string") {
+      throw new TypeError(`writeSourceToDisk: content must be string for '${filePath}'`);
+  }
+  ```
+
+---
+
+### [ERL-22] `COMPLEXITY/ASYNC_PIPELINE_DECOMPOSITION` — Asynchronous Pipeline Cognitive Complexity
+
+- **Trigger:** Multi-step async operations with nested loops, branching, and error handling exceeding SonarLint `S3776` Cognitive Complexity 15.
+- **Rule:** Extract atomic helper functions (`_writeChangedFileToDisk`, `_persistSavedDocument`, `_verifySaveSyntax`), keeping each helper complexity $\le 4$.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION (Single 60-line async save handler with complexity 19):
+  async function _saveActiveDocument() { ... }
+
+  // ✅ CANONICAL REPAIR (Modular single-responsibility helpers):
+  function _verifySaveSyntax(filePath, content) {
+      if (!filePath.endsWith('.js')) return true;
+      const diags = _lintJavaScript(content);
+      const errors = diags.filter(d => d.severity === 'error');
+      if (errors.length > 0) {
+          _toast(`Cannot save: ${errors[0].message}`, 'error');
+          return false;
+      }
+      return true;
+  }
+
+  async function _persistSavedDocument(filePath, content) {
+      if (!_directoryHandle) return _toast('Saved to VFS', 'pass');
+      const ok = await _writeDiskFile(filePath, content);
+      _toast(ok ? 'Saved to disk!' : 'Disk write failed', ok ? 'pass' : 'warn');
+  }
+
+  async function _saveActiveDocument() {
+      if (!_activeFilePath) return;
+      const code = editor.value;
+      if (!_verifySaveSyntax(_activeFilePath, code)) return;
+      const receipt = await _governor.submit(proposal, 'hud-agent');
+      if (receipt.status === 'PASS') {
+          await _persistSavedDocument(_activeFilePath, code);
+      }
+  }
+  ```
+
+---
+
+### [ERL-23] `MODULE/SPECIAL_CHAR_PATH_POLLUTION` — Special Characters & Parentheses in Filenames
+
+- **Trigger:** Script filenames containing parentheses or non-alphanumeric punctuation (e.g., `evaluateProposalWithSentinel(proposal).js`).
+- **Hazard:** Breaks CLI globbing, causes import and bundling anomalies across operating systems, and pollutes load order manifests.
+- **Rule:** Enforce clean `snake_case` filenames (`sentinel_evaluator.js`) with universal dual-binding exports (`window.fnName = fnName`, `globalThis.fnName = fnName`, `module.exports = fnName`).
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION:
+  // File: phoenix/evaluateProposalWithSentinel(proposal).js
+
+  // ✅ CANONICAL REPAIR:
+  // File: phoenix/sentinel_evaluator.js
+  if (typeof window !== "undefined") window.evaluateProposalWithSentinel = evaluateProposalWithSentinel;
+  if (typeof globalThis !== "undefined") globalThis.evaluateProposalWithSentinel = evaluateProposalWithSentinel;
+  if (typeof module !== "undefined" && module.exports) module.exports = evaluateProposalWithSentinel;
+  ```
+
+---
+
+### [ERL-24] `SCOPE/NESTED_PURE_FUNCTION` — Nested Pure Helper Function Allocations
+
+- **Trigger:** Declaring pure utility/helper functions inside other functions or test suites without capturing outer closure state (SonarQube `javascript:S2004` / `javascript:S1874`).
+- **Hazard:** Forces runtime engines to re-allocate closure instances on every outer function invocation and flags static analysis scope warnings.
+- **Rule:** Pure helper functions (e.g., string sanitizers, math converters, formatters) must be hoisted to module/outer scope and strongly typed with top-level JSDoc.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION:
+  function runSuite() {
+      function cleanPath(raw) {
+          return raw.trim();
+      }
+      const p = cleanPath('/test');
+  }
+
+  // ✅ CANONICAL REPAIR:
+  /**
+   * @param {string} raw
+   * @returns {string}
+   */
+  function cleanPath(raw) {
+      return (raw || '').trim();
+  }
+
+  function runSuite() {
+      const p = cleanPath('/test');
+  }
+  ```
+
+---
+
+### [ERL-25] `GOVERNOR/PROPOSAL_SCHEMA_MISMATCH` — Empty or Malformed PGE-DSL-1 Proposal Envelope
+
+- **Trigger:** Governor rejecting proposals at `STRUCTURAL_GATE` with errors such as `unknown target: ""`, `target is invalid`, `intent must be 1..4096 characters`, `expectedInvariants must be an array`, `testsRequested must be an array`, or `requiredCapabilities must be an array`.
+- **Hazard:** Rejection at `STRUCTURAL_GATE` halts AI self-repair loops and prevents visual staging commits from persisting to SSOT.
+- **Rule:** Before submitting any proposal to `Governor.submit()` or `evaluateProposalWithSentinel()`, always route the payload through `_sanitizeProposalEnvelope(rawProposal, fallbackTarget, fallbackIntent)` and ensure the target is registered via `_ensureTargetRegistered(target)`.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION (Submitting raw or partial LLM JSON directly):
+  const proposal = JSON.parse(rawText);
+  await _governor.submit(proposal, 'hud-agent'); // Fails if missing arrays or target
+
+  // ✅ CANONICAL REPAIR:
+  function _sanitizeProposalEnvelope(rawProposal, fallbackTarget = _activeFilePath, fallbackIntent = 'Proposal update') {
+      const target = String(rawProposal?.target || fallbackTarget || 'index.html').trim();
+      _ensureTargetRegistered(target);
+
+      const schemaVersion = 'PGE-DSL-1';
+      const proposalId = (typeof rawProposal?.proposalId === 'string' && rawProposal.proposalId.trim())
+          ? rawProposal.proposalId.trim()
+          : `prop-${Date.now().toString(36)}`;
+
+      const operation = (typeof rawProposal?.operation === 'string' && rawProposal.operation.trim())
+          ? rawProposal.operation.trim().toUpperCase()
+          : 'MODIFY';
+
+      const rawIntent = typeof rawProposal?.intent === 'string' ? rawProposal.intent.trim() : '';
+      const intent = (rawIntent.length >= 1 && rawIntent.length <= 4096)
+          ? rawIntent
+          : (fallbackIntent || `Automated modification to ${target}`);
+
+      const requiredCapabilities = Array.isArray(rawProposal?.requiredCapabilities) ? rawProposal.requiredCapabilities : [];
+      const expectedInvariants = Array.isArray(rawProposal?.expectedInvariants) ? rawProposal.expectedInvariants : [ 'damage.nonnegative' ];
+      const testsRequested = Array.isArray(rawProposal?.testsRequested) ? rawProposal.testsRequested : [ 'sentinel.headless' ];
+
+      let changes = Array.isArray(rawProposal?.changes) ? rawProposal.changes : [];
+      if (changes.length === 0) {
+          const source = _governor.getSource(target) || '';
+          changes = [ { type: 'replace_text', path: target, search: source, content: source } ];
+      }
+
+      return {
+          schemaVersion,
+          proposalId,
+          target,
+          operation,
+          intent,
+          requiredCapabilities,
+          expectedInvariants,
+          testsRequested,
+          changes,
+          explanation: rawProposal?.explanation || `Sanitized proposal for ${target}`
+      };
   }
   ```
 

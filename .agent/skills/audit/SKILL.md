@@ -75,6 +75,7 @@ node testing/run_all_tests.js
 ## 5. Audit Failure Remediation (ERL-001)
 
 When any of the 21 Sentinel passes fail:
+
 1. Identify the failing pass number and constitutional criterion (`AC-01` through `AC-10`).
 2. Match against the canonical fix patterns in [`.agent/skills/error-resolution-ledger/SKILL.md`](file:///c:/Users/Chris/Emberlight/.agent/skills/error-resolution-ledger/SKILL.md).
 3. Apply the verified patch and verify 100% pass across all 21 passes without regressions.
