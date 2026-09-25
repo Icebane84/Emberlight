@@ -19,6 +19,9 @@ declare interface NodeModule {
   loaded?: boolean;
 }
 
+declare var global: any;
+declare var Buffer: any;
+
 declare interface VSRPTenantModule<TState = Record<string, unknown>> {
   configure?(config?: Record<string, unknown>): void;
   init(context?: Record<string, unknown> | unknown, ...args: unknown[]): void;

@@ -1,8 +1,7 @@
 {
   "compilerOptions": {
     "target": "es2022",
-    "module": "none",
-    "moduleResolution": "classic",
+    "module": "preserve",
     "lib": [
       "es2022",
       "dom",
@@ -26,6 +25,10 @@
     ".agents",
     ".agent",
     "tools",
-    "testing"
+    "testing",
+    "data",
+    "docs",
+    "watch_engine.js",
+    "phoenix/test_*.js"
   ]
 }

@@ -101,7 +101,7 @@ async function runCrucible() {
 	// MUTANT 9: Hot-Loop Allocation Sentinel Silently Permits Dynamic Heap Allocation
 	await assertMutantKilled('Mutant 9: Hot-Loop Allocation Sentinel silently permits transient allocations in update()', () => {
 		const mutatedEngine = phoenixEngineCode.replace(
-			'const isHotName = (name) => /(?:update|render|tick|step|_render|draw|animate|loop)/i.test(name);',
+			/const isHotName = \([\s\S]*?name\) => \/\(\?:update\|render\|tick\|step\|_render\|draw\|animate\|loop\)\/i\.test\(name\);/,
 			'const isHotName = () => false; /* mutated */'
 		);
 		const ctx = createSandbox(mutatedEngine);

@@ -3,7 +3,7 @@ name: phoenix-sovereign-vlt
 description: Master operational specification for building zero-dependency, single-file VLT-003/VLT-004 Sovereign Engines governed by the Phoenix Sovereign Grand Constitution (PSGC-001). Covers 2048-byte binary heaps (PERSIST-001), VSRP-001 9-Method FSM, PMIP-001 causal envelopes, SDCP-001 capability attenuation, OSLM topological DAG with Hopcroft-Tarjan cut-vertex detection, Sentinel AC-01–AC-10 mutation crucible, and 14.5ms DCLB load shedder.
 globs: "**/*.html, **/*.js, phoenix/**/*.js, phoenix/**/*.html"
 alwaysApply: false
-version: 5.0.0-PRO
+version: 5.1.0-PRO
 ---
 
 # AGENT OPERATIONAL SPECIFICATION: Phoenix Sovereign VLT-003/VLT-004 Runtime Substrate
@@ -11,7 +11,7 @@ version: 5.0.0-PRO
 **Document Identifier:** SKILL-PHOENIX-SOVEREIGN-VLT003-PRO  
 **Protocol Version:** VLT-003 / VLT-004 / PERSIST-001 / VSRP-001 / SDCP-001 / PMIP-001 / MPFS-001 / OSLM-001  
 **Constitutional Authority:** [`PHOENIX_SOVEREIGN_GRAND_CONSTITUTION (PSGC-001)`](../PHOENIX_SOVEREIGN_CONSTITUTION.md) — **PSGC-001 is the supreme normative standard. This skill is a operational summary. On any conflict, PSGC-001 governs.**  
-**Version:** `5.0.0-PRO` (upgraded from 3.0.0 — Batch 5 synchronization, 2026-09-22)  
+**Version:** `5.1.0-PRO` (upgraded from 5.0.0 — STCP-003 Precedence Climbing & AST Typing sync)  
 **Status:** `NORMATIVE OPERATIONAL REFERENCE`
 **Classification:** Normative Kernel Runtime Standard & AI Agent Operational Directive
 
@@ -271,3 +271,5 @@ When an autonomous AI agent inspects, modifies, or refactors a file governed by 
 4. **Enforce Zero-Allocation Math:** Never introduce `new Object()`, `new Array()`, or string concatenation inside `update()` or `render()`. Write directly to typed views.
 5. **Pre-Flight Verification:** Ensure the code passes all 20 Sentinel assertions without error.
 6. **STCP Transduction Toolchain:** Author domain logic in `.phx`/`.syn` DSL format and compile via `synarche_parser.js` for zero-dependency VSRP-001 cartridge generation.
+7. **STCP-003 Precedence Climbing & Polymorphic AST Declarations:** When parsing expressions in `SynarcheStatementParser`, enforce deterministic precedence climbing: Equality (`== != === !==`, 0) < Relational (`< <= > >=`, 1) < Additive (`+ -`, 2) < Multiplicative (`* / %`, 3), with logical operators (`&&`, `||`) binding lower than comparisons and parentheses explicitly overriding precedence. All AST node interfaces must inherit `SynarcheBaseNode` (`line?: number; col?: number;`) and provide cross-cutting compatibility properties (`target?`, `value?`, `args?`, `kind?`) in ambient `phoenix.d.ts` declarations.
+

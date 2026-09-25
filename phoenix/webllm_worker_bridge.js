@@ -295,7 +295,8 @@
 		const topP = opts.top_p ?? opts.topP ?? 0.9;
 		const repeatPenalty = opts.repeat_penalty ?? opts.repeatPenalty ?? 1.1;
 		const maxTokens = opts.maxTokens || 2048;
-		return { temperature, topP, repeatPenalty, maxTokens };
+		const format = opts.format || null;
+		return { temperature, topP, repeatPenalty, maxTokens, format };
 	}
 
 	/**
@@ -313,22 +314,28 @@
 			baseHost = baseHost.slice(0, -1);
 		}
 		const endpoint = host.endsWith("/chat/completions") ? host : `${baseHost}/chat/completions`;
+		const isJsonRequested = sampling.format === "json" || prompt.includes("PGE-DSL-1") || prompt.includes("```json") || prompt.includes("valid JSON") || prompt.includes("JSON proposal");
+		/** @type {Record<string, any>} */
+		const bodyPayload = {
+			model: modelName,
+			messages: [
+				{ role: "system", content: SOVEREIGN_ENGINE_CONSTITUTION },
+				{ role: "user", content: prompt }
+			],
+			stream: isStreaming,
+			max_tokens: sampling.maxTokens,
+			temperature: sampling.temperature,
+			top_p: sampling.topP,
+			presence_penalty: (sampling.repeatPenalty - 1.0) * 0.5,
+		};
+		if (isJsonRequested) {
+			bodyPayload.response_format = { type: "json_object" };
+		}
 		const res = await fetch(endpoint, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			signal,
-			body: JSON.stringify({
-				model: modelName,
-				messages: [
-					{ role: "system", content: SOVEREIGN_ENGINE_CONSTITUTION },
-					{ role: "user", content: prompt }
-				],
-				stream: isStreaming,
-				max_tokens: sampling.maxTokens,
-				temperature: sampling.temperature,
-				top_p: sampling.topP,
-				presence_penalty: (sampling.repeatPenalty - 1.0) * 0.5,
-			}),
+			body: JSON.stringify(bodyPayload),
 		});
 
 		if (!res.ok) {
@@ -355,21 +362,28 @@
 	 * @param {AbortSignal | undefined} signal
 	 */
 	async function _generateOllama(host, modelName, prompt, sampling, isStreaming, onToken, signal) {
+		const isJsonRequested = sampling.format === "json" || prompt.includes("PGE-DSL-1") || prompt.includes("```json") || prompt.includes("valid JSON") || prompt.includes("JSON proposal");
+		/** @type {Record<string, any>} */
+		const bodyPayload = {
+			model: modelName,
+			prompt,
+			system: SOVEREIGN_ENGINE_CONSTITUTION,
+			stream: isStreaming,
+			options: {
+				num_predict: sampling.maxTokens,
+				temperature: sampling.temperature,
+				top_p: sampling.topP,
+				repeat_penalty: sampling.repeatPenalty,
+			},
+		};
+		if (isJsonRequested) {
+			bodyPayload.format = "json";
+		}
 		const res = await fetch(`${host}/api/generate`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			signal,
-			body: JSON.stringify({
-				model: modelName,
-				prompt,
-				stream: isStreaming,
-				options: {
-					num_predict: sampling.maxTokens,
-					temperature: sampling.temperature,
-					top_p: sampling.topP,
-					repeat_penalty: sampling.repeatPenalty,
-				},
-			}),
+			body: JSON.stringify(bodyPayload),
 		});
 
 		if (!res.ok) {
@@ -476,25 +490,55 @@
 	 * @param {string} intent
 	 * @param {string} targetFile
 	 * @param {string} sourceCode
+	 * @param {{ activeLine?: number, selectedText?: string }} [options]
 	 * @returns {string}
 	 */
-	function buildIntentPrompt(intent, targetFile, sourceCode) {
-		const snippet = sourceCode.length > 6000 ? sourceCode.slice(0, 6000) + "\n/* ... remaining source truncated for context ... */" : sourceCode;
+	function buildIntentPrompt(intent, targetFile, sourceCode, options = {}) {
+		let snippet = sourceCode;
+		const activeLine = (options && typeof options.activeLine === 'number' && options.activeLine > 0) ? options.activeLine : null;
+		const selectedText = (options && typeof options.selectedText === 'string') ? options.selectedText.trim() : '';
+
+		if (selectedText.length > 0) {
+			snippet = selectedText;
+		} else if (activeLine && activeLine > 0) {
+			const lines = sourceCode.split('\n');
+			const start = Math.max(0, activeLine - 12);
+			const end = Math.min(lines.length, activeLine + 11);
+			snippet = lines.slice(start, end).join('\n');
+		} else if (sourceCode.length > 2500) {
+			snippet = sourceCode.slice(0, 2500) + '\n/* ... truncated ... */';
+		}
+
 		return [
-			SOVEREIGN_ENGINE_CONSTITUTION,
-			"",
-			"TASK INSTRUCTIONS:",
-			`Target File: ${targetFile}`,
+			'PGE-DSL-1 INTENT SPECIFICATION:',
+			`Target: ${targetFile}${activeLine ? ' @ Line ' + activeLine : ''}`,
 			`User Intent: ${intent}`,
-			"",
-			"CURRENT SOURCE CODE:",
-			"```javascript",
+			'',
+			'TARGET CODE SNIPPET:',
+			'```javascript',
 			snippet,
-			"```",
-			"",
-			"Generate the complete PGE-DSL-1 JSON proposal enclosed in ```json ``` markdown code fences.",
-			"Make sure the 'search' string matches EXACT character sequences in the source code."
-		].join("\n");
+			'```',
+			'',
+			'DIRECTIVE & SURGICAL MANDATE:',
+			'1. Address the User Intent with SURGICAL PRECISION. Touch ONLY the lines necessary (1-5 lines max).',
+			'2. Do NOT rewrite the entire file or surrounding unaffected code.',
+			'3. Output ONLY a valid PGE-DSL-1 JSON proposal enclosed in ```json ``` code fences matching this schema:',
+			'```json',
+			'{',
+			'  "schemaVersion": "PGE-DSL-1",',
+			`  "target": "${targetFile}",`,
+			'  "changes": [',
+			'    {',
+			'      "type": "replace_text",',
+			`      "path": "${targetFile}",`,
+			'      "search": "exact minimal code to replace from TARGET CODE SNIPPET",',
+			'      "content": "repaired code to put in place of search"',
+			'    }',
+			'  ]',
+			'}',
+			'```',
+			'Ensure "search" matches EXACT character sequences in the target snippet.'
+		].join('\n');
 	}
 
 	/**
@@ -617,6 +661,93 @@
 		].filter(Boolean).join('\n');
 	}
 
+	/**
+	 * Builds an ultra-compact Machine Diagnostic Sensor Envelope (<150 tokens) for local AI copilots.
+	 * Eliminates static constitutional text dumps and focuses context on active AST symbols, memory offsets,
+	 * failing diagnostics, and ERL-001 canonical remediation patterns.
+	 * @param {string} targetFile - Target file path
+	 * @param {string} sourceCode - Full or sliced file source text
+	 * @param {Array<{ rule?: string, message?: string, line?: number, col?: number, severity?: string }>} diagnostics - Diagnostics to repair
+	 * @param {number} [activeLine] - Active line focus
+	 * @param {Object} [options] - Additional telemetry options
+	 * @param {Array<{ name: string, kind?: string }>} [options.symbols] - Extracted AST symbols
+	 * @param {{ searchPattern: string, replacePattern: string }} [options.erlMatch] - Matched ERL-001 template
+	 * @param {{ totalBytes: number, fields: Array<{ name: string, type: string, offset: number }> }} [options.memoryLayout] - PERSIST-001 memory layout
+	 * @returns {string} Lean prompt envelope
+	 */
+	function buildMachineDiagnosticEnvelope(targetFile, sourceCode, diagnostics, activeLine, options = {}) {
+		const symbols = options.symbols || [];
+		const symbolStr = symbols.length > 0
+			? symbols.slice(0, 10).map(s => `${s.kind || 'sym'}:${s.name}`).join(' ')
+			: 'none';
+
+		const erlMatch = options.erlMatch || null;
+		const erlDirective = erlMatch
+			? `\nERL-001 TEMPLATE:\nSearch: ${erlMatch.searchPattern}\nReplace: ${erlMatch.replacePattern}`
+			: '';
+
+		const memoryStr = options.memoryLayout
+			? `\nPERSIST-001 HEAP: ${options.memoryLayout.totalBytes}/1952B (${options.memoryLayout.fields?.length || 0} fields)`
+			: '';
+
+		let resolvedLine = (activeLine && typeof activeLine === 'number' && activeLine > 0) ? activeLine : null;
+		if (!resolvedLine && Array.isArray(diagnostics) && diagnostics.length > 0) {
+			const dWithLine = diagnostics.find(d => typeof d.line === 'number' && d.line > 0);
+			if (dWithLine && typeof dWithLine.line === 'number') resolvedLine = dWithLine.line;
+		}
+
+		// Focused snippet around line (+-8 lines) or max 2000 chars
+		let focusedSnippet = sourceCode;
+		if (resolvedLine && resolvedLine > 0) {
+			const lines = sourceCode.split('\n');
+			const start = Math.max(0, resolvedLine - 9);
+			const end = Math.min(lines.length, resolvedLine + 8);
+			focusedSnippet = lines.slice(start, end).join('\n');
+		} else if (sourceCode.length > 2000) {
+			focusedSnippet = sourceCode.slice(0, 2000) + '\n/* ... truncated ... */';
+		}
+
+		const diagList = (diagnostics || []).map((d, i) =>
+			`${i + 1}. [${d.severity || 'err'}] Line ${d.line || '?'}, Col ${d.col || '?'}: (${d.rule || 'ERROR'}) ${d.message || 'Issue'}`
+		).join('\n');
+
+		const lineFocusStr = resolvedLine ? ' @ Line ' + resolvedLine : '';
+
+		return [
+			'[ANTIGRAVITY TELEMETRY SENSOR ENVELOPE: VLT-003]',
+			`Target: ${targetFile}${lineFocusStr}`,
+			`Symbols: ${symbolStr}`,
+			memoryStr,
+			'FAILING INVARIANTS:',
+			diagList || 'No diagnostic errors reported.',
+			erlDirective,
+			'',
+			'TARGET CODE SNIPPET:',
+			'```javascript',
+			focusedSnippet,
+			'```',
+			'',
+			'DIRECTIVE: Resolve deterministically. Zero dependencies.',
+			'SURGICAL MANDATE: Minimal 1-5 line fix. Do NOT rewrite unaffected code.',
+			'Output ONLY a valid PGE-DSL-1 JSON proposal enclosed in ```json ``` code fences:',
+			'```json',
+			'{',
+			'  "schemaVersion": "PGE-DSL-1",',
+			`  "target": "${targetFile}",`,
+			'  "changes": [',
+			'    {',
+			'      "type": "replace_text",',
+			`      "path": "${targetFile}",`,
+			'      "search": "exact minimal line(s) to replace from snippet",',
+			'      "content": "repaired line(s) to replace search"',
+			'    }',
+			'  ]',
+			'}',
+			'```',
+			'Ensure "search" matches EXACT character sequences in snippet.'
+		].filter(Boolean).join('\n');
+	}
+
 	/* =========================================================================
 	 * PROPOSAL PARSER
 	 * Extracts and validates a PGE-DSL-1 proposal from raw LLM output.
@@ -638,14 +769,9 @@
 
 	/**
 	 * @param {string} rawText
-	 * @returns {Record<string, any>}
+	 * @returns {string}
 	 */
-	function phoenixProposalParser(rawText) {
-		if (typeof rawText !== "string" || !rawText.trim()) {
-			throw new Error("[PHOENIX/parser] Empty or non-string LLM output.");
-		}
-
-		// 1. Strip markdown fences if present (deterministic non-backtracking split)
+	function _stripMarkdownFences(rawText) {
 		let candidate = rawText;
 		const fenceStart = rawText.indexOf("```");
 		if (fenceStart !== -1) {
@@ -657,11 +783,81 @@
 				candidate = afterFirst.slice(contentStart, fenceEnd).trim();
 			}
 		}
+		return candidate;
+	}
+
+	/**
+	 * @param {Record<string, any>} parsed
+	 */
+	function _normalizeParsedChanges(parsed) {
+		if (!Array.isArray(parsed.changes)) {
+			if (typeof parsed.search === 'string' && (typeof parsed.content === 'string' || typeof parsed.replace === 'string')) {
+				parsed.changes = [ {
+					type: 'replace_text',
+					search: parsed.search,
+					content: typeof parsed.content === 'string' ? parsed.content : String(parsed.replace)
+				} ];
+			} else if (typeof parsed.code === 'string' || typeof parsed.repairedCode === 'string' || typeof parsed.content === 'string') {
+				const c = typeof parsed.code === 'string' ? parsed.code : (typeof parsed.repairedCode === 'string' ? parsed.repairedCode : parsed.content);
+				parsed.changes = [ { type: 'create_file', content: c } ];
+			}
+		}
+
+		if (Array.isArray(parsed.changes)) {
+			for (const ch of parsed.changes) {
+				if (!ch.type) ch.type = ch.search ? 'replace_text' : 'create_file';
+				if (!ch.path && parsed.target) ch.path = parsed.target;
+			}
+		}
+	}
+
+	/**
+	 * @param {Record<string, any>} parsed
+	 */
+	function _normalizeEnvelopeFields(parsed) {
+		if (!parsed.schemaVersion) parsed.schemaVersion = 'PGE-DSL-1';
+		if (!parsed.operation) parsed.operation = 'MODIFY';
+		if (!parsed.intent || typeof parsed.intent !== 'string') parsed.intent = 'AI synthesized proposal';
+		if (!Array.isArray(parsed.requiredCapabilities)) parsed.requiredCapabilities = [];
+		if (!Array.isArray(parsed.expectedInvariants)) parsed.expectedInvariants = [];
+		if (!Array.isArray(parsed.testsRequested)) parsed.testsRequested = [];
+
+		validateProposalStructuralCompleteness(parsed);
+
+		const isIdentifier = (/** @type {string} */ val) => typeof val === 'string' && /^[A-Za-z0-9_$:-]+$/.test(val.trim());
+		parsed.expectedInvariants = parsed.expectedInvariants.filter(isIdentifier);
+		parsed.testsRequested = parsed.testsRequested.filter(isIdentifier);
+	}
+
+	/**
+	 * @param {string} rawText
+	 * @returns {Record<string, any>}
+	 */
+	function phoenixProposalParser(rawText) {
+		if (typeof rawText !== "string" || !rawText.trim()) {
+			throw new Error("[PHOENIX/parser] Empty or non-string LLM output.");
+		}
+
+		// 1. Strip markdown fences if present
+		const candidate = _stripMarkdownFences(rawText);
 
 		// 2. Extract outermost JSON boundaries
 		const start = candidate.indexOf("{");
 		const end = candidate.lastIndexOf("}");
 		if (start === -1 || end === -1 || end <= start) {
+			// Fallback: If model returned raw executable code, wrap into a compliant create_file proposal
+			if (candidate.includes('function') || candidate.includes('const') || candidate.includes('let') || candidate.includes('class')) {
+				return {
+					schemaVersion: 'PGE-DSL-1',
+					proposalId: `prop-ai-${Date.now().toString(36)}`,
+					operation: 'MODIFY',
+					intent: 'AI synthesized code repair',
+					requiredCapabilities: [],
+					expectedInvariants: [],
+					testsRequested: [],
+					changes: [ { type: 'create_file', content: candidate } ]
+				};
+			}
 			throw new Error("[PHOENIX/parser] No JSON object boundaries found.");
 		}
 
@@ -669,19 +865,9 @@
 		if (!parsed || typeof parsed !== "object") {
 			throw new Error("[PHOENIX/parser] Parsed result is not an object.");
 		}
-		validateProposalStructuralCompleteness(parsed);
 
-		// Sanitize expectedInvariants & testsRequested: filter out natural language prose sentences
-		if (Array.isArray(parsed.expectedInvariants)) {
-			parsed.expectedInvariants = parsed.expectedInvariants.filter(
-				(/** @type {string} */ inv) => typeof inv === 'string' && /^[A-Za-z0-9_$:-]+$/.test(inv.trim())
-			);
-		}
-		if (Array.isArray(parsed.testsRequested)) {
-			parsed.testsRequested = parsed.testsRequested.filter(
-				(/** @type {string} */ t) => typeof t === 'string' && /^[A-Za-z0-9_$:-]+$/.test(t.trim())
-			);
-		}
+		_normalizeParsedChanges(parsed);
+		_normalizeEnvelopeFields(parsed);
 
 		return parsed;
 	}
@@ -920,11 +1106,13 @@
 	global.phoenixWebGPUAdapterStubFactory = phoenixWebGPUAdapterStubFactory;
 	global.phoenixOllamaAdapterFactory = phoenixOllamaAdapterFactory;
 	global.phoenixProposalParser = phoenixProposalParser;
+	global.PhoenixProposalParser = phoenixProposalParser;
 	global.SOVEREIGN_ENGINE_CONSTITUTION = SOVEREIGN_ENGINE_CONSTITUTION;
 	global.buildIntentPrompt = buildIntentPrompt;
 	global.buildDiagnosticDebugPrompt = buildDiagnosticDebugPrompt;
 	global.buildCognitiveDecompositionPrompt = buildCognitiveDecompositionPrompt;
 	global.buildBatchDiagnosticDebugPrompt = buildBatchDiagnosticDebugPrompt;
+	global.buildMachineDiagnosticEnvelope = buildMachineDiagnosticEnvelope;
 
 	if (typeof module !== "undefined" && module.exports) {
 		module.exports = {
@@ -932,11 +1120,13 @@
 			phoenixWebGPUAdapterStubFactory,
 			phoenixOllamaAdapterFactory,
 			phoenixProposalParser,
+			PhoenixProposalParser: phoenixProposalParser,
 			SOVEREIGN_ENGINE_CONSTITUTION,
 			buildIntentPrompt,
 			buildDiagnosticDebugPrompt,
 			buildCognitiveDecompositionPrompt,
 			buildBatchDiagnosticDebugPrompt,
+			buildMachineDiagnosticEnvelope,
 		};
 	}
 })(typeof globalThis !== "undefined" ? globalThis : this);

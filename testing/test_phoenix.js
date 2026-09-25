@@ -41,6 +41,7 @@ const phoenixScripts = [
 	'phoenix/runtime/phoenix_terrain_raymarcher.js',
 	'phoenix/runtime/phoenix_studio_audio.js',
 	'phoenix/runtime/phoenix_studio_viewport.js',
+	'phoenix/synarche_parser.js',
 	'phoenix/phoenix_sovereign_engine.js',
 	'phoenix/sentinel_evaluator.js',
 	'phoenix/webllm_worker_bridge.js',
@@ -958,6 +959,27 @@ function verifySec15ERLAndRemediation(vmContext) {
 	check('Batch fast-path applies cached resolution', batchFastResult.fastPathApplied === 1 && batchFastResult.patchedSource.includes('_rng.next()'));
 	check('Batch fast-path leaves novel diagnostics unresolved', batchFastResult.unresolvedDiagnostics.length === 1 && batchFastResult.unresolvedDiagnostics[ 0 ].rule === 'UNKNOWN/NOVEL');
 
+	// Test proximity snapping & regex support in batch fast-path
+	const shiftedCode = 'const a = 1;\nconst b = 2;\nconst c = 3;\nconst r = Math.random();\nconst d = 4;';
+	const shiftedDiags = [{ rule: 'MATH/RANDOM', line: 1, message: 'Forbidden Math.random()' }];
+	const proximityResult = BatchPipeline.executeFastPath(
+		shiftedCode,
+		shiftedDiags,
+		'shifted.js',
+		erl,
+		(/** @type {string} */ candidate) => ({ pass: !candidate.includes('Math.random()') })
+	);
+	check('Batch fast-path snaps proximity within ±25 lines', proximityResult.fastPathApplied === 1 && proximityResult.patchedSource.includes('_rng.next()'));
+
+	const regexMatched = erl.findMatch({ rule: 'REGEX/VERBOSE_CHAR_CLASS' });
+	check('ERL matches REGEX/VERBOSE_CHAR_CLASS with isRegex', regexMatched !== null && regexMatched.isRegex === true);
+
+	const execMatched = erl.findMatch({ rule: 'javascript:S6594' });
+	check('ERL matches javascript:S6594 for RegExp.exec preference', execMatched !== null && execMatched.fingerprint === 'REGEX/EXEC_NON_GLOBAL_PREFERENCE');
+
+	const arrayAtMatched = erl.findMatch({ rule: 'javascript:S7755' });
+	check('ERL matches javascript:S7755 for Array.at preference', arrayAtMatched !== null && arrayAtMatched.fingerprint === 'LINT/ARRAY_AT_PREFERENCE');
+
 	// Test batch prompt generator
 	const buildBatchPrompt = vmContext.window.buildBatchDiagnosticDebugPrompt;
 	check('buildBatchDiagnosticDebugPrompt is defined', typeof buildBatchPrompt === 'function');
@@ -1238,6 +1260,103 @@ function verifySec18ProposalSanitizationAndUnicodeTargets(vmContext) {
 	check('rejectHunk reverts modified code to old state', rejected === oldCode);
 }
 
+function verifySec19HostInfillEngine(ctx) {
+	console.log('\n[SEC-19] Host Slot-Filling (Infill) & Micro-Envelope Construction Engine');
+	const Engine = ctx.window.PhoenixSovereignEngine;
+	const InfillEngine = Engine.PhoenixHostInfillEngine;
+	check('PhoenixHostInfillEngine is defined', Boolean(InfillEngine));
+
+	const sampleSource = [
+		'function updateParticle(p) {',
+		'    const t = p.charge;',
+		'    const angle = Math.random() * Math.PI * 2;',
+		'    p.vx = Math.cos(angle);',
+		'}'
+	].join('\n');
+
+	// 1. buildMicroContext extracts target line, indentation, and surrounding context
+	const micro = InfillEngine.buildMicroContext(sampleSource, 3, 2);
+	check('buildMicroContext extracts target line correctly', Boolean(micro?.targetLine === '    const angle = Math.random() * Math.PI * 2;'));
+	check('buildMicroContext preserves leading indentation', Boolean(micro?.leadingIndent === '    '));
+	check('buildMicroContext includes <TARGET_LINE> tag', Boolean(micro?.contextLines.some(l => l.includes('<TARGET_LINE>'))));
+
+	// 2. parseModelOutput hybrid fallback
+	const jsonOut = '{\n  "replacement": "const angle = EmberlightPRNG.nextFloat() * Math.PI * 2;"\n}';
+	check('parseModelOutput parses structured JSON correctly', InfillEngine.parseModelOutput(jsonOut) === 'const angle = EmberlightPRNG.nextFloat() * Math.PI * 2;');
+
+	const markdownJson = '```json\n{"replacement": "const angle = 1.0;"}\n```';
+	check('parseModelOutput strips markdown wrapped JSON', InfillEngine.parseModelOutput(markdownJson) === 'const angle = 1.0;');
+
+	const rawCodeOut = '```javascript\nconst angle = EmberlightPRNG.nextFloat() * Math.PI * 2;\n```';
+	check('parseModelOutput extracts raw code from markdown fences', InfillEngine.parseModelOutput(rawCodeOut) === 'const angle = EmberlightPRNG.nextFloat() * Math.PI * 2;');
+
+	const bareLine = 'const angle = 0.5;';
+	check('parseModelOutput handles bare code line', InfillEngine.parseModelOutput(bareLine) === 'const angle = 0.5;');
+
+	// 3. assembleInfillProposal determinism and 0% anchor drift
+	const proposal = InfillEngine.assembleInfillProposal('test.js', micro.targetLine, 'const angle = 0.5;', micro.leadingIndent);
+	check('assembleInfillProposal sets PGE-DSL-1 schema', proposal.schemaVersion === 'PGE-DSL-1');
+	check('assembleInfillProposal produces exactly 1 change', proposal.changes.length === 1);
+	check('assembleInfillProposal sets exact search anchor with 0% drift', proposal.changes[0].search === micro.targetLine);
+	check('assembleInfillProposal restores leading indentation on content', proposal.changes[0].content === '    const angle = 0.5;');
+}
+
+/**
+ * @param {any} ctx
+ */
+function verifySec20SynarcheLexerERL(ctx) {
+	console.log('\n[SEC-20] SynarcheLexer Token-Accurate Code Slicing & ERL Remediation');
+
+	const Engine = ctx.window.PhoenixSovereignEngine;
+	const Ledger = Engine.PhoenixErrorResolutionLedger;
+	const Pipeline = Engine.PhoenixBatchRemediationPipeline;
+	const Lexer = ctx.window.SynarcheLexer;
+
+	check('SynarcheLexer is available on VM global scope', Boolean(Lexer && typeof Lexer.tokenize === 'function'));
+
+	const ledger = new Ledger();
+
+	// 1. Token disambiguation: verify string literal and comment containing pattern are preserved
+	const mixedLine = 'const note = "Math.random() is bad"; const val = Math.random(); // call Math.random()';
+	const diagRandom = { rule: 'VSRP/PRNG-AUTHORITY', line: 1 };
+	const matchRandom = ledger.findMatch(diagRandom, mixedLine);
+
+	check('findMatch attaches tokenMatch for mixed line', Boolean(matchRandom?.tokenMatch));
+	check('tokenMatch targets exact executable Math.random() start offset', matchRandom?.tokenMatch?.start === 49);
+	check('tokenMatch targets exact executable Math.random() end offset', matchRandom?.tokenMatch?.end === 62);
+	check('tokenMatch matchedText is Math.random()', matchRandom?.tokenMatch?.matchedText === 'Math.random()');
+
+	// 2. Fast-path remediation preserves string and comment, only replacing executable code
+	const fastPathRes = Pipeline.executeFastPath(mixedLine, [ diagRandom ], 'mixed.js', ledger, () => ({ pass: true }));
+	check('executeFastPath succeeds with 1 applied change', fastPathRes.pass && fastPathRes.fastPathApplied === 1);
+	check('applied change via is ERL-001/SYNARCHE-LEXER', fastPathRes.appliedChanges[0]?.via === 'ERL-001/SYNARCHE-LEXER');
+	check('patched string preserves string literal intact', fastPathRes.patchedSource.includes('const note = "Math.random() is bad";'));
+	check('patched string preserves comment intact', fastPathRes.patchedSource.includes('// call Math.random()'));
+	check('patched string replaces only executable code with PRNG call', fastPathRes.patchedSource.includes('const val = (_rng.next() / 0xFFFFFFFF);'));
+
+	// 3. Faraday Isolation (ERR_0x16) Seed Template Resolution
+	const faradayLine = 'const w = window.innerWidth;';
+	const diagFaraday = { rule: 'ERR_0x16: FARADAY_CAPABILITY_VIOLATION', line: 1 };
+	const matchFaraday = ledger.findMatch(diagFaraday, faradayLine);
+	check('findMatch resolves ERR_0x16 Faraday seed template', Boolean(matchFaraday?.searchPattern === 'window.'));
+	const faradayRes = Pipeline.executeFastPath(faradayLine, [ diagFaraday ], 'faraday.js', ledger, () => ({ pass: true }));
+	check('executeFastPath replaces window. with attenuated capabilities membrane', faradayRes.patchedSource === 'const w = ctx.capabilities?.dom?.innerWidth;');
+
+	// 4. Hot Loop Allocation (ERR_0x17) Seed Template Resolution
+	const hotLoopLine = 'const temp = new Object();';
+	const diagHotLoop = { rule: 'ERR_0x17: TRANSIENT_HOT_LOOP_ALLOCATION', line: 1 };
+	const matchHotLoop = ledger.findMatch(diagHotLoop, hotLoopLine);
+	check('findMatch resolves ERR_0x17 Hot Loop seed template', Boolean(matchHotLoop?.searchPattern === 'new Object()'));
+	const hotLoopRes = Pipeline.executeFastPath(hotLoopLine, [ diagHotLoop ], 'loop.js', ledger, () => ({ pass: true }));
+	check('executeFastPath replaces new Object() with scratchpad reference', hotLoopRes.patchedSource === 'const temp = _scratchpad;');
+
+	const arrayLine = 'const arr = new Array();';
+	const matchArray = ledger.findMatch(diagHotLoop, arrayLine);
+	check('findMatch resolves ERR_0x17 Array allocation template', matchArray?.searchPattern === 'new Array()');
+	const arrayRes = Pipeline.executeFastPath(arrayLine, [ diagHotLoop ], 'arr.js', ledger, () => ({ pass: true }));
+	check('executeFastPath replaces new Array() with scratchArray reference', arrayRes.patchedSource === 'const arr = _scratchArray;');
+}
+
 function printSummary() {
 	const totalChecks = passed + failed;
 	console.log(`\n${'─'.repeat(60)}`);
@@ -1275,6 +1394,8 @@ async function runVerification() {
 	verifySec16RegionScaffolder(context);
 	verifySec17MultiTabAndFileManagement();
 	verifySec18ProposalSanitizationAndUnicodeTargets(context);
+	verifySec19HostInfillEngine(context);
+	verifySec20SynarcheLexerERL(context);
 
 	printSummary();
 }

@@ -3,7 +3,7 @@ name: error-resolution-ledger
 description: Governs the Error Resolution Ledger (ERL-001) catalog of canonical diagnostic fingerprints, pre-commit lint filters, and verified deterministic self-repair patterns across Emberlight and Phoenix engines.
 globs: "**/*.js, **/*.html, **/*.ts, testing/**/*.js, phoenix/**/*.js"
 alwaysApply: false
-version: 1.6.0
+version: 2.0.0-PRO
 ---
 
 # AGENT OPERATIONAL SPECIFICATION: Error Resolution Ledger (ERL-001)
@@ -650,6 +650,378 @@ Before presenting or applying any code changes, all AI agents must enforce these
   function runSuite() {
       const p = cleanPath('/test');
   }
+  ```
+
+---
+
+### [ERL-25] `GOVERNOR/PROPOSAL_SCHEMA_MISMATCH` — Empty or Malformed PGE-DSL-1 Proposal Envelope
+
+- **Trigger:** Governor rejecting proposals at `STRUCTURAL_GATE` with errors such as `unknown target: ""`, `target is invalid`, `intent must be 1..4096 characters`, `expectedInvariants must be an array`, `testsRequested must be an array`, or `requiredCapabilities must be an array`.
+- **Hazard:** Rejection at `STRUCTURAL_GATE` halts AI self-repair loops and prevents visual staging commits from persisting to SSOT.
+- **Rule:** Before submitting any proposal to `Governor.submit()` or `evaluateProposalWithSentinel()`, always route the payload through `_sanitizeProposalEnvelope(rawProposal, fallbackTarget, fallbackIntent)` and ensure the target is registered via `_ensureTargetRegistered(target)`.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION (Submitting raw or partial LLM JSON directly):
+  const proposal = JSON.parse(rawText);
+  await _governor.submit(proposal, 'hud-agent'); // Fails if missing arrays or target
+
+  // ✅ CANONICAL REPAIR:
+  function _sanitizeProposalEnvelope(rawProposal, fallbackTarget = _activeFilePath, fallbackIntent = 'Proposal update') {
+      const target = String(rawProposal?.target || fallbackTarget || 'index.html').trim();
+      _ensureTargetRegistered(target);
+
+      const schemaVersion = 'PGE-DSL-1';
+      const proposalId = (typeof rawProposal?.proposalId === 'string' && rawProposal.proposalId.trim())
+          ? rawProposal.proposalId.trim()
+          : `prop-${Date.now().toString(36)}`;
+
+      const operation = (typeof rawProposal?.operation === 'string' && rawProposal.operation.trim())
+          ? rawProposal.operation.trim().toUpperCase()
+          : 'MODIFY';
+
+      const rawIntent = typeof rawProposal?.intent === 'string' ? rawProposal.intent.trim() : '';
+      const intent = (rawIntent.length >= 1 && rawIntent.length <= 4096)
+          ? rawIntent
+          : (fallbackIntent || `Automated modification to ${target}`);
+
+      const requiredCapabilities = Array.isArray(rawProposal?.requiredCapabilities) ? rawProposal.requiredCapabilities : [];
+      const expectedInvariants = Array.isArray(rawProposal?.expectedInvariants) ? rawProposal.expectedInvariants : [ 'damage.nonnegative' ];
+      const testsRequested = Array.isArray(rawProposal?.testsRequested) ? rawProposal.testsRequested : [ 'sentinel.headless' ];
+
+      let changes = Array.isArray(rawProposal?.changes) ? rawProposal.changes : [];
+      if (changes.length === 0) {
+          const source = _governor.getSource(target) || '';
+          changes = [ { type: 'replace_text', path: target, search: source, content: source } ];
+      }
+
+      return {
+          schemaVersion,
+          proposalId,
+          target,
+          operation,
+          intent,
+          requiredCapabilities,
+          expectedInvariants,
+          testsRequested,
+          changes,
+          explanation: rawProposal?.explanation || `Sanitized proposal for ${target}`
+      };
+  }
+  ```
+
+---
+
+### [ERL-26] `VSRP/HOTSWAP_HEAP_OVERFLOW` — Linear Heap Size Mismatch during PERSIST-001 Live Zero-State Hotswapping
+
+- **Trigger:** During live runtime hotswapping of an active VSRP-001 cartridge into the Studio Viewport or Host Harness, the newly compiled cartridge may allocate a different linear heap byte length than the previously serialized heap (`oldHeap.byteLength != newCartridge.memoryLayout.totalBytes`).
+- **Hazard:** Calling `newCartridge.deserialize(oldHeap)` with an oversized buffer causes `RangeError: byte length out of range` or corrupted state field offsets, crashing the 60 FPS animation loop.
+- **Rule:** When restoring PERSIST-001 state during live hotswaps, clamp the deserialization slice to `Math.min(oldHeap.byteLength, targetBuffer.byteLength)` and wrap deserialization within a type-safe `try/catch` guard so live viewport execution never halts.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION (Directly passing unvalidated previous heap without boundary check):
+  newCartridge.deserialize(oldHeap);
+
+  // ✅ CANONICAL REPAIR:
+  let hotswapped = false;
+  if (_lastPreservedCartridgeHeap && typeof newCartridge.deserialize === 'function') {
+      try {
+          newCartridge.deserialize(_lastPreservedCartridgeHeap);
+          hotswapped = true;
+      } catch (heapErr) {
+          const heapErrMsg = heapErr instanceof Error ? heapErr.message : String(heapErr);
+          console.warn('[PHOENIX/HOTSWAP] Heap deserialization failed:', heapErrMsg);
+      }
+  }
+  ```
+
+---
+
+### [ERL-27] `AI/PROMPT_CONSTITUTIONAL_BLOAT` — Redundant Static Rulebook Injection in Local AI Sensory Envelopes
+
+- **Trigger:** Prepending thousands of characters of static constitutional text (`SOVEREIGN_ENGINE_CONSTITUTION`) and entire multi-thousand-line source files into every local Ollama / LM Studio diagnostic debug prompt.
+- **Hazard:** Saturates local LLM context windows (2048–4096 tokens), triggers model hallucinations, increases token generation latency by 3–5x, and pushes out crucial AST symbols, memory offsets, and failing lines.
+- **Rule:** Use `buildMachineDiagnosticEnvelope()` instead of monolithic debug prompts. Machine sensor envelopes must consume $<150$ prompt tokens by slicing $\pm 15$ lines around failure points and transmitting only active AST symbols, PERSIST-001 memory layouts, and matched ERL-001 canonical remediation directives.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION: Prepending full 1500 chars of static constitution + entire 6000-line file:
+  const prompt = buildDiagnosticDebugPrompt(filePath, fullSource, diags, line);
+
+  // ✅ CANONICAL REPAIR: Ultra-compact sensor envelope (<150 tokens):
+  const telemetryCtx = _getDiagnosticTelemetryContext(filePath, fullSource, diags[0]);
+  const prompt = typeof buildMachineDiagnosticEnvelope === 'function'
+      ? buildMachineDiagnosticEnvelope(filePath, fullSource, diags, line, telemetryCtx)
+      : buildDiagnosticDebugPrompt(filePath, fullSource, diags, line);
+  ```
+
+---
+
+### [ERL-28] `EDITOR/VIEWPORT_BOUNDARY_TRUNCATION` — Textarea Viewport Boundary Clamping & Backdrop Desynchronization
+
+- **Trigger:** Applying `position: absolute; min-height: 100%; height: max-content; overflow: hidden;` to an HTML `<textarea>` inside a scrollable wrapper (`#code-editor-wrapper { overflow: auto; }`).
+- **Hazard:** An HTML `<textarea>` is a replaced form control element whose intrinsic sizing is governed strictly by the `rows` and `cols` attributes. `<textarea>` elements ignore CSS `height: max-content`, causing the textarea to freeze at `min-height: 100%` (the visible container height, typically ~35–36 lines / 700px). Any file content below line 36 is physically outside the textarea's clickable bounding box. Additionally, JavaScript syntax errors default to line 1 in V8 without binary search prefix locator, making lines past 36 appear dead or unvalidated ("it's like the file ends at line 36").
+- **Rule:** In dual-layer transparent overlay editors (`<pre>` syntax backdrop behind transparent `<textarea>`), the `<textarea>` MUST serve as the primary scroll container with `overflow: auto; width: 100%; height: 100%;`. The `<pre>` backdrop must match 1:1 with `overflow: hidden; pointer-events: none;` and mirror scroll positions via `_syncEditorScroll()` (`backdrop.scrollTop = editor.scrollTop; backdrop.scrollLeft = editor.scrollLeft; gutter.scrollTop = editor.scrollTop;`). V8 syntax errors must be pinpointed via binary prefix evaluation (`_locateSyntaxErrorLine`).
+- **Remediation Pattern:**
+
+  ```css
+  /* ❌ VIOLATION: Textarea clamped to 36 lines; ignores height: max-content */
+  #code-editor-wrapper { flex: 1; position: relative; overflow: auto; }
+  #code-syntax-backdrop, #code-editor-view {
+      position: absolute; top: 0; left: 0; width: 100%;
+      min-height: 100%; height: max-content; overflow: hidden;
+  }
+
+  /* ✅ CANONICAL REPAIR: Textarea is primary scroller covering 100% of viewport */
+  #code-editor-wrapper { flex: 1; position: relative; overflow: hidden; }
+  #code-syntax-backdrop {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      overflow: hidden; pointer-events: none; z-index: 1;
+  }
+  #code-editor-view {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      overflow: auto; background: transparent; color: transparent;
+      caret-color: #00ffcc; z-index: 2;
+  }
+  ```
+
+  ```javascript
+  // ✅ CANONICAL REPAIR (Scroll Synchronization & Binary Search Error Pinpointer):
+  function _syncEditorScroll() {
+      const editor = document.getElementById('code-editor-view');
+      const backdrop = document.getElementById('code-syntax-backdrop');
+      const gutter = document.getElementById('editor-gutter');
+      if (!editor) return;
+      if (backdrop) {
+          backdrop.scrollTop = editor.scrollTop;
+          backdrop.scrollLeft = editor.scrollLeft;
+      }
+      if (gutter) gutter.scrollTop = editor.scrollTop;
+  }
+  _editorView?.addEventListener('scroll', _syncEditorScroll);
+
+  function _locateSyntaxErrorLine(lines) {
+      let low = 1, high = lines.length, detectedLine = 1;
+      while (low <= high) {
+          const mid = Math.floor((low + high) / 2);
+          try {
+              Reflect.construct(Function, [ lines.slice(0, mid).join('\n') ]);
+              low = mid + 1;
+          } catch (e) {
+              const msg = e?.message || '';
+              if (msg.includes('Unexpected end of input') || msg.includes('missing )')) {
+                  low = mid + 1;
+              } else {
+                  detectedLine = mid;
+                  high = mid - 1;
+              }
+          }
+      }
+      return detectedLine;
+  }
+  ```
+
+---
+
+### [ERL-29] `PROPOSAL/MONOLITHIC_DIFF_BLOWUP` — Whole-Buffer Proposal Serialization & Unscoped AI Regeneration Drift
+
+- **Trigger:** Passing full document buffers (`original`, `current`) into `_buildProposalFromSelection` when rendering diffs (`_updateDiffPreview`), saving documents (`_saveActiveDocument`), or dispatching intent prompts (`buildIntentPrompt`), especially on large monolithic files (>1,000 lines).
+- **Hazard:** Emits monolithic 1,000+ line PGE-DSL-1 JSON proposals that replace the entire file with itself or regenerate massive swaths of unaffected code. This exhausts LLM context windows, triggers AST drift, overwhelms the browser JSON viewer, and causes Sentinel gate verification failures.
+- **Rule:** Full-file replacements are strictly forbidden for localized edits. Working tree diffs and document saves MUST be decomposed into discrete hunks via `PhoenixChunkDiffEngine.computeHunks(original, current)` and converted into surgical change records via `_buildProposalFromHunks`. When identical, `changes` MUST be empty (`[]`). AI diagnostic envelopes and intent prompts MUST focus within $\pm 8$ to $12$ lines of the active cursor/error line and enforce a surgical minimal-diff mandate (1–5 lines max).
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION: Generates 6,500-line proposal replacing entire file
+  const rawProp = _buildProposalFromSelection(original, current, 'Visual editor patch');
+  jsonView.value = JSON.stringify(rawProp, null, 2);
+
+  // ✅ CANONICAL REPAIR (Hunk-based surgical proposal generation):
+  function _buildProposalFromHunks(filePath, original, hunks, intent = 'Surgical patch') {
+      if (!hunks || hunks.length === 0) {
+          return { schemaVersion: 'PGE-DSL-1', target: filePath, operation: 'VERIFY', intent, changes: [] };
+      }
+      const oldLines = (original || '').split('\n');
+      const changes = hunks.map(h => {
+          const delText = (h.delLines || []).join('\n');
+          const addText = (h.addLines || []).join('\n');
+          if (delText.length > 0) return { type: 'replace_text', path: filePath, search: delText, content: addText };
+          const anchorIdx = Math.max(0, (h.oldStart || 1) - 1);
+          const anchorLine = oldLines[anchorIdx] || '';
+          return { type: 'replace_text', path: filePath, search: anchorLine, content: anchorLine ? `${anchorLine}\n${addText}` : addText };
+      });
+      return { schemaVersion: 'PGE-DSL-1', target: filePath, operation: 'MODIFY', intent, changes };
+  }
+  ```
+
+---
+
+### [ERL-30] `REGEX/VERBOSE_CHAR_CLASS` — Redundant Character Range in Token Scanners & Parsers
+
+- **Trigger:** SonarLint rule `javascript:S6353` flagging explicit character classes such as `/[a-zA-Z0-9_]/` or `/[0-9]/`.
+- **Hazard:** Inflates regex string length, increases cognitive complexity, and triggers static analysis warnings across lexical scanners.
+- **Rule:** Use standard character class shorthands (`\w` for `[a-zA-Z0-9_]`, `\d` for `[0-9]`, `\s` for whitespace).
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION:
+  const isIdent = /[a-zA-Z0-9_]/.test(ch);
+  const isDigit = /[0-9]/.test(ch);
+
+  // ✅ CANONICAL REPAIR:
+  const isIdent = /\w/.test(ch);
+  const isDigit = /\d/.test(ch);
+  ```
+
+---
+
+### [ERL-31] `REGEX/EXEC_NON_GLOBAL_PREFERENCE` — Non-Global String.match() Invocation
+
+- **Trigger:** SonarLint rule `javascript:S6594` ("Prefer 'RegExp.exec()' over 'String.match()' when the regex is not global").
+- **Hazard:** Calling `string.match(regex)` with a non-global regex is less idiomatic and introduces unnecessary overhead compared to `RegExp.prototype.exec()` in V8 performance-critical linting or scanning loops.
+- **Rule:** When the regular expression lacks the `/g` flag, always invoke `regex.exec(string)`.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION:
+  const match = line.match(/^(\s*)([a-zA-Z0-9_$]+)\s*=/);
+
+  // ✅ CANONICAL REPAIR:
+  const match = /^(\s*)(\w+)\s*=/.exec(line);
+  ```
+
+---
+
+### [ERL-32] `CANVAS/HOT_LOOP_RGBA_GC_CHURN` — Dynamic RGBA String Allocations in 60 FPS Render Loops
+
+- **Trigger:** Allocating transient string template literals or concatenations for `ctx.strokeStyle` or `ctx.fillStyle` inside 60Hz canvas animation/render loops (e.g., `ctx.strokeStyle = \`rgba(0, 255, 204, \${p.alpha})\``).
+- **Hazard:** Allocates hundreds to thousands of short-lived string objects per frame (tens of thousands per second), inducing minor V8 garbage collection pauses, frame pacing stutter, and violating Sentinel AC-08 / INV-08 (Zero Transient Allocations in Hot Paths).
+- **Rule:** Set the static base color (`#00ffcc` or RGB hex) once outside the hot loop or during initialization, and modulate opacity dynamically using the numeric primitive property `ctx.globalAlpha`.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION (GC churn: allocates transient string per particle every frame):
+  function renderParticles(ctx, particles) {
+      for (const p of particles) {
+          ctx.strokeStyle = `rgba(0, 255, 204, ${p.alpha})`;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.stroke();
+      }
+  }
+
+  // ✅ CANONICAL REPAIR (Zero GC allocations per frame):
+  function renderParticles(ctx, particles) {
+      ctx.strokeStyle = '#00ffcc';
+      for (const p of particles) {
+          ctx.globalAlpha = p.alpha;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.stroke();
+      }
+      ctx.globalAlpha = 1.0;
+  }
+  ```
+
+---
+
+### [ERL-33] `REPAIR/PROXIMITY_LINE_DRIFT` — Anchor Line Desynchronization in Multi-Line Documents
+
+- **Trigger:** Automated repair runners or QuickFix actions applying changes using 1-indexed diagnostic line numbers ($L$) in documents where preceding edits, formatters, or embedded HTML `<script>` tags have shifted lines.
+- **Hazard:** Replacing `lines[L - 1]` without verification either replaces the wrong statement or throws a false-negative match error because the target code has shifted by $\pm K$ lines.
+- **Rule:** Diagnostic repairs must execute a bounded outward proximity sweep within $\pm 25$ lines of $L$ to locate the exact verbatim search token on the target line before applying in-line mutations.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION (Blindly indexing reported line):
+  lines[diag.line - 1] = lines[diag.line - 1].replace(searchPattern, replacePattern);
+
+  // ✅ CANONICAL REPAIR (Bounded ±25 line proximity snapping):
+  function applyProximityLinePatch(lines, reportedLine, searchPattern, replacePattern, tolerance = 25) {
+      const center = Math.max(0, (reportedLine || 1) - 1);
+      if (lines[center]?.includes(searchPattern)) {
+          lines[center] = lines[center].replace(searchPattern, replacePattern);
+          return true;
+      }
+      for (let r = 1; r <= tolerance; r++) {
+          const up = center - r;
+          if (up >= 0 && lines[up]?.includes(searchPattern)) {
+              lines[up] = lines[up].replace(searchPattern, replacePattern);
+              return true;
+          }
+          const down = center + r;
+          if (down < lines.length && lines[down]?.includes(searchPattern)) {
+              lines[down] = lines[down].replace(searchPattern, replacePattern);
+              return true;
+          }
+      }
+      return false;
+  }
+  ```
+
+---
+
+### [ERL-34] `TYPE/JSDOC_TYPEDEF_PARITY_DESYNC` — JSDoc @returns and @typedef Divergence Under checkJs
+
+- **Trigger:** Adding or altering return payload fields (e.g. `receipt` in `parse()`) or ambient typedef properties without updating JSDoc `@returns` or `@typedef` headers, or introducing phantom typos (e.g. `@property {string} receipts`).
+- **Hazard:** TypeScript emits `TS2353` ("Object literal may only specify known properties"), `TS2339` ("Property does not exist on type"), or `TS2741` ("Property is missing in type but required in type"), blocking pre-commit verification.
+- **Rule:** Whenever an object return structure, cartridge metadata field, or facade interface changes, all corresponding JSDoc `@returns` and `@typedef` blocks must be synchronized 1:1 with the implementation and ambient `.d.ts` definitions.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION (JSDoc lacks receipt property returned by implementation):
+  /**
+   * @returns {{ ast: CartridgeAST, errors: string[] }}
+   */
+  parse() {
+      return { ast: this.ast, errors: this.errors, receipt }; // Throws TS2353!
+  }
+
+  // ✅ CANONICAL REPAIR:
+  /**
+   * @returns {{ ast: CartridgeAST, errors: string[], receipt?: ConstitutionalReceipt }}
+   */
+  parse() {
+      return { ast: this.ast, errors: this.errors, receipt };
+  }
+  ```
+
+---
+
+### [ERL-35] `LINT/UNICODE_STRING_CANONICALIZATION` — Uncompared String Sort and UTF-16 charCodeAt Hazards
+
+- **Trigger:** Calling `Array.prototype.sort()` without a comparator on string arrays (SonarLint `S2871`) or using `String#charCodeAt()` in hashing/scanning loops instead of `String#codePointAt()` (SonarLint `S7758`).
+- **Hazard:** Uncompared `.sort()` produces non-deterministic or locale-dependent ordering; `charCodeAt()` splits Unicode surrogate pairs into broken halves, corrupting AST hash fingerprints on multi-byte characters.
+- **Rule:** String sorting in deterministic compilers must use `sort((a, b) => a.localeCompare(b))`. Hashing loops must use `codePointAt(i) || 0`.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION:
+  const sorted = capabilities.slice().sort();
+  hash ^= payload.charCodeAt(i);
+
+  // ✅ CANONICAL REPAIR:
+  const sorted = capabilities.slice().sort((a, b) => a.localeCompare(b));
+  hash ^= payload.codePointAt(i) || 0;
+  ```
+
+---
+
+### [ERL-36] `IMMUTABILITY/POST_ADMISSION_MUTATION` — Property Mutation on Frozen Admitted CartridgeAST
+
+- **Trigger:** Reassigning or mutating properties on an AST after calling `SynarcheAdmissionAuthority.admit()` (e.g. `this.ast.admissionReceipt = receipt;` or `ast.state.push(...)`).
+- **Hazard:** Admitted AST containers and sub-structures are sealed via `Object.freeze()`. Any subsequent assignment under strict mode (`'use strict';`) throws a fatal `TypeError: Cannot assign to read only property`.
+- **Rule:** Never assign properties directly to an admitted AST. Check `!Object.isFrozen(ast)` before mutation, and retain admission receipts through return values rather than secondary object mutation.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION (Throws TypeError because admit() already froze this.ast):
+  const receipt = SynarcheAdmissionAuthority.admit(this.ast, this.errors);
+  this.ast.admissionReceipt = receipt; // Fatal TypeError!
+
+  // ✅ CANONICAL REPAIR:
+  const receipt = SynarcheAdmissionAuthority.admit(this.ast, this.errors);
+  return { ast: this.ast, errors: this.errors, receipt };
   ```
 
 ---

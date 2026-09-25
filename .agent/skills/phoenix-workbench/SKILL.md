@@ -28,53 +28,53 @@ The Phoenix Workbench architecture enforces strict separation across 3 operation
 
 ## 2. The 36 `#region` Jump Table (Fast Navigation)
 
-The core workbench monolith [`phoenix/core_governor.html`](file:///c:/Users/Chris/Emberlight/phoenix/core_governor.html) is partitioned into 36 explicit `#region` blocks with regex jump anchors for instant navigation (`Ctrl+F`):
+The Phoenix Workbench substrate is partitioned across [`phoenix/workbench.css`](file:///c:/Users/Chris/Emberlight/phoenix/workbench.css) and [`phoenix/core_governor.html`](file:///c:/Users/Chris/Emberlight/phoenix/core_governor.html) into 36 explicit `#region` blocks with regex jump anchors for instant navigation (`Ctrl+F`):
 
-### CSS Styling Regions (`[CSS-01]` through `[CSS-12]`)
+### CSS Styling Regions (`[CSS-01]` through `[CSS-12]`) in `workbench.css`
 
-- `[CSS-01]` — Root Variables, Obsidian Slate Palette & Typography
+- `[CSS-01]` — Design Tokens & CSS Variable Docstrings
 - `[CSS-02]` — Two-Column Master Layout Grid & Container Rules
-- `[CSS-03]` — Workspace Mode Header & Telemetry Status Badges
-- `[CSS-04]` — Project Modules Accordion Sidebar & AST Symbol Tree
-- `[CSS-05]` — Dual-Scrollbar Monaco/Custom Code Editor Viewport
-- `[CSS-06]` — Bottom Diagnostics Drawer, Filter Pills & Quick Fixes
-- `[CSS-07]` — AI Proposal Crucible, Side-by-Side Diff & Stage View
-- `[CSS-08]` — Spotlight Command Palette & Fuzzy Search Overlay
-- `[CSS-09]` — Find & Replace Floating HUD & Selection Highlight
-- `[CSS-10]` — Retro Procedural Audio Synthesizer Controls
-- `[CSS-11]` — Slide-Over Sentinel Matrix Drawer & OPFS Ledger Journal
-- `[CSS-12]` — Dedicated Game Dev Studio Viewport & Tilemap Editor
+- `[CSS-03]` — Header Bar & Workspace Mode Switcher
+- `[CSS-04]` — Left Sidebar, Tree Accordions & Symbol Outline
+- `[CSS-05]` — Center Editor, Tabs & Syntax Backdrop
+- `[CSS-06]` — Problems & Diagnostics Drawer
+- `[CSS-07]` — Consolidated Action Toolbar & Tools Dropdown
+- `[CSS-08]` — Inline AI Palette & Command Spotlight Modals
+- `[CSS-09]` — Find & Replace Studio HUD
+- `[CSS-10]` — Visual Staging Drawer & Audio SFX Studio
+- `[CSS-11]` — Right Telemetry Sidebar, Sentinel Matrix & OPFS Journal
+- `[CSS-12]` — Game Dev Workstation Viewport & Modal Dialogs
 
-### DOM Structural Regions (`[DOM-01]` through `[DOM-09]`)
+### DOM Structural Regions (`[DOM-01]` through `[DOM-09]`) in `core_governor.html`
 
-- `[DOM-01]` — Master Header, Mode Toggle & Telemetry Pill
-- `[DOM-02]` — Project Sidebar & AST Symbol Tree Pane
-- `[DOM-03]` — Main Editor Tabs & Code Container
-- `[DOM-04]` — Welcome Hub & Zero-File Initial State
-- `[DOM-05]` — Bottom Diagnostics Drawer
-- `[DOM-06]` — AI Proposal & Diff Preview Modal
-- `[DOM-07]` — Command Palette Modal
-- `[DOM-08]` — Find & Replace Floating HUD
-- `[DOM-09]` — Slide-Over Sentinel Matrix & OPFS Journal Drawer
+- `[DOM-01]` — Master Header & Workspace Controls
+- `[DOM-02]` — Left Explorer & Symbol Outline Aside
+- `[DOM-03]` — Editor Main Container & Tabs Strip
+- `[DOM-04]` — Code Syntax Backdrop, Textarea & Runtime Viewport
+- `[DOM-05]` — Problems & Diagnostics Drawer
+- `[DOM-06]` — Consolidated Action Toolbar & AI Copilot
+- `[DOM-07]` — PGE-DSL-1 Staging Drawer & SFX Audio Studio
+- `[DOM-08]` — Game Dev Workstation Workspace
+- `[DOM-09]` — Right Telemetry Sidebar, OPFS Journal & Modals
 
-### JavaScript Subsystem Sections (`[SEC-00]` through `[SEC-15]`)
+### JavaScript Subsystem Sections (`[SEC-00]` through `[SEC-15]`) in `core_governor.html`
 
-- `[SEC-00]` — Ambient Types & DTO Definitions
-- `[SEC-01]` — Virtual File System (VFS) & Storage Persistence
-- `[SEC-02]` — Deterministic Governor Lifecycle & Capability Matrix
-- `[SEC-03]` — Ollama (`qwen2.5-coder`) & WebLLM Local AI Copilot Bridge
-- `[SEC-04]` — Accordion File Tree & AST Symbol Outline Indexer
-- `[SEC-05]` — Syntax Tokenizer & Syntax Highlighter
-- `[SEC-06]` — Tri-Language Linter (JS / CSS / JSON) & Complexity Scorer
-- `[SEC-07]` — Code Formatter, Quick Fixes & Context Menu Actions
-- `[SEC-08]` — AI Crucible Sandbox (4-Tier Verification Gate)
-- `[SEC-09]` — IntelliSense Auto-Complete & Fuzzy Search Engine
-- `[SEC-10]` — Find & Replace HUD Engine
-- `[SEC-11]` — Spotlight Command Palette Engine
-- `[SEC-12]` — Chunk Diff Engine & Proposal Staging Studio
-- `[SEC-13]` — Procedural Audio Synthesizer (DAC Generator)
-- `[SEC-14]` — Game Dev Workstation Engine (2D/3D Canvas Substrate)
-- `[SEC-15]` — Hotkeys, Global Events & Master Bootloader
+- `[SEC-00]` — Ambient Contract Registry & DTOs
+- `[SEC-01]` — VFS State & Canonical Module Catalog
+- `[SEC-02]` — Governor & Sentinel Specification Registry
+- `[SEC-03]` — Ollama & WebLLM Local AI Copilot Bridge
+- `[SEC-04]` — Accordion File Tree & AST Symbol Outline
+- `[SEC-05]` — Syntax Highlighter & Tokenizer Engine
+- `[SEC-06]` — Tri-Language Linter & Diagnostics Engine
+- `[SEC-07]` — Zero-Dependency Code Formatter & Quick Fixes
+- `[SEC-08]` — AI Crucible & Sandbox Repair Engine
+- `[SEC-09]` — Workstation IntelliSense & Fuzzy Search
+- `[SEC-10]` — Find, Replace & Regex Studio HUD
+- `[SEC-11]` — Spotlight Command Palette Modal
+- `[SEC-12]` — Visual Diff Preview & Staging Studio
+- `[SEC-13]` — Procedural Audio Synthesizer & SFX Studio Delegate
+- `[SEC-14]` — Live Game Runtime Studio & Game Dev Workstation Delegate
+- `[SEC-15]` — Master Global Shortcuts, Context Menu & Bootstrap
 
 ---
 

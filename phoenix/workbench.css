@@ -7,7 +7,7 @@
  * ============================================================================
  */
 
-/* #region [CSS-01] DESIGN TOKENS & CSS VARIABLE DOCSTRINGS
+/* #region [CSS-01] --- DESIGN TOKENS & CSS VARIABLE DOCSTRINGS
  * Centralized HSL and hex design tokens, glow filters, and typography.
  * --bg-base: Deep abyssal viewport background (#060b0f)
  * --bg-surface: Structural panel container background (#0a0f16)
@@ -61,7 +61,11 @@ body {
 	line-height: 1.4;
 	overflow: hidden;
 }
+/* #endregion [CSS-01] */
 
+/* #region [CSS-02] --- TWO-COLUMN MASTER LAYOUT GRID & CONTAINER RULES
+ * Master two-column/three-column viewport grid, responsive sidebar, and context menu.
+ */
 /* ── Master App Layout ────────────────────────────────────────── */
 #app {
 	display: grid;
@@ -140,10 +144,9 @@ body {
 	background: var(--border);
 	margin: 3px 0;
 }
+/* #endregion [CSS-02] */
 
-/* #endregion */
-
-/* #region [CSS-03] HEADER BAR & WORKSPACE MODE SWITCHER
+/* #region [CSS-03] --- HEADER BAR & WORKSPACE MODE SWITCHER
  * Branding logo, system status pill, and workspace mode switcher pills.
  */
 #header {
@@ -238,10 +241,9 @@ body {
 	border-color: var(--warn);
 	color: var(--warn);
 }
+/* #endregion [CSS-03] */
 
-/* #endregion */
-
-/* #region [CSS-04] LEFT SIDEBAR, TREE ACCORDIONS & SYMBOL OUTLINE
+/* #region [CSS-04] --- LEFT SIDEBAR, TREE ACCORDIONS & SYMBOL OUTLINE
  * Collapsible project module groupings, search bar, and AST symbol navigation.
  */
 #sidebar-panel {
@@ -389,6 +391,43 @@ body {
 	border-radius: 2px;
 }
 
+.outline-item.outline-region-item {
+	background: rgba(0, 229, 255, 0.05);
+	border-left: 2px solid rgba(0, 229, 255, 0.5);
+	margin-top: 4px;
+}
+
+.outline-item.outline-region-item:hover {
+	background: rgba(0, 229, 255, 0.12);
+}
+
+.btn-outline-target {
+	background: rgba(0, 229, 255, 0.15) !important;
+	border: 1px solid var(--accent) !important;
+	color: var(--accent) !important;
+	border-radius: 2px;
+	cursor: pointer;
+}
+
+.btn-outline-target:hover {
+	background: rgba(0, 229, 255, 0.35) !important;
+}
+
+.btn-copy-diag {
+	background: rgba(255, 255, 255, 0.06);
+	border: 1px solid var(--border);
+	color: var(--text-dim);
+	border-radius: var(--radius);
+	cursor: pointer;
+	transition: background 0.15s, color 0.15s;
+}
+
+.btn-copy-diag:hover {
+	background: rgba(255, 255, 255, 0.16);
+	color: var(--text-main);
+	border-color: var(--text-dim);
+}
+
 .tree-group-container {
 	display: flex;
 	flex-direction: column;
@@ -515,9 +554,9 @@ body {
 }
 
 /* ── Center Pane: Visual Code & Diff Studio ─────────────────── */
-/* #endregion */
+/* #endregion [CSS-04] */
 
-/* #region [CSS-05] CENTER EDITOR, TABS & SYNTAX BACKDROP
+/* #region [CSS-05] --- CENTER EDITOR, TABS & SYNTAX BACKDROP
  * Tab selector bar, line-numbered gutter, textarea, and syntax canvas.
  */
 #editor-panel {
@@ -727,10 +766,9 @@ body {
 	margin-right: 2px;
 	font-size: 7px;
 }
+/* #endregion [CSS-05] */
 
-/* #endregion */
-
-/* #region [CSS-07] PROBLEMS & DIAGNOSTICS DRAWER
+/* #region [CSS-06] --- PROBLEMS & DIAGNOSTICS DRAWER
  * Collapsible bottom drawer for multi-language syntax & linter diagnostics.
  */
 #problems-panel {
@@ -828,7 +866,7 @@ body {
 #code-editor-wrapper {
 	flex: 1;
 	position: relative;
-	overflow: auto;
+	overflow: hidden;
 }
 
 #code-syntax-backdrop,
@@ -837,8 +875,7 @@ body {
 	top: 0;
 	left: 0;
 	width: 100%;
-	min-height: 100%;
-	height: max-content;
+	height: 100%;
 	box-sizing: border-box;
 	padding: 10px 14px;
 	margin: 0;
@@ -848,7 +885,6 @@ body {
 	line-height: 1.55;
 	white-space: pre;
 	tab-size: 2;
-	overflow: hidden;
 }
 
 #code-syntax-backdrop {
@@ -856,6 +892,7 @@ body {
 	color: var(--text-primary);
 	background: transparent;
 	z-index: 1;
+	overflow: hidden;
 }
 
 #code-editor-view {
@@ -865,6 +902,29 @@ body {
 	resize: none;
 	outline: none;
 	z-index: 2;
+	overflow: auto;
+}
+
+#code-editor-view::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+
+#code-editor-view::-webkit-scrollbar-track {
+	background: var(--bg-surface);
+}
+
+#code-editor-view::-webkit-scrollbar-thumb {
+	background: var(--border-bright);
+	border-radius: var(--radius);
+}
+
+#code-editor-view::-webkit-scrollbar-thumb:hover {
+	background: var(--accent-dim);
+}
+
+#code-editor-view::-webkit-scrollbar-corner {
+	background: var(--bg-surface);
 }
 
 #code-editor-view::selection {
@@ -977,6 +1037,45 @@ body {
 	gap: 6px;
 }
 
+/* ── Mode Switcher & Segmented Controls ────────────────────── */
+.diff-mode-switcher {
+	display: inline-flex;
+	align-items: center;
+	background: rgba(0, 0, 0, 0.3);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	padding: 2px;
+	gap: 2px;
+}
+
+.diff-mode-btn {
+	background: transparent;
+	border: 1px solid transparent;
+	color: var(--text-dim);
+	padding: 2px 8px;
+	font-size: 10px;
+	font-family: var(--font-code);
+	border-radius: 2px;
+	cursor: pointer;
+	transition: all 0.15s ease;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.diff-mode-btn:hover {
+	color: var(--text-primary);
+	background: rgba(255, 255, 255, 0.05);
+}
+
+.diff-mode-btn.active {
+	background: var(--accent-muted);
+	border-color: var(--accent);
+	color: var(--accent);
+	font-weight: bold;
+	box-shadow: 0 0 8px rgba(0, 255, 204, 0.2);
+}
+
 .diff-hunk-container {
 	padding: 12px;
 	display: flex;
@@ -1052,6 +1151,114 @@ body {
 	color: #05080c;
 }
 
+/* ── Split (Side-by-Side) Diff Substrate ────────────────────── */
+.diff-split-column-headers {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	background: rgba(0, 0, 0, 0.4);
+	border-bottom: 1px solid var(--border);
+	font-family: var(--font-code);
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+}
+
+.diff-col-header {
+	padding: 5px 12px;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	color: var(--text-dim);
+	user-select: none;
+}
+
+.diff-col-header.left {
+	border-right: 1px solid var(--border);
+	color: #ff85a1;
+}
+
+.diff-col-header.right {
+	color: #00ffcc;
+}
+
+.diff-header-icon {
+	font-size: 9px;
+	opacity: 0.8;
+}
+
+.diff-split-table {
+	width: 100%;
+	font-family: var(--font-code);
+	font-size: 11px;
+	line-height: 1.6;
+}
+
+.diff-split-row {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	width: 100%;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.025);
+	transition: background 0.1s ease;
+}
+
+.diff-split-row:hover {
+	background: rgba(255, 255, 255, 0.035);
+}
+
+.diff-split-pane {
+	display: flex;
+	align-items: stretch;
+	min-width: 0;
+	overflow-x: auto;
+	scrollbar-width: thin;
+}
+
+.diff-split-pane.left {
+	border-right: 1px solid var(--border);
+}
+
+.diff-split-pane.del {
+	background: rgba(255, 82, 119, 0.12);
+}
+
+.diff-split-pane.add {
+	background: rgba(0, 255, 163, 0.12);
+}
+
+.diff-split-pane.pad {
+	background: rgba(255, 255, 255, 0.015);
+	background-image: repeating-linear-gradient(
+		-45deg,
+		rgba(0, 0, 0, 0.25),
+		rgba(0, 0, 0, 0.25) 6px,
+		transparent 6px,
+		transparent 12px
+	);
+	cursor: default;
+}
+
+/* ── Intra-Line Word / Token Diff Highlights ───────────────── */
+.diff-word-del {
+	background: rgba(255, 82, 119, 0.55);
+	color: #ffffff;
+	border-radius: 2px;
+	padding: 1px 3px;
+	box-shadow: 0 0 6px rgba(255, 82, 119, 0.4);
+	font-weight: 600;
+	display: inline-block;
+}
+
+.diff-word-add {
+	background: rgba(0, 255, 163, 0.45);
+	color: #ffffff;
+	border-radius: 2px;
+	padding: 1px 3px;
+	box-shadow: 0 0 6px rgba(0, 255, 163, 0.4);
+	font-weight: 600;
+	display: inline-block;
+}
+
 .diff-lines-table {
 	width: 100%;
 	border-collapse: collapse;
@@ -1060,15 +1267,18 @@ body {
 	line-height: 1.6;
 }
 
-.diff-row {
+.diff-row,
+.diff-line-row {
 	display: flex;
 }
 
-.diff-row.add {
+.diff-row.add,
+.diff-line-row.add {
 	background: var(--diff-add);
 }
 
-.diff-row.del {
+.diff-row.del,
+.diff-line-row.del {
 	background: var(--diff-del);
 }
 
@@ -1081,6 +1291,7 @@ body {
 	border-right: 1px solid rgba(255, 255, 255, 0.06);
 	font-size: 10px;
 	opacity: 0.7;
+	flex-shrink: 0;
 }
 
 .diff-gutter-sign {
@@ -1088,13 +1299,18 @@ body {
 	text-align: center;
 	user-select: none;
 	font-weight: bold;
+	flex-shrink: 0;
 }
 
-.diff-row.add .diff-gutter-sign {
+.diff-row.add .diff-gutter-sign,
+.diff-line-row.add .diff-gutter-sign,
+.diff-split-pane.add .diff-gutter-sign {
 	color: #00ffcc;
 }
 
-.diff-row.del .diff-gutter-sign {
+.diff-row.del .diff-gutter-sign,
+.diff-line-row.del .diff-gutter-sign,
+.diff-split-pane.del .diff-gutter-sign {
 	color: #ff5277;
 }
 
@@ -1142,10 +1358,9 @@ body {
 .hud-status-warn {
 	color: #ff9500;
 }
+/* #endregion [CSS-06] */
 
-/* #endregion */
-
-/* #region [CSS-08] CONSOLIDATED ACTION TOOLBAR & TOOLS DROPDOWN
+/* #region [CSS-07] --- CONSOLIDATED ACTION TOOLBAR & TOOLS DROPDOWN
  * Bottom patch action bar, widened AI prompt input, and Tools popover.
  */
 .patch-action-bar {
@@ -1231,10 +1446,9 @@ body {
 	border-color: var(--border);
 	color: var(--accent);
 }
+/* #endregion [CSS-07] */
 
-/* #endregion */
-
-/* #region [CSS-09] INLINE AI PALETTE & COMMAND SPOTLIGHT MODALS
+/* #region [CSS-08] --- INLINE AI PALETTE & COMMAND SPOTLIGHT MODALS
  * Floating Ctrl+K AI copilot prompt modal and global Spotlight palette.
  */
 .inline-ai-palette {
@@ -1301,10 +1515,188 @@ body {
 	border-color: var(--accent);
 	box-shadow: 0 0 8px rgba(0, 255, 204, 0.3);
 }
+/* #endregion [CSS-08] */
 
-/* #endregion */
+/* #region [CSS-09] --- FIND & REPLACE STUDIO HUD
+ * Floating search HUD with regex, whole-word, match case, and batch replacement.
+ */
+#find-replace-hud {
+	display: none;
+	position: absolute;
+	top: 8px;
+	right: 18px;
+	z-index: 100;
+	background: var(--bg-panel);
+	border: 1px solid var(--border-bright);
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+	border-radius: var(--radius);
+	padding: 6px 8px;
+	flex-direction: column;
+	gap: 4px;
+	min-width: 320px;
+}
 
-/* #region [CSS-10] VISUAL STAGING DRAWER & AUDIO SFX STUDIO
+.hud-row {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.hud-input {
+	flex: 1;
+	background: var(--bg-input);
+	border: 1px solid var(--border);
+	color: var(--text-primary);
+	font-family: var(--font);
+	font-size: 10px;
+	padding: 3px 6px;
+	border-radius: 2px;
+	outline: none;
+}
+
+.hud-input:focus {
+	border-color: var(--accent);
+}
+
+.hud-btn {
+	background: var(--bg-input);
+	border: 1px solid var(--border);
+	color: var(--text-dim);
+	padding: 2px 6px;
+	font-size: 9px;
+	border-radius: 2px;
+	cursor: pointer;
+}
+
+.hud-btn:hover {
+	border-color: var(--accent);
+	color: var(--accent);
+}
+
+.hud-btn.active {
+	background: var(--accent-muted);
+	border-color: var(--accent);
+	color: var(--accent);
+	font-weight: bold;
+}
+
+.hud-count {
+	font-size: 9px;
+	color: var(--text-dim);
+	padding: 0 4px;
+	white-space: nowrap;
+}
+
+/* 3. In-Memory IntelliSense Autocomplete & Hover Card */
+#autocomplete-popup {
+	display: none;
+	position: absolute;
+	z-index: 1000;
+	background: var(--bg-panel);
+	border: 1px solid var(--accent);
+	box-shadow: 0 6px 18px rgba(0, 255, 204, 0.25);
+	border-radius: var(--radius);
+	max-height: 180px;
+	width: 280px;
+	overflow-y: auto;
+	padding: 2px;
+}
+
+.ac-item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 3px 8px;
+	cursor: pointer;
+	color: var(--text-dim);
+	font-size: 10px;
+	border-radius: 2px;
+}
+
+.ac-item:hover,
+.ac-item.active {
+	background: var(--bg-hover);
+	color: var(--accent);
+}
+
+.ac-item .ac-type {
+	font-size: 8px;
+	color: #ce9aff;
+	text-transform: uppercase;
+}
+
+#hover-doc-card {
+	display: none;
+	position: absolute;
+	z-index: 1001;
+	background: var(--bg-surface);
+	border: 1px solid var(--border-bright);
+	box-shadow: 0 6px 18px rgba(0, 0, 0, 0.7);
+	border-radius: var(--radius);
+	padding: 6px 10px;
+	max-width: 380px;
+	color: var(--text-primary);
+	font-size: 10px;
+	pointer-events: none;
+}
+
+.hover-sig {
+	color: var(--accent);
+	font-weight: bold;
+	margin-bottom: 3px;
+}
+
+.hover-doc {
+	color: var(--text-dim);
+	white-space: pre-wrap;
+}
+
+/* 5. Live Game Runtime Studio */
+#runtime-studio-view {
+	display: none;
+	flex: 1;
+	flex-direction: column;
+	background: #020407;
+	position: relative;
+	overflow: hidden;
+}
+
+.runtime-toolbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 4px 10px;
+	background: var(--bg-panel);
+	border-bottom: 1px solid var(--border);
+}
+
+.runtime-viewport-wrap {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+	background: #000;
+	position: relative;
+}
+
+#runtime-frame {
+	border: 1px solid var(--border-bright);
+	box-shadow: 0 0 20px rgba(0, 255, 204, 0.15);
+	background: #060b0f;
+	width: 640px;
+	height: 480px;
+}
+
+.fps-badge {
+	color: #00ffa3;
+	font-weight: bold;
+	font-size: 10px;
+	letter-spacing: 0.05em;
+}
+/* #endregion [CSS-09] */
+
+/* #region [CSS-10] --- VISUAL STAGING DRAWER & AUDIO SFX STUDIO
  * Diff patch staging drawer and Web Audio procedural synthesis controls.
  */
 #staging-studio-drawer {
@@ -1517,10 +1909,9 @@ body {
 	background: var(--bg-panel);
 	border-top: 1px solid var(--border);
 }
+/* #endregion [CSS-10] */
 
-/* #endregion */
-
-/* #region [CSS-11] RIGHT TELEMETRY SIDEBAR, SENTINEL MATRIX & COLLAPSIBLE RAIL
+/* #region [CSS-11] --- RIGHT TELEMETRY SIDEBAR, SENTINEL MATRIX & OPFS JOURNAL
  * 21-Pass Sentinel matrix, OPFS receipt journal, and slide-over telemetry drawer.
  */
 #ledger-panel {
@@ -1966,190 +2357,9 @@ button:disabled {
 	padding: 1px 5px;
 	border-radius: 2px;
 }
+/* #endregion [CSS-11] */
 
-/* #endregion */
-
-/* #region [CSS-06] FIND & REPLACE STUDIO HUD
- * Floating search HUD with regex, whole-word, match case, and batch replacement.
- */
-#find-replace-hud {
-	display: none;
-	position: absolute;
-	top: 8px;
-	right: 18px;
-	z-index: 100;
-	background: var(--bg-panel);
-	border: 1px solid var(--border-bright);
-	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
-	border-radius: var(--radius);
-	padding: 6px 8px;
-	flex-direction: column;
-	gap: 4px;
-	min-width: 320px;
-}
-
-.hud-row {
-	display: flex;
-	align-items: center;
-	gap: 4px;
-}
-
-.hud-input {
-	flex: 1;
-	background: var(--bg-input);
-	border: 1px solid var(--border);
-	color: var(--text-primary);
-	font-family: var(--font);
-	font-size: 10px;
-	padding: 3px 6px;
-	border-radius: 2px;
-	outline: none;
-}
-
-.hud-input:focus {
-	border-color: var(--accent);
-}
-
-.hud-btn {
-	background: var(--bg-input);
-	border: 1px solid var(--border);
-	color: var(--text-dim);
-	padding: 2px 6px;
-	font-size: 9px;
-	border-radius: 2px;
-	cursor: pointer;
-}
-
-.hud-btn:hover {
-	border-color: var(--accent);
-	color: var(--accent);
-}
-
-.hud-btn.active {
-	background: var(--accent-muted);
-	border-color: var(--accent);
-	color: var(--accent);
-	font-weight: bold;
-}
-
-.hud-count {
-	font-size: 9px;
-	color: var(--text-dim);
-	padding: 0 4px;
-	white-space: nowrap;
-}
-
-/* 3. In-Memory IntelliSense Autocomplete & Hover Card */
-#autocomplete-popup {
-	display: none;
-	position: absolute;
-	z-index: 1000;
-	background: var(--bg-panel);
-	border: 1px solid var(--accent);
-	box-shadow: 0 6px 18px rgba(0, 255, 204, 0.25);
-	border-radius: var(--radius);
-	max-height: 180px;
-	width: 280px;
-	overflow-y: auto;
-	padding: 2px;
-}
-
-.ac-item {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: 3px 8px;
-	cursor: pointer;
-	color: var(--text-dim);
-	font-size: 10px;
-	border-radius: 2px;
-}
-
-.ac-item:hover,
-.ac-item.active {
-	background: var(--bg-hover);
-	color: var(--accent);
-}
-
-.ac-item .ac-type {
-	font-size: 8px;
-	color: #ce9aff;
-	text-transform: uppercase;
-}
-
-#hover-doc-card {
-	display: none;
-	position: absolute;
-	z-index: 1001;
-	background: var(--bg-surface);
-	border: 1px solid var(--border-bright);
-	box-shadow: 0 6px 18px rgba(0, 0, 0, 0.7);
-	border-radius: var(--radius);
-	padding: 6px 10px;
-	max-width: 380px;
-	color: var(--text-primary);
-	font-size: 10px;
-	pointer-events: none;
-}
-
-.hover-sig {
-	color: var(--accent);
-	font-weight: bold;
-	margin-bottom: 3px;
-}
-
-.hover-doc {
-	color: var(--text-dim);
-	white-space: pre-wrap;
-}
-
-/* 5. Live Game Runtime Studio */
-#runtime-studio-view {
-	display: none;
-	flex: 1;
-	flex-direction: column;
-	background: #020407;
-	position: relative;
-	overflow: hidden;
-}
-
-.runtime-toolbar {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: 4px 10px;
-	background: var(--bg-panel);
-	border-bottom: 1px solid var(--border);
-}
-
-.runtime-viewport-wrap {
-	flex: 1;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	overflow: hidden;
-	background: #000;
-	position: relative;
-}
-
-#runtime-frame {
-	border: 1px solid var(--border-bright);
-	box-shadow: 0 0 20px rgba(0, 255, 204, 0.15);
-	background: #060b0f;
-	width: 640px;
-	height: 480px;
-}
-
-.fps-badge {
-	color: #00ffa3;
-	font-weight: bold;
-	font-size: 10px;
-	letter-spacing: 0.05em;
-}
-
-/* #endregion */
-
-/* #region [CSS-12] GAME DEV WORKSTATION VIEWPORT & TILEMAP STUDIO
+/* #region [CSS-12] --- GAME DEV WORKSTATION VIEWPORT & MODAL DIALOGS
  * Full-screen 2D/3D graphics engine stage, scene inspector, and tile palette.
  */
 .workspace-mode-btn {
@@ -2362,7 +2572,7 @@ button:disabled {
 	font-weight: bold;
 }
 
-/* #region [CSS-13] MODAL DIALOGS & PROMPT OVERLAYS */
+/* Modal Dialogs & Prompt Overlays */
 .phoenix-modal-overlay {
 	position: fixed;
 	top: 0;
@@ -2452,6 +2662,4 @@ button:disabled {
 .phoenix-modal-btn:hover {
 	border-color: var(--accent);
 }
-/* #endregion */
-
-/* #endregion */
+/* #endregion [CSS-12] */

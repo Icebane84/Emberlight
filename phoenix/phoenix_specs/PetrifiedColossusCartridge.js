@@ -138,10 +138,15 @@
 		state,
 		memory,
 
+		/**
+		 * @param {{ requestLinearMemory: (arg0: number) => ArrayBuffer | null; }} ctx
+		 */
 		configure(ctx) {
 			if (ctx && typeof ctx.requestLinearMemory === 'function') {
 				_rawBuffer = ctx.requestLinearMemory(1952);
-				_dataView = new DataView(_rawBuffer);
+				if (_rawBuffer) {
+					_dataView = new DataView(_rawBuffer);
+				}
 			} else if (!_rawBuffer) {
 				_rawBuffer = new ArrayBuffer(1952);
 				_dataView = new DataView(_rawBuffer);
@@ -157,6 +162,9 @@
 			state.isConfigured = true;
 		},
 
+		/**
+		 * @param {any} canvas
+		 */
 		boot(canvas) {
 			// Surface initialization
 		},
@@ -165,6 +173,10 @@
 			state.isAwake = true;
 		},
 
+		/**
+		 * @param {{ deltaTime: any; }} temporalTick
+		 * @param {{ axisPrimaryX: number; axisPrimaryY: number; buttonMask: number; }} input
+		 */
 		update(temporalTick, input) {
 			if (!state.isAwake || state.terminalDebriefOpen) {
 				return null;
@@ -235,6 +247,9 @@
 			};
 		},
 
+		/**
+		 * @param {any} ctx
+		 */
 		render(ctx) {
 			// Zero string allocations in hot loop [INV-08]
 			// Direct OffscreenCanvas manipulation handled through pre-allocated buffers
@@ -249,6 +264,9 @@
 			return new Uint8Array(_rawBuffer.slice(0));
 		},
 
+		/**
+		 * @param {any} buffer
+		 */
 		deserialize(buffer) {
 			if (!buffer || !_rawBuffer) return;
 			const src = new Uint8Array(buffer);
