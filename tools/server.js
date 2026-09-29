@@ -18,12 +18,18 @@ const MIME_TYPES = {
 	'.css': 'text/css; charset=utf-8',
 	'.js': 'application/javascript; charset=utf-8',
 	'.json': 'application/json; charset=utf-8',
+	'.phx': 'text/plain; charset=utf-8',
+	'.syn': 'text/plain; charset=utf-8',
+	'.md': 'text/markdown; charset=utf-8',
+	'.csv': 'text/csv; charset=utf-8',
 	'.png': 'image/png',
 	'.jpg': 'image/jpeg',
 	'.jpeg': 'image/jpeg',
 	'.gif': 'image/gif',
 	'.svg': 'image/svg+xml',
 	'.ico': 'image/x-icon',
+	'.woff': 'font/woff',
+	'.woff2': 'font/woff2',
 	'.wav': 'audio/wav',
 	'.mp3': 'audio/mpeg',
 	'.wasm': 'application/wasm',
@@ -36,6 +42,8 @@ const server = http.createServer((req, res) => {
 	res.setHeader('Access-Control-Allow-Origin', '*');
 	res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, HEAD');
 	res.setHeader('Access-Control-Allow-Headers', '*');
+	res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+	res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
 
 	if (req.method === 'OPTIONS') {
 		res.writeHead(204);

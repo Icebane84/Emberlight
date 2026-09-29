@@ -1,5 +1,11 @@
-/* Phoenix WebLLM Worker Bridge v2.0.0-ULTIMATE-FUSION
- * Protocols: VSRP-001 / PMIP-001
+/* cSpell:words WebLLM PMIP VSRP PGE NDJSON WebGPU */
+/**
+ * ============================================================================
+ * EMBERLIGHT SOVEREIGN ENGINE: WEBLLM WORKER BRIDGE & PROPOSAL SYNTHESIZER
+ * Document Identifier: BRIDGE-001-WEBLLM-WORKER
+ * Governing Protocol:  VSRP-001 / PMIP-001 / SDCP-001 / PERSIST-001
+ * Authority:           Host WebWorker Substrate | AI Inference Transduction
+ * ============================================================================
  *
  * This bridge transports prompts and results ONLY.
  * The worker is granted ZERO filesystem, proposal-commit,
@@ -11,121 +17,120 @@
  *   - Never blocks the main thread during inference.
  *   - Supports streaming token callbacks via onToken option.
  *   - WebGPU adapter stub is provided; host supplies the real implementation.
+ *
+ * TABLE OF CONTENTS & NAVIGATION ANCHORS (Ctrl+F):
+ *   [SEC-01] .......... Line ~35   -- Constants, Sovereign Constitution & Sampling Schemas
+ *   [SEC-02] .......... Line ~125  -- WebGPU Adapter Stub & Streaming SSE / Line Processors
+ *   [SEC-03] .......... Line ~309  -- Native Ollama & OpenAI-Compatible Model Adapters
+ *   [SEC-04] .......... Line ~449  -- Headless Worker Script Generation (_buildWorkerSource)
+ *   [SEC-05] .......... Line ~545  -- Context Packer, Prompt Factories & Diagnostic Envelopes
+ *   [SEC-06] .......... Line ~838  -- AST Proposal Parser, Code Repair & Sanitizer
+ *   [SEC-07] .......... Line ~1023 -- Sovereign Host Bridge Controller (PhoenixWebLLMWorkerBridge)
+ *   [SEC-08] .......... Line ~1254 -- Universal Export Envelope & Module Exports
+ * ============================================================================
  */
 ((/** @type {Record<string, any>} */ global) => {
-	/* =========================================================================
-	 * WORKER SCRIPT (injected via Blob URL)
-	 * The worker only understands four message types:
-	 *   configure  → initialize the adapter
-	 *   generate   → run inference, supports streaming
-	 *   destroy    → clean up and self-terminate
-	 *   ping       → liveness check
-	 * ========================================================================= */
+	'use strict';
+
+	//#region [SEC-01] Constants, Sovereign Constitution & Sampling Schemas
+
 	/**
-	 * @param {string} adapterFactorySource
-	 * @returns {string}
+	 * @typedef {Object} SamplingOptions
+	 * @property {number} temperature
+	 * @property {number} topP
+	 * @property {number} repeatPenalty
+	 * @property {number} maxTokens
+	 * @property {string | null} format
 	 */
-	function _buildWorkerSource(adapterFactorySource) {
+
+	const SOVEREIGN_ENGINE_CONSTITUTION = [
+		"You are the Phoenix Master Artificer, an expert AI coder operating on Emberlight under the Zero-Dependency Sovereign Engine specification (VSRP-001 / MPFS-001).",
+		"",
+		"CORE ARCHITECTURAL CONSTITUTION:",
+		"1. ZERO NPM / ZERO BUNDLER DEPENDENCIES:",
+		"   - Never use import/export statements. Never reference node_modules, npm, or external packages.",
+		"   - All modules execute natively in modern browsers via vanilla ES2022+, HTML5 Canvas, and Web Audio.",
+		"2. UNIVERSAL DUAL-BINDING IIFE PATTERN:",
+		"   All modules must wrap their implementation in a closure and export cleanly:",
+		"   const EmberlightModuleName = (() => {",
+		"     /* private state / methods */",
+		"     return { /* public interface */ };",
+		"   })();",
+		"   if (typeof window !== 'undefined') window.EmberlightModuleName = EmberlightModuleName;",
+		"   if (typeof module !== 'undefined') module.exports = EmberlightModuleName;",
+		"3. FARADAY TENANT ISOLATION (VSRP-001):",
+		"   - Tier 2 Simulation Tenants (combat, overworld, progression, armory, market, chronicle, status, relic_forge, lockpick, settings) MUST NEVER reference DOM/window/document/localStorage.",
+		"   - State ingestion in reset(snapshot) MUST use structuredClone(snapshot). Never mutate host objects.",
+		"   - Tenant update(dt, context) must be pure and never mutate input queues.",
+		"4. DETERMINISTIC ENTROPY (PRNG):",
+		"   - Global Math.random() is strictly forbidden in simulation logic. Use EmberlightPRNG or passed seeds.",
+		"5. ZERO PLACEHOLDERS (ANTI-THEATER):",
+		"   - Never output placeholder comments such as '// ...', '/* ... */', or 'TODO(impl)'. Provide complete, executable code.",
+		"6. OUTPUT SPECIFICATION (PGE-DSL-1):",
+		"   When creating or repairing code, output ONLY a valid PGE-DSL-1 JSON proposal object:",
+		"   ```json",
+		"   {",
+		"     \"schemaVersion\": \"PGE-DSL-1\",",
+		"     \"proposalId\": \"prop-unique-id\",",
+		"     \"target\": \"combat/combat_actions.js\",",
+		"     \"operation\": \"MODIFY\",",
+		"     \"intent\": \"Concise description of the change\",",
+		"     \"requiredCapabilities\": [],",
+		"     \"expectedInvariants\": [],",
+		"     \"testsRequested\": [],",
+		"     \"changes\": [",
+		"       {",
+		"         \"type\": \"replace_text\",",
+		"         \"path\": \"combat/combat_actions.js\",",
+		"         \"search\": \"exact string to find in source\",",
+		"         \"content\": \"exact replacement string\"",
+		"       }",
+		"     ],",
+		"     \"explanation\": \"Detailed architectural rationale\"",
+		"   }",
+		"   ```"
+	].join("\n");
+
+	/**
+	 * @param {Record<string, any>} opts
+	 * @returns {SamplingOptions}
+	 */
+	function _resolveSamplingOptions(opts) {
+		const temperature = opts.temperature ?? 0.2;
+		const topP = opts.top_p ?? opts.topP ?? 0.9;
+		const repeatPenalty = opts.repeat_penalty ?? opts.repeatPenalty ?? 1.1;
+		const maxTokens = opts.maxTokens || 2048;
+		const format = opts.format || null;
+		return { temperature, topP, repeatPenalty, maxTokens, format };
+	}
+
+	/**
+	 * Determines whether structured PGE-DSL-1 JSON output is requested.
+	 * @param {SamplingOptions} sampling
+	 * @param {string} prompt
+	 * @returns {boolean}
+	 */
+	function _isJsonRequested(sampling, prompt) {
+		if (sampling.format === "json") return true;
 		return (
-			'"use strict";\n' +
-			/* ---- Adapter slot ---- */
-			"let _adapter = null;\n" +
-			"let _seq = 0;\n" +
-			"const _abortControllers = new Map();\n" +
-			/* ---- Shared Helpers ---- */
-			`const SOVEREIGN_ENGINE_CONSTITUTION = ${JSON.stringify(SOVEREIGN_ENGINE_CONSTITUTION)};\n` +
-			`${_extractStreamToken.toString()};\n` +
-			`${_parseSingleStreamLine.toString()};\n` +
-			`${_processStreamBuffer.toString()};\n` +
-			`${_consumeOllamaStream.toString()};\n` +
-			`${_resolveSamplingOptions.toString()};\n` +
-			`${_generateOpenAIChat.toString()};\n` +
-			`${_generateOllama.toString()};\n` +
-			/* ---- Streaming helper ----
-			 * Streams token-by-token back to the host via postMessage.
-			 * The generate() method on the adapter must accept an onToken callback
-			 * in its options object to enable streaming.
-			 */
-			"function _streamCallback(reqId, token) {\n" +
-			'  self.postMessage({ id: reqId, type: "token", token: String(token) });\n' +
-			"}\n" +
-			/* ---- Message router ---- */
-			"self.onmessage = async function (event) {\n" +
-			"  const m = event.data || {};\n" +
-			'  const reqId = m.id || ("auto-" + (++_seq));\n' +
-			"  try {\n" +
-			/* configure */
-			'    if (m.type === "configure") {\n' +
-			'      if (typeof self.PhoenixLocalModelAdapter !== "function")\n' +
-			'        throw new Error("No local model adapter installed in worker.");\n' +
-			"      _adapter = await self.PhoenixLocalModelAdapter(m.config || {});\n" +
-			'      if (!_adapter || typeof _adapter.generate !== "function")\n' +
-			'        throw new Error("Adapter must expose generate(prompt, options).");\n' +
-			'      self.postMessage({ id: reqId, type: "configured" });\n' +
-			"      return;\n" +
-			"    }\n" +
-			/* generate */
-			'    if (m.type === "generate") {\n' +
-			'      if (!_adapter) throw new Error("Adapter not configured.");\n' +
-			"      const ac = typeof AbortController !== 'undefined' ? new AbortController() : null;\n" +
-			"      if (ac) _abortControllers.set(reqId, ac);\n" +
-			"      const opts = { ...(m.options || {}) };\n" +
-			"      if (ac) opts.signal = ac.signal;\n" +
-			"      if (m.streaming) {\n" +
-			"        opts.onToken = function(tok) { _streamCallback(reqId, tok); };\n" +
-			"      }\n" +
-			"      try {\n" +
-			"        const result = await _adapter.generate(m.prompt, opts);\n" +
-			'        self.postMessage({ id: reqId, type: "result", result: result });\n' +
-			"      } finally {\n" +
-			"        _abortControllers.delete(reqId);\n" +
-			"      }\n" +
-			"      return;\n" +
-			"    }\n" +
-			/* abort */
-			'    if (m.type === "abort") {\n' +
-			"      const ac = _abortControllers.get(reqId);\n" +
-			"      if (ac) {\n" +
-			"        ac.abort();\n" +
-			"        _abortControllers.delete(reqId);\n" +
-			"      }\n" +
-			'      self.postMessage({ id: reqId, type: "aborted" });\n' +
-			"      return;\n" +
-			"    }\n" +
-			/* ping */
-			'    if (m.type === "ping") {\n' +
-			'      self.postMessage({ id: reqId, type: "pong" });\n' +
-			"      return;\n" +
-			"    }\n" +
-			/* destroy */
-			'    if (m.type === "destroy") {\n' +
-			'      if (_adapter && typeof _adapter.destroy === "function")\n' +
-			"        await _adapter.destroy();\n" +
-			"      _adapter = null;\n" +
-			'      self.postMessage({ id: reqId, type: "destroyed" });\n' +
-			"      self.close();\n" +
-			"      return;\n" +
-			"    }\n" +
-			'    throw new Error("Unknown worker message type: " + String(m.type));\n' +
-			"  } catch (err) {\n" +
-			'    self.postMessage({ id: reqId, type: "error",\n' +
-			"      error: String(err && err.message ? err.message : err) });\n" +
-			"  }\n" +
-			"};\n" +
-			/* Inject adapter factory */
-			`self.PhoenixLocalModelAdapter = (${adapterFactorySource});\n`
+			prompt.includes("PGE-DSL-1") ||
+			prompt.includes("```json") ||
+			prompt.includes("valid JSON") ||
+			prompt.includes("JSON proposal")
 		);
 	}
 
-	/* =========================================================================
+	//#endregion [SEC-01]
+
+	//#region [SEC-02] WebGPU Adapter Stub & Streaming SSE / Line Processors
+
+	/**
 	 * WEBGPU STUB ADAPTER FACTORY
 	 * A complete, drop-in model adapter factory that the host can substitute with
 	 * a real WebLLM / llama.cpp.wasm / transformers.js implementation.
 	 *
 	 * The stub performs no network I/O and returns deterministic placeholder text
 	 * so integration tests can run without a real model.
-	 * ========================================================================= */
-	/**
 	 * @param {Record<string, unknown>} [_config]
 	 */
 	function phoenixWebGPUAdapterStubFactory(_config) {
@@ -161,12 +166,8 @@
 		});
 	}
 
-	/* =========================================================================
-	 * OLLAMA & OPENAI DUAL STREAMING HELPER
-	 * Supports raw Ollama NDJSON ({"response": "..."}) and OpenAI/LM Studio
-	 * Server-Sent Events (data: {"choices":[{"delta":{"content":"..."}}]}).
-	 * ========================================================================= */
 	/**
+	 * Extracts token fragment from OpenAI SSE delta or Ollama response chunk.
 	 * @param {Record<string, any>} json
 	 * @returns {string | null}
 	 */
@@ -186,6 +187,7 @@
 	}
 
 	/**
+	 * Parses a single SSE or NDJSON line, dispatching tokens to callback.
 	 * @param {string} rawLine
 	 * @param {(token: string) => void} onToken
 	 * @returns {string}
@@ -212,6 +214,7 @@
 	}
 
 	/**
+	 * Iterates line by line through an accumulated text buffer.
 	 * @param {string} buffer
 	 * @param {(token: string) => void} onToken
 	 * @returns {{ fullText: string, remaining: string }}
@@ -232,6 +235,56 @@
 	}
 
 	/**
+	 * Configures early-exit abort handler on stream reader.
+	 * @param {AbortSignal | undefined} signal
+	 * @param {ReadableStreamDefaultReader<Uint8Array>} reader
+	 * @returns {(() => void) | null}
+	 * @private
+	 */
+	function _setupStreamAbort(signal, reader) {
+		if (!signal) return null;
+		if (signal.aborted) {
+			reader.cancel().catch(() => { });
+			throw new Error("[PHOENIX/AI] Inference stream aborted by signal.");
+		}
+		const onAbort = () => { reader.cancel().catch(() => { }); };
+		signal.addEventListener("abort", onAbort, { once: true });
+		return onAbort;
+	}
+
+	/**
+	 * Sequentially reads Uint8Array stream chunks until exhaustion or signal abort.
+	 * @param {ReadableStreamDefaultReader<Uint8Array>} reader
+	 * @param {TextDecoder} decoder
+	 * @param {(token: string) => void} onToken
+	 * @param {AbortSignal | undefined} signal
+	 * @returns {Promise<string>}
+	 * @private
+	 */
+	async function _readStreamLoop(reader, decoder, onToken, signal) {
+		let fullText = "";
+		let buffer = "";
+		while (true) {
+			if (signal?.aborted) {
+				throw new Error("[PHOENIX/AI] Inference stream aborted by signal.");
+			}
+			const { done, value } = await reader.read();
+			if (done) break;
+
+			buffer += decoder.decode(value, { stream: true });
+			const chunkResult = _processStreamBuffer(buffer, onToken);
+			fullText += chunkResult.fullText;
+			buffer = chunkResult.remaining;
+		}
+		if (buffer.length > 0) {
+			const finalChunk = _processStreamBuffer(buffer + "\n", onToken);
+			fullText += finalChunk.fullText;
+		}
+		return fullText;
+	}
+
+	/**
+	 * Consumes a fetch response ReadableStream with real-time token dispatch.
 	 * @param {ReadableStream<Uint8Array>} body
 	 * @param {(token: string) => void} onToken
 	 * @param {AbortSignal} [signal]
@@ -239,71 +292,27 @@
 	 */
 	async function _consumeOllamaStream(body, onToken, signal) {
 		const reader = body.getReader();
-		const decoder = new TextDecoder();
-		let fullText = "";
-		let buffer = "";
-
-		const onAbort = () => {
-			reader.cancel().catch(() => { });
-		};
-
-		if (signal) {
-			if (signal.aborted) {
-				reader.cancel().catch(() => { });
-				throw new Error("[PHOENIX/AI] Inference stream aborted by signal.");
-			}
-			signal.addEventListener("abort", onAbort, { once: true });
-		}
+		const onAbort = _setupStreamAbort(signal, reader);
 
 		try {
-			while (true) {
-				if (signal?.aborted) {
-					throw new Error("[PHOENIX/AI] Inference stream aborted by signal.");
-				}
-				const { done, value } = await reader.read();
-				if (done) break;
-
-				buffer += decoder.decode(value, { stream: true });
-				const chunkResult = _processStreamBuffer(buffer, onToken);
-				fullText += chunkResult.fullText;
-				buffer = chunkResult.remaining;
-			}
-			if (buffer.length > 0) {
-				const finalChunk = _processStreamBuffer(buffer + "\n", onToken);
-				fullText += finalChunk.fullText;
-			}
+			return await _readStreamLoop(reader, new TextDecoder(), onToken, signal);
 		} finally {
-			if (signal) {
+			if (signal && onAbort) {
 				signal.removeEventListener("abort", onAbort);
 			}
 			reader.releaseLock();
 		}
-		return fullText;
 	}
 
-	/* =========================================================================
-	 * OLLAMA LOCAL MODEL ADAPTER FACTORY & ENDPOINT DISPATCHERS
-	 * Connects to local Ollama instance (default: http://localhost:11434,
-	 * model: qwen2.5-coder:7b) or OpenAI/LM Studio (http://localhost:1234/v1).
-	 * Supports streaming with SSE/NDJSON parsing, AbortSignal, and sampling params.
-	 * ========================================================================= */
-	/**
-	 * @param {Record<string, any>} opts
-	 */
-	function _resolveSamplingOptions(opts) {
-		const temperature = opts.temperature ?? 0.2;
-		const topP = opts.top_p ?? opts.topP ?? 0.9;
-		const repeatPenalty = opts.repeat_penalty ?? opts.repeatPenalty ?? 1.1;
-		const maxTokens = opts.maxTokens || 2048;
-		const format = opts.format || null;
-		return { temperature, topP, repeatPenalty, maxTokens, format };
-	}
+	//#endregion [SEC-02]
+
+	//#region [SEC-03] Native Ollama & OpenAI-Compatible Model Adapters
 
 	/**
 	 * @param {string} host
 	 * @param {string} modelName
 	 * @param {string} prompt
-	 * @param {ReturnType<typeof _resolveSamplingOptions>} sampling
+	 * @param {SamplingOptions} sampling
 	 * @param {boolean} isStreaming
 	 * @param {((token: string) => void) | undefined} onToken
 	 * @param {AbortSignal | undefined} signal
@@ -314,7 +323,8 @@
 			baseHost = baseHost.slice(0, -1);
 		}
 		const endpoint = host.endsWith("/chat/completions") ? host : `${baseHost}/chat/completions`;
-		const isJsonRequested = sampling.format === "json" || prompt.includes("PGE-DSL-1") || prompt.includes("```json") || prompt.includes("valid JSON") || prompt.includes("JSON proposal");
+		const isJsonRequested = _isJsonRequested(sampling, prompt);
+
 		/** @type {Record<string, any>} */
 		const bodyPayload = {
 			model: modelName,
@@ -356,13 +366,14 @@
 	 * @param {string} host
 	 * @param {string} modelName
 	 * @param {string} prompt
-	 * @param {ReturnType<typeof _resolveSamplingOptions>} sampling
+	 * @param {SamplingOptions} sampling
 	 * @param {boolean} isStreaming
 	 * @param {((token: string) => void) | undefined} onToken
 	 * @param {AbortSignal | undefined} signal
 	 */
 	async function _generateOllama(host, modelName, prompt, sampling, isStreaming, onToken, signal) {
-		const isJsonRequested = sampling.format === "json" || prompt.includes("PGE-DSL-1") || prompt.includes("```json") || prompt.includes("valid JSON") || prompt.includes("JSON proposal");
+		const isJsonRequested = _isJsonRequested(sampling, prompt);
+
 		/** @type {Record<string, any>} */
 		const bodyPayload = {
 			model: modelName,
@@ -433,57 +444,161 @@
 		});
 	}
 
-	/* =========================================================================
-	 * SOVEREIGN ENGINE CONSTITUTION & PROMPT GENERATOR
-	 * Protocols: VSRP-001 / MPFS-001 / PGE-DSL-1
-	 * ========================================================================= */
-	const SOVEREIGN_ENGINE_CONSTITUTION = [
-		"You are the Phoenix Master Artificer, an expert AI coder operating on Emberlight under the Zero-Dependency Sovereign Engine specification (VSRP-001 / MPFS-001).",
-		"",
-		"CORE ARCHITECTURAL CONSTITUTION:",
-		"1. ZERO NPM / ZERO BUNDLER DEPENDENCIES:",
-		"   - Never use import/export statements. Never reference node_modules, npm, or external packages.",
-		"   - All modules execute natively in modern browsers via vanilla ES2022+, HTML5 Canvas, and Web Audio.",
-		"2. UNIVERSAL DUAL-BINDING IIFE PATTERN:",
-		"   All modules must wrap their implementation in a closure and export cleanly:",
-		"   const EmberlightModuleName = (() => {",
-		"     /* private state / methods */",
-		"     return { /* public interface */ };",
-		"   })();",
-		"   if (typeof window !== 'undefined') window.EmberlightModuleName = EmberlightModuleName;",
-		"   if (typeof module !== 'undefined') module.exports = EmberlightModuleName;",
-		"3. FARADAY TENANT ISOLATION (VSRP-001):",
-		"   - Tier 2 Simulation Tenants (combat, overworld, progression, armory, market, chronicle, status, relic_forge, lockpick, settings) MUST NEVER reference DOM/window/document/localStorage.",
-		"   - State ingestion in reset(snapshot) MUST use structuredClone(snapshot). Never mutate host objects.",
-		"   - Tenant update(dt, context) must be pure and never mutate input queues.",
-		"4. DETERMINISTIC ENTROPY (PRNG):",
-		"   - Global Math.random() is strictly forbidden in simulation logic. Use EmberlightPRNG or passed seeds.",
-		"5. ZERO PLACEHOLDERS (ANTI-THEATER):",
-		"   - Never output placeholder comments such as '// ...', '/* ... */', or 'TODO(impl)'. Provide complete, executable code.",
-		"6. OUTPUT SPECIFICATION (PGE-DSL-1):",
-		"   When creating or repairing code, output ONLY a valid PGE-DSL-1 JSON proposal object:",
-		"   ```json",
-		"   {",
-		"     \"schemaVersion\": \"PGE-DSL-1\",",
-		"     \"proposalId\": \"prop-unique-id\",",
-		"     \"target\": \"combat/combat_actions.js\",",
-		"     \"operation\": \"MODIFY\",",
-		"     \"intent\": \"Concise description of the change\",",
-		"     \"requiredCapabilities\": [],",
-		"     \"expectedInvariants\": [],",
-		"     \"testsRequested\": [],",
-		"     \"changes\": [",
-		"       {",
-		"         \"type\": \"replace_text\",",
-		"         \"path\": \"combat/combat_actions.js\",",
-		"         \"search\": \"exact string to find in source\",",
-		"         \"content\": \"exact replacement string\"",
-		"       }",
-		"     ],",
-		"     \"explanation\": \"Detailed architectural rationale\"",
-		"   }",
-		"   ```"
-	].join("\n");
+	//#endregion [SEC-03]
+
+	//#region [SEC-04] Headless Worker Script Generation (_buildWorkerSource)
+
+	/**
+	 * Template source for the headless background WebWorker inference thread.
+	 * Kept as an array of string literals so worker-scoped globals (_adapter, _seq,
+	 * _abortControllers) are isolated from host TypeScript static analysis.
+	 */
+	const _WORKER_SCRIPT_TEMPLATE = [
+		'"use strict";',
+		'let _adapter = null;',
+		'let _seq = 0;',
+		'const _abortControllers = new Map();',
+		'function _streamCallback(reqId, token) {',
+		'  self.postMessage({ id: reqId, type: "token", token: String(token) });',
+		'}',
+		'async function _workerHandleConfigure(m, reqId) {',
+		'  if (typeof self.PhoenixLocalModelAdapter !== "function")',
+		'    throw new Error("No local model adapter installed in worker.");',
+		'  _adapter = await self.PhoenixLocalModelAdapter(m.config || {});',
+		'  if (!_adapter || typeof _adapter.generate !== "function")',
+		'    throw new Error("Adapter must expose generate(prompt, options).");',
+		'  self.postMessage({ id: reqId, type: "configured" });',
+		'}',
+		'async function _workerHandleGenerate(m, reqId) {',
+		'  if (!_adapter) throw new Error("Adapter not configured.");',
+		'  const ac = typeof AbortController !== "undefined" ? new AbortController() : null;',
+		'  if (ac) _abortControllers.set(reqId, ac);',
+		'  const opts = { ...(m.options || {}) };',
+		'  if (ac) opts.signal = ac.signal;',
+		'  if (m.streaming) opts.onToken = function (tok) { _streamCallback(reqId, tok); };',
+		'  try {',
+		'    const result = await _adapter.generate(m.prompt, opts);',
+		'    self.postMessage({ id: reqId, type: "result", result: result });',
+		'  } finally {',
+		'    _abortControllers.delete(reqId);',
+		'  }',
+		'}',
+		'function _workerHandleAbort(m, reqId) {',
+		'  const ac = _abortControllers.get(reqId);',
+		'  if (ac) { ac.abort(); _abortControllers.delete(reqId); }',
+		'  self.postMessage({ id: reqId, type: "aborted" });',
+		'}',
+		'function _workerHandlePing(m, reqId) {',
+		'  self.postMessage({ id: reqId, type: "pong" });',
+		'}',
+		'async function _workerHandleDestroy(m, reqId) {',
+		'  if (_adapter && typeof _adapter.destroy === "function") await _adapter.destroy();',
+		'  _adapter = null;',
+		'  self.postMessage({ id: reqId, type: "destroyed" });',
+		'  self.close();',
+		'}',
+		'const _WORKER_ROUTER = {',
+		'  configure: _workerHandleConfigure,',
+		'  generate: _workerHandleGenerate,',
+		'  abort: _workerHandleAbort,',
+		'  ping: _workerHandlePing,',
+		'  destroy: _workerHandleDestroy',
+		'};',
+		'self.onmessage = async function (event) {',
+		'  const m = event.data || {};',
+		'  const reqId = m.id || ("auto-" + (++_seq));',
+		'  try {',
+		'    const handler = _WORKER_ROUTER[m.type];',
+		'    if (!handler) throw new Error("Unknown worker message type: " + String(m.type));',
+		'    await handler(m, reqId);',
+		'  } catch (err) {',
+		'    self.postMessage({ id: reqId, type: "error", error: String(err && err.message ? err.message : err) });',
+		'  }',
+		'};'
+	].join('\n');
+
+	/**
+	 * Synthesizes self-contained worker source blob with serialized helper closures.
+	 * @param {string} adapterFactorySource
+	 * @returns {string}
+	 */
+	function _buildWorkerSource(adapterFactorySource) {
+		return [
+			_WORKER_SCRIPT_TEMPLATE,
+			`const SOVEREIGN_ENGINE_CONSTITUTION = ${JSON.stringify(SOVEREIGN_ENGINE_CONSTITUTION)};`,
+			_extractStreamToken.toString(),
+			_parseSingleStreamLine.toString(),
+			_processStreamBuffer.toString(),
+			_setupStreamAbort.toString(),
+			_readStreamLoop.toString(),
+			_consumeOllamaStream.toString(),
+			_resolveSamplingOptions.toString(),
+			_isJsonRequested.toString(),
+			_generateOpenAIChat.toString(),
+			_generateOllama.toString(),
+			`self.PhoenixLocalModelAdapter = (${adapterFactorySource});`
+		].join('\n');
+	}
+
+	//#endregion [SEC-04]
+
+	//#region [SEC-05] Context Packer, Prompt Factories & Diagnostic Envelopes
+
+	/**
+	 * Slices targeted snippet around active line or selection boundary.
+	 * @param {string} sourceCode
+	 * @param {number | null} activeLine
+	 * @param {string | undefined} selectedText
+	 * @param {number} [maxChars=2500]
+	 * @returns {string}
+	 * @private
+	 */
+	function _extractTargetSnippet(sourceCode, activeLine, selectedText, maxChars = 2500) {
+		if (typeof selectedText === 'string' && selectedText.trim().length > 0) {
+			return selectedText.trim();
+		}
+		if (typeof activeLine === 'number' && activeLine > 0) {
+			const lines = sourceCode.split('\n');
+			const start = Math.max(0, activeLine - 12);
+			const end = Math.min(lines.length, activeLine + 11);
+			return lines.slice(start, end).join('\n');
+		}
+		if (sourceCode.length > maxChars) {
+			return sourceCode.slice(0, maxChars) + '\n/* ... truncated ... */';
+		}
+		return sourceCode;
+	}
+
+	/**
+	 * Resolves active line from explicit parameter or first diagnostic with line.
+	 * @param {number | undefined} activeLine
+	 * @param {Array<{ line?: number }> | undefined} diagnostics
+	 * @returns {number | null}
+	 * @private
+	 */
+	function _resolveDiagnosticLine(activeLine, diagnostics) {
+		if (typeof activeLine === 'number' && activeLine > 0) return activeLine;
+		if (Array.isArray(diagnostics) && diagnostics.length > 0) {
+			const found = diagnostics.find(d => typeof d.line === 'number' && d.line > 0);
+			if (found && typeof found.line === 'number') return found.line;
+		}
+		return null;
+	}
+
+	/**
+	 * Formats diagnostic array into numbered invariant failure list.
+	 * @param {Array<{ rule?: string, message?: string, line?: number, col?: number, severity?: string }> | undefined} diagnostics
+	 * @returns {string}
+	 * @private
+	 */
+	function _formatDiagnosticList(diagnostics) {
+		if (!Array.isArray(diagnostics) || diagnostics.length === 0) {
+			return 'No diagnostic errors reported.';
+		}
+		return diagnostics.map((d, i) =>
+			`${i + 1}. [${d.severity || 'err'}] Line ${d.line || '?'}, Col ${d.col || '?'}: (${d.rule || 'ERROR'}) ${d.message || 'Issue'}`
+		).join('\n');
+	}
 
 	/**
 	 * Builds a prompt for generating a compliant PGE-DSL-1 proposal from user intent and source code.
@@ -494,20 +609,8 @@
 	 * @returns {string}
 	 */
 	function buildIntentPrompt(intent, targetFile, sourceCode, options = {}) {
-		let snippet = sourceCode;
 		const activeLine = (options && typeof options.activeLine === 'number' && options.activeLine > 0) ? options.activeLine : null;
-		const selectedText = (options && typeof options.selectedText === 'string') ? options.selectedText.trim() : '';
-
-		if (selectedText.length > 0) {
-			snippet = selectedText;
-		} else if (activeLine && activeLine > 0) {
-			const lines = sourceCode.split('\n');
-			const start = Math.max(0, activeLine - 12);
-			const end = Math.min(lines.length, activeLine + 11);
-			snippet = lines.slice(start, end).join('\n');
-		} else if (sourceCode.length > 2500) {
-			snippet = sourceCode.slice(0, 2500) + '\n/* ... truncated ... */';
-		}
+		const snippet = _extractTargetSnippet(sourceCode, activeLine, options.selectedText, 2500);
 
 		return [
 			'PGE-DSL-1 INTENT SPECIFICATION:',
@@ -690,27 +793,9 @@
 			? `\nPERSIST-001 HEAP: ${options.memoryLayout.totalBytes}/1952B (${options.memoryLayout.fields?.length || 0} fields)`
 			: '';
 
-		let resolvedLine = (activeLine && typeof activeLine === 'number' && activeLine > 0) ? activeLine : null;
-		if (!resolvedLine && Array.isArray(diagnostics) && diagnostics.length > 0) {
-			const dWithLine = diagnostics.find(d => typeof d.line === 'number' && d.line > 0);
-			if (dWithLine && typeof dWithLine.line === 'number') resolvedLine = dWithLine.line;
-		}
-
-		// Focused snippet around line (+-8 lines) or max 2000 chars
-		let focusedSnippet = sourceCode;
-		if (resolvedLine && resolvedLine > 0) {
-			const lines = sourceCode.split('\n');
-			const start = Math.max(0, resolvedLine - 9);
-			const end = Math.min(lines.length, resolvedLine + 8);
-			focusedSnippet = lines.slice(start, end).join('\n');
-		} else if (sourceCode.length > 2000) {
-			focusedSnippet = sourceCode.slice(0, 2000) + '\n/* ... truncated ... */';
-		}
-
-		const diagList = (diagnostics || []).map((d, i) =>
-			`${i + 1}. [${d.severity || 'err'}] Line ${d.line || '?'}, Col ${d.col || '?'}: (${d.rule || 'ERROR'}) ${d.message || 'Issue'}`
-		).join('\n');
-
+		const resolvedLine = _resolveDiagnosticLine(activeLine, diagnostics);
+		const focusedSnippet = _extractTargetSnippet(sourceCode, resolvedLine, '', 2000);
+		const diagList = _formatDiagnosticList(diagnostics);
 		const lineFocusStr = resolvedLine ? ' @ Line ' + resolvedLine : '';
 
 		return [
@@ -719,7 +804,7 @@
 			`Symbols: ${symbolStr}`,
 			memoryStr,
 			'FAILING INVARIANTS:',
-			diagList || 'No diagnostic errors reported.',
+			diagList,
 			erlDirective,
 			'',
 			'TARGET CODE SNIPPET:',
@@ -748,10 +833,10 @@
 		].filter(Boolean).join('\n');
 	}
 
-	/* =========================================================================
-	 * PROPOSAL PARSER
-	 * Extracts and validates a PGE-DSL-1 proposal from raw LLM output.
-	 * ========================================================================= */
+	//#endregion [SEC-05]
+
+	//#region [SEC-06] AST Proposal Parser, Code Repair & Sanitizer
+
 	/**
 	 * Validates that proposal change blocks do not contain lazy truncation tokens.
 	 * @param {Record<string, any>} proposal
@@ -768,14 +853,19 @@
 	}
 
 	/**
+	 * Strips markdown code fences and LLM thinking traces from text.
 	 * @param {string} rawText
 	 * @returns {string}
+	 * @private
 	 */
 	function _stripMarkdownFences(rawText) {
-		let candidate = rawText;
-		const fenceStart = rawText.indexOf("```");
+		let candidate = typeof rawText === 'string' ? rawText : String(rawText || '');
+		// Strip model reasoning traces (<think>...</think>)
+		candidate = candidate.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+
+		const fenceStart = candidate.indexOf("```");
 		if (fenceStart !== -1) {
-			const afterFirst = rawText.slice(fenceStart + 3);
+			const afterFirst = candidate.slice(fenceStart + 3);
 			const lineBreak = afterFirst.indexOf("\n");
 			const contentStart = lineBreak !== -1 ? lineBreak + 1 : 0;
 			const fenceEnd = afterFirst.indexOf("```", contentStart);
@@ -787,32 +877,77 @@
 	}
 
 	/**
+	 * Resolves extracted code property from fallback JSON candidate.
 	 * @param {Record<string, any>} parsed
+	 * @returns {string}
+	 * @private
 	 */
-	function _normalizeParsedChanges(parsed) {
-		if (!Array.isArray(parsed.changes)) {
-			if (typeof parsed.search === 'string' && (typeof parsed.content === 'string' || typeof parsed.replace === 'string')) {
-				parsed.changes = [ {
-					type: 'replace_text',
-					search: parsed.search,
-					content: typeof parsed.content === 'string' ? parsed.content : String(parsed.replace)
-				} ];
-			} else if (typeof parsed.code === 'string' || typeof parsed.repairedCode === 'string' || typeof parsed.content === 'string') {
-				const c = typeof parsed.code === 'string' ? parsed.code : (typeof parsed.repairedCode === 'string' ? parsed.repairedCode : parsed.content);
-				parsed.changes = [ { type: 'create_file', content: c } ];
-			}
-		}
+	function _resolveFallbackCode(parsed) {
+		if (typeof parsed.code === 'string') return parsed.code;
+		if (typeof parsed.repairedCode === 'string') return parsed.repairedCode;
+		if (typeof parsed.content === 'string') return parsed.content;
+		return '';
+	}
 
-		if (Array.isArray(parsed.changes)) {
-			for (const ch of parsed.changes) {
-				if (!ch.type) ch.type = ch.search ? 'replace_text' : 'create_file';
-				if (!ch.path && parsed.target) ch.path = parsed.target;
+	/**
+	 * Synthesizes replacement changes from loose JSON response fields.
+	 * @param {Record<string, any>} parsed
+	 * @returns {Array<Record<string, any>> | null}
+	 * @private
+	 */
+	function _synthesizeFallbackChanges(parsed) {
+		if (typeof parsed.search === 'string' && (typeof parsed.content === 'string' || typeof parsed.replace === 'string')) {
+			const content = typeof parsed.content === 'string' ? parsed.content : String(parsed.replace);
+			return [ {
+				type: 'replace_text',
+				search: parsed.search,
+				content
+			} ];
+		}
+		const fallbackCode = _resolveFallbackCode(parsed);
+		if (fallbackCode) {
+			return [ { type: 'create_file', content: fallbackCode } ];
+		}
+		return null;
+	}
+
+	/**
+	 * Populates default change operation types and target path bindings.
+	 * @param {Array<Record<string, any>>} changes
+	 * @param {string | undefined} target
+	 * @private
+	 */
+	function _fillChangeDefaults(changes, target) {
+		for (const ch of changes) {
+			if (!ch.type) {
+				ch.type = ch.search ? 'replace_text' : 'create_file';
+			}
+			if (!ch.path && target) {
+				ch.path = target;
 			}
 		}
 	}
 
 	/**
+	 * Normalizes changes array inside a parsed proposal object.
 	 * @param {Record<string, any>} parsed
+	 * @private
+	 */
+	function _normalizeParsedChanges(parsed) {
+		if (!Array.isArray(parsed.changes)) {
+			const synthesized = _synthesizeFallbackChanges(parsed);
+			if (synthesized) parsed.changes = synthesized;
+		}
+
+		if (Array.isArray(parsed.changes)) {
+			_fillChangeDefaults(parsed.changes, parsed.target);
+		}
+	}
+
+	/**
+	 * Normalizes envelope metadata fields and filters invariant tokens.
+	 * @param {Record<string, any>} parsed
+	 * @private
 	 */
 	function _normalizeEnvelopeFields(parsed) {
 		if (!parsed.schemaVersion) parsed.schemaVersion = 'PGE-DSL-1';
@@ -830,6 +965,28 @@
 	}
 
 	/**
+	 * Synthesizes a full proposal envelope from raw code when JSON tags are absent.
+	 * @param {string} candidate
+	 * @returns {Record<string, any> | null}
+	 * @private
+	 */
+	function _synthesizeRawCodeProposal(candidate) {
+		const isCode = candidate.includes('function') || candidate.includes('const') || candidate.includes('let') || candidate.includes('class');
+		if (!isCode) return null;
+		return {
+			schemaVersion: 'PGE-DSL-1',
+			proposalId: `prop-ai-${Date.now().toString(36)}`,
+			operation: 'MODIFY',
+			intent: 'AI synthesized code repair',
+			requiredCapabilities: [],
+			expectedInvariants: [],
+			testsRequested: [],
+			changes: [ { type: 'create_file', content: candidate } ]
+		};
+	}
+
+	/**
+	 * Extracts and validates a PGE-DSL-1 proposal from raw LLM output.
 	 * @param {string} rawText
 	 * @returns {Record<string, any>}
 	 */
@@ -845,19 +1002,8 @@
 		const start = candidate.indexOf("{");
 		const end = candidate.lastIndexOf("}");
 		if (start === -1 || end === -1 || end <= start) {
-			// Fallback: If model returned raw executable code, wrap into a compliant create_file proposal
-			if (candidate.includes('function') || candidate.includes('const') || candidate.includes('let') || candidate.includes('class')) {
-				return {
-					schemaVersion: 'PGE-DSL-1',
-					proposalId: `prop-ai-${Date.now().toString(36)}`,
-					operation: 'MODIFY',
-					intent: 'AI synthesized code repair',
-					requiredCapabilities: [],
-					expectedInvariants: [],
-					testsRequested: [],
-					changes: [ { type: 'create_file', content: candidate } ]
-				};
-			}
+			const fallback = _synthesizeRawCodeProposal(candidate);
+			if (fallback) return fallback;
 			throw new Error("[PHOENIX/parser] No JSON object boundaries found.");
 		}
 
@@ -872,9 +1018,13 @@
 		return parsed;
 	}
 
-	/* =========================================================================
-	 * MAIN BRIDGE CLASS
-	 * ========================================================================= */
+	//#endregion [SEC-06]
+
+	//#region [SEC-07] Sovereign Host Bridge Controller (PhoenixWebLLMWorkerBridge)
+
+	/**
+	 * Sovereign Host Bridge Controller for local WebWorker inference.
+	 */
 	class PhoenixWebLLMWorkerBridge {
 		/** @type {Worker | null} */
 		_worker = null;
@@ -1099,9 +1249,10 @@
 		}
 	}
 
-	/* =========================================================================
-	 * EXPORTS
-	 * ========================================================================= */
+	//#endregion [SEC-07]
+
+	//#region [SEC-08] Universal Export Envelope & Module Exports
+
 	global.PhoenixWebLLMWorkerBridge = PhoenixWebLLMWorkerBridge;
 	global.phoenixWebGPUAdapterStubFactory = phoenixWebGPUAdapterStubFactory;
 	global.phoenixOllamaAdapterFactory = phoenixOllamaAdapterFactory;
@@ -1129,4 +1280,6 @@
 			buildMachineDiagnosticEnvelope,
 		};
 	}
+
+	//#endregion [SEC-08]
 })(typeof globalThis !== "undefined" ? globalThis : this);

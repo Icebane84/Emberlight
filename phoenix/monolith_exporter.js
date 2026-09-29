@@ -1,4 +1,4 @@
-/* Phoenix Monolith Exporter v2.0.0-ULTIMATE-FUSION
+/* Phoenix Monolith Exporter v8.0.0-ULTIMATE-FUSION
  * Protocols: PERSIST-001 / PRS-SPEC-GOVERNANCE-001
  *
  * Produces a deterministic, self-contained HTML artifact from explicitly
@@ -34,7 +34,7 @@
 
 	/** Monolith format identifier */
 	const MONOLITH_FORMAT = "PHOENIX-MONOLITH-2";
-	const ENGINE_VERSION = "7.0.0-ULTIMATE-FUSION";
+	const ENGINE_VERSION = "8.0.0-ULTIMATE-FUSION";
 
 	/* =========================================================================
 	 * PURE UTILITIES

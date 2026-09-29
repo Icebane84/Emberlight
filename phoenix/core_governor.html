@@ -15,27 +15,28 @@
   [DOM-03] .......... Line ~ 111  -- Editor Main Container & Tabs Strip
   [DOM-04] .......... Line ~ 150  -- Code Syntax Backdrop, Textarea & Viewport
   [DOM-05] .......... Line ~ 249  -- Problems & Diagnostics Drawer
-  [DOM-06] .......... Line ~ 273  -- Consolidated Action Toolbar & AI Copilot
-  [DOM-07] .......... Line ~ 320  -- PGE-DSL-1 Staging Drawer & SFX Audio Studio
-  [DOM-08] .......... Line ~ 468  -- Game Dev Workstation Workspace
-  [DOM-09] .......... Line ~ 653  -- Right Telemetry Sidebar & Modals
+  [DOM-06] .......... Line ~ 276  -- Consolidated Action Toolbar & AI Copilot
+  [DOM-07] .......... Line ~ 325  -- PGE-DSL-1 Staging Drawer & SFX Audio Studio
+  [DOM-08] .......... Line ~ 473  -- Game Dev Workstation Workspace
+  [DOM-09] .......... Line ~ 658  -- Right Telemetry Sidebar, AI Copilot Chat & Modals
   -----------------------------------------------------------------------------
-  [SEC-00] .......... Line ~ 806  -- Ambient Contract Registry & DTOs
-  [SEC-01] .......... Line ~ 877  -- VFS State & Canonical Module Catalog
-  [SEC-02] .......... Line ~1275  -- Governor & Sentinel Specification Registry
-  [SEC-03] .......... Line ~1431  -- Ollama & WebLLM Local AI Copilot Bridge
-  [SEC-04] .......... Line ~1535  -- Accordion File Tree & AST Symbol Outline
-  [SEC-05] .......... Line ~2029  -- Syntax Highlighter & Tokenizer Engine
-  [SEC-06] .......... Line ~2211  -- Tri-Language Linter & Diagnostics Engine
-  [SEC-07] .......... Line ~2821  -- Zero-Dependency Code Formatter & Quick Fixes
-  [SEC-08] .......... Line ~3050  -- AI Crucible & Sandbox Repair Engine
-  [SEC-09] .......... Line ~4295  -- Workstation IntelliSense & Fuzzy Search
-  [SEC-10] .......... Line ~4454  -- Find, Replace & Regex Studio HUD
-  [SEC-11] .......... Line ~4753  -- Spotlight Command Palette Modal
-  [SEC-12] .......... Line ~4885  -- Visual Diff Preview & Staging Studio
-  [SEC-13] .......... Line ~5824  -- Procedural Audio Synthesizer & SFX Delegate
-  [SEC-14] .......... Line ~5846  -- Live Game Runtime Studio & Game Dev Delegate
-  [SEC-15] .......... Line ~6150  -- Master Global Shortcuts, Context Menu & Boot
+  [SEC-00] .......... Line ~ 810  -- Ambient Contract Registry & DTOs
+  [SEC-01] .......... Line ~ 881  -- VFS State & Canonical Module Catalog
+  [SEC-02] .......... Line ~1279  -- Governor & Sentinel Specification Registry
+  [SEC-03] .......... Line ~1440  -- Ollama & WebLLM Local AI Copilot Bridge
+  [SEC-03.5] ........ Line ~1630  -- Persistent AI Copilot Chat Drawer & Memory
+  [SEC-04] .......... Line ~1578  -- Accordion File Tree & AST Symbol Outline
+  [SEC-05] .......... Line ~2072  -- Syntax Highlighter & Tokenizer Engine
+  [SEC-06] .......... Line ~2254  -- Tri-Language Linter & Diagnostics Engine
+  [SEC-07] .......... Line ~2879  -- Zero-Dependency Code Formatter & Quick Fixes
+  [SEC-08] .......... Line ~3133  -- AI Crucible & Sandbox Repair Engine
+  [SEC-09] .......... Line ~4568  -- Workstation IntelliSense & Fuzzy Search
+  [SEC-10] .......... Line ~4727  -- Find, Replace & Regex Studio HUD
+  [SEC-11] .......... Line ~5026  -- Spotlight Command Palette Modal
+  [SEC-12] .......... Line ~5158  -- Visual Diff Preview & Staging Studio
+  [SEC-13] .......... Line ~6206  -- Procedural Audio Synthesizer & SFX Delegate
+  [SEC-14] .......... Line ~6228  -- Live Game Runtime Studio & Game Dev Delegate
+  [SEC-15] .......... Line ~6532  -- Master Global Shortcuts, Context Menu & Boot
   =============================================================================
 -->
 <html lang="en">
@@ -72,6 +73,9 @@
 					EXPORT MONOLITH</button>
 				<button type="button" id="ai-status" title="Click to reconnect local Ollama AI model (qwen2.5-coder:7b)">AI:
 					INITIALIZING...</button>
+				<button type="button" id="btn-toggle-ai-chat" class="hud-btn"
+					style="color:var(--accent); font-weight:bold; border-color:var(--accent-muted);"
+					title="Toggle AI Copilot Chat Drawer (Alt+A / Ctrl+Alt+A)">💬 AI CHAT</button>
 				<span id="header-status" aria-live="polite">READY</span>
 			</div>
 		</header>
@@ -279,6 +283,9 @@
 					<input type="text" id="ai-copilot-input" class="ai-copilot-input" aria-label="AI Copilot Prompt"
 						placeholder="AI Copilot: e.g. 'Increase Malakor Phase 2 boss speed by 20% and add fury aura'" />
 					<button type="button" id="btn-ai-generate">🤖 AI PROPOSAL</button>
+					<button type="button" id="btn-toolbar-ai-chat" class="hud-btn"
+						style="border-color:var(--accent); color:var(--accent); font-weight:bold;"
+						title="Open AI Copilot Chat Drawer (Alt+A)">💬 CHAT</button>
 					<button type="button" id="btn-stage-selection" title="Stage currently selected text as search-replace patch">⚡
 						STAGE SELECTION</button>
 					<button type="button" id="btn-save-document" class="hud-btn"
@@ -304,6 +311,8 @@
 							<button type="button" id="btn-scaffold-regions" class="tools-dropdown-item"
 								title="Deterministically scaffold canonical //#region anchors (ARCH-CODE-PARTITION-001)">📐 SCAFFOLD
 								REGIONS</button>
+							<button type="button" id="btn-scaffold-jsdoc-all" class="tools-dropdown-item"
+								title="Scaffold strict JSDoc typing contracts for all un-annotated functions using phoenix.d.ts">📜 SCAFFOLD ALL JSDOC CONTRACTS</button>
 							<button type="button" id="btn-verify-contracts" class="tools-dropdown-item"
 								title="Verify module capabilities against AST operations">🛡️ VERIFY CONTRACTS</button>
 							<button type="button" id="btn-analyze-deps" class="tools-dropdown-item"
@@ -655,7 +664,57 @@
 
 		<!-- #endregion [DOM-08] -->
 
-		<!-- #region [DOM-09] --- RIGHT TELEMETRY SIDEBAR, OPFS JOURNAL & MODALS -->
+		<!-- #region [DOM-09] --- RIGHT TELEMETRY SIDEBAR, AI COPILOT CHAT, OPFS JOURNAL & MODALS -->
+		<!-- Slide-Over AI Copilot Chat Drawer (Alt+A) -->
+		<aside id="ai-chat-panel" aria-label="AI Copilot Chat">
+			<div class="ai-chat-header">
+				<div class="ai-chat-title-group">
+					<span class="ai-chat-title">💬 AI COPILOT CHAT</span>
+					<span id="ai-chat-model-badge" class="ai-model-badge">AI: INITIALIZING...</span>
+				</div>
+				<div class="ai-chat-header-actions">
+					<button type="button" id="btn-ai-chat-attach-file" class="hud-btn active" title="Toggle active file context injection">📎 @FILE</button>
+					<button type="button" id="btn-ai-chat-clear" class="hud-btn" title="Clear conversation history">🧹</button>
+					<button type="button" id="btn-collapse-ai-chat" class="hud-btn" style="padding:1px 5px; font-size:9px;" title="Close AI Chat (Esc)">✖</button>
+				</div>
+			</div>
+
+			<!-- Active Context Bar -->
+			<div id="ai-chat-context-bar" class="ai-chat-context-bar">
+				<span id="ai-chat-context-pill" class="ai-context-pill" title="Current file attached to conversation context">
+					📄 <span id="ai-chat-context-filename">No file selected</span>
+					<button type="button" id="btn-remove-chat-context" title="Detach file context">×</button>
+				</span>
+				<span class="ai-chat-memory-info" title="Multi-turn conversation history remembered across reloads">🧠 Memory Active</span>
+			</div>
+
+			<!-- Messages Stream -->
+			<div id="ai-chat-messages" class="ai-chat-messages" role="log" aria-live="polite">
+				<!-- Messages rendered dynamically -->
+			</div>
+
+			<!-- Quick Prompt Chips -->
+			<div class="ai-chat-quick-chips">
+				<button type="button" class="ai-chip" data-prompt="Brainstorm 3 new mechanics or features for Emberlight:">💡 Brainstorm</button>
+				<button type="button" class="ai-chip" data-prompt="Explain the structure and architecture of this active file:">🔍 Explain Code</button>
+				<button type="button" class="ai-chip" data-prompt="Review this code for zero-allocation and performance optimizations:">⚡ Optimize</button>
+				<button type="button" class="ai-chip" data-prompt="Help me write a deterministic test case for this functionality:">🧪 Write Tests</button>
+			</div>
+
+			<!-- Input Container -->
+			<div class="ai-chat-input-container">
+				<div class="ai-chat-input-wrapper">
+					<textarea id="ai-chat-input" class="ai-chat-textarea" rows="1"
+						aria-label="Ask Sovereign Copilot..."
+						placeholder="Ask anything... talk code, brainstorm, new features (Enter to send, Shift+Enter for newline)"></textarea>
+					<div class="ai-chat-input-actions">
+						<button type="button" id="btn-ai-chat-stop" class="hud-btn danger" style="display:none;" title="Stop generation">⏹ STOP</button>
+						<button type="button" id="btn-ai-chat-send" class="hud-btn primary" title="Send message (Enter)">🚀</button>
+					</div>
+				</div>
+			</div>
+		</aside>
+
 		<!-- Slide-Over Telemetry Panel: Sentinel Matrix & Receipt Ledger -->
 		<aside id="ledger-panel" aria-label="Governance Matrix">
 			<!-- Sentinel 21-Pass Matrix Visualizer -->
@@ -761,6 +820,7 @@
 	<!-- #endregion [DOM-09] -->
 
 	<!-- Inlined Phoenix Core Scripts -->
+	<script src="vlt_compliance_engine.js"></script>
 	<script src="phoenix_sovereign_engine.js"></script>
 	<script src="runtime/phoenix_audio_synth.js"></script>
 	<script src="runtime/phoenix_graphics_2d.js"></script>
@@ -774,6 +834,7 @@
 	<script src="monolith_exporter.js"></script>
 	<script src="sentinel_evaluator.js"></script>
 	<script src="synarche_parser.js"></script>
+	<script src="phoenix_type_resolver.js"></script>
 
 	<!-- Master IDE Controller -->
 	<script>
@@ -893,6 +954,8 @@
 		const _dirtyTabs = new Set();
 		/** @type {string} */
 		let _activeFilePath = '';
+		/** @type {number} */
+		let _cursorLine = 1;
 		/** @type {string} */
 		let _activeTabKey = 'code';
 		/** @type {FileSystemDirectoryHandle | null} */
@@ -1187,12 +1250,22 @@
 			const wasDirty = _dirtyTabs.has(oldPath);
 
 			_vfs.delete(oldPath);
-			_governor.registerSource(oldPath, '');
+			if (typeof _governor.unregisterTarget === 'function') {
+				_governor.unregisterTarget(oldPath);
+			} else {
+				_governor.registerSource(oldPath, '');
+			}
+			if (_symbolIndexer && typeof _symbolIndexer.removeFile === 'function') {
+				_symbolIndexer.removeFile(oldPath);
+			}
 			await _deleteDiskFile(oldPath);
 
 			_vfs.set(cleanNewPath, content);
 			_governor.registerSource(cleanNewPath, content);
 			_ensureTargetRegistered(cleanNewPath);
+			if (_symbolIndexer && typeof _symbolIndexer.indexFile === 'function') {
+				_symbolIndexer.indexFile(cleanNewPath, content);
+			}
 
 			if (_directoryHandle) {
 				await _writeDiskFile(cleanNewPath, content);
@@ -1227,7 +1300,14 @@
 		async function _deleteFile(filePath) {
 			_vfs.delete(filePath);
 			_fileHandleMap.delete(filePath);
-			_governor.registerSource(filePath, '');
+			if (typeof _governor.unregisterTarget === 'function') {
+				_governor.unregisterTarget(filePath);
+			} else {
+				_governor.registerSource(filePath, '');
+			}
+			if (_symbolIndexer && typeof _symbolIndexer.removeFile === 'function') {
+				_symbolIndexer.removeFile(filePath);
+			}
 			await _deleteDiskFile(filePath);
 			_closeTab(filePath);
 			_renderFileTree(document.getElementById('file-search')?.value || '');
@@ -1495,50 +1575,633 @@
 		}
 
 		/**
+		 * Updates the AI connection status badge in the action toolbar.
+		 * @param {'connecting' | 'active' | 'offline'} state - Target status state
+		 * @param {{ model?: string, backend?: string, host?: string }} [info] - Connection details
+		 * @returns {void}
+		 */
+		function _updateAiBadgeState(state, info = {}) {
+			const badge = document.getElementById('ai-status');
+			const chatBadge = document.getElementById('ai-chat-model-badge');
+
+			if (state === 'connecting') {
+				if (badge) {
+					badge.textContent = 'AI: CONNECTING...';
+					badge.className = '';
+				}
+				if (chatBadge) chatBadge.textContent = 'connecting...';
+				return;
+			}
+
+			if (state === 'active') {
+				const model = info.model || 'qwen2.5-coder:7b';
+				const backend = info.backend || 'Ollama';
+				const host = info.host || 'http://localhost:11434';
+				if (badge) {
+					badge.textContent = `AI: ${model} (ACTIVE)`;
+					badge.className = 'active';
+					badge.title = `Connected to ${backend} (${host}) using ${model}. Click to reconnect.`;
+				}
+				if (chatBadge) {
+					chatBadge.textContent = model;
+					chatBadge.title = `Connected to ${backend} (${model})`;
+				}
+				return;
+			}
+
+			if (badge) {
+				badge.textContent = 'AI: OFFLINE (RETRY)';
+				badge.className = 'offline';
+				badge.title = 'Click to reconnect local Ollama or LM Studio';
+			}
+			if (chatBadge) chatBadge.textContent = 'offline';
+		}
+
+		/**
+		 * Probes and resolves an available local AI inference endpoint.
+		 * @returns {Promise<{ host: string, model: string, backend: string }>}
+		 */
+		async function _resolveActiveAiEndpoint() {
+			const ollama = await _probeOllamaEndpoint();
+			if (ollama) return ollama;
+
+			const lmStudio = await _probeLMStudioEndpoint();
+			if (lmStudio) return lmStudio;
+
+			return {
+				host: 'http://localhost:11434',
+				model: 'qwen2.5-coder:7b',
+				backend: 'Ollama'
+			};
+		}
+
+		/**
 		 * Connects or reconnects to local Ollama or LM Studio AI model endpoint.
 		 * @returns {Promise<void>}
 		 */
 		async function _connectOllama() {
-			const badge = document.getElementById('ai-status');
-			if (badge) {
-				badge.textContent = 'AI: CONNECTING...';
-				badge.className = '';
-			}
+			_updateAiBadgeState('connecting');
 
 			try {
 				await _teardownAiBridge();
-
-				const endpoint = (await _probeOllamaEndpoint()) || (await _probeLMStudioEndpoint());
-				const targetHost = endpoint?.host || 'http://localhost:11434';
-				const targetModel = endpoint?.model || 'qwen2.5-coder:7b';
-				const backendName = endpoint?.backend || 'Ollama';
+				const endpoint = await _resolveActiveAiEndpoint();
 
 				_aiBridge = new PhoenixWebLLMWorkerBridge();
 				await _aiBridge.start(phoenixOllamaAdapterFactory, {
-					host: targetHost,
-					model: targetModel
+					host: endpoint.host,
+					model: endpoint.model
 				});
 
 				window.PhoenixWebLLMBridge = _aiBridge;
 				window.PhoenixProposalParser = phoenixProposalParser;
 
-				if (badge) {
-					badge.textContent = `AI: ${targetModel} (ACTIVE)`;
-					badge.className = 'active';
-					badge.title = `Connected to ${backendName} (${targetHost}) using ${targetModel}. Click to reconnect.`;
-				}
-				_toast(`✓ Connected to local ${backendName} (${targetModel}).`, 'pass');
+				_updateAiBadgeState('active', endpoint);
+				_toast(`✓ Connected to local ${endpoint.backend} (${endpoint.model}).`, 'pass');
 			} catch (err) {
-				console.debug('[PHOENIX/AI] Local AI offline or unreachable:', err instanceof Error ? err.message : String(err));
-				if (badge) {
-					badge.textContent = 'AI: OFFLINE (RETRY)';
-					badge.className = 'offline';
-					badge.title = 'Click to reconnect local Ollama or LM Studio';
-				}
+				const errMsg = err instanceof Error ? err.message : String(err);
+				console.debug('[PHOENIX/AI] Local AI offline or unreachable:', errMsg);
+				_updateAiBadgeState('offline');
 			}
 		}
 
 		//#endregion [SEC-03]
+
+
+		//#region [SEC-03.5] --- PERSISTENT AI COPILOT CHAT DRAWER & MULTI-TURN MEMORY
+		const STORAGE_KEY_CHAT_HISTORY = 'phoenix_ai_chat_history_v1';
+		const STORAGE_KEY_CHAT_ATTACH_FILE = 'phoenix_ai_chat_attach_file';
+
+		/** @type {Array<{ role: 'user' | 'assistant', content: string, timestamp: number, contextFile?: string }>} */
+		let _chatHistory = [];
+		let _isGeneratingChat = false;
+		/** @type {AbortController | null} */
+		let _chatAbortController = null;
+		let _attachActiveFile = true;
+
+		/**
+		 * Loads stored conversation history and file attachment preference from localStorage.
+		 * @returns {void}
+		 */
+		function _loadChatHistory() {
+			try {
+				const stored = localStorage.getItem(STORAGE_KEY_CHAT_HISTORY);
+				_chatHistory = stored ? JSON.parse(stored) : [];
+				const storedAttach = localStorage.getItem(STORAGE_KEY_CHAT_ATTACH_FILE);
+				if (storedAttach !== null) {
+					_attachActiveFile = storedAttach === 'true';
+				}
+			} catch (_) {
+				// Suppress corrupt localStorage deserialization and fallback cleanly to empty history
+				_chatHistory = [];
+			}
+		}
+
+		/**
+		 * Persists conversation history to localStorage (capped at 40 messages).
+		 * @returns {void}
+		 */
+		function _persistChatHistory() {
+			try {
+				if (_chatHistory.length > 40) {
+					_chatHistory = _chatHistory.slice(-40);
+				}
+				localStorage.setItem(STORAGE_KEY_CHAT_HISTORY, JSON.stringify(_chatHistory));
+				localStorage.setItem(STORAGE_KEY_CHAT_ATTACH_FILE, String(_attachActiveFile));
+			} catch (e) {
+				console.debug('[PHOENIX/AI] Chat persistence error:', e);
+			}
+		}
+
+		/**
+		 * Synchronizes UI button and wrapper states for the AI Chat Drawer.
+		 * @param {boolean} isOpen
+		 * @private
+		 */
+		function _syncAiChatUI(isOpen) {
+			const app = document.getElementById('app');
+			const btnHeader = document.getElementById('btn-toggle-ai-chat');
+			const btnToolbar = document.getElementById('btn-toolbar-ai-chat');
+			app?.classList.toggle('chat-open', isOpen);
+			btnHeader?.classList.toggle('active', isOpen);
+			btnToolbar?.classList.toggle('active', isOpen);
+		}
+
+		/**
+		 * Toggles the AI Copilot Chat side drawer.
+		 * @param {boolean} [force] - Force open or close
+		 * @returns {void}
+		 */
+		function _toggleAiChatPanel(force) {
+			const panel = document.getElementById('ai-chat-panel');
+			if (!panel) return;
+
+			const isOpen = panel.classList.contains('open');
+			const nextState = force !== undefined ? Boolean(force) : !isOpen;
+
+			panel.classList.toggle('open', nextState);
+			_syncAiChatUI(nextState);
+
+			if (nextState) {
+				_toggleLedgerPanel(false);
+				_updateChatContextBar();
+				_renderChatMessages();
+				const input = /** @type {HTMLTextAreaElement | null} */ (document.getElementById('ai-chat-input'));
+				input?.focus();
+				_scrollChatToBottom();
+			}
+		}
+
+		/**
+		 * Updates the context file badge in the chat drawer.
+		 * @returns {void}
+		 */
+		function _updateChatContextBar() {
+			const pill = document.getElementById('ai-chat-context-pill');
+			const filenameSpan = document.getElementById('ai-chat-context-filename');
+			const btnAttach = document.getElementById('btn-ai-chat-attach-file');
+			if (!pill || !filenameSpan) return;
+
+			const hasFile = Boolean(_attachActiveFile && _activeFilePath);
+			pill.style.display = hasFile ? 'inline-flex' : 'none';
+			if (hasFile) {
+				filenameSpan.textContent = _activeFilePath;
+				filenameSpan.title = `Attached context: ${_activeFilePath}`;
+			}
+			btnAttach?.classList.toggle('active', _attachActiveFile);
+			if (btnAttach) {
+				btnAttach.title = _attachActiveFile ? 'Active file attached. Click to detach.' : 'Click to attach active file.';
+			}
+		}
+
+		/**
+		 * Scrolls the chat message stream to the bottom.
+		 * @returns {void}
+		 */
+		function _scrollChatToBottom() {
+			const container = document.getElementById('ai-chat-messages');
+			if (container) {
+				container.scrollTop = container.scrollHeight;
+			}
+		}
+
+		/**
+		 * Simple zero-dependency markdown-to-HTML formatter for chat messages.
+		 * Safely escapes HTML and formats code blocks, inline code, bold, and paragraphs.
+		 * @param {string} text
+		 * @returns {string}
+		 */
+		function _renderChatMarkdown(text) {
+			if (!text) return '';
+
+			// 1. Extract and replace code blocks
+			const codeBlocks = [];
+			const textWithFences = text.replace(/```(\w*)\n([\s\S]*?)```/g, (_match, lang, code) => {
+				const id = `__CB_${codeBlocks.length}__`;
+				codeBlocks.push({ lang: lang || 'code', code: code.trimEnd() });
+				return id;
+			});
+
+			// 2. Escape text outside code blocks
+			let html = escapeHtml(textWithFences);
+
+			// 3. Inline formatting
+			html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+			html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+			html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+			html = html.replace(/\n\n+/g, '</p><p>');
+			html = html.replaceAll('\n', '<br/>');
+			html = `<p>${html}</p>`;
+
+			// 4. Restore code blocks with interactive headers and copy/stage buttons
+			for (let i = 0; i < codeBlocks.length; i++) {
+				const cb = codeBlocks[i];
+				const escapedCode = escapeHtml(cb.code);
+				const codeBlockHtml = `
+<div class="chat-code-block">
+	<div class="chat-code-header">
+		<span>${escapeHtml(cb.lang)}</span>
+		<div class="chat-code-actions">
+			<button type="button" class="chat-code-btn btn-copy-chat-code" data-code="${encodeURIComponent(cb.code)}" title="Copy snippet to clipboard">📋 COPY</button>
+			<button type="button" class="chat-code-btn btn-stage-chat-code" data-code="${encodeURIComponent(cb.code)}" title="Stage to diff editor">⚡ STAGE</button>
+		</div>
+	</div>
+	<pre class="chat-code-pre"><code>${escapedCode}</code></pre>
+</div>`;
+				html = html.replace(`__CB_${i}__`, codeBlockHtml);
+			}
+
+			return html;
+		}
+
+		/**
+		 * Renders a single chat message entry to HTML.
+		 * @param {{ role: 'user' | 'assistant', content: string, timestamp: number, contextFile?: string }} msg
+		 * @returns {string}
+		 * @private
+		 */
+		function _renderSingleChatMessage(msg) {
+			const isUser = msg.role === 'user';
+			const timeStr = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+			const contentHtml = isUser ? `<p>${escapeHtml(msg.content).replaceAll('\n', '<br/>')}</p>` : _renderChatMarkdown(msg.content);
+			const contextBadge = msg.contextFile ? `<span style="font-size:9px; opacity:0.7;">[${escapeHtml(msg.contextFile)}]</span>` : '';
+
+			return `
+<div class="chat-msg chat-msg-${isUser ? 'user' : 'assistant'}">
+	<div class="chat-msg-header">
+		<span class="chat-msg-role">${isUser ? '🧑 You' : '🤖 Copilot'}</span>
+		<span>${timeStr}</span>
+		${contextBadge}
+	</div>
+	<div class="chat-bubble">
+		${contentHtml}
+	</div>
+</div>`;
+		}
+
+		/**
+		 * Renders the entire chat messages list to the DOM.
+		 * @returns {void}
+		 */
+		function _renderChatMessages() {
+			const container = document.getElementById('ai-chat-messages');
+			if (!container) return;
+
+			if (_chatHistory.length === 0) {
+				container.innerHTML = `
+<div class="chat-welcome">
+	<div class="chat-welcome-icon">🤖</div>
+	<div class="chat-welcome-title">Phoenix Sovereign AI Copilot</div>
+	<div class="chat-welcome-desc">
+		Pair-program with your local AI model. Brainstorm gameplay features, discuss architecture, optimize algorithms, or refactor code.
+	</div>
+	<div style="font-size:10px; color:var(--accent); margin-top:4px;">
+		🧠 Multi-turn persistent memory enabled across sessions.
+	</div>
+</div>`;
+				return;
+			}
+
+			container.innerHTML = _chatHistory.map(_renderSingleChatMessage).join('');
+			_bindChatCodeBlockActions(container);
+		}
+
+		/**
+		 * Binds copy and stage event listeners to code blocks inside chat messages.
+		 * @param {HTMLElement} container
+		 * @returns {void}
+		 */
+		function _bindChatCodeBlockActions(container) {
+			container.querySelectorAll('.btn-copy-chat-code').forEach(btn => {
+				btn.addEventListener('click', async (e) => {
+					e.stopPropagation();
+					const target = /** @type {HTMLElement} */ (e.currentTarget);
+					const rawCode = decodeURIComponent(target.dataset.code || '');
+					try {
+						await navigator.clipboard.writeText(rawCode);
+						_toast('Copied code snippet to clipboard!', 'pass');
+					} catch (_) {
+						// Suppress clipboard permission rejections in insecure or headless contexts
+						_toast('Failed to copy code.', 'warn');
+					}
+				});
+			});
+
+			container.querySelectorAll('.btn-stage-chat-code').forEach(btn => {
+				btn.addEventListener('click', (e) => {
+					e.stopPropagation();
+					const target = /** @type {HTMLElement} */ (e.currentTarget);
+					const rawCode = decodeURIComponent(target.dataset.code || '');
+					_openStagingStudio('', rawCode, 'AI Chat Proposed Snippet');
+					_toast('⚡ Code staged to Visual Diff Studio!', 'pass');
+				});
+			});
+		}
+
+		/**
+		 * Builds the multi-turn prompt including system instructions, active file, and past history.
+		 * @param {string} userText
+		 * @returns {string}
+		 * @private
+		 */
+		function _buildMultiTurnChatPrompt(userText) {
+			const promptParts = [
+				'You are the Phoenix Master Artificer & Autonomous Copilot embedded in the Emberlight IDE.',
+				'Your mission is to pair-program with the developer: brainstorming gameplay features, discussing architecture, explaining algorithms, and generating surgical code.',
+				'Architectural context: Pure zero-dependency vanilla ES2022+ (VSRP-001), 2048-byte linear memory heap (PERSIST-001), 60 FPS deterministic game loop, HTML5 Canvas, Web Audio DAC, and STCP transduction compiler.',
+				'Keep explanations clear, direct, and insightful. When generating code, wrap it in markdown code fences.',
+				'CRITICAL FORMAT RULE: Always respond in natural, conversational Markdown explanations. NEVER wrap your entire response in raw JSON dictionaries, ERL proposal envelopes, or machine schemas unless the developer explicitly asks for a JSON payload.'
+			];
+
+			if (_attachActiveFile && _activeFilePath) {
+				const currentDoc = _vfs.get(_activeFilePath);
+				if (currentDoc) {
+					const lines = currentDoc.split('\n');
+					const totalLines = lines.length;
+					const start = Math.max(0, _cursorLine - 30);
+					const end = Math.min(totalLines, _cursorLine + 30);
+					const windowLines = lines.slice(start, end).map((l, idx) => `${start + idx + 1}: ${l}`);
+					const snippet = windowLines.join('\n');
+					promptParts.push(
+						'',
+						`ACTIVE FILE IN EDITOR: ${_activeFilePath} (Lines ${start + 1}-${end} of ${totalLines}, Cursor at Line ${_cursorLine})`,
+						'```javascript',
+						snippet,
+						'```'
+					);
+				}
+			}
+
+			promptParts.push('', 'CONVERSATION HISTORY:');
+			const recentTurns = _chatHistory.slice(-10);
+			for (const turn of recentTurns) {
+				let content = (turn.content || '').trim();
+				// Sanitize historical turns that are pure JSON machine envelopes to prevent few-shot pattern lock
+				if (turn.role === 'assistant' && content.startsWith('{') && content.endsWith('}')) {
+					try {
+						const parsed = JSON.parse(content);
+						if (parsed.id || parsed.schemaVersion || parsed.fingerprint || parsed.rule) {
+							content = `[Generated Proposal: ${parsed.description || parsed.intent || parsed.rule || parsed.id || 'Patch'}]`;
+						}
+					} catch (_) {}
+				}
+				promptParts.push(`${turn.role === 'user' ? 'Developer' : 'Copilot'}: ${content}\n`);
+			}
+
+			promptParts.push(`Developer: ${userText}\nCopilot:`);
+			return promptParts.join('\n');
+		}
+
+		/**
+		 * Ensures the AI Bridge is instantiated and ready for inference.
+		 * @returns {Promise<boolean>}
+		 * @private
+		 */
+		async function _ensureAiBridgeReady() {
+			if (_aiBridge?.ready) return true;
+			_toast('Connecting to local AI...', 'info');
+			try {
+				await _connectOllama();
+			} catch (_) {}
+			if (!_aiBridge?.ready) {
+				_toast('Local AI is offline. Start Ollama or LM Studio.', 'error');
+				_renderChatMessages();
+				return false;
+			}
+			return true;
+		}
+
+		/**
+		 * Appends a new streaming message element to the chat stream.
+		 * @returns {HTMLElement | null}
+		 * @private
+		 */
+		function _createStreamingChatBubble() {
+			const container = document.getElementById('ai-chat-messages');
+			const assistantMsgEl = document.createElement('div');
+			assistantMsgEl.className = 'chat-msg chat-msg-assistant';
+			const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+			assistantMsgEl.innerHTML = `
+<div class="chat-msg-header">
+	<span class="chat-msg-role">🤖 Copilot</span>
+	<span>${timeStr}</span>
+</div>
+<div class="chat-bubble" id="current-streaming-bubble">
+	<span class="chat-streaming-cursor"></span>
+</div>`;
+			container?.appendChild(assistantMsgEl);
+			_scrollChatToBottom();
+			return document.getElementById('current-streaming-bubble');
+		}
+
+		/**
+		 * Handles stream abortion or runtime errors during token generation.
+		 * @param {unknown} err
+		 * @param {string} accumulatedText
+		 * @param {HTMLElement | null} streamingBubble
+		 * @private
+		 */
+		function _handleChatStreamError(err, accumulatedText, streamingBubble) {
+			if (_chatAbortController?.signal.aborted) {
+				if (accumulatedText.trim().length > 0) {
+					_chatHistory.push({
+						role: 'assistant',
+						content: accumulatedText.trim() + ' *(generation stopped)*',
+						timestamp: Date.now()
+					});
+					_persistChatHistory();
+				}
+				_toast('Generation stopped.', 'info');
+				return;
+			}
+			const errMsg = err instanceof Error ? err.message : String(err);
+			if (streamingBubble) {
+				streamingBubble.innerHTML = `<span style="color:var(--danger);">⚠️ Generation error: ${escapeHtml(errMsg)}</span>`;
+			}
+		}
+
+		/**
+		 * Toggles the generating state and send/stop button visibility.
+		 * @param {boolean} isGenerating
+		 * @private
+		 */
+		function _toggleChatGeneratingUI(isGenerating) {
+			_isGeneratingChat = isGenerating;
+			const btnSend = document.getElementById('btn-ai-chat-send');
+			const btnStop = document.getElementById('btn-ai-chat-stop');
+			if (btnSend) btnSend.style.display = isGenerating ? 'none' : 'inline-block';
+			if (btnStop) btnStop.style.display = isGenerating ? 'inline-block' : 'none';
+		}
+
+		/**
+		 * Reads and resets user input in the chat box.
+		 * @param {string} [customText]
+		 * @returns {string}
+		 * @private
+		 */
+		function _consumeChatInput(customText) {
+			const input = /** @type {HTMLTextAreaElement | null} */ (document.getElementById('ai-chat-input'));
+			const text = (customText || input?.value || '').trim();
+			if (text && input) {
+				input.value = '';
+				input.style.height = 'auto';
+			}
+			return text;
+		}
+
+		/**
+		 * Streams the model response from the AI Bridge.
+		 * @param {string} fullPrompt
+		 * @param {HTMLElement | null} streamingBubble
+		 * @returns {Promise<void>}
+		 * @private
+		 */
+		async function _streamAiResponse(fullPrompt, streamingBubble) {
+			_toggleChatGeneratingUI(true);
+			_chatAbortController = new AbortController();
+
+			let accumulatedText = '';
+			try {
+				await _aiBridge.generate(fullPrompt, {
+					maxTokens: 4096,
+					temperature: 0.7,
+					signal: _chatAbortController.signal,
+					onToken: (tok) => {
+						accumulatedText += tok;
+						if (streamingBubble) {
+							streamingBubble.innerHTML = _renderChatMarkdown(accumulatedText) + '<span class="chat-streaming-cursor"></span>';
+							_scrollChatToBottom();
+						}
+					}
+				});
+
+				_chatHistory.push({ role: 'assistant', content: accumulatedText.trim(), timestamp: Date.now() });
+				_persistChatHistory();
+			} catch (err) {
+				_handleChatStreamError(err, accumulatedText, streamingBubble);
+			} finally {
+				_toggleChatGeneratingUI(false);
+				_chatAbortController = null;
+				_renderChatMessages();
+				_scrollChatToBottom();
+			}
+		}
+
+		/**
+		 * Sends a user message to the local AI and streams the response.
+		 * @param {string} [customText] - Optional direct prompt text
+		 * @returns {Promise<void>}
+		 */
+		async function _sendChatMessage(customText) {
+			if (_isGeneratingChat) return;
+
+			const text = _consumeChatInput(customText);
+			if (!text || !(await _ensureAiBridgeReady())) return;
+
+			const contextFile = (_attachActiveFile && _activeFilePath) ? _activeFilePath : undefined;
+			_chatHistory.push({ role: 'user', content: text, timestamp: Date.now(), contextFile });
+			_persistChatHistory();
+			_renderChatMessages();
+
+			const streamingBubble = _createStreamingChatBubble();
+			const fullPrompt = _buildMultiTurnChatPrompt(text);
+			await _streamAiResponse(fullPrompt, streamingBubble);
+		}
+
+		/**
+		 * Clears all conversation history from memory and localStorage.
+		 * @returns {void}
+		 */
+		function _clearChatHistory() {
+			_chatHistory = [];
+			localStorage.removeItem(STORAGE_KEY_CHAT_HISTORY);
+			_renderChatMessages();
+			_toast('Conversation history cleared.', 'info');
+		}
+
+		/**
+		 * Binds all AI Copilot Chat drawer event listeners.
+		 * @returns {void}
+		 */
+		function _initAiChatDrawer() {
+			_loadChatHistory();
+			_renderChatMessages();
+			_updateChatContextBar();
+
+			document.getElementById('btn-toggle-ai-chat')?.addEventListener('click', () => _toggleAiChatPanel());
+			document.getElementById('btn-toolbar-ai-chat')?.addEventListener('click', () => _toggleAiChatPanel(true));
+			document.getElementById('btn-collapse-ai-chat')?.addEventListener('click', () => _toggleAiChatPanel(false));
+			document.getElementById('btn-ai-chat-clear')?.addEventListener('click', _clearChatHistory);
+
+			document.getElementById('btn-ai-chat-attach-file')?.addEventListener('click', () => {
+				_attachActiveFile = !_attachActiveFile;
+				_persistChatHistory();
+				_updateChatContextBar();
+				_toast(_attachActiveFile ? '📎 File context attached.' : '📎 File context detached.', 'info');
+			});
+
+			document.getElementById('btn-remove-chat-context')?.addEventListener('click', () => {
+				_attachActiveFile = false;
+				_persistChatHistory();
+				_updateChatContextBar();
+				_toast('📎 File context detached.', 'info');
+			});
+
+			document.getElementById('btn-ai-chat-send')?.addEventListener('click', () => _sendChatMessage());
+			document.getElementById('btn-ai-chat-stop')?.addEventListener('click', () => {
+				if (_chatAbortController) {
+					_chatAbortController.abort();
+				}
+			});
+
+			// Input autosize and Enter to submit
+			const chatInput = /** @type {HTMLTextAreaElement | null} */ (document.getElementById('ai-chat-input'));
+			chatInput?.addEventListener('keydown', (e) => {
+				if (e.key === 'Enter' && !e.shiftKey) {
+					e.preventDefault();
+					_sendChatMessage();
+				}
+			});
+
+			chatInput?.addEventListener('input', () => {
+				chatInput.style.height = 'auto';
+				chatInput.style.height = Math.min(120, chatInput.scrollHeight) + 'px';
+			});
+
+			// Quick prompt chips
+			document.querySelectorAll('.ai-chip').forEach(chip => {
+				chip.addEventListener('click', (e) => {
+					const target = /** @type {HTMLElement} */ (e.currentTarget);
+					const promptText = target.dataset.prompt || '';
+					if (chatInput) {
+						chatInput.value = promptText + ' ';
+						chatInput.focus();
+						chatInput.style.height = 'auto';
+						chatInput.style.height = Math.min(120, chatInput.scrollHeight) + 'px';
+					}
+				});
+			});
+		}
+		//#endregion [SEC-03.5]
 
 
 		//#region [SEC-04] --- ACCORDION FILE TREE & AST SYMBOL OUTLINE
@@ -2022,6 +2685,7 @@
 			_updateEditorView();
 			_updateDiffPreview();
 			_updateEditorHUD();
+			_updateChatContextBar();
 		}
 
 		/** @type {Set<string>} */
@@ -2811,7 +3475,7 @@
 					col: d.col,
 					rule: d.rule,
 					message: d.message,
-					severity: d.severity === 'err' ? 'error' : 'warn',
+					severity: d.severity === 'err' ? 'err' : 'warn',
 					quickFix
 				};
 			});
@@ -2821,9 +3485,10 @@
 		 * Executes the multi-language linter corresponding to the active file extension.
 		 * @param {string} code - Document source text
 		 * @param {string} filePath - Path of target file
+		 * @param {boolean} [updateGlobal=true] - Whether to update global _currentDiagnostics
 		 * @returns {DiagnosticItem[]} Array of discovered diagnostics
 		 */
-		function _runDiagnostics(code, filePath) {
+		function _runDiagnostics(code, filePath, updateGlobal = true) {
 			const ext = filePath.split('.').pop()?.toLowerCase() || '';
 			let diags = [];
 			if (ext === 'js') {
@@ -2835,7 +3500,7 @@
 			} else if (ext === 'phx' || ext === 'syn') {
 				diags = _lintSynarche(code);
 			}
-			_currentDiagnostics = diags;
+			if (updateGlobal) _currentDiagnostics = diags;
 			return diags;
 		}
 
@@ -2927,29 +3592,66 @@
 		}
 
 		/**
-		 * Scaffolds a strict JSDoc contract above a JavaScript function.
+		 * Scaffolds a strict JSDoc contract above a JavaScript function using phoenix.d.ts type resolver.
 		 * @param {number} lineNum - 1-indexed line number of target function
-		 * @param {string[]} params - Parameter names list
+		 * @param {string[]} [params] - Parameter names list
 		 * @returns {void}
 		 */
 		function _scaffoldJSDoc(lineNum, params) {
 			const editor = /** @type {HTMLTextAreaElement | null} */ (document.getElementById('code-editor-view'));
-			if (!editor) return;
+			if (!editor || !editor.value) return;
+
+			if (window.PhoenixTypeResolver?.scaffoldContractAtLine) {
+				const result = window.PhoenixTypeResolver.scaffoldContractAtLine(editor.value, lineNum);
+				if (result) {
+					editor.value = result.scaffoldedSource;
+					_onEditorContentChanged();
+					_toast('✓ Deterministically scaffolded typed contract via phoenix.d.ts!', 'pass');
+					return;
+				}
+			}
+
+			// Fallback if resolver unavailable
 			const lines = editor.value.split('\n');
 			const indentMatch = (lines[ lineNum - 1 ] || '').match(/^(\s*)/);
 			const indent = indentMatch ? indentMatch[ 1 ] : '';
 
+			const paramList = params || [ 'options' ];
 			const jsdocLines = [
 				`${indent}/**`,
-				...params.map(p => `${indent} * @param {any} ${p}`),
-				`${indent} * @returns {any}`,
+				...paramList.map(p => `${indent} * @param {unknown} ${p}`),
+				`${indent} * @returns {void}`,
 				`${indent} */`
 			];
 
 			lines.splice(lineNum - 1, 0, jsdocLines.join('\n'));
 			editor.value = lines.join('\n');
 			_onEditorContentChanged();
-			_toast('✓ Added strict JSDoc typing contract!', 'pass');
+			_toast('✓ Added JSDoc typing contract!', 'pass');
+		}
+
+		/**
+		 * Scaffolds strict JSDoc contracts for all un-annotated functions in the active document.
+		 * @returns {void}
+		 */
+		function _scaffoldAllJSDocContracts() {
+			const editor = /** @type {HTMLTextAreaElement | null} */ (document.getElementById('code-editor-view'));
+			if (!editor || !editor.value) {
+				_toast('No active document content to scaffold.', 'error');
+				return;
+			}
+			if (window.PhoenixTypeResolver?.scaffoldAllContracts) {
+				const result = window.PhoenixTypeResolver.scaffoldAllContracts(editor.value);
+				if (result.annotatedCount > 0) {
+					editor.value = result.scaffoldedSource;
+					_onEditorContentChanged();
+					_toast(`✓ Scaffolded ${result.annotatedCount} strict JSDoc contract(s) via phoenix.d.ts!`, 'pass');
+				} else {
+					_toast('All functions in active file already have JSDoc contracts.', 'pass');
+				}
+			} else {
+				_toast('PhoenixTypeResolver module not loaded.', 'error');
+			}
 		}
 
 		/**
@@ -3285,7 +3987,7 @@
 			const linterErrors = PhoenixSovereignEngine.lintSource(patched);
 
 			// Tier 2: Tri-Language Diagnostics Verification in Sandbox
-			const remainingErrors = _runDiagnostics(patched, filePath).filter(d => d.severity === 'err');
+			const remainingErrors = _runDiagnostics(patched, filePath, false).filter(d => d.severity === 'err');
 
 			// Tier 3 & 4: Cognitive Complexity & Signature Invariance
 			const complexityErrors = _verifyCognitiveComplexityTier(patched, filePath, targetFnInfo);
@@ -4175,6 +4877,7 @@ Output JSON with a single key "replacement" containing ONLY the replacement code
 			const selStart = editor.selectionStart || 0;
 			const linesUpToCursor = text.slice(0, selStart).split('\n');
 			const currentLine = linesUpToCursor.length;
+			_cursorLine = currentLine;
 			const currentCol = linesUpToCursor[ linesUpToCursor.length - 1 ].length + 1;
 
 			posEl.textContent = `Ln ${currentLine}, Col ${currentCol}`;
@@ -4503,11 +5206,33 @@ Output JSON with a single key "replacement" containing ONLY the replacement code
 				}
 				const anchorIdx = Math.max(0, (h.oldStart || 1) - 1);
 				const anchorLine = oldLines[ anchorIdx ] || '';
+
+				// Multi-line context expansion for additions to guarantee unique search anchor
+				let startIdx = anchorIdx;
+				let endIdx = anchorIdx;
+				let searchContext = anchorLine;
+				const maxRadius = 5;
+				let radius = 1;
+				while (original && original.indexOf(searchContext) !== original.lastIndexOf(searchContext) && radius <= maxRadius) {
+					startIdx = Math.max(0, anchorIdx - radius);
+					endIdx = Math.min(oldLines.length - 1, anchorIdx + radius);
+					searchContext = oldLines.slice(startIdx, endIdx + 1).join('\n');
+					radius++;
+				}
+
+				const sliceBefore = oldLines.slice(startIdx, anchorIdx + 1).join('\n');
+				const sliceAfter = startIdx <= endIdx && anchorIdx < endIdx
+					? '\n' + oldLines.slice(anchorIdx + 1, endIdx + 1).join('\n')
+					: '';
+				const contentWithAddition = sliceBefore
+					? `${sliceBefore}\n${addText}${sliceAfter}`
+					: `${addText}${sliceAfter}`;
+
 				return {
 					type: 'replace_text',
 					path: filePath,
-					search: anchorLine,
-					content: anchorLine ? `${anchorLine}\n${addText}` : addText
+					search: searchContext || anchorLine,
+					content: searchContext ? contentWithAddition : (anchorLine ? `${anchorLine}\n${addText}` : addText)
 				};
 			});
 
@@ -4642,9 +5367,16 @@ Output JSON with a single key "replacement" containing ONLY the replacement code
 				popup.appendChild(el);
 			});
 
+			const rect = editor.getBoundingClientRect();
+			const textBefore = editor.value.slice(0, pos);
+			const linesBefore = textBefore.split('\n');
+			const lineNum = linesBefore.length;
+			const colNum = linesBefore[ linesBefore.length - 1 ].length;
+			const top = Math.max(36, Math.min(rect.height - 180, (lineNum * 18) - editor.scrollTop + 22));
+			const left = Math.max(50, Math.min(rect.width - 280, (colNum * 7.5) - editor.scrollLeft + 55));
 			popup.style.display = 'block';
-			popup.style.top = '36px';
-			popup.style.left = '60px';
+			popup.style.top = `${top}px`;
+			popup.style.left = `${left}px`;
 		}
 
 		/**
@@ -4857,6 +5589,8 @@ Output JSON with a single key "replacement" containing ONLY the replacement code
 			{ id: 'cmd_ai_debug_all', title: '🤖 AI: Debug & Repair Active File Diagnostics', badge: 'AI-DEBUG', action: () => _debugAllDiagnostics() },
 			{ id: 'cmd_format', title: '🧹 Format Active Document (Normalized 2-Space)', badge: 'FORMAT', action: () => _formatActiveDocument() },
 			{ id: 'cmd_scaffold_regions', title: '📐 Scaffold Canonical //#region Jump Table (ARCH-CODE-PARTITION-001)', badge: 'SCAFFOLD', action: () => _scaffoldActiveDocumentRegions() },
+			{ id: 'cmd_scaffold_jsdoc', title: '📜 Scaffold Strict JSDoc Contract at Cursor (phoenix.d.ts)', badge: 'TYPES', action: () => _scaffoldJSDocAtCursor() },
+			{ id: 'cmd_scaffold_jsdoc_all', title: '📜 Scaffold All JSDoc Contracts in Active File (phoenix.d.ts)', badge: 'TYPES', action: () => _scaffoldAllJSDocContracts() },
 			{ id: 'cmd_verify_contracts', title: '🛡️ Verify Module Capability Contracts (AST Check)', badge: 'CONTRACT', action: () => _verifyActiveDocumentContracts() },
 			{ id: 'cmd_analyze_deps', title: '🕸️ Analyze Global Symbol Dependency Graph', badge: 'GRAPH', action: () => _analyzeActiveDocumentDependencies() },
 			{ id: 'cmd_new_file', title: '📄 Create New File (VFS & Disk)', badge: 'FILE', action: () => _promptCreateNewFile() },
@@ -5246,6 +5980,66 @@ on render {
 		}
 
 		/**
+		 * Formats tokenized or plain line text for visual diff presentation.
+		 * @param {Array<{ text: string, type: string }> | undefined} tokens
+		 * @param {string} fallbackText
+		 * @param {string} targetType
+		 * @param {string} highlightClass
+		 * @returns {string}
+		 * @private
+		 */
+		function _formatDiffTokens(tokens, fallbackText, targetType, highlightClass) {
+			if (tokens && tokens.length) {
+				return tokens.map(t => t.type === targetType ? `<span class="${highlightClass}">${escapeHtml(t.text)}</span>` : escapeHtml(t.text)).join('');
+			}
+			return fallbackText ? escapeHtml(fallbackText) : '';
+		}
+
+		/**
+		 * Resolves gutter visual prefix sign for a diff pane.
+		 * @param {string} type
+		 * @param {'del' | 'add'} activeType
+		 * @returns {string}
+		 * @private
+		 */
+		function _resolveDiffGutterSign(type, activeType) {
+			if (type === activeType) return activeType === 'del' ? '-' : '+';
+			if (type === 'ctx') return ' ';
+			return '';
+		}
+
+		/**
+		 * Renders a single side-by-side split diff row.
+		 * @param {{ left: { lineNum: number | null, type: string, tokens?: Array<{ text: string, type: string }>, text: string }, right: { lineNum: number | null, type: string, tokens?: Array<{ text: string, type: string }>, text: string } }} row
+		 * @returns {string}
+		 * @private
+		 */
+		function _renderSplitDiffRow(row) {
+			const leftNum = row.left.lineNum !== null ? row.left.lineNum : '';
+			const rightNum = row.right.lineNum !== null ? row.right.lineNum : '';
+			const leftSign = _resolveDiffGutterSign(row.left.type, 'del');
+			const rightSign = _resolveDiffGutterSign(row.right.type, 'add');
+
+			const leftCodeHtml = _formatDiffTokens(row.left.tokens, row.left.text, 'del', 'diff-word-del');
+			const rightCodeHtml = _formatDiffTokens(row.right.tokens, row.right.text, 'add', 'diff-word-add');
+
+			return `
+				<div class="diff-split-row">
+					<div class="diff-split-pane left ${row.left.type}">
+						<span class="diff-gutter-num old">${leftNum}</span>
+						<span class="diff-gutter-sign">${leftSign}</span>
+						<span class="diff-line-code">${leftCodeHtml}</span>
+					</div>
+					<div class="diff-split-pane right ${row.right.type}">
+						<span class="diff-gutter-num new">${rightNum}</span>
+						<span class="diff-gutter-sign">${rightSign}</span>
+						<span class="diff-line-code">${rightCodeHtml}</span>
+					</div>
+				</div>
+			`;
+		}
+
+		/**
 		 * Computes line-by-line diff and renders interactive hunk cards with dual line numbers & action toolbar.
 		 * @returns {void}
 		 */
@@ -5310,42 +6104,7 @@ on render {
 				let bodyHtml = '';
 				if (_diffViewMode === 'split') {
 					const splitRows = PhoenixSovereignEngine.PhoenixChunkDiffEngine.alignHunkSplit(hunk);
-					let rowsHtml = '';
-					splitRows.forEach(row => {
-						const leftNum = row.left.lineNum !== null ? row.left.lineNum : '';
-						const rightNum = row.right.lineNum !== null ? row.right.lineNum : '';
-						const leftSign = row.left.type === 'del' ? '-' : row.left.type === 'ctx' ? ' ' : '';
-						const rightSign = row.right.type === 'add' ? '+' : row.right.type === 'ctx' ? ' ' : '';
-
-						let leftCodeHtml = '';
-						if (row.left.tokens && row.left.tokens.length) {
-							leftCodeHtml = row.left.tokens.map(t => t.type === 'del' ? `<span class="diff-word-del">${escapeHtml(t.text)}</span>` : escapeHtml(t.text)).join('');
-						} else {
-							leftCodeHtml = row.left.text ? escapeHtml(row.left.text) : '';
-						}
-
-						let rightCodeHtml = '';
-						if (row.right.tokens && row.right.tokens.length) {
-							rightCodeHtml = row.right.tokens.map(t => t.type === 'add' ? `<span class="diff-word-add">${escapeHtml(t.text)}</span>` : escapeHtml(t.text)).join('');
-						} else {
-							rightCodeHtml = row.right.text ? escapeHtml(row.right.text) : '';
-						}
-
-						rowsHtml += `
-							<div class="diff-split-row">
-								<div class="diff-split-pane left ${row.left.type}">
-									<span class="diff-gutter-num old">${leftNum}</span>
-									<span class="diff-gutter-sign">${leftSign}</span>
-									<span class="diff-line-code">${leftCodeHtml}</span>
-								</div>
-								<div class="diff-split-pane right ${row.right.type}">
-									<span class="diff-gutter-num new">${rightNum}</span>
-									<span class="diff-gutter-sign">${rightSign}</span>
-									<span class="diff-line-code">${rightCodeHtml}</span>
-								</div>
-							</div>
-						`;
-					});
+					const rowsHtml = splitRows.map(_renderSplitDiffRow).join('');
 
 					bodyHtml = `
 						<div class="diff-split-column-headers">
@@ -5423,7 +6182,20 @@ on render {
 				}
 			});
 			_runtimeTicker.play();
+			_setRuntimePlayState(true);
 			_toast('⚡ Live Game Runtime Hot-Reloaded!', 'pass');
+		}
+
+		/**
+		 * Toggles visual active state on runtime play and pause buttons.
+		 * @param {boolean} isPlaying
+		 * @returns {void}
+		 */
+		function _setRuntimePlayState(isPlaying) {
+			const playBtn = document.getElementById('btn-runtime-play');
+			const pauseBtn = document.getElementById('btn-runtime-pause');
+			if (playBtn) playBtn.classList.toggle('primary', isPlaying);
+			if (pauseBtn) pauseBtn.classList.toggle('primary', !isPlaying);
 		}
 
 		/**
@@ -5433,10 +6205,12 @@ on render {
 		function _initRuntimeSandboxControls() {
 			document.getElementById('btn-runtime-play')?.addEventListener('click', () => {
 				_runtimeTicker?.play();
+				_setRuntimePlayState(true);
 				_toast('▶ Runtime Playing', 'pass');
 			});
 			document.getElementById('btn-runtime-pause')?.addEventListener('click', () => {
 				_runtimeTicker?.pause();
+				_setRuntimePlayState(false);
 				_toast('⏸ Runtime Paused', 'warn');
 			});
 			document.getElementById('btn-runtime-step')?.addEventListener('click', () => {
@@ -5649,6 +6423,12 @@ on render {
 			if (!_verifySaveSyntax(_activeFilePath, currentContent)) return;
 
 			const originalContent = _governor.getSource(_activeFilePath) || '';
+			if (originalContent === currentContent) {
+				_dirtyTabs.delete(_activeFilePath);
+				_renderDocumentTabStrip();
+				_toast('✓ Document is already up-to-date with baseline.', 'pass');
+				return;
+			}
 			const hunks = PhoenixSovereignEngine.PhoenixChunkDiffEngine.computeHunks(originalContent, currentContent);
 			const rawProposal = _buildProposalFromHunks(_activeFilePath, originalContent, hunks, `Direct save on ${_activeFilePath}`);
 			const proposal = _sanitizeProposalEnvelope(rawProposal, _activeFilePath, `Direct save on ${_activeFilePath}`);
@@ -6200,6 +6980,13 @@ on render {
 		let _lastPreservedCartridgeHeap = null;
 		/** @type {Record<string, boolean>} Live input state registry for cartridge input callbacks */
 		const _cartridgeInputState = {};
+		/** @type {boolean} Tier 3 circuit breaker latch state */
+		let _cartridgeSimulationLatched = false;
+		/** @type {number} Consecutive frame exceptions count */
+		let _consecutiveCartridgeErrors = 0;
+		const MAX_CONSECUTIVE_CARTRIDGE_ERRORS = 3;
+		/** @type {string | null} Last cartridge fault message */
+		let _lastCartridgeFaultMessage = null;
 
 		/**
 		 * Initializes the Game Dev Workstation viewport and input bindings.
@@ -6270,9 +7057,13 @@ on render {
 		function _evaluateCartridgeSource(jsCode, cartridgeName) {
 			try {
 				const scope = {};
+				const nameRef = (cartridgeName && cartridgeName.trim()) ? cartridgeName.trim() : null;
+				const lookupExpr = nameRef
+					? `global['${nameRef}'] || window['${nameRef}'] || globalThis['${nameRef}'] || null;`
+					: `null;`;
 				const harnessBody = `
 					${jsCode}
-					return global.${cartridgeName || ''} || window.${cartridgeName || ''} || globalThis.${cartridgeName || ''} || null;
+					return ${lookupExpr}
 				`;
 				const harnessFn = Reflect.construct(Function, [ 'global', 'window', 'globalThis', harnessBody ]);
 				let candidate = /** @type {VSRPCartridgeFacade | null} */ (Reflect.apply(harnessFn, null, [ scope, scope, scope ]));
@@ -6334,7 +7125,102 @@ on render {
 		}
 
 		/**
+		 * Renders an inline retro CRT diagnostics HUD banner on the cartridge canvas when the circuit breaker trips.
+		 * @param {CanvasRenderingContext2D} ctx
+		 * @param {HTMLCanvasElement} canvas
+		 * @param {string | null} faultMsg
+		 * @returns {void}
+		 */
+		function _renderCircuitBreakerHUD(ctx, canvas, faultMsg) {
+			const w = canvas.width || 640;
+			const h = canvas.height || 480;
+
+			ctx.save();
+			// Translucent dark-red warning backdrop
+			ctx.fillStyle = 'rgba(24, 6, 6, 0.85)';
+			ctx.fillRect(0, 0, w, h);
+
+			// Warning perimeter border
+			ctx.strokeStyle = '#ff3344';
+			ctx.lineWidth = 2;
+			ctx.strokeRect(10, 10, w - 20, h - 20);
+
+			// Header badge
+			ctx.fillStyle = '#ff4455';
+			ctx.font = 'bold 13px "Courier New", monospace';
+			ctx.fillText('⚡ [CIRCUIT BREAKER TRIPPED: LATCHED]', 24, 38);
+
+			// Subtitle explanation
+			ctx.fillStyle = '#ffbbbb';
+			ctx.font = '11px "Courier New", monospace';
+			ctx.fillText('3 consecutive frame exceptions intercepted by Tier 4 Supervisor Watchdog.', 24, 60);
+
+			// Fault message container
+			ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+			ctx.fillRect(24, 76, Math.max(200, w - 48), 54);
+			ctx.strokeStyle = 'rgba(255, 68, 68, 0.4)';
+			ctx.strokeRect(24, 76, Math.max(200, w - 48), 54);
+
+			ctx.fillStyle = '#ff6677';
+			ctx.font = '11px "Courier New", monospace';
+			const msg = faultMsg || 'Unknown simulation exception';
+			ctx.fillText(`Error: ${msg.slice(0, 60)}`, 32, 98);
+			if (msg.length > 60) {
+				ctx.fillText(msg.slice(60, 120), 32, 116);
+			}
+
+			// Recovery instructions
+			ctx.fillStyle = '#00ffcc';
+			ctx.font = '10px "Courier New", monospace';
+			ctx.fillText('▶ RECOVERY: Studio clock alive. Edit/save code or click Reset Cartridge to unlatch.', 24, 154);
+			ctx.restore();
+		}
+
+		/**
+		 * Records a runtime cartridge fault into the IDE Problems drawer with an unlatch quick fix.
+		 * @param {VSRPCartridgeFacade} cartridge
+		 * @param {unknown} loopErr
+		 * @returns {void}
+		 */
+		function _recordRuntimeFaultToDiagnostics(cartridge, loopErr) {
+			const errMsg = loopErr instanceof Error ? loopErr.message : String(loopErr);
+			/** @type {DiagnosticItem} */
+			const diag = {
+				rule: 'RUNTIME/CIRCUIT_BREAKER',
+				severity: 'err',
+				message: `[Circuit Breaker] ${errMsg}`,
+				line: 1,
+				col: 1,
+				quickFix: {
+					label: '⚡ Unlatch Viewport',
+					apply: () => {
+						_cartridgeSimulationLatched = false;
+						_consecutiveCartridgeErrors = 0;
+						_toast('Circuit breaker unlatched. Resuming simulation ticks.', 'pass');
+					}
+				}
+			};
+
+			const existingIdx = _currentDiagnostics.findIndex(d => d.rule === 'RUNTIME/CIRCUIT_BREAKER');
+			if (existingIdx !== -1) {
+				_currentDiagnostics[ existingIdx ] = diag;
+			} else {
+				_currentDiagnostics.unshift(diag);
+			}
+
+			_renderProblemsPanel(_currentDiagnostics);
+
+			const problemsPanel = document.getElementById('problems-panel');
+			if (problemsPanel && problemsPanel.classList.contains('collapsed')) {
+				problemsPanel.classList.remove('collapsed');
+				const chevron = document.getElementById('problems-chevron');
+				if (chevron) chevron.textContent = '▼';
+			}
+		}
+
+		/**
 		 * Spawns the 60Hz accumulator requestAnimationFrame loop for the cartridge.
+		 * Protected by Tier 4 Supervisor Watchdog (re-queue at line 1) and Tier 3 Circuit Breaker.
 		 * @param {VSRPCartridgeFacade} cartridge - Running cartridge instance
 		 * @param {HTMLCanvasElement | null} canvas - Target rendering canvas
 		 * @returns {void}
@@ -6344,8 +7230,21 @@ on render {
 			const cartridgeLoop = (currentTime) => {
 				if (_activeCartridgeInstance !== cartridge) return;
 
+				// Tier 4 Supervisor Watchdog: ALWAYS re-queue RAF at line 1 so studio clock NEVER dies
+				_cartridgeAnimId = requestAnimationFrame(cartridgeLoop);
+
 				const dt = Math.min(0.1, (currentTime - lastTime) / 1000);
 				lastTime = currentTime;
+
+				const ctx = canvas ? canvas.getContext('2d') : null;
+
+				// Tier 3 Circuit Breaker: If latched, render error HUD and skip simulation ticks
+				if (_cartridgeSimulationLatched) {
+					if (ctx && canvas) {
+						_renderCircuitBreakerHUD(ctx, canvas, _lastCartridgeFaultMessage);
+					}
+					return;
+				}
 
 				const temporalTick = {
 					deltaTime: dt,
@@ -6357,19 +7256,22 @@ on render {
 
 				try {
 					cartridge.update(temporalTick, input);
-					if (canvas) {
-						const ctx = canvas.getContext('2d');
-						if (ctx) {
-							cartridge.render(ctx);
-						}
+					if (ctx) {
+						cartridge.render(ctx);
 					}
+					_consecutiveCartridgeErrors = 0;
 				} catch (loopErr) {
+					_consecutiveCartridgeErrors++;
 					const loopErrMsg = loopErr instanceof Error ? loopErr.message : String(loopErr);
-					console.error('[CARTRIDGE/RUNTIME] Loop exception:', loopErrMsg);
-					return;
-				}
+					_lastCartridgeFaultMessage = loopErrMsg;
+					console.error(`[CARTRIDGE/RUNTIME] Loop exception (#${_consecutiveCartridgeErrors}):`, loopErrMsg);
 
-				_cartridgeAnimId = requestAnimationFrame(cartridgeLoop);
+					if (_consecutiveCartridgeErrors >= MAX_CONSECUTIVE_CARTRIDGE_ERRORS) {
+						_cartridgeSimulationLatched = true;
+						console.error('[CARTRIDGE/CIRCUIT_BREAKER] Tripped after 3 consecutive faults. Viewport latched.');
+						_recordRuntimeFaultToDiagnostics(cartridge, loopErr);
+					}
+				}
 			};
 			_cartridgeAnimId = requestAnimationFrame(cartridgeLoop);
 		}
@@ -6404,6 +7306,11 @@ on render {
 			try {
 				const hotswapped = _bootAndRestoreCartridge(newCartridge, canvas);
 				_activeCartridgeInstance = newCartridge;
+				_cartridgeSimulationLatched = false;
+				_consecutiveCartridgeErrors = 0;
+				_lastCartridgeFaultMessage = null;
+				_currentDiagnostics = _currentDiagnostics.filter(d => d.rule !== 'RUNTIME/CIRCUIT_BREAKER');
+				_renderProblemsPanel(_currentDiagnostics);
 				_startCartridgeSimulationLoop(newCartridge, canvas);
 
 				const statusMsg = hotswapped
@@ -6471,13 +7378,26 @@ on render {
 			}
 		}
 
+		/** @type {string} */
+		let _activeWorkspaceMode = 'code';
+
 		/**
 		 * Toggles or sets active workspace mode ('code' or 'gamedev').
 		 * @param {string} [mode] - Optional mode string
 		 * @returns {void}
 		 */
 		function _toggleWorkspaceMode(mode) {
-			if (window.PhoenixStudioViewport?.toggleWorkspaceMode) window.PhoenixStudioViewport.toggleWorkspaceMode(mode);
+			const next = mode || (_activeWorkspaceMode === 'code' ? 'gamedev' : 'code');
+			_activeWorkspaceMode = next;
+			const switchBtn = document.getElementById('btn-switch-workspace-mode');
+			if (switchBtn) {
+				switchBtn.textContent = next === 'gamedev' ? '💻 CODE IDE' : '🎮 GAME DEV WORKSTATION';
+				switchBtn.classList.toggle('active', next === 'gamedev');
+			}
+			const studioMode = next === 'gamedev' ? 'gamedev' : 'ide';
+			if (window.PhoenixStudioViewport?.toggleWorkspaceMode) {
+				window.PhoenixStudioViewport.toggleWorkspaceMode(studioMode);
+			}
 		}
 
 		/**
@@ -6496,8 +7416,6 @@ on render {
 
 
 		//#region [SEC-15] --- MASTER GLOBAL SHORTCUTS, CONTEXT MENU & BOOTSTRAP
-		/** @type {string} */
-		let _activeWorkspaceMode = 'code';
 
 		/**
 		 * Handles palette shortcut combinations (Ctrl+P, Ctrl+Shift+P, Ctrl+K).
@@ -6569,55 +7487,106 @@ on render {
 		}
 
 		/**
+		 * Closes all floating modals, palettes, and side-panels on Escape.
+		 * @returns {void}
+		 * @private
+		 */
+		function _closeAllOverlays() {
+			document.getElementById('phoenix-prompt-modal')?.remove();
+			_closeCommandPalette();
+			_closeFindHUD();
+			_closeAutocomplete();
+			_closeStagingStudio();
+			_closeAudioStudio();
+			_closeInlineAIPrompt();
+			_hideContextMenu();
+			_toggleToolsMenu(false);
+			_toggleLedgerPanel(false);
+			_toggleAiChatPanel(false);
+		}
+
+		/**
+		 * Handles drawer/sidebar toggle keyboard shortcuts.
+		 * @param {KeyboardEvent} e
+		 * @param {string} k
+		 * @param {boolean} isCtrlOrCmd
+		 * @returns {boolean}
+		 * @private
+		 */
+		/**
+		 * Handles workspace toggle and prompt shortcuts.
+		 * @param {KeyboardEvent} e
+		 * @param {string} k
+		 * @param {boolean} isCtrlOrCmd
+		 * @returns {boolean}
+		 * @private
+		 */
+		function _handleModeOrPromptShortcuts(e, k, isCtrlOrCmd) {
+			if ((isCtrlOrCmd && k === 'g') || (e.altKey && k === 'w')) {
+				e.preventDefault();
+				_toggleWorkspaceMode();
+				return true;
+			}
+			if (isCtrlOrCmd && k === 'k') {
+				e.preventDefault();
+				_openInlineAIPrompt();
+				return true;
+			}
+			return false;
+		}
+
+		/**
+		 * Handles drawer/sidebar toggle keyboard shortcuts.
+		 * @param {KeyboardEvent} e
+		 * @param {string} k
+		 * @param {boolean} isCtrlOrCmd
+		 * @returns {boolean}
+		 * @private
+		 */
+		function _handlePanelToggleShortcuts(e, k, isCtrlOrCmd) {
+			if ((isCtrlOrCmd && k === 'b') || (e.altKey && k === 't')) {
+				e.preventDefault();
+				_toggleLedgerPanel();
+				return true;
+			}
+			if (e.altKey && k === 'a') {
+				e.preventDefault();
+				_toggleAiChatPanel();
+				return true;
+			}
+			return false;
+		}
+
+		/**
 		 * Dispatches global workstation keyboard shortcuts.
 		 * @param {KeyboardEvent} e - Global keydown event
 		 * @returns {void}
 		 */
 		function _handleGlobalShortcuts(e) {
-			const isCtrlOrCmd = e.ctrlKey || e.metaKey;
-			const k = e.key.toLowerCase();
-
-			if ((isCtrlOrCmd && k === 'g') || (e.altKey && k === 'w')) {
-				e.preventDefault();
-				_toggleWorkspaceMode();
+			if (e.key === 'Escape') {
+				_closeAllOverlays();
 				return;
 			}
-
-			if (_handlePaletteShortcut(e, k, isCtrlOrCmd)) return;
-			if (_handleSearchShortcut(e, k, isCtrlOrCmd)) return;
-			if (_handleAIDebugShortcut(e, k, isCtrlOrCmd)) return;
-
-			// Inline AI Prompt Box Shortcut (Ctrl+K)
-			if (isCtrlOrCmd && k === 'k') {
-				e.preventDefault();
-				_openInlineAIPrompt();
-				return;
-			}
-
-			// Telemetry Rail Toggle (Ctrl+B / Alt+T)
-			if ((isCtrlOrCmd && k === 'b') || (e.altKey && k === 't')) {
-				e.preventDefault();
-				_toggleLedgerPanel();
-				return;
-			}
-
 			if (e.key === 'F12') {
 				e.preventDefault();
 				_jumpToDefinition();
 				return;
 			}
 
-			if (e.key === 'Escape') {
-				_closeCommandPalette();
-				_closeFindHUD();
-				_closeAutocomplete();
-				_closeStagingStudio();
-				_closeAudioStudio();
-				_closeInlineAIPrompt();
-				_hideContextMenu();
-				_toggleToolsMenu(false);
-				_toggleLedgerPanel(false);
+			const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+			const k = e.key.toLowerCase();
+
+			if (isCtrlOrCmd && (e.code === 'Space' || k === ' ' || e.key === ' ')) {
+				e.preventDefault();
+				_triggerAutocomplete(true);
+				return;
 			}
+
+			if (_handleModeOrPromptShortcuts(e, k, isCtrlOrCmd)) return;
+			if (_handlePaletteShortcut(e, k, isCtrlOrCmd)) return;
+			if (_handleSearchShortcut(e, k, isCtrlOrCmd)) return;
+			if (_handleAIDebugShortcut(e, k, isCtrlOrCmd)) return;
+			_handlePanelToggleShortcuts(e, k, isCtrlOrCmd);
 		}
 
 		/**
@@ -6794,8 +7763,6 @@ on render {
 		// AI Copilot Event Listeners
 		document.getElementById('ai-status')?.addEventListener('click', _connectOllama);
 		document.getElementById('btn-ai-generate')?.addEventListener('click', _generateAIProposal);
-		document.getElementById('btn-ai-prompt-submit')?.addEventListener('click', _submitInlineAIPrompt);
-		document.getElementById('btn-ai-prompt-cancel')?.addEventListener('click', _closeInlineAIPrompt);
 		document.getElementById('inline-ai-input')?.addEventListener('keydown', (e) => {
 			if (e.key === 'Enter') {
 				e.preventDefault();
@@ -6820,8 +7787,6 @@ on render {
 			const sel = editor.value.substring(editor.selectionStart || 0, editor.selectionEnd || 0);
 			_openStagingStudio(sel, sel);
 		});
-		document.getElementById('btn-stage-apply')?.addEventListener('click', _applyStagedPatch);
-		document.getElementById('btn-stage-cancel')?.addEventListener('click', _closeStagingStudio);
 
 		document.getElementById('stage-search-text')?.addEventListener('input', _validateStagingState);
 		document.getElementById('stage-content-text')?.addEventListener('input', _validateStagingState);
@@ -6829,8 +7794,6 @@ on render {
 		// Proposal & Document Action Buttons
 		document.getElementById('btn-submit-proposal')?.addEventListener('click', _submitActiveProposal);
 		document.getElementById('btn-save-document')?.addEventListener('click', _saveActiveDocument);
-		document.getElementById('btn-save-doc')?.addEventListener('click', _saveActiveDocument);
-		document.getElementById('btn-format-doc')?.addEventListener('click', _handleFormatCode);
 
 		// Context Menu
 		window.addEventListener('contextmenu', (e) => {
@@ -6889,6 +7852,79 @@ on render {
 		_editorView?.addEventListener('keyup', _updateEditorHUD);
 		_editorView?.addEventListener('click', _updateEditorHUD);
 
+		let _acDebounceTimer = null;
+		_editorView?.addEventListener('input', () => {
+			clearTimeout(_acDebounceTimer);
+			_acDebounceTimer = setTimeout(() => {
+				_triggerAutocomplete(false);
+			}, 250);
+		});
+
+		let _hoverDebounceTimer = null;
+		_editorView?.addEventListener('mousemove', (e) => {
+			clearTimeout(_hoverDebounceTimer);
+			_hoverDebounceTimer = setTimeout(() => {
+				const editor = /** @type {HTMLTextAreaElement | null} */ (_editorView);
+				const hoverCard = document.getElementById('hover-doc-card');
+				if (!editor || !hoverCard) return;
+
+				const rect = editor.getBoundingClientRect();
+				const x = e.clientX - rect.left + editor.scrollLeft;
+				const y = e.clientY - rect.top + editor.scrollTop;
+
+				const approxLineIdx = Math.floor(y / 18);
+				const approxCol = Math.floor(x / 7.5);
+
+				const lines = editor.value.split('\n');
+				if (approxLineIdx < 0 || approxLineIdx >= lines.length) {
+					hoverCard.style.display = 'none';
+					return;
+				}
+
+				const lineText = lines[ approxLineIdx ] || '';
+				if (approxCol < 0 || approxCol >= lineText.length) {
+					hoverCard.style.display = 'none';
+					return;
+				}
+
+				let start = approxCol;
+				while (start > 0 && /[A-Za-z0-9_$]/.test(lineText[ start - 1 ])) start--;
+				let end = approxCol;
+				while (end < lineText.length && /[A-Za-z0-9_$]/.test(lineText[ end ])) end++;
+				const token = lineText.slice(start, end).trim();
+
+				if (!token || token.length < 2 || !/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(token)) {
+					hoverCard.style.display = 'none';
+					return;
+				}
+
+				const defs = _symbolIndexer.findDefinition(token);
+				if (!defs || defs.length === 0) {
+					hoverCard.style.display = 'none';
+					return;
+				}
+
+				const sym = defs[ 0 ];
+				hoverCard.innerHTML = `
+					<div style="font-weight:bold; color:var(--accent); font-size:11px; margin-bottom:2px;">
+						${escapeHtml(sym.name)} <span style="font-weight:normal; color:#ce9aff; font-size:9px;">(${escapeHtml(sym.type)})</span>
+					</div>
+					${sym.signature ? `<pre style="margin:4px 0; font-size:9px; background:rgba(0,0,0,0.5); padding:4px 6px; border-radius:3px; color:#e2e8f0; font-family:monospace;">${escapeHtml(sym.signature)}</pre>` : ''}
+					${sym.jsdoc ? `<div style="color:var(--text-dim); font-size:9px; white-space:pre-wrap; max-height:80px; overflow-y:auto; margin-top:2px;">${escapeHtml(sym.jsdoc)}</div>` : ''}
+					<div style="font-size:8px; color:var(--text-muted); margin-top:4px; border-top:1px solid var(--border); padding-top:2px;">📍 ${escapeHtml(sym.file)}:${sym.line}</div>
+				`;
+				hoverCard.style.display = 'block';
+				hoverCard.style.left = `${Math.min(window.innerWidth - 340, e.clientX + 12)}px`;
+				hoverCard.style.top = `${e.clientY + 18}px`;
+			}, 250);
+		});
+
+		_editorView?.addEventListener('mouseleave', () => {
+			clearTimeout(_hoverDebounceTimer);
+			const hoverCard = document.getElementById('hover-doc-card');
+			if (hoverCard) hoverCard.style.display = 'none';
+		});
+
 		window.addEventListener('keydown', (e) => {
 			if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
 				e.preventDefault();
@@ -6900,6 +7936,33 @@ on render {
 		});
 
 		_editorView?.addEventListener('keydown', (e) => {
+			const popup = document.getElementById('autocomplete-popup');
+			if (popup && popup.style.display === 'block' && _acSuggestions.length > 0) {
+				if (e.key === 'ArrowDown') {
+					e.preventDefault();
+					_acActiveIdx = (_acActiveIdx + 1) % _acSuggestions.length;
+					const items = popup.querySelectorAll('.ac-item');
+					items.forEach((it, idx) => it.classList.toggle('active', idx === _acActiveIdx));
+					items[ _acActiveIdx ]?.scrollIntoView({ block: 'nearest' });
+					return;
+				} else if (e.key === 'ArrowUp') {
+					e.preventDefault();
+					_acActiveIdx = (_acActiveIdx - 1 + _acSuggestions.length) % _acSuggestions.length;
+					const items = popup.querySelectorAll('.ac-item');
+					items.forEach((it, idx) => it.classList.toggle('active', idx === _acActiveIdx));
+					items[ _acActiveIdx ]?.scrollIntoView({ block: 'nearest' });
+					return;
+				} else if (e.key === 'Enter' || e.key === 'Tab') {
+					e.preventDefault();
+					_insertCompletion(_acSuggestions[ _acActiveIdx ]);
+					return;
+				} else if (e.key === 'Escape') {
+					e.preventDefault();
+					_closeAutocomplete();
+					return;
+				}
+			}
+
 			if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
 				e.preventDefault();
 				_saveActiveDocument();
@@ -6922,9 +7985,14 @@ on render {
 		document.getElementById('btn-erl-batch-remediate')?.addEventListener('click', () => { _executeBatchRemediation(); _toggleToolsMenu(false); });
 		document.getElementById('btn-transpile-stcp')?.addEventListener('click', () => { _transpileActiveCartridge(); _toggleToolsMenu(false); });
 		document.getElementById('btn-scaffold-regions')?.addEventListener('click', () => { _scaffoldActiveDocumentRegions(); _toggleToolsMenu(false); });
+		document.getElementById('btn-scaffold-jsdoc-all')?.addEventListener('click', () => { _scaffoldAllJSDocContracts(); _toggleToolsMenu(false); });
 		document.getElementById('btn-verify-contracts')?.addEventListener('click', () => { _verifyActiveDocumentContracts(); _toggleToolsMenu(false); });
 		document.getElementById('btn-analyze-deps')?.addEventListener('click', () => { _analyzeActiveDocumentDependencies(); _toggleToolsMenu(false); });
-		document.getElementById('btn-sync-to-game-studio')?.addEventListener('click', () => { _toggleWorkspaceMode('gamedev'); _toggleToolsMenu(false); });
+		document.getElementById('btn-sync-to-game-studio')?.addEventListener('click', () => {
+			_toggleWorkspaceMode('gamedev');
+			if (_activeFilePath) _mountActiveCartridge();
+			_toggleToolsMenu(false);
+		});
 		document.getElementById('btn-open-sfx-studio')?.addEventListener('click', () => { _openAudioStudio(); _toggleToolsMenu(false); });
 
 		// Problems Panel Toggle
@@ -7085,7 +8153,8 @@ on render {
 		});
 
 		window.addEventListener('keydown', (e) => {
-			if (_activeWorkspaceMode === 'gamedev') {
+			const isInput = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
+			if (_activeWorkspaceMode === 'gamedev' && !isInput) {
 				_handleStudioMovement(e.key);
 			}
 			_handleGlobalShortcuts(e);
@@ -7104,6 +8173,7 @@ on render {
 		async function _boot() {
 			try {
 				await _governor.initialize();
+				if (window.PhoenixTypeResolver?.initializeTypeCatalog) window.PhoenixTypeResolver.initializeTypeCatalog();
 				_initRuntimeSandboxControls();
 				_initRuntimeStudio();
 				_renderFileTree();
@@ -7114,6 +8184,7 @@ on render {
 				}
 				_renderSentinelMatrix(21);
 				_updateStats();
+				_initAiChatDrawer();
 				await _connectOllama();
 			} catch (err) {
 				console.error('[PHOENIX/BOOT] Init failed:', err);

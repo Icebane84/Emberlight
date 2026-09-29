@@ -118,7 +118,9 @@
 	}
 
 	function _renderOscilloscope() {
-		const canvas = /** @type {HTMLCanvasElement | null} */ (document.getElementById('sfx-waveform-canvas'));
+		const canvas = /** @type {HTMLCanvasElement | null} */ (
+			document.getElementById('sfx-oscilloscope') || document.getElementById('sfx-waveform-canvas')
+		);
 		if (!canvas) return;
 		const ctx = canvas.getContext('2d');
 		if (!ctx) return;

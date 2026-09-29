@@ -6,19 +6,20 @@
  * ============================================================================
  *
  * CANONICAL TABLE OF CONTENTS (CMD-DOC-INDEX):
- * [TYP-01] PROPOSAL, RECEIPT & GOVERNANCE DTOs ................... Line 0024
- * [TYP-02] REGION SCAFFOLDING & CONTRACT VERIFICATION ............ Line 0112
- * [TYP-03] PROCEDURAL AUDIO SYNTHESIZER & SFX .................... Line 0183
- * [TYP-04] SYMBOL INDEXER & FUZZY SEARCH ENGINE .................. Line 0233
- * [TYP-05] CHUNK DIFF ENGINE & AST RECONCILIATION ................ Line 0305
- * [TYP-06] RUNTIME SANDBOX & 2D/3D GRAPHICS SUBSTRATES ........... Line 0360
- * [TYP-07] CODE FORMATTER & LEXER TOKENIZER ...................... Line 0466
- * [TYP-08] LINTER SUITE & COGNITIVE COMPLEXITY ................... Line 0608
- * [TYP-09] ERROR RESOLUTION LEDGER (ERL-001) & REMEDIATION PIPELINE .. Line 0653
- * [TYP-10] SPECIFICATION, CAPABILITY & SOVEREIGN STORAGE ......... Line 0736
- * [TYP-11] WEBLLM WORKER BRIDGE & MONOLITH EXPORTER .............. Line 0833
- * [TYP-12] VSRP-001 CARTRIDGE RUNTIME & ENGINE UMBRELLA FACADE ... Line 0873
- * [TYP-13] STCP-001 TRANSDUCTION COMPILER & SYNARCHE PARSER ...... Line 1088
+ * [TYP-01] PROPOSAL, RECEIPT & GOVERNANCE DTOs ................... Line 0025
+ * [TYP-02] REGION SCAFFOLDING & CONTRACT VERIFICATION ............ Line 0113
+ * [TYP-03] PROCEDURAL AUDIO SYNTHESIZER & SFX .................... Line 0202
+ * [TYP-04] SYMBOL INDEXER & FUZZY SEARCH ENGINE .................. Line 0252
+ * [TYP-05] CHUNK DIFF ENGINE & AST RECONCILIATION ................ Line 0324
+ * [TYP-06] RUNTIME SANDBOX & 2D/3D GRAPHICS SUBSTRATES ........... Line 0438
+ * [TYP-07] CODE FORMATTER & LEXER TOKENIZER ...................... Line 0544
+ * [TYP-08] LINTER SUITE & COGNITIVE COMPLEXITY ................... Line 0686
+ * [TYP-09] ERROR RESOLUTION LEDGER (ERL-001) & REMEDIATION PIPELINE .. Line 0731
+ * [TYP-10] SPECIFICATION, CAPABILITY & SOVEREIGN STORAGE ......... Line 0820
+ * [TYP-11] WEBLLM WORKER BRIDGE & MONOLITH EXPORTER .............. Line 0931
+ * [TYP-12] VSRP-001 CARTRIDGE RUNTIME & ENGINE UMBRELLA FACADE ... Line 0991
+ * [TYP-13] STCP-001 TRANSDUCTION COMPILER & SYNARCHE PARSER ...... Line 1202
+ * [TYP-14] VLT-003 COMPLIANCE ENGINE & TYPE RESOLVER ........... Line ~1686
  * ============================================================================
  */
 
@@ -270,18 +271,37 @@ declare interface PhoenixSymbolItem {
 }
 
 /**
- * @typedef PhoenixSymbolIndexerFacade
- * @description Constructor interface for the workspace symbol indexer.
+ * @typedef PhoenixSymbolIndexerSingleton
+ * @description In-memory region topology and downward dependency graph (MPFS-001 [SEC-10]).
  */
-declare interface PhoenixSymbolIndexerFacade {
+declare interface PhoenixSymbolIndexerSingleton {
+  /** Registers a canonical region anchor */
+  register(anchorId: string, descriptor: { startLine: number; endLine: number; plane: 0 | 1 | 2; exports: string[] }): void;
+  /** Resolves a section anchor ID to its line range and architectural plane */
+  resolve(anchorId: string): { startLine: number; endLine: number; plane: 0 | 1 | 2 } | null;
+  /** Returns all registered section IDs in valid topological order */
+  getTopologicalOrder(): string[];
+  /** Verifies that no region depends on a plane below or violates downward flow */
+  verifyDownwardDependencyInvariant(): { valid: boolean; violations: string[] };
+}
+
+/**
+ * @typedef PhoenixSymbolIndexerFacade
+ * @description Constructor and singleton interface for the workspace symbol indexer.
+ */
+declare interface PhoenixSymbolIndexerFacade extends PhoenixSymbolIndexerSingleton {
   new (): PhoenixSymbolIndexerInstance;
 }
+
+declare var PhoenixSymbolIndexer: PhoenixSymbolIndexerFacade;
+declare type PhoenixSymbolIndexer = PhoenixSymbolIndexerInstance;
 
 /**
  * @typedef PhoenixSymbolIndexerInstance
  * @description Workspace-wide symbol indexer supporting definition lookup and autocomplete.
  */
 declare interface PhoenixSymbolIndexerInstance {
+  verifyDownwardDependencyInvariant: any;
   /** Indexes all functions, classes, and regions in a source file */
   indexSource(path: string, code: string): PhoenixSymbolItem[];
   /** Evicts a file from the symbol cache */
@@ -725,6 +745,14 @@ declare interface PhoenixLinterSuiteFacade {
   auditHotLoopAllocations(source: string, contextName?: string | null): HotLoopViolationDTO[];
   /** Verifies JSDoc comment parameter parity across all exported functions */
   verifyJSDocParity(source: string): JSDocParityResultDTO[];
+  /** Scans source code for VLT-003 region markers and synchronizes CMD-DOC-INDEX header */
+  syncJumpTable(source: string): string;
+  /** Evaluates source code against VLT-003 compliance rules and SonarLint S3776 standards */
+  validateVLTCompliance(source: string, options?: Record<string, unknown>): {
+    compliant: boolean;
+    violations: Array<{ type: string; message: string; line?: number; severity?: string }>;
+    regions: Array<{ sec: string; title: string; line: number; rawLine: string }>;
+  };
 }
 //#endregion [TYP-08]
 
@@ -825,6 +853,8 @@ declare interface PhoenixBatchRemediationPipelineFacade {
 declare interface PhoenixSpecificationRegistryInstance {
   /** Registers a target specification contract */
   registerTarget(id: string, targetSpec: Record<string, unknown>): void;
+  /** Unregisters a target specification contract */
+  unregisterTarget(id: string): boolean;
   /** Retrieves target specification by identifier */
   getTarget(id: string): Record<string, unknown> | null;
 }
@@ -889,6 +919,10 @@ declare interface PhoenixGovernorInstance {
   initialize(): Promise<PhoenixGovernorInstance>;
   /** Registers source text in governor VFS */
   registerSource(path: string, content: string): void;
+  /** Registers a target specification */
+  registerTarget(name: string, descriptor: Record<string, unknown>): void;
+  /** Unregisters a target specification and source text */
+  unregisterTarget(name: string): boolean;
   /** Retrieves source text from governor VFS */
   getSource(path: string): string | null;
   /** Commits source file to physical disk */
@@ -1063,6 +1097,7 @@ declare interface PhoenixSovereignEngineFacade {
   PROTOCOLS: readonly string[];
   STATES: Readonly<Record<string, string>>;
   STATUS: Readonly<Record<string, string>>;
+  SOVEREIGN_STATUS: Readonly<Record<string, number>>;
   GATES: Readonly<Record<string, string>>;
   SCHEMA_VERSION: string;
   RECEIPT_VERSION: string;
@@ -1096,6 +1131,7 @@ declare interface PhoenixSovereignEngineFacade {
   PhoenixTerrainRaymarcher: PhoenixTerrainRaymarcherFacade;
   PhoenixCodeFormatter: PhoenixCodeFormatterFacade;
   PhoenixLinterSuite: PhoenixLinterSuiteFacade;
+  linter?: PhoenixLinterSuiteFacade;
   PhoenixErrorResolutionLedger: PhoenixErrorResolutionLedgerFacade;
   PhoenixBatchRemediationPipeline: PhoenixBatchRemediationPipelineFacade;
   PhoenixRegionScaffolder: PhoenixRegionScaffolderFacade;
@@ -1116,11 +1152,26 @@ declare var PhoenixGovernor: PhoenixGovernorInstance | undefined;
 declare var PhoenixWebLLMBridge: PhoenixWebLLMWorkerBridgeInstance | undefined;
 declare var PhoenixProposalParser: ((rawText: string) => PhoenixProposalDTO | Promise<PhoenixProposalDTO>) | undefined;
 declare var PhoenixERLLedger: PhoenixErrorResolutionLedgerInstance | undefined;
-declare var evaluateProposalWithSentinel: (
-  proposal: PhoenixProposalDTO | Record<string, unknown>,
-  subject?: string,
-  overrideOptions?: SentinelEvaluatorOptions
-) => Promise<PhoenixReceiptDTO>;
+declare interface PhoenixSentinelEvaluatorFacade {
+  (
+    proposal: PhoenixProposalDTO | Record<string, unknown>,
+    subject?: string,
+    overrideOptions?: SentinelEvaluatorOptions
+  ): Promise<PhoenixReceiptDTO>;
+  evaluateProposalWithSentinel: (
+    proposal: PhoenixProposalDTO | Record<string, unknown>,
+    subject?: string,
+    overrideOptions?: SentinelEvaluatorOptions
+  ) => Promise<PhoenixReceiptDTO>;
+  evaluate: (
+    proposal: PhoenixProposalDTO | Record<string, unknown>,
+    subject?: string,
+    overrideOptions?: SentinelEvaluatorOptions
+  ) => Promise<PhoenixReceiptDTO>;
+}
+
+declare var PhoenixSentinelEvaluator: PhoenixSentinelEvaluatorFacade;
+declare var evaluateProposalWithSentinel: PhoenixSentinelEvaluatorFacade;
 declare var PhoenixMonolithExporter: PhoenixMonolithExporterFacade;
 declare var PhoenixStarterPack: PhoenixStarterPackFacade;
 declare var PhoenixAudioSynthesizer: PhoenixAudioSynthesizerFacade;
@@ -1132,20 +1183,25 @@ declare var PhoenixTerrainRaymarcher: PhoenixTerrainRaymarcherFacade;
 declare var PhoenixStudioAudio: PhoenixStudioAudioFacade;
 declare var PhoenixStudioViewport: PhoenixStudioViewportFacade;
 
+declare type VLTRegionInfoDTO = VLTRegionInfo;
+declare type VLTComplianceViolationDTO = VLTComplianceViolation;
+declare type VLTComplianceReportDTO = VLTComplianceReport;
+
 /**
  * Ambient extensions to global Window interface for browser workbench operations.
  */
 interface Window {
+  PhoenixVLTComplianceEngine?: PhoenixVLTComplianceEngineFacade;
+  PhoenixVLTComplianceEngine_SEC07?: PhoenixVLTComplianceEngineSEC07;
+  PhoenixTypeResolver?: PhoenixTypeResolverFacade;
+  PhoenixSymbolIndexer?: PhoenixSymbolIndexerFacade;
+  PhoenixSentinelEvaluator?: PhoenixSentinelEvaluatorFacade;
   PhoenixSovereignEngine?: PhoenixSovereignEngineFacade;
   PhoenixGovernor?: PhoenixGovernorInstance;
   PhoenixWebLLMBridge?: PhoenixWebLLMWorkerBridgeInstance;
   PhoenixProposalParser?: (rawText: string) => PhoenixProposalDTO | Promise<PhoenixProposalDTO>;
   PhoenixERLLedger?: PhoenixErrorResolutionLedgerInstance;
-  evaluateProposalWithSentinel?: (
-    proposal: PhoenixProposalDTO | Record<string, unknown>,
-    subject?: string,
-    overrideOptions?: SentinelEvaluatorOptions
-  ) => Promise<PhoenixReceiptDTO>;
+  evaluateProposalWithSentinel?: PhoenixSentinelEvaluatorFacade;
   PhoenixStudioViewport?: PhoenixStudioViewportFacade;
   PhoenixStudioAudio?: PhoenixStudioAudioFacade;
   PhoenixAudioSynthesizer?: PhoenixAudioSynthesizerFacade;
@@ -1536,6 +1592,7 @@ declare interface SynarcheStatementParserFacade {
  * @description Master transduction compiler facade.
  */
 declare interface SynarcheCompilerFacade {
+  verifyBusLinkIntegrity: any;
   tokenize(source: string, options?: SynarcheLexerOptions): SynarcheToken[];
   parse(tokens: SynarcheToken[], options?: SynarcheParserOptions): { ast: CartridgeAST; errors: string[]; receipt?: ConstitutionalReceipt };
   admit(ast: CartridgeAST, errors?: string[], options?: SynarcheParserOptions): ConstitutionalReceipt;
@@ -1623,3 +1680,161 @@ declare var SynarcheTypeEnvironment: SynarcheTypeEnvironmentFacade;
 declare var SynarcheTypeInferenceEngine: SynarcheTypeInferenceEngineFacade;
 declare var CONSTITUTIONAL_RULE_REGISTRY: Record<string, { id: string; name: string; phase: string; severity: string }>;
 //#endregion [TYP-13]
+
+//#region [TYP-14] --- VLT-003 COMPLIANCE ENGINE & TYPE RESOLVER
+/**
+ * @typedef PhoenixInferredParam
+ * @description Inferred parameter contract metadata.
+ */
+declare interface PhoenixInferredParam {
+  name: string;
+  type: string;
+  optional: boolean;
+  defaultVal?: string;
+  desc: string;
+}
+
+/**
+ * @typedef PhoenixInferredContract
+ * @description Inferred function signature contract from JSDoc or AST.
+ */
+declare interface PhoenixInferredContract {
+  summary: string;
+  params: PhoenixInferredParam[];
+  returns: { type: string; desc: string };
+}
+
+/**
+ * @typedef PhoenixScaffoldContractResult
+ * @description Result of single function contract scaffolding.
+ */
+declare interface PhoenixScaffoldContractResult {
+  scaffoldedSource: string;
+  jsdocBlock: string;
+  insertedLineCount: number;
+}
+
+/**
+ * @typedef PhoenixScaffoldAllContractsResult
+ * @description Result of bulk function contract scaffolding across a document.
+ */
+declare interface PhoenixScaffoldAllContractsResult {
+  scaffoldedSource: string;
+  annotatedCount: number;
+}
+
+/**
+ * @typedef PhoenixTypeResolverFacade
+ * @description Type-aware JSDoc contract inference and catalog engine (MPFS-001 [SEC-04]).
+ */
+declare interface PhoenixTypeResolverFacade {
+  /** Parses and indexes declarations from phoenix.d.ts */
+  ingestDeclarations(dtsContent: string): number;
+  /** Initializes the type catalog from phoenix.d.ts across Node.js filesystem or Browser fetch */
+  initializeTypeCatalog(dtsPath?: string): Promise<number>;
+  /** Infers strict typed contract for a given function name and parameter list */
+  inferContract(
+    fnName: string,
+    rawParams: Array<{ name: string; defaultVal?: string }>,
+    isAsync?: boolean,
+    bodyLines?: string[]
+  ): PhoenixInferredContract;
+  /** Formats an inferred contract into standard JSDoc comment lines */
+  formatJSDoc(contract: PhoenixInferredContract, indent?: string): string;
+  /** Scaffolds a strict JSDoc contract above a JavaScript function at target line */
+  scaffoldContractAtLine(fullSource: string, lineNum: number): PhoenixScaffoldContractResult | null;
+  /** Scaffolds strict JSDoc contracts above all un-annotated functions in a document */
+  scaffoldAllContracts(fullSource: string): PhoenixScaffoldAllContractsResult;
+  /** True if the type catalog has ingested phoenix.d.ts declarations */
+  isInitialized(): boolean;
+  /** Total count of indexed method declarations */
+  getMethodCount(): number;
+  /** Total count of indexed interface declarations */
+  getInterfaceCount(): number;
+}
+
+declare var PhoenixTypeResolver: PhoenixTypeResolverFacade;
+
+/**
+ * @typedef VLTRegionInfo
+ * @description Parsed metadata for a canonical #region anchor.
+ */
+declare interface VLTRegionInfo {
+  sec: string;
+  title: string;
+  line: number;
+  rawLine: string;
+  syntax?: 'js' | 'html';
+}
+
+/**
+ * @typedef VLTComplianceViolation
+ * @description Detected structural, complexity, or capability violation.
+ */
+declare interface VLTComplianceViolation {
+  type: 'DRIFT' | 'COMPLEXITY' | 'CLOSURE' | 'ORDER' | 'TOKEN' | 'BUS_LINK' | 'SOCKET_BREACH' | 'ATOMIC_WAIT' | 'DOWNWARD_DEPENDENCY' | 'HOT_LOOP_ALLOC' | 'SOCKET_UNGUARDED' | 'STAGING_LEAK' | 'UNFROZEN_FACADE';
+  message: string;
+  line?: number;
+  severity?: 'error' | 'warning';
+}
+
+/**
+ * @typedef VLTComplianceReport
+ * @description Comprehensive compliance report from the VLT Compliance Engine.
+ */
+declare interface VLTComplianceReport {
+  compliant: boolean;
+  violations: VLTComplianceViolation[];
+  regions: VLTRegionInfo[];
+}
+
+/**
+ * @typedef VLTBusLinkReport
+ * @description EventBus pub/sub topological integrity audit report.
+ */
+declare interface VLTBusLinkReport {
+  ok: boolean;
+  orphanedEmits: string[];
+  orphanedListens: string[];
+}
+
+/**
+ * @typedef VLTSocketAuditResult
+ * @description Plaintext socket staging and atomic wait compliance report.
+ */
+declare interface VLTSocketAuditResult {
+  ok: boolean;
+  socketBreaches: string[];
+  atomicWaitViolations: string[];
+}
+
+/**
+ * @typedef PhoenixVLTComplianceEngineFacade
+ * @description Master VLT-003 Compliance, Jump Table, and AST Invariance Engine.
+ */
+declare interface PhoenixVLTComplianceEngineFacade {
+  scanRegions(sourceCode: string): VLTRegionInfo[];
+  formatJumpTable(regions: VLTRegionInfo[]): string[];
+  syncJumpTable(sourceCode: string): string;
+  validateCompliance(sourceCode: string, options?: { expectedRegions?: number; maxComplexity?: number; filename?: string; complexityScanner?: (source: string, threshold: number) => Array<{ name: string; line: number; complexity: number }>; skipBusLinkAudit?: boolean; skipSocketAudit?: boolean; skipDownwardAudit?: boolean; skipHotLoopAudit?: boolean; skipStagingAudit?: boolean }): VLTComplianceReport;
+  scaffoldModule(templateSource: string, metadata?: Record<string, string>): string;
+  verifyBusLinkIntegrity(sourceCode: string): VLTBusLinkReport;
+  auditSocketCompliance(sourceCode: string): VLTSocketAuditResult;
+  auditDownwardDependencies(sourceCode: string): VLTComplianceViolation[];
+  auditHotLoopCompliance(sourceCode: string): VLTComplianceViolation[];
+  auditStagingCompliance(sourceCode: string): VLTComplianceViolation[];
+}
+
+declare var PhoenixVLTComplianceEngine: PhoenixVLTComplianceEngineFacade;
+
+/**
+ * @typedef PhoenixVLTComplianceEngineSEC07
+ * @description SEC-07 Symbol Indexer Bridge facade for jump table navigation.
+ */
+declare interface PhoenixVLTComplianceEngineSEC07 {
+  resolveAnchor(anchorId: string, sourceCode?: string): { startLine: number; endLine: number; plane: 0 | 1 | 2 } | null;
+  validateTopology(): { valid: boolean; violations: string[] };
+}
+
+declare var PhoenixVLTComplianceEngine_SEC07: PhoenixVLTComplianceEngineSEC07;
+//#endregion [TYP-14]

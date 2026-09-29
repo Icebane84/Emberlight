@@ -29,7 +29,7 @@
  */
 ((/** @type {any} */ global) => {
 	//#region [SEC-01] Constants, Frozen Primitives & Pure Utilities
-	const VERSION = "7.0.0-ULTIMATE-FUSION";
+	const VERSION = "8.0.0-ULTIMATE-FUSION";
 	const PROTOCOLS = Object.freeze([
 		"VSRP-001",
 		"PMIP-001",
@@ -48,6 +48,21 @@
 		PASS: "PASS",
 		REJECTED: "REJECTED",
 		ERROR: "ERROR",
+	});
+	/**
+	 * Canonical In-Band Numerical Status Sentinels (Tier 2 Zero-Throw Invariance).
+	 * Eliminates dynamic Error allocations and C++ stack traces inside 60Hz hot loops.
+	 */
+	const SOVEREIGN_STATUS = Object.freeze({
+		OK: 0x00,
+		OOB: -1,
+		FAULT: -2,
+		DEGRADED: 0x01,
+		LATCHED: 0x02,
+		CORRUPT: 0x04,
+		ERR_OOB: 0x10,
+		ERR_HEAP_LIMIT: 0x11,
+		ERR_ACTION_INV: 0x12,
 	});
 	const GATES = Object.freeze({
 		STRUCTURAL: "STRUCTURAL_GATE",
@@ -1505,6 +1520,41 @@
 	}
 
 	/**
+	 * Evaluates candidate sliding window similarity and distance penalty against criteria.
+	 * @param {string[]} sourceLines
+	 * @param {string[]} searchLines
+	 * @param {number} i
+	 * @param {{ activeLine?: number, tolerance: number, confidenceThreshold: number, anchorThreshold: number, lineCount: number }} params
+	 * @returns {number} Score if criteria met, otherwise -1.
+	 */
+	function _evaluateWindowCandidate(sourceLines, searchLines, i, params) {
+		const { activeLine, tolerance, confidenceThreshold, anchorThreshold, lineCount } = params;
+		if (activeLine && Math.abs(i + 1 - activeLine) > tolerance) return -1;
+
+		const { avgSim, maxAnchorSim } = _scoreWindowSimilarity(sourceLines, searchLines, i);
+		if (avgSim < confidenceThreshold || maxAnchorSim < anchorThreshold) return -1;
+
+		const dist = activeLine ? Math.abs(i + 1 - activeLine) : 0;
+		const penalty = activeLine ? Math.min(0.05, dist / (lineCount * 10 || 1)) : 0;
+		return avgSim - penalty;
+	}
+
+	/**
+	 * Normalizes options and thresholds for fuzzy window scanning.
+	 * @param {{ confidenceThreshold?: number, anchorThreshold?: number, activeLine?: number, tolerance?: number }} options
+	 * @param {number} lineCount
+	 * @returns {{ confidenceThreshold: number, anchorThreshold: number, activeLine?: number, tolerance: number, lineCount: number }}
+	 */
+	function _buildFuzzyParams(options, lineCount) {
+		const activeLine = options.activeLine;
+		const confidenceThreshold = options.confidenceThreshold ?? 0.80;
+		const anchorThreshold = options.anchorThreshold ?? 0.90;
+		const defaultTolerance = activeLine ? 150 : Infinity;
+		const tolerance = options.tolerance ?? defaultTolerance;
+		return { confidenceThreshold, anchorThreshold, activeLine, tolerance, lineCount };
+	}
+
+	/**
 	 * Evaluates candidate sliding windows for multi-line fuzzy matching.
 	 * @param {string[]} sourceLines
 	 * @param {string[]} searchLines
@@ -1513,26 +1563,13 @@
 	 */
 	function _scanFuzzyWindow(sourceLines, searchLines, options) {
 		const N = searchLines.length;
-		const confidenceThreshold = options.confidenceThreshold ?? 0.80;
-		const anchorThreshold = options.anchorThreshold ?? 0.90;
-		const activeLine = options.activeLine;
-		const tolerance = options.tolerance ?? (activeLine ? 150 : Infinity);
+		const params = _buildFuzzyParams(options, sourceLines.length);
 
 		let bestMatchIdx = -1;
 		let highestConfidence = 0;
 
 		for (let i = 0; i <= sourceLines.length - N; i++) {
-			const outOfTolerance = activeLine && Math.abs(i + 1 - activeLine) > tolerance;
-			if (outOfTolerance) continue;
-
-			const { avgSim, maxAnchorSim } = _scoreWindowSimilarity(sourceLines, searchLines, i);
-			const belowThreshold = avgSim < confidenceThreshold || maxAnchorSim < anchorThreshold;
-			if (belowThreshold) continue;
-
-			const dist = activeLine ? Math.abs(i + 1 - activeLine) : 0;
-			const penalty = activeLine ? Math.min(0.05, dist / (sourceLines.length * 10 || 1)) : 0;
-			const score = avgSim - penalty;
-
+			const score = _evaluateWindowCandidate(sourceLines, searchLines, i, params);
 			if (score > highestConfidence) {
 				highestConfidence = score;
 				bestMatchIdx = i;
@@ -2526,6 +2563,18 @@
 			};
 		}
 
+		// 6. Anti-Pattern: throw statements inside hot loop (Tier 2 Zero-Throw Invariance)
+		if (/^throw\s+/.test(trimmed) || /;\s*throw\s+/.test(trimmed)) {
+			return {
+				line: lineNum,
+				col: rawLine.indexOf('throw') + 1,
+				type: 'HOT_LOOP_THROW_STATEMENT',
+				message: `Dynamic throw statement inside 60Hz hot path '${funcName}'. Use in-band numerical status (SOVEREIGN_STATUS) to eliminate V8 stack-trace GC churn.`,
+				severity: 'error',
+				snippet: trimmed
+			};
+		}
+
 		return null;
 	}
 
@@ -2848,6 +2897,41 @@
 			}
 
 			return issues;
+		},
+
+		/**
+		 * Scans source code for VLT-003 region markers and synchronizes CMD-DOC-INDEX header.
+		 * Delegates to PhoenixVLTComplianceEngine if available.
+		 * @param {string} source
+		 * @returns {string}
+		 */
+		syncJumpTable(source) {
+			const engine = (typeof PhoenixVLTComplianceEngine !== 'undefined' ? PhoenixVLTComplianceEngine : null)
+				|| (global?.PhoenixVLTComplianceEngine)
+				|| (typeof globalThis !== 'undefined' ? (/** @type {any} */ (globalThis)).PhoenixVLTComplianceEngine : null);
+			if (engine && typeof engine.syncJumpTable === 'function') {
+				return engine.syncJumpTable(source);
+			}
+			return source;
+		},
+
+		/**
+		 * Evaluates source code against VLT-003 compliance rules and SonarLint S3776 standards.
+		 * @param {string} source
+		 * @param {Record<string, any>} [options]
+		 * @returns {any}
+		 */
+		validateVLTCompliance(source, options = {}) {
+			const engine = (typeof PhoenixVLTComplianceEngine !== 'undefined' ? PhoenixVLTComplianceEngine : null)
+				|| (global?.PhoenixVLTComplianceEngine)
+				|| (typeof globalThis !== 'undefined' ? (/** @type {any} */ (globalThis)).PhoenixVLTComplianceEngine : null);
+			if (engine && typeof engine.validateCompliance === 'function') {
+				return engine.validateCompliance(source, {
+					...options,
+					complexityScanner: this.scanFunctionsComplexity.bind(this)
+				});
+			}
+			return { compliant: true, violations: [], regions: [] };
 		}
 	});
 	//#endregion
@@ -3002,6 +3086,14 @@
 						: [],
 				}),
 			);
+		}
+
+		/**
+		 * @param {string} name
+		 * @returns {boolean}
+		 */
+		unregisterTarget(name) {
+			return this._targets.delete(name);
 		}
 
 		/**
@@ -3681,6 +3773,26 @@
 		}
 
 		/**
+		 * Registers a target specification in the specification registry.
+		 * @param {string} name
+		 * @param {Record<string, unknown>} descriptor
+		 * @returns {void}
+		 */
+		registerTarget(name, descriptor) {
+			this._spec.registerTarget(name, descriptor);
+		}
+
+		/**
+		 * Unregisters a target and purges associated source text from governor VFS.
+		 * @param {string} name
+		 * @returns {boolean}
+		 */
+		unregisterTarget(name) {
+			this._sources.delete(name);
+			return this._spec.unregisterTarget(name);
+		}
+
+		/**
 		 * @param {string} filePath
 		 * @returns {string | null}
 		 */
@@ -4250,6 +4362,18 @@
 		'javascript:S6594': 'REGEX/EXEC_NON_GLOBAL_PREFERENCE',
 		'LINT/ARRAY_AT_PREFERENCE': 'LINT/ARRAY_AT_PREFERENCE',
 		'javascript:S7755': 'LINT/ARRAY_AT_PREFERENCE',
+		'STRING/REPLACE_ALL_PREFERENCE': 'STRING/REPLACE_ALL_PREFERENCE',
+		'javascript:S7781': 'STRING/REPLACE_ALL_PREFERENCE',
+		'STRING/RAW_PREFERENCE': 'STRING/RAW_PREFERENCE',
+		'javascript:S7780': 'STRING/RAW_PREFERENCE',
+		'A11Y/INPUT_WITHOUT_LABEL': 'A11Y/INPUT_WITHOUT_LABEL',
+		'Web:InputWithoutLabelCheck': 'A11Y/INPUT_WITHOUT_LABEL',
+		'EXCEPT/EMPTY_CATCH': 'EXCEPT/EMPTY_CATCH',
+		'javascript:S2486': 'EXCEPT/EMPTY_CATCH',
+		'SYNTAX/NESTED_TERNARY': 'SYNTAX/NESTED_TERNARY',
+		'javascript:S3358': 'SYNTAX/NESTED_TERNARY',
+		'COMPLEXITY/HIGH': 'COMPLEXITY/HIGH',
+		'javascript:S3776': 'COMPLEXITY/HIGH',
 	});
 
 	/**
@@ -4542,6 +4666,42 @@
 				description: 'Prefer Array.prototype.at(-index) over [array.length - index] for relative element access',
 				searchPattern: '[out.length - 1]',
 				replacePattern: '.at(-1)',
+				verifiedReceipt: 'PASS',
+				timestamp: '2026-01-01T00:00:00.000Z',
+				useCount: 1
+			});
+
+			this.record({
+				id: 'erl_seed_replace_all_preference',
+				fingerprint: 'STRING/REPLACE_ALL_PREFERENCE',
+				rule: 'javascript:S7781',
+				description: 'Prefer String.prototype.replaceAll() over RegExp global replace for literal string replacements',
+				searchPattern: String.raw`.replace(/\n/g, '<br/>')`,
+				replacePattern: String.raw`.replaceAll('\n', '<br/>')`,
+				verifiedReceipt: 'PASS',
+				timestamp: '2026-01-01T00:00:00.000Z',
+				useCount: 1
+			});
+
+			this.record({
+				id: 'erl_seed_string_raw_preference',
+				fingerprint: 'STRING/RAW_PREFERENCE',
+				rule: 'javascript:S7780',
+				description: String.raw`Prefer String.raw template literals over escaped backslash strings to avoid '\\'`,
+				searchPattern: String.raw`"\\"`,
+				replacePattern: String.raw`String.raw\`\\\``,
+				verifiedReceipt: 'PASS',
+				timestamp: '2026-01-01T00:00:00.000Z',
+				useCount: 1
+			});
+
+			this.record({
+				id: 'erl_seed_input_without_label',
+				fingerprint: 'A11Y/INPUT_WITHOUT_LABEL',
+				rule: 'Web:InputWithoutLabelCheck',
+				description: 'Provide an explicit aria-label or associated label element for form inputs to comply with WCAG 2.1 accessibility',
+				searchPattern: '<textarea id="ai-chat-input" placeholder="',
+				replacePattern: '<textarea id="ai-chat-input" aria-label="Ask Sovereign Copilot..." placeholder="',
 				verifiedReceipt: 'PASS',
 				timestamp: '2026-01-01T00:00:00.000Z',
 				useCount: 1
@@ -5445,6 +5605,7 @@
 		PROTOCOLS,
 		STATES,
 		STATUS,
+		SOVEREIGN_STATUS,
 		GATES,
 		SCHEMA_VERSION,
 		RECEIPT_VERSION,
@@ -5478,6 +5639,7 @@
 		get PhoenixTerrainRaymarcher() { return global.PhoenixTerrainRaymarcher || PhoenixTerrainRaymarcher; },
 		PhoenixCodeFormatter,
 		PhoenixLinterSuite,
+		linter: PhoenixLinterSuite,
 		PhoenixErrorResolutionLedger,
 		PhoenixBatchRemediationPipeline,
 		PhoenixRegionScaffolder,

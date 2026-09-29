@@ -7,12 +7,15 @@
  * Authority:           Host SSOT | Transduction Compiler Subsystem
  * ============================================================================
  *
- * TABLE OF CONTENTS & NAVIGATION ANCHORS:
- *   [SEC-01] Constants, Hex Error Registry & Type Primitives
- *   [SEC-02] Plane 1: Lexical Ingestion & Scanner (SynarcheLexer)
- *   [SEC-03] Plane 2: Mixin-Stack Parser & State Atomicity (SynarcheParser)
- *   [SEC-04] Plane 3: Generic Universal Cartridge Assembly (GUCAEmitter)
- *   [SEC-05] Master Transduction Facade & Universal Exports (SynarcheCompiler)
+ * TABLE OF CONTENTS & NAVIGATION ANCHORS (Ctrl+F):
+ *   [SEC-01] .......... Line ~21   -- Constants, Hex Error Registry & Type Primitives
+ *   [SEC-02] .......... Line ~227  -- Plane 1: Lexical Ingestion & Scanner (SynarcheLexer)
+ *   [SEC-02.5] ........ Line ~562  -- Plane 1.5: STCP-003 Expression AST Factory & Recursive-Descent Parser
+ *   [SEC-02.6] ........ Line ~1177 -- Plane 1.6: STCP-003 Hindley-Milner Type Inference Engine & System
+ *   [SEC-03] .......... Line ~1935 -- Plane 2: Mixin-Stack Parser & State Atomicity (SynarcheParser)
+ *   [SEC-03.5] ........ Line ~2457 -- Plane 2.5: STCP-002 Constitutional Admission Authority
+ *   [SEC-04] .......... Line ~2676 -- Plane 3: Generic Universal Cartridge Assembly (GUCAEmitter)
+ *   [SEC-05] .......... Line ~2900 -- Master Transduction Facade & Universal Exports (SynarcheCompiler)
  * ============================================================================
  */
 ((/** @type {Record<string, any>} */ global) => {
@@ -2804,6 +2807,8 @@ ${wrapperOpen}\t/** @type {ArrayBuffer|null} */
 	let _rawBuffer = null;
 	/** @type {DataView|null} */
 	let _dataView = null;
+	/** @type {{ protocol: string, updates: any[] }} */
+	const _reusableDeltaEnvelope = Object.seal({ protocol: 'VSRP-001', updates: [] });
 
 	const state = {
 ${(ast?.state || []).map(s => `\t\t${s.name}: ${s.defaultValue},`).join('\n')}
@@ -2851,10 +2856,10 @@ ${memoryAccessors.join('\n')}
 		},
 
 		update(temporalTick, input) {
-// [INV-08] Hot-loop allocation: pre-allocate before tick
-					const deltaEnvelope = { protocol: 'VSRP-001', updates: [] };
+			const tick = temporalTick;
+			_reusableDeltaEnvelope.updates.length = 0;
 			${methodBodies.update}
-			return deltaEnvelope;
+			return _reusableDeltaEnvelope;
 		},
 
 		render(ctx) {

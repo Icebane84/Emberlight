@@ -1,8 +1,8 @@
 # ARCH-SPEC-STCP-003: Sovereign Recursive-Descent Type Inference Engine
 
-**Standard:** STCP-003 / VSRP-001 / PERSIST-001 / PSGC-001  
-**Authority:** Pure Language Architecture Substrate (Zero-Dependency Vanilla JavaScript)  
-**Status:** ARCHITECTURAL SPECIFICATION & EXECUTION BLUEPRINT  
+**Standard:** STCP-003 / VSRP-001 / PERSIST-001 / PSGC-001
+**Authority:** Pure Language Architecture Substrate (Zero-Dependency Vanilla JavaScript)
+**Status:** ARCHITECTURAL SPECIFICATION & EXECUTION BLUEPRINT
 
 ---
 
@@ -14,7 +14,7 @@ STCP-003 upgrades the ingestion chassis of the Phoenix Sovereign Engine from a *
 flowchart TD
     Source[DSL Source Code] --> Lexer[SynarcheLexer]
     Lexer --> Scaffolding[Plane 2: Outer Parser: Directives, Memory, State]
-    
+
     subgraph STCP-003 Expression Substrate
         Scaffolding --> HandlerParser[Recursive-Descent Handler Parser]
         HandlerParser --> Stmts[Statements: let, assign, if/else, loops]
@@ -27,7 +27,7 @@ flowchart TD
 
     Unify -->|Success| AdmittedReceipt[STCP-002.TYPE_UNIFICATION: PASSED]
     Unify -->|Failure| DeniedReceipt[STCP-002.TYPE_UNIFICATION: FAILED]
-    
+
     AdmittedReceipt --> SealedReceipt[Sealed ConstitutionalReceipt]
     SealedReceipt --> FrozenAST[Deeply Frozen AST & Inferred Types]
     FrozenAST --> GUCA[GUCAEmitter: Zero-Dependency VSRP-001 Cartridge]
@@ -42,13 +42,13 @@ flowchart TD
 
 Following the `/grill-me` architectural review, the design invariants are:
 
-| Decision Area | Selected Strategy | Rationale |
-| :--- | :--- | :--- |
-| **Handler Syntax Scope** | **Hybrid Sub-Language** | Parses variable declarations (`let x = ...`), assignments (`state.x = ...`, `memory.y = ...`), arithmetic/logical expressions, and control flow (`if/else`, loops, calls) in strict mode, while falling back gracefully in sloppy mode. |
-| **Type Representation** | **Sovereign Fixed-Width & Simulation Primitives** | Models `u8`, `u16`, `u32`, `i32`, `f32`, `bool`, `string`, `void`, `Array<T>`, and `Function(params, ret)`. Bounds-checked unification prevents PERSIST-001 memory overflows at compile time. |
-| **Constitutional Gate** | **8th Invariant (`STCP-002.TYPE_UNIFICATION`)** | Added to `CONSTITUTIONAL_RULE_REGISTRY`. If unification fails, the admission receipt is `REJECTED`, and `GUCAEmitter.emit()` fails closed in STRICT mode. |
-| **Semantic Detection** | **100% AST-Driven (Zero Regex)** | Replaces fragile regex checks with AST node types (`NewExpr`, `ObjectLiteral`, `ArrayLiteral` in hot loops) and attaches an attenuated capability schema to `ctx`. |
-| **IDE & Telemetry** | **Type Map & Heatmap Offsets** | Compilations return `inferredTypes` (for ghost mirror type overlays) and `errorLineIndices` (for real-time canvas error bars matching `state_space_workspace.html`). |
+| Decision Area            | Selected Strategy                                 | Rationale                                                                                                                                                                                                                               |
+| :----------------------- | :------------------------------------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Handler Syntax Scope** | **Hybrid Sub-Language**                           | Parses variable declarations (`let x = ...`), assignments (`state.x = ...`, `memory.y = ...`), arithmetic/logical expressions, and control flow (`if/else`, loops, calls) in strict mode, while falling back gracefully in sloppy mode. |
+| **Type Representation**  | **Sovereign Fixed-Width & Simulation Primitives** | Models `u8`, `u16`, `u32`, `i32`, `f32`, `bool`, `string`, `void`, `Array<T>`, and `Function(params, ret)`. Bounds-checked unification prevents PERSIST-001 memory overflows at compile time.                                           |
+| **Constitutional Gate**  | **8th Invariant (`STCP-002.TYPE_UNIFICATION`)**   | Added to `CONSTITUTIONAL_RULE_REGISTRY`. If unification fails, the admission receipt is `REJECTED`, and `GUCAEmitter.emit()` fails closed in STRICT mode.                                                                               |
+| **Semantic Detection**   | **100% AST-Driven (Zero Regex)**                  | Replaces fragile regex checks with AST node types (`NewExpr`, `ObjectLiteral`, `ArrayLiteral` in hot loops) and attaches an attenuated capability schema to `ctx`.                                                                      |
+| **IDE & Telemetry**      | **Type Map & Heatmap Offsets**                    | Compilations return `inferredTypes` (for ghost mirror type overlays) and `errorLineIndices` (for real-time canvas error bars matching `state_space_workspace.html`).                                                                    |
 
 ---
 
@@ -84,6 +84,7 @@ class SynarcheTypeSystem {
 ### 3.2 Precedence-Climbing Expression Parser
 
 Recognizes binary expressions, member expressions, function invocations, and literals:
+
 * Precedence: `* / %` (prec 3) > `+ -` (prec 2) > `== != < <= > >=` (prec 1) > `&& ||` (prec 0).
 * Member access: `state.foo`, `memory.bar`, `ctx.audio.playTone()`.
 * AST Node types: `VarDecl`, `AssignExpr`, `BinaryExpr`, `UnaryExpr`, `CallExpr`, `MemberExpr`, `Identifier`, `Literal`, `BlockStmt`, `IfStmt`, `WhileStmt`.

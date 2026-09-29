@@ -3,7 +3,7 @@ name: error-resolution-ledger
 description: Governs the Error Resolution Ledger (ERL-001) catalog of canonical diagnostic fingerprints, pre-commit lint filters, and verified deterministic self-repair patterns across Emberlight and Phoenix engines.
 globs: "**/*.js, **/*.html, **/*.ts, testing/**/*.js, phoenix/**/*.js"
 alwaysApply: false
-version: 2.0.0-PRO
+version: 2.2.0-PRO
 ---
 
 # AGENT OPERATIONAL SPECIFICATION: Error Resolution Ledger (ERL-001)
@@ -1022,6 +1022,189 @@ Before presenting or applying any code changes, all AI agents must enforce these
   // ✅ CANONICAL REPAIR:
   const receipt = SynarcheAdmissionAuthority.admit(this.ast, this.errors);
   return { ast: this.ast, errors: this.errors, receipt };
+  ```
+
+---
+
+### [ERL-38] `TS/GENERIC_TOKEN_NARROWING` — Generic Token Transformation Preservation
+
+- **Trigger:** TypeScript error `TS2322` ("Type '...' is not assignable to type '...'") when passing arrays with narrow union tags (`'add' | 'eq'`) through utility aggregators.
+- **Hazard:** Hardcoding union types in utility parameter/return tags collapses narrow unions into their broadest form, violating downstream caller contracts.
+- **Rule:** Use JSDoc `@template {string} T` on array and token compaction helpers so that caller union constraints are preserved end-to-end.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION (Collapses narrow 'add' | 'eq' into 'add' | 'del' | 'eq'):
+  /**
+   * @param {Array<{ text: string, type: 'eq' | 'del' | 'add' }>} tokens
+   * @returns {Array<{ text: string, type: 'eq' | 'del' | 'add' }>}
+   */
+  function compactTokens(tokens) { ... }
+
+  // ✅ CANONICAL REPAIR:
+  /**
+   * @template {string} T
+   * @param {Array<{ text: string, type: T }>} tokens
+   * @returns {Array<{ text: string, type: T }>}
+   */
+  function compactTokens(tokens) { ... }
+  ```
+
+---
+
+### [ERL-39] `TS/ARRAY_REVERSE_POP_SAFETY` — Non-Null Stack Reversal Without Undefined Elements
+
+- **Trigger:** TypeScript error `TS2345` ("Argument of type '(T | undefined)[]' is not assignable to parameter of type 'T[]'").
+- **Hazard:** `Array.prototype.pop()` has signature `pop(): T | undefined`. Draining a stack into a result array via `while (stack.length) out.push(stack.pop())` forces the target array to include `undefined`.
+- **Rule:** Reverse the stack in-place using `stack.reverse()` instead of popping elements sequentially.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION (Injects undefined into tokens):
+  const tokens = [];
+  while (stack.length) tokens.push(stack.pop());
+
+  // ✅ CANONICAL REPAIR:
+  stack.reverse();
+  const tokens = stack;
+  ```
+
+---
+
+### [ERL-40] `TS/ARITHMETIC_NULLISH_COALESCING` — Arithmetic Isolation on Optional Numeric Properties
+
+- **Trigger:** TypeScript error `TS2532` ("Object is possibly 'undefined'") during arithmetic operations (`+`, `-`, `*`).
+- **Hazard:** Inline ternaries like `(existing ? existing.count : 0) + (entry.count || 1)` evaluate to `number | undefined` when `count?: number` is optional, causing static analyzers to reject the arithmetic operand.
+- **Rule:** Isolate each operand into a nullish-coalesced local constant (`?? 0` / `?? 1`) before performing arithmetic.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION:
+  const count = (existing ? existing.useCount : 0) + (entry.useCount || 1);
+
+  // ✅ CANONICAL REPAIR:
+  const prevCount = existing?.useCount ?? 0;
+  const addCount = entry?.useCount ?? 1;
+  const count = prevCount + addCount;
+  ```
+
+---
+
+### [ERL-41] `A11Y/INPUT_WITHOUT_LABEL` — Form Controls Missing Accessibility Label
+
+- **Trigger:** SonarLint `Web:InputWithoutLabelCheck` ("An explicit label should be provided for form inputs").
+- **Hazard:** Assistive technologies (screen readers) cannot announce the purpose of the input element, violating WCAG 2.1 Success Criterion 1.3.1 (Info and Relationships) and 4.1.2 (Name, Role, Value).
+- **Rule:** Provide an explicit `aria-label="Descriptive purpose..."` attribute or an associated `<label for="...">` element for every `<input>`, `<textarea>`, or `<select>`.
+- **Remediation Pattern:**
+
+  ```html
+  <!-- ❌ VIOLATION (Missing label or aria-label): -->
+  <textarea id="ai-chat-input" placeholder="Ask AI Copilot..."></textarea>
+
+  <!-- ✅ CANONICAL REPAIR (WCAG 2.1 compliant aria-label): -->
+  <textarea id="ai-chat-input" aria-label="Ask Sovereign Copilot..." placeholder="Ask AI Copilot..."></textarea>
+  ```
+
+---
+
+### [ERL-42] `EXCEPT/EMPTY_CATCH` — Unexplained Ignored Exception Handlers
+
+- **Trigger:** SonarLint `javascript:S2486` ("Empty catch blocks should be documented to explain why the exception is ignored").
+- **Hazard:** Silent exception suppression masks corrupted storage state, permission failures, and unexpected runtime faults, leaving downstream logic without root-cause diagnostics.
+- **Rule:** Every empty or fallback catch block must include an explanatory comment explicitly detailing why the error is ignored or safely suppressed.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION (Silent swallow):
+  try {
+      const stored = localStorage.getItem(KEY);
+      data = stored ? JSON.parse(stored) : [];
+  } catch (_) {
+      data = [];
+  }
+
+  // ✅ CANONICAL REPAIR (Explicit documentation):
+  try {
+      const stored = localStorage.getItem(KEY);
+      data = stored ? JSON.parse(stored) : [];
+  } catch (_) {
+      // Suppress corrupt localStorage deserialization and fallback cleanly to empty collection
+      data = [];
+  }
+  ```
+
+---
+
+### [ERL-43] `REGEX/VERBOSE_CHAR_CLASS` — Redundant Word Character Class Ranges
+
+- **Trigger:** SonarLint `javascript:S6353` ("Use concise character class syntax '\w' instead of '[a-zA-Z0-9_]'").
+- **Hazard:** Verbose character range syntax increases token size, lowers parser readability, and invites off-by-one regex omissions (e.g. forgetting `_` or numeric digits).
+- **Rule:** Substitute verbose alphanumeric/underscore character ranges `[a-zA-Z0-9_]` with the canonical `\w` shorthand.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION:
+  const fenceRe = /```([a-zA-Z0-9_]*)\n([\s\S]*?)```/g;
+
+  // ✅ CANONICAL REPAIR:
+  const fenceRe = /```(\w*)\n([\s\S]*?)```/g;
+  ```
+
+---
+
+### [ERL-44] `STRING/REPLACE_ALL_PREFERENCE` — Literal Substring Replacement with RegExp
+
+- **Trigger:** SonarLint `javascript:S7781` ("Use String#replaceAll instead of String#replace with a global RegExp when replacing literal substrings").
+- **Hazard:** Instantiating a `RegExp` object with the `/g` flag for fixed literal strings carries unnecessary regex compilation overhead and introduces escaping hazards when special regex characters (like `$`, `.`, `\`) are present in the needle.
+- **Rule:** Use `String.prototype.replaceAll(literalStr, replacementStr)` for global literal string replacements.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION:
+  const formatted = text.replace(/\n/g, '<br/>');
+
+  // ✅ CANONICAL REPAIR:
+  const formatted = text.replaceAll('\n', '<br/>');
+  ```
+
+---
+
+### [ERL-45] `SYNTAX/NESTED_TERNARY` — Nested Ternary Conditional Operators
+
+- **Trigger:** SonarLint `javascript:S3358` ("Extract this nested ternary operation into an independent statement or helper function").
+- **Hazard:** Nested ternary operators (`cond1 ? a : cond2 ? b : c`) severely degrade cognitive readability, obscure edge cases, and amplify cyclomatic and cognitive complexity metrics.
+- **Rule:** Extract nested conditionals into discrete helper functions with early returns, lookup dictionaries, or standalone `if/else` control flow branches.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION (Nested ternary):
+  const sign = type === 'del' ? '-' : type === 'ctx' ? ' ' : '';
+
+  // ✅ CANONICAL REPAIR (Dedicated helper function):
+  function resolveGutterSign(type, activeType) {
+      if (type === activeType) return activeType === 'del' ? '-' : '+';
+      if (type === 'ctx') return ' ';
+      return '';
+  }
+  ```
+
+---
+
+### [ERL-46] `STRING/RAW_PREFERENCE` — Escaped Backslash String Literal Hazards
+
+- **Trigger:** SonarLint `javascript:S7780` ("`String.raw` should be used to avoid escaping `\`").
+- **Hazard:** Double-escaping backslashes (`\\`) in regular expressions, file paths, and replacement patterns introduces cognitive overhead, leads to escaping drift, and risks accidental unescaped escape sequences.
+- **Rule:** Prefer `String.raw` template tag literals when string literals contain escaped backslashes without variable interpolation.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION:
+  const pattern = ".replace(/\\n/g, '<br/>')";
+  const path = "C:\\Users\\Chris\\Project";
+
+  // ✅ CANONICAL REPAIR:
+  const pattern = String.raw`.replace(/\n/g, '<br/>')`;
+  const path = String.raw`C:\Users\Chris\Project`;
   ```
 
 ---

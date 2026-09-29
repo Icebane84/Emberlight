@@ -273,7 +273,9 @@ const GameRuntime = (() => {
 	const acc = resolveAccessors(StateMod, store);
 
 	let activeDistrict = "TITLE";
-	const isTickPaused = false;
+	let isTickPaused = false;
+	let _consecutiveTickErrors = 0;
+	const MAX_CONSECUTIVE_TICK_ERRORS = 5;
 	let lastFrameTime = typeof performance !== "undefined" ? performance.now() : Date.now();
 	let stepCounter = 0;
 	/** @type {'SAVE' | 'LOAD'} */
@@ -489,6 +491,8 @@ const GameRuntime = (() => {
 			toggle3DViewportExpansion(false);
 		}
 		activeDistrict = district;
+		_consecutiveTickErrors = 0;
+		isTickPaused = false;
 
 		const currentTownId = acc.getTownId();
 		const inTown = Boolean(currentTownId);
@@ -626,20 +630,44 @@ const GameRuntime = (() => {
 
 	//#region [SEC-04] Lifecycle Tick & Game Loop Coordinator
 	/**
+	 * 4-Tier Sovereign Supervisor Watchdog & Tick Coordinator.
+	 * Re-queues the animation frame at LINE 1 to guarantee chassis survivability,
+	 * isolates district simulation exceptions, and trips circuit breaker on repeat failures.
 	 * @param {number} [timestamp]
 	 */
 	const hostTick = (
 		timestamp = typeof performance !== "undefined" ? performance.now() : Date.now(),
 	) => {
+		// Tier 4 Supervisor: ALWAYS re-queue RAF first so the loop never dies
+		if (typeof requestAnimationFrame !== "undefined") {
+			requestAnimationFrame(hostTick);
+		}
+
 		const dt = (timestamp - lastFrameTime) / 1000;
 		lastFrameTime = timestamp;
 
-		if (!isTickPaused) {
-			StepMod.updateActiveDistrictSubsystems(dt, getSharedDeps());
-		}
+		if (isTickPaused) return;
 
-		if (typeof requestAnimationFrame !== "undefined") {
-			requestAnimationFrame(hostTick);
+		try {
+			StepMod.updateActiveDistrictSubsystems(dt, getSharedDeps());
+			_consecutiveTickErrors = 0;
+		} catch (tickErr) {
+			_consecutiveTickErrors++;
+			const errMsg = tickErr instanceof Error ? tickErr.message : String(tickErr);
+			console.error(`[GameRuntime/WATCHDOG] Tick fault in district '${activeDistrict}' (#${_consecutiveTickErrors}):`, errMsg);
+
+			// Tier 3 Circuit Breaker: Trip after threshold consecutive failures
+			if (_consecutiveTickErrors >= MAX_CONSECUTIVE_TICK_ERRORS) {
+				isTickPaused = true;
+				console.error(`[GameRuntime/CIRCUIT_BREAKER] Tripped in district '${activeDistrict}'. Simulation latched to prevent tab lock. Call resumeTicks() to unlatch.`);
+				if (EventBus && typeof EventBus.emit === "function") {
+					EventBus.emit("RUNTIME:CIRCUIT_BREAKER_TRIPPED", {
+						district: activeDistrict,
+						error: errMsg,
+						consecutiveErrors: _consecutiveTickErrors
+					});
+				}
+			}
 		}
 	};
 	//#endregion
@@ -711,6 +739,11 @@ const GameRuntime = (() => {
 		commitSession: acc.commitSession,
 		getActiveDistrict: () => activeDistrict,
 		switchDistrict,
+		resumeTicks: () => {
+			_consecutiveTickErrors = 0;
+			isTickPaused = false;
+		},
+		isPaused: () => isTickPaused,
 		enterMarketDistrict,
 		handleCancelAction,
 		toggleQ4DeckExpansion,

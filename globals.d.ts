@@ -1446,6 +1446,7 @@ declare interface PhoenixSovereignEngineFacade {
     formatJSON(jsonStr: string, indent?: number): string;
   };
   PhoenixLinterSuite: {
+	scanFunctionsComplexity: any;
     lintCode(source: string, filename?: string): Array<{ line: number; col: number; message: string; severity: 'error' | 'warning' }>;
   };
 }
@@ -1696,13 +1697,60 @@ declare var phoenixOllamaAdapterFactory: (config?: { host?: string; model?: stri
 declare var phoenixProposalParser: (rawText: string) => Promise<PhoenixProposalDTO>;
 declare var buildIntentPrompt: (intent: string, targetFile: string, sourceCode: string) => string;
 declare var buildDiagnosticDebugPrompt: (targetFile: string, sourceCode: string, diagnostics: Array<{ rule?: string; message?: string; line?: number; col?: number; severity?: string }>, activeLine?: number) => string;
-declare function evaluateProposalWithSentinel(
-  proposal: PhoenixProposalDTO | Record<string, unknown>,
-  subject?: string,
-  overrideOptions?: { skipRepairLoop?: boolean }
-): Promise<PhoenixReceiptDTO>;
+declare interface PhoenixSentinelEvaluatorFacade {
+  (
+    proposal: PhoenixProposalDTO | Record<string, unknown>,
+    subject?: string,
+    overrideOptions?: { skipRepairLoop?: boolean; timeoutMs?: number }
+  ): Promise<PhoenixReceiptDTO>;
+  evaluateProposalWithSentinel: (
+    proposal: PhoenixProposalDTO | Record<string, unknown>,
+    subject?: string,
+    overrideOptions?: { skipRepairLoop?: boolean; timeoutMs?: number }
+  ) => Promise<PhoenixReceiptDTO>;
+  evaluate: (
+    proposal: PhoenixProposalDTO | Record<string, unknown>,
+    subject?: string,
+    overrideOptions?: { skipRepairLoop?: boolean; timeoutMs?: number }
+  ) => Promise<PhoenixReceiptDTO>;
+}
+
+declare var PhoenixSentinelEvaluator: PhoenixSentinelEvaluatorFacade;
+declare var evaluateProposalWithSentinel: PhoenixSentinelEvaluatorFacade;
+
+declare interface VLTRegionInfoDTO {
+  sec: string;
+  title: string;
+  line: number;
+  rawLine: string;
+}
+
+declare interface VLTComplianceViolationDTO {
+  type: string;
+  message: string;
+  line?: number;
+  severity?: string;
+}
+
+declare interface VLTComplianceReportDTO {
+  compliant: boolean;
+  violations: VLTComplianceViolationDTO[];
+  regions: VLTRegionInfoDTO[];
+}
+
+declare interface PhoenixVLTComplianceEngineFacade {
+  scanRegions(sourceCode: string): VLTRegionInfoDTO[];
+  formatJumpTable(regions: VLTRegionInfoDTO[]): string[];
+  syncJumpTable(sourceCode: string, maxPasses?: number): string;
+  validateCompliance(sourceCode: string, options?: { maxComplexity?: number; complexityScanner?: (code: string, threshold?: number) => Array<{ name: string; complexity: number; line: number }> }): VLTComplianceReportDTO;
+  scaffoldModule(templateSource: string, metadata?: Record<string, string>): string;
+}
+
+declare var PhoenixVLTComplianceEngine: PhoenixVLTComplianceEngineFacade;
 
 declare interface Window {
+  PhoenixVLTComplianceEngine?: PhoenixVLTComplianceEngineFacade;
+  PhoenixSentinelEvaluator?: PhoenixSentinelEvaluatorFacade;
   PhoenixSovereignEngine?: PhoenixSovereignEngineFacade;
   PhoenixGovernor?: PhoenixGovernorInstance;
   PhoenixWebLLMBridge?: PhoenixWebLLMWorkerBridgeInstance;
@@ -1712,6 +1760,6 @@ declare interface Window {
   phoenixWebGPUAdapterStubFactory?: () => unknown;
   phoenixOllamaAdapterFactory?: () => unknown;
   phoenixProposalParser?: (rawText: string) => Promise<PhoenixProposalDTO>;
-  evaluateProposalWithSentinel?: typeof evaluateProposalWithSentinel;
+  evaluateProposalWithSentinel?: PhoenixSentinelEvaluatorFacade;
   showDirectoryPicker?: () => Promise<unknown>;
 }

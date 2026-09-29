@@ -8,10 +8,10 @@ version: 5.1.0-PRO
 
 # AGENT OPERATIONAL SPECIFICATION: Phoenix Sovereign VLT-003/VLT-004 Runtime Substrate
 
-**Document Identifier:** SKILL-PHOENIX-SOVEREIGN-VLT003-PRO  
-**Protocol Version:** VLT-003 / VLT-004 / PERSIST-001 / VSRP-001 / SDCP-001 / PMIP-001 / MPFS-001 / OSLM-001  
-**Constitutional Authority:** [`PHOENIX_SOVEREIGN_GRAND_CONSTITUTION (PSGC-001)`](../PHOENIX_SOVEREIGN_CONSTITUTION.md) — **PSGC-001 is the supreme normative standard. This skill is a operational summary. On any conflict, PSGC-001 governs.**  
-**Version:** `5.1.0-PRO` (upgraded from 5.0.0 — STCP-003 Precedence Climbing & AST Typing sync)  
+**Document Identifier:** SKILL-PHOENIX-SOVEREIGN-VLT003-PRO
+**Protocol Version:** VLT-003 / VLT-004 / PERSIST-001 / VSRP-001 / SDCP-001 / PMIP-001 / MPFS-001 / OSLM-001
+**Constitutional Authority:** [`PHOENIX_SOVEREIGN_GRAND_CONSTITUTION (PSGC-001)`](../PHOENIX_SOVEREIGN_CONSTITUTION.md) — **PSGC-001 is the supreme normative standard. This skill is a operational summary. On any conflict, PSGC-001 governs.**
+**Version:** `5.1.0-PRO` (upgraded from 5.0.0 — STCP-003 Precedence Climbing & AST Typing sync)
 **Status:** `NORMATIVE OPERATIONAL REFERENCE`
 **Classification:** Normative Kernel Runtime Standard & AI Agent Operational Directive
 
@@ -52,47 +52,47 @@ A single `.html` container is architecturally partitioned into 3 isolated execut
 
 ## 2. The 6-Layer Protocol Stack
 
-| Standard | Architectural Role | Operational Mechanism | Failure Signature |
-| :--- | :--- | :--- | :--- |
-| **MPFS-001** | Spatial Layout & Staging | Single-file `#region` anchors (`[SEC-00]`..`[SEC-23]`); downward dependency only. | Cross-plane reference leakage; global variable collisions. |
-| **SDCP-001** | Capability Attenuation | Zero Ambient Authority; modules receive minimal, explicitly declared capability handles. | Direct access to raw `window`/`document` from Plane 1. |
-| **PERSIST-001** | State Authority & Binary Memory | Contiguous `ArrayBuffer` state; 32-byte header with CRC32; OPFS/IndexedDB storage. | Deserialization mismatch; GC frame spikes. |
-| **VSRP-001** | Universal 9-Method Lifecycle | Canonical 9-method finite state machine (`configure` $\to$ `destroy`); pure `update()`. | Unasserted state invocation; rendering inside `update()`. |
-| **PMIP-001** | Inter-Plane Message Envelopes | Validated, immutable message envelopes across threads; tokenized teardown unbinds. | Telepathic state coupling; unhandled listener leaks. |
-| **STCP-001** | Transduction & Compilation | Semantic Tri-Planar Compilation Protocol (`.phx`/`.syn` DSL $\to$ VSRP-001 Cartridge IIFE via `synarche_parser.js`). | Syntax error (`ERR_0x14`); unmapped capability (`ERR_0x15`). |
-| **MVP-001** | Automated Sentinel Governance | 20-pass pre-flight hardware assertion battery and AST lexical linter. | System boot halt; visual failure barrier. |
+| Standard        | Architectural Role              | Operational Mechanism                                                                                                | Failure Signature                                            |
+| :-------------- | :------------------------------ | :------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------- |
+| **MPFS-001**    | Spatial Layout & Staging        | Single-file `#region` anchors (`[SEC-00]`..`[SEC-23]`); downward dependency only.                                    | Cross-plane reference leakage; global variable collisions.   |
+| **SDCP-001**    | Capability Attenuation          | Zero Ambient Authority; modules receive minimal, explicitly declared capability handles.                             | Direct access to raw `window`/`document` from Plane 1.       |
+| **PERSIST-001** | State Authority & Binary Memory | Contiguous `ArrayBuffer` state; 32-byte header with CRC32; OPFS/IndexedDB storage.                                   | Deserialization mismatch; GC frame spikes.                   |
+| **VSRP-001**    | Universal 9-Method Lifecycle    | Canonical 9-method finite state machine (`configure` $\to$ `destroy`); pure `update()`.                              | Unasserted state invocation; rendering inside `update()`.    |
+| **PMIP-001**    | Inter-Plane Message Envelopes   | Validated, immutable message envelopes across threads; tokenized teardown unbinds.                                   | Telepathic state coupling; unhandled listener leaks.         |
+| **STCP-001**    | Transduction & Compilation      | Semantic Tri-Planar Compilation Protocol (`.phx`/`.syn` DSL $\to$ VSRP-001 Cartridge IIFE via `synarche_parser.js`). | Syntax error (`ERR_0x14`); unmapped capability (`ERR_0x15`). |
+| **MVP-001**     | Automated Sentinel Governance   | 20-pass pre-flight hardware assertion battery and AST lexical linter.                                                | System boot halt; visual failure barrier.                    |
 
 ---
 
 ## 3. Structural Manifest & Jump Table (`[SEC-00]` through `[SEC-23]`)
 
-| Section Anchor | Subsystem Name | Thread / Plane | Responsibility |
-| :--- | :--- | :--- | :--- |
-| **`[SEC-00]`** | Polyglot CLI Bootstrapper & AST Linter | Node.js / Pre-Boot | AST boundary linter and local Node HTTP server. |
-| **`[SEC-01]`** | Presentation Styles & CSS Tokens | Plane 0 (DOM) | Root custom properties, viewport constraints, pixelated canvas. |
-| **`[SEC-02]`** | Viewport Socket & Telemetry Docks | Plane 0 (DOM) | Canvas mount socket, Sentinel log views, telemetry HUD docks. |
-| **`[SEC-00-GLOBALS]`** | Embedded Ambient Contract Layer | Plane 1 (Worker) | JSDoc schemas, branded scalars (`ByteOffset`), interface contracts. |
-| **`[SEC-03]`** | Mathematical Primitives (PRNG & CRC32) | Plane 1 (Worker) | Mulberry32 seeded float generator and bitwise CRC32 lookup table. |
-| **`[SEC-04]`** | Cryptographic Provenance Ledger | Plane 1 (Worker) | SHA-256 state hashing (`crypto.subtle`) and timeline chaining. |
-| **`[SEC-05]`** | 32-Byte Header Packing Engine | Plane 1 (Worker) | Binary serializer writing little-endian header (`0x5053594E`, tick, seed, CRC). |
-| **`[SEC-06]`** | PEVM Constitution & Governance Ledger | Plane 1 (Worker) | Hardcoded domain invariants, 64-byte ledger, AI proposal validator. |
-| **`[SEC-07]`** | OSLM DAG & Deferred Invariant Verifier | Plane 1 (Worker) | Topological sort (Kahn's), Hopcroft-Tarjan cut-vertex detection, EBNF Invariant DSL (`no_call`, `assert`) deferred call-window verifier. *[INV-01]: Domain progression formulas are banned from this section.* |
-| **`[SEC-08]`** | High-Frequency Input Ring Buffer | Plane 1 (Worker) | Zero-allocation circular FIFO (`Int32Array`) queuing input tokens. |
-| **`[SEC-09]`** | Contiguous Entity Heap & Memory Map | Plane 1 (Worker) | Linear `ArrayBuffer` partition with fixed strides and byte offsets. |
-| **`[SEC-10]`** | VSRP-001 9-Method Tenant Core | Plane 1 (Worker) | Canonical tenant implementation with strict lifecycle FSM enforcement. |
-| **`[SEC-11]`** | Sovereign Persistence Subsystem (SPS) | Plane 1 (Worker) | Multi-tenant registry, snapshot extraction, and canonical packing. |
-| **`[SEC-12]`** | Bidirectional OPFS Buffer Extractor | Plane 1 (Worker) | Direct disk sync via `FileSystemSyncAccessHandle`. |
-| **`[SEC-13]`** | Accumulator Clock & Kinematics | Plane 1 (Worker) | Monotonic 60 FPS loop ($\Delta t = 16.66\text{ms}$), FIFO draining, physics. |
-| **`[SEC-14]`** | Diegetic Scribe Lens Renderer | Plane 1 (Worker) | Zero-GC `OffscreenCanvas` 2D projection renderer (zero string allocations). |
-| **`[SEC-15]`** | Worker Message Dispatch & Router | Plane 1 (Worker) | Standardized PMIP-001 envelope ingestion and thread routing. |
-| **`[SEC-16]`** | MVP-001 20-Pass Automated Sentinel | Plane 2 (Main) | Pre-flight assertion gate auditing hardware APIs and structural contracts. |
-| **`[SEC-17]`** | Kernel Blob Spawner & Revocation | Plane 2 (Main) | Plaintext `#worker-kernel` ingestion, Blob URL creation, and revocation. |
-| **`[SEC-18]`** | SDCP-001 Capability Broker | Plane 2 (Main) | Canvas control transfer via `transferControlToOffscreen()`. |
-| **`[SEC-19]`** | DOM Input Transducer & Key Bindings | Plane 2 (Main) | Captures hardware events, packs numerical tokens for worker FIFO. |
-| **`[SEC-20]`** | Procedural Web Audio Synthesis | Plane 2 (Main) | Pure algorithmic Web Audio oscillators (zero external sound files). |
-| **`[SEC-21]`** | Dual-Engine Storage Adapter | Plane 2 (Main) | Main-thread IndexedDB fallback and append-only journal. |
-| **`[SEC-22]`** | Telemetry HUD Mirror & Panic Gateway | Plane 2 (Main) | DOM telemetry updates, runtime error trapping, and panic resets. |
-| **`[SEC-23]`** | Universal IIFE Export Envelope | Outer Scope | Dual-binding export wrapper (`module.exports` and `window`). |
+| Section Anchor         | Subsystem Name                         | Thread / Plane     | Responsibility                                                                                                                                                                                                 |
+| :--------------------- | :------------------------------------- | :----------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`[SEC-00]`**         | Polyglot CLI Bootstrapper & AST Linter | Node.js / Pre-Boot | AST boundary linter and local Node HTTP server.                                                                                                                                                                |
+| **`[SEC-01]`**         | Presentation Styles & CSS Tokens       | Plane 0 (DOM)      | Root custom properties, viewport constraints, pixelated canvas.                                                                                                                                                |
+| **`[SEC-02]`**         | Viewport Socket & Telemetry Docks      | Plane 0 (DOM)      | Canvas mount socket, Sentinel log views, telemetry HUD docks.                                                                                                                                                  |
+| **`[SEC-00-GLOBALS]`** | Embedded Ambient Contract Layer        | Plane 1 (Worker)   | JSDoc schemas, branded scalars (`ByteOffset`), interface contracts.                                                                                                                                            |
+| **`[SEC-03]`**         | Mathematical Primitives (PRNG & CRC32) | Plane 1 (Worker)   | Mulberry32 seeded float generator and bitwise CRC32 lookup table.                                                                                                                                              |
+| **`[SEC-04]`**         | Cryptographic Provenance Ledger        | Plane 1 (Worker)   | SHA-256 state hashing (`crypto.subtle`) and timeline chaining.                                                                                                                                                 |
+| **`[SEC-05]`**         | 32-Byte Header Packing Engine          | Plane 1 (Worker)   | Binary serializer writing little-endian header (`0x5053594E`, tick, seed, CRC).                                                                                                                                |
+| **`[SEC-06]`**         | PEVM Constitution & Governance Ledger  | Plane 1 (Worker)   | Hardcoded domain invariants, 64-byte ledger, AI proposal validator.                                                                                                                                            |
+| **`[SEC-07]`**         | OSLM DAG & Deferred Invariant Verifier | Plane 1 (Worker)   | Topological sort (Kahn's), Hopcroft-Tarjan cut-vertex detection, EBNF Invariant DSL (`no_call`, `assert`) deferred call-window verifier. *[INV-01]: Domain progression formulas are banned from this section.* |
+| **`[SEC-08]`**         | High-Frequency Input Ring Buffer       | Plane 1 (Worker)   | Zero-allocation circular FIFO (`Int32Array`) queuing input tokens.                                                                                                                                             |
+| **`[SEC-09]`**         | Contiguous Entity Heap & Memory Map    | Plane 1 (Worker)   | Linear `ArrayBuffer` partition with fixed strides and byte offsets.                                                                                                                                            |
+| **`[SEC-10]`**         | VSRP-001 9-Method Tenant Core          | Plane 1 (Worker)   | Canonical tenant implementation with strict lifecycle FSM enforcement.                                                                                                                                         |
+| **`[SEC-11]`**         | Sovereign Persistence Subsystem (SPS)  | Plane 1 (Worker)   | Multi-tenant registry, snapshot extraction, and canonical packing.                                                                                                                                             |
+| **`[SEC-12]`**         | Bidirectional OPFS Buffer Extractor    | Plane 1 (Worker)   | Direct disk sync via `FileSystemSyncAccessHandle`.                                                                                                                                                             |
+| **`[SEC-13]`**         | Accumulator Clock & Kinematics         | Plane 1 (Worker)   | Monotonic 60 FPS loop ($\Delta t = 16.66\text{ms}$), FIFO draining, physics.                                                                                                                                   |
+| **`[SEC-14]`**         | Diegetic Scribe Lens Renderer          | Plane 1 (Worker)   | Zero-GC `OffscreenCanvas` 2D projection renderer (zero string allocations).                                                                                                                                    |
+| **`[SEC-15]`**         | Worker Message Dispatch & Router       | Plane 1 (Worker)   | Standardized PMIP-001 envelope ingestion and thread routing.                                                                                                                                                   |
+| **`[SEC-16]`**         | MVP-001 20-Pass Automated Sentinel     | Plane 2 (Main)     | Pre-flight assertion gate auditing hardware APIs and structural contracts.                                                                                                                                     |
+| **`[SEC-17]`**         | Kernel Blob Spawner & Revocation       | Plane 2 (Main)     | Plaintext `#worker-kernel` ingestion, Blob URL creation, and revocation.                                                                                                                                       |
+| **`[SEC-18]`**         | SDCP-001 Capability Broker             | Plane 2 (Main)     | Canvas control transfer via `transferControlToOffscreen()`.                                                                                                                                                    |
+| **`[SEC-19]`**         | DOM Input Transducer & Key Bindings    | Plane 2 (Main)     | Captures hardware events, packs numerical tokens for worker FIFO.                                                                                                                                              |
+| **`[SEC-20]`**         | Procedural Web Audio Synthesis         | Plane 2 (Main)     | Pure algorithmic Web Audio oscillators (zero external sound files).                                                                                                                                            |
+| **`[SEC-21]`**         | Dual-Engine Storage Adapter            | Plane 2 (Main)     | Main-thread IndexedDB fallback and append-only journal.                                                                                                                                                        |
+| **`[SEC-22]`**         | Telemetry HUD Mirror & Panic Gateway   | Plane 2 (Main)     | DOM telemetry updates, runtime error trapping, and panic resets.                                                                                                                                               |
+| **`[SEC-23]`**         | Universal IIFE Export Envelope         | Outer Scope        | Dual-binding export wrapper (`module.exports` and `window`).                                                                                                                                                   |
 
 ---
 
@@ -272,4 +272,3 @@ When an autonomous AI agent inspects, modifies, or refactors a file governed by 
 5. **Pre-Flight Verification:** Ensure the code passes all 20 Sentinel assertions without error.
 6. **STCP Transduction Toolchain:** Author domain logic in `.phx`/`.syn` DSL format and compile via `synarche_parser.js` for zero-dependency VSRP-001 cartridge generation.
 7. **STCP-003 Precedence Climbing & Polymorphic AST Declarations:** When parsing expressions in `SynarcheStatementParser`, enforce deterministic precedence climbing: Equality (`== != === !==`, 0) < Relational (`< <= > >=`, 1) < Additive (`+ -`, 2) < Multiplicative (`* / %`, 3), with logical operators (`&&`, `||`) binding lower than comparisons and parentheses explicitly overriding precedence. All AST node interfaces must inherit `SynarcheBaseNode` (`line?: number; col?: number;`) and provide cross-cutting compatibility properties (`target?`, `value?`, `args?`, `kind?`) in ambient `phoenix.d.ts` declarations.
-

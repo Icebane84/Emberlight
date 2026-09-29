@@ -4,15 +4,20 @@
  * EMBERLIGHT SOVEREIGN ENGINE: STCP TRANSDUCTION COMPILER & INGESTION BRIDGE
  * Document Identifier: STCP-001-SYNARCHE-PARSER
  * Governing Protocol:  VSRP-001 / STCP-001 / PERSIST-001 / SDCP-001 / PMIP-001
+ *                      MPFS-001 v2.3.0-NORMATIVE / PSGC-001
  * Authority:           Host SSOT | Transduction Compiler Subsystem
+ * Version:             1.1.0-PRO (MPFS-001 constitutional compliance — ERR_0x0D / ERR_0x1B / ERR_0x1F)
  * ============================================================================
  *
- * TABLE OF CONTENTS & NAVIGATION ANCHORS:
- *   [SEC-01] Constants, Hex Error Registry & Type Primitives
- *   [SEC-02] Plane 1: Lexical Ingestion & Scanner (SynarcheLexer)
- *   [SEC-03] Plane 2: Mixin-Stack Parser & State Atomicity (SynarcheParser)
- *   [SEC-04] Plane 3: Generic Universal Cartridge Assembly (GUCAEmitter)
- *   [SEC-05] Master Transduction Facade & Universal Exports (SynarcheCompiler)
+ * TABLE OF CONTENTS & NAVIGATION ANCHORS (Ctrl+F):
+ *   [SEC-01] .......... Line ~21   -- Constants, Hex Error Registry & Type Primitives
+ *   [SEC-02] .......... Line ~227  -- Plane 1: Lexical Ingestion & Scanner (SynarcheLexer)
+ *   [SEC-02.5] ........ Line ~562  -- Plane 1.5: STCP-003 Expression AST Factory & Recursive-Descent Parser
+ *   [SEC-02.6] ........ Line ~1177 -- Plane 1.6: STCP-003 Hindley-Milner Type Inference Engine & System
+ *   [SEC-03] .......... Line ~1935 -- Plane 2: Mixin-Stack Parser & State Atomicity (SynarcheParser)
+ *   [SEC-03.5] ........ Line ~2457 -- Plane 2.5: STCP-002 Constitutional Admission Authority
+ *   [SEC-04] .......... Line ~2676 -- Plane 3: Generic Universal Cartridge Assembly (GUCAEmitter)
+ *   [SEC-05] .......... Line ~2900 -- Master Transduction Facade, verifyBusLinkIntegrity & Universal Exports (SynarcheCompiler)
  * ============================================================================
  */
 ((/** @type {Record<string, any>} */ global) => {
@@ -121,6 +126,7 @@
 	 */
 
 	const ERRORS = Object.freeze({
+		ERR_0x0D: 'ERR_0x0D: ORPHANED_BUS_LINK',
 		ERR_0x10: 'ERR_0x10: CYCLIC_MIXIN_DEPENDENCY',
 		ERR_0x11: 'ERR_0x11: MIXIN_COLLISION',
 		ERR_0x12: 'ERR_0x12: MIXIN_FIELD_COLLISION',
@@ -132,6 +138,8 @@
 		ERR_0x18: 'ERR_0x18: GUCA_EMISSION_DENIED',
 		ERR_0x19: 'ERR_0x19: CONSTITUTIONAL_ADMISSION_FAILED',
 		ERR_0x1A: 'ERR_0x1A: TYPE_UNIFICATION_FAILURE',
+		ERR_0x1B: 'ERR_0x1B: SOCKET_CAPABILITY_BREACH',
+		ERR_0x1F: 'ERR_0x1F: MAIN_THREAD_ATOMIC_WAIT_VIOLATION',
 	});
 
 	/**
@@ -186,6 +194,24 @@
 			name: 'Cryptographic Proof-Carrying Admission Seal',
 			phase: 'ADMISSION',
 			severity: 'BLOCK'
+		}),
+		'MPFS-001.BUS_LINK_INTEGRITY': Object.freeze({
+			id: 'ERR_0x0D',
+			name: 'OSLM Orphaned EventBus Topic Extraction Gate (SEC-09 Rule 9)',
+			phase: 'TOPOLOGY',
+			severity: 'BLOCK'
+		}),
+		'CAP_WASM_SIMD.SOCKET_BREACH': Object.freeze({
+			id: 'ERR_0x1B',
+			name: 'SEC-06B Polyglot Socket DOM Access from Plane 1 (SDCP-001 Violation)',
+			phase: 'AUTHORITY',
+			severity: 'BLOCK'
+		}),
+		'INV-SAB-01.ATOMIC_WAIT': Object.freeze({
+			id: 'ERR_0x1F',
+			name: 'Atomics.wait() Prohibited on Main Thread (SEC-06C INV-SAB-01)',
+			phase: 'PERFORMANCE',
+			severity: 'BLOCK'
 		})
 	});
 
@@ -194,7 +220,7 @@
 		'fetch', 'XMLHttpRequest', 'eval', 'Function', 'debugger'
 	]));
 
-	const COMPILER_VERSION = '1.0.0-PRO';
+	const COMPILER_VERSION = '1.1.0-PRO';
 	const MAX_PERSIST_HEAP_BYTES = 2048;
 	const TRIPARTITE_HEADER_BYTES = 96;
 	const MAX_PAYLOAD_MEMORY_BYTES = MAX_PERSIST_HEAP_BYTES - TRIPARTITE_HEADER_BYTES; // 1952 bytes
@@ -2049,10 +2075,11 @@
 				}
 			}
 
-			// Post-parse semantic verifications
+			// Post-parse semantic verifications (MPFS-001 [SEC-09] Rules 9–11 compliance)
 			this._validateCapabilities();
 			this._validateMixins();
 			this._validateFaradayAndHotLoops();
+			this._verifyBusLinkIntegrity(); // SEC-09 Rule 9: ERR_0x0D bus-link extraction gate
 
 			// STCP-002: Evaluate and seal constitutional admission proof
 			const receipt = SynarcheAdmissionAuthority.admit(this.ast, this.errors, { mode: this.mode });
@@ -2431,22 +2458,76 @@
 		}
 
 		/**
-		 * Architectural: State-mutating verification pass. Asserts Faraday isolation (SDCP-001) and zero-allocation hot loops.
+		 * Architectural: State-mutating verification pass. Asserts Faraday isolation (SDCP-001), zero-allocation
+		 * hot loops (INV-08), SEC-06B socket capability discipline, and INV-SAB-01 Atomics asymmetry.
 		 * @returns {void}
 		 */
 		_validateFaradayAndHotLoops() {
 			for (const [ method, handler ] of this.ast.handlers.entries()) {
+				// Pass 1: SDCP-001 Faraday global isolation (ERR_0x16)
 				for (const forbidden of FARADAY_RESTRICTED_GLOBALS) {
 					const regex = new RegExp(String.raw`\b` + forbidden + String.raw`\b`);
 					if (regex.test(handler.body)) {
 						this.fail(ERRORS.ERR_0x16, `Faraday isolation breach: forbidden global '${forbidden}' in handler '${method}'`);
 					}
 				}
+				// Pass 2: INV-08 Zero transient allocation in update() hot path (ERR_0x17)
 				if (method === 'update' && (
 					/\bnew\s+(?!DataView|ArrayBuffer)[A-Za-z0-9_$]+/.test(handler.body) ||
 					/\b(new\s+Object|new\s+Array|Array\.from|Object\.assign|Object\.create)\b/.test(handler.body)
 				)) {
 					this.fail(ERRORS.ERR_0x17, `Transient hot-loop heap allocation in 'update' handler violates zero-GC invariant`);
+				}
+				// Pass 3: SEC-06B Polyglot Socket SDCP-001 discipline (ERR_0x1B)
+				// Plane 1 handlers must never access document.getElementById (DOM socket extraction
+				// is exclusively a Plane 2 (Coordinator) responsibility per SDCP-001 capability attenuation).
+				if (/document\.getElementById|document\.querySelector/.test(handler.body)) {
+					this.fail(ERRORS.ERR_0x1B, `SEC-06B socket breach in handler '${method}': Plane 1 must not access DOM sockets. Extract via Plane 2 and pass as PMIP-001 Transferable.`);
+				}
+				// Pass 4: INV-SAB-01 Atomics.wait() prohibited in non-Worker context (ERR_0x1F)
+				// boot(), configure(), render(), activate() run on the main thread; Atomics.wait() there
+				// blocks the event loop and is constitutionally forbidden (SEC-06C).
+				const MAIN_THREAD_METHODS = new Set([ 'boot', 'configure', 'activate', 'render' ]);
+				if (MAIN_THREAD_METHODS.has(method) && /Atomics\.wait\b/.test(handler.body)) {
+					this.fail(ERRORS.ERR_0x1F, `INV-SAB-01 violation in handler '${method}': Atomics.wait() is prohibited on the main thread. Use Atomics.notify() from Plane 0/2 only.`);
+				}
+			}
+		}
+
+		/**
+		 * Architectural: Pure helper. Extracts all emit and listen topic identifiers from AST event handlers.
+		 * Cognitive Complexity: <= 4.
+		 * @returns {{ emits: Set<string>, listens: Set<string> }}
+		 * @private
+		 */
+		_extractEventBusTopics() {
+			const emits = new Set();
+			const listens = new Set();
+			for (const ev of this.ast.eventHandlers) {
+				if (ev.kind === 'emit') emits.add(ev.topic);
+				else if (ev.kind === 'listen') listens.add(ev.topic);
+			}
+			return { emits, listens };
+		}
+
+		/**
+		 * Architectural: State-mutating verification pass. Implements MPFS-001 [SEC-09] Rule 9 bus-link
+		 * integrity gate. Verifies that every emitted topic has a corresponding listener and every
+		 * listener topic has a corresponding emitter within the compiled cartridge scope.
+		 * Orphaned topics halt extraction with ERR_0x0D: ORPHANED_BUS_LINK.
+		 * Cognitive Complexity: <= 5.
+		 * @returns {void}
+		 */
+		_verifyBusLinkIntegrity() {
+			const { emits, listens } = this._extractEventBusTopics();
+			for (const topic of emits) {
+				if (!listens.has(topic)) {
+					this.fail(ERRORS.ERR_0x0D, `Orphaned emit topic '${topic}' has no corresponding listen handler. Resolve before multi-file extraction (MPFS-001 [SEC-09] Rule 9).`);
+				}
+			}
+			for (const topic of listens) {
+				if (!emits.has(topic)) {
+					this.fail(ERRORS.ERR_0x0D, `Orphaned listen handler for topic '${topic}' has no corresponding emit. Resolve before multi-file extraction (MPFS-001 [SEC-09] Rule 9).`);
 				}
 			}
 		}
@@ -2608,6 +2689,27 @@
 				passRule('STCP-002.TYPE_UNIFICATION');
 			} else {
 				failRule('STCP-002.TYPE_UNIFICATION');
+			}
+
+			// MPFS-001 v2.3.0: SEC-09 Rule 9 — Bus-Link Integrity (ERR_0x0D)
+			if (!errors.some(e => e.includes('ERR_0x0D'))) {
+				passRule('MPFS-001.BUS_LINK_INTEGRITY');
+			} else {
+				failRule('MPFS-001.BUS_LINK_INTEGRITY');
+			}
+
+			// MPFS-001 v2.3.0: SEC-06B — Polyglot Socket DOM Authority Breach (ERR_0x1B)
+			if (!errors.some(e => e.includes('ERR_0x1B'))) {
+				passRule('CAP_WASM_SIMD.SOCKET_BREACH');
+			} else {
+				failRule('CAP_WASM_SIMD.SOCKET_BREACH');
+			}
+
+			// MPFS-001 v2.3.0: SEC-06C — INV-SAB-01 Atomics.wait() Main Thread Prohibition (ERR_0x1F)
+			if (!errors.some(e => e.includes('ERR_0x1F'))) {
+				passRule('INV-SAB-01.ATOMIC_WAIT');
+			} else {
+				failRule('INV-SAB-01.ATOMIC_WAIT');
 			}
 
 			return { passedRules, failedRules };
@@ -2804,6 +2906,8 @@ ${wrapperOpen}\t/** @type {ArrayBuffer|null} */
 	let _rawBuffer = null;
 	/** @type {DataView|null} */
 	let _dataView = null;
+	/** @type {{ protocol: string, updates: any[] }} */
+	const _reusableDeltaEnvelope = Object.seal({ protocol: 'VSRP-001', updates: [] });
 
 	const state = {
 ${(ast?.state || []).map(s => `\t\t${s.name}: ${s.defaultValue},`).join('\n')}
@@ -2851,10 +2955,10 @@ ${memoryAccessors.join('\n')}
 		},
 
 		update(temporalTick, input) {
-// [INV-08] Hot-loop allocation: pre-allocate before tick
-					const deltaEnvelope = { protocol: 'VSRP-001', updates: [] };
+			const tick = temporalTick;
+			_reusableDeltaEnvelope.updates.length = 0;
 			${methodBodies.update}
-			return deltaEnvelope;
+			return _reusableDeltaEnvelope;
 		},
 
 		render(ctx) {
@@ -2969,6 +3073,27 @@ ${wrapperClose}`;
 		},
 
 		/**
+		 * Architectural: MPFS-001 [SEC-09] Rule 9 — Pre-extraction bus-link integrity gate facade.
+		 * Verifies that all emitted topics have matching listen handlers and vice versa within
+		 * the supplied AST. Returns a map of orphaned topics keyed by direction.
+		 * Treat any non-empty result as ERR_0x0D: ORPHANED_BUS_LINK — halt extraction.
+		 * Cognitive Complexity: <= 5.
+		 * @param {CartridgeAST} ast - AST to audit
+		 * @returns {{ orphanedEmits: string[], orphanedListens: string[], ok: boolean }}
+		 */
+		verifyBusLinkIntegrity(ast) {
+			const emits = new Set();
+			const listens = new Set();
+			for (const ev of (ast?.eventHandlers || [])) {
+				if (ev.kind === 'emit') emits.add(ev.topic);
+				else if (ev.kind === 'listen') listens.add(ev.topic);
+			}
+			const orphanedEmits = [ ...emits ].filter(t => !listens.has(t));
+			const orphanedListens = [ ...listens ].filter(t => !emits.has(t));
+			return { orphanedEmits, orphanedListens, ok: orphanedEmits.length === 0 && orphanedListens.length === 0 };
+		},
+
+		/**
 		 * Architectural: Pure code emitter facade. Transpiles AST into cartridge code.
 		 * @param {CartridgeAST} ast - Validated cartridge AST
 		 * @param {EmitterOptions} [options] - Code emission options
@@ -3025,6 +3150,22 @@ ${wrapperClose}`;
 	global.SynarcheTypeSystem = SynarcheTypeSystem;
 	global.SynarcheTypeEnvironment = SynarcheTypeEnvironment;
 	global.SynarcheTypeInferenceEngine = SynarcheTypeInferenceEngine;
+
+	// SEC-10: Register PhoenixSymbolIndexer stub on globalThis so IDE tooling
+	// and AI agents can query the live symbol topology without sequential file reads.
+	// Full implementation is provided by the IDE governance plane (core_governor.html).
+	if (global.PhoenixSymbolIndexer === undefined) {
+		global.PhoenixSymbolIndexer = Object.freeze({
+			/** @param {string} anchorId @param {{ startLine: number; endLine: number; plane: 0|1|2; exports: string[] }} descriptor */
+			register(anchorId, descriptor) { /* no-op stub */ },
+			/** @param {string} anchorId @returns {{ startLine: number; endLine: number; plane: 0|1|2 } | null} */
+			resolve(anchorId) { return null; },
+			/** @returns {string[]} */
+			getTopologicalOrder() { return []; },
+			/** @returns {{ valid: boolean; violations: string[] }} */
+			verifyDownwardDependencyInvariant() { return { valid: true, violations: [] }; }
+		});
+	}
 
 	if (typeof module !== 'undefined' && module.exports) {
 		module.exports = {

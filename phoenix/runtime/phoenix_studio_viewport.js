@@ -9,7 +9,7 @@
 ((/** @type {any} */ global) => {
 	'use strict';
 
-	let _activeWorkspaceMode = 'ide'; // 'ide' | 'gamedev'
+	let _activeWorkspaceMode = 'code'; // 'code' | 'gamedev'
 	let _activeStudioEngine = 'canvas2d'; // 'canvas2d' | 'voxel3d' | 'terrain3d'
 	let _studioRunning = true;
 	let _studioPaused = false;
@@ -22,6 +22,8 @@
 	/** @type {Array<{ x: number, y: number, vx: number, vy: number, life: number, color: string }>} */
 	let _studioParticles = [];
 	let _studioShakeTrauma = 0;
+	/** @type {any} */
+	let _studioVoxelVolume = null;
 
 	const _studioLevelGrid = [
 		[ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 ],
@@ -58,8 +60,11 @@
 	};
 	let _activeEntityId = 'player';
 	const _studioPlayer = { x: 3.5, y: 3.5, angle: 0, speed: 3.5 };
-	/** @type {any} */
-	const _studioCamera = null;
+	/** @type {any} Master 2D Camera Layer Instance */
+	let _studioCamera = null;
+	if (global.PhoenixCanvas2DLayerEngine?.createCamera) {
+		_studioCamera = global.PhoenixCanvas2DLayerEngine.createCamera({ x: 120, y: 120, zoom: 1.5 });
+	}
 	let _studioControlsBound = false;
 
 	/**
@@ -225,6 +230,7 @@
 		});
 
 		document.querySelectorAll('.workspace-mode-btn').forEach(btn => {
+			if (btn.id === 'btn-switch-workspace-mode') return; // Master header toggle handled by core governor
 			btn.addEventListener('click', (e) => {
 				const mode = (/** @type {HTMLElement} */(e.currentTarget)).dataset.mode;
 				_toggleWorkspaceMode(mode);
@@ -306,7 +312,7 @@
 			editor.value = code;
 			const event = new Event('input', { bubbles: true });
 			editor.dispatchEvent(event);
-			_toggleWorkspaceMode('ide');
+			_toggleWorkspaceMode('code');
 			if (typeof global._toast === 'function') global._toast('📜 Exported level configuration into Code Editor!', 'pass');
 		} else {
 			navigator.clipboard?.writeText(code);
@@ -514,45 +520,53 @@
 
 	/**
 	 * Updates workspace panels visibility for the active layout mode.
-	 * @param {string} targetMode - Active mode identifier ('ide' | 'gamedev')
+	 * @param {string} targetMode - Active mode identifier ('code' | 'ide' | 'gamedev')
 	 * @returns {void}
 	 */
 	function _updateWorkspaceDOM(targetMode) {
 		const idePanel = document.getElementById('editor-panel');
 		const studioPanel = document.getElementById('game-studio-workspace');
+		const sidebarPanel = document.getElementById('sidebar-panel');
+		const appContainer = document.getElementById('app');
 
 		if (targetMode === 'gamedev') {
 			if (idePanel) idePanel.style.display = 'none';
-			if (studioPanel) studioPanel.style.display = 'grid';
+			if (sidebarPanel) sidebarPanel.style.display = 'none';
+			if (studioPanel) studioPanel.style.display = 'flex';
+			if (appContainer) appContainer.classList.add('mode-gamedev');
 			_initRuntimeStudio();
 			return;
 		}
 
 		if (idePanel) idePanel.style.display = 'flex';
+		if (sidebarPanel) sidebarPanel.style.display = 'flex';
 		if (studioPanel) studioPanel.style.display = 'none';
+		if (appContainer) appContainer.classList.remove('mode-gamedev');
 	}
 
 	/**
 	 * Toggles between IDE and Game Dev Workstation studio workspace modes.
-	 * @param {string} [mode] - Optional explicit mode ('ide' | 'gamedev')
+	 * @param {string} [mode] - Optional explicit mode ('ide' | 'code' | 'gamedev')
 	 * @returns {void}
 	 */
 	function _toggleWorkspaceMode(mode) {
-		const targetMode = mode || (_activeWorkspaceMode === 'ide' ? 'gamedev' : 'ide');
+		const isCodeMode = (_activeWorkspaceMode === 'ide' || _activeWorkspaceMode === 'code');
+		const targetMode = mode ? (mode === 'ide' ? 'code' : mode) : (isCodeMode ? 'gamedev' : 'code');
 		_activeWorkspaceMode = targetMode;
+		if (global !== undefined) global._activeWorkspaceMode = _activeWorkspaceMode;
 		if (typeof document === 'undefined') return;
 
 		const switchBtn = document.getElementById('btn-switch-workspace-mode');
 		if (switchBtn) {
-			switchBtn.textContent = targetMode === 'gamedev' ? '💻 CODE IDE' : '🎮 GAME DEV WORKSTATION';
-			switchBtn.classList.toggle('active', targetMode === 'gamedev');
+			switchBtn.textContent = _activeWorkspaceMode === 'gamedev' ? '💻 CODE IDE' : '🎮 GAME DEV WORKSTATION';
+			switchBtn.classList.toggle('active', _activeWorkspaceMode === 'gamedev');
 		}
 
 		document.querySelectorAll('.workspace-mode-btn').forEach(btn => {
-			btn.classList.toggle('active', (/** @type {HTMLElement} */(btn)).dataset.mode === targetMode);
+			btn.classList.toggle('active', (/** @type {HTMLElement} */(btn)).dataset.mode === _activeWorkspaceMode);
 		});
 
-		_updateWorkspaceDOM(targetMode);
+		_updateWorkspaceDOM(_activeWorkspaceMode);
 	}
 
 	/**
@@ -700,12 +714,96 @@
 		const ctx = canvas.getContext('2d');
 		if (!ctx) return;
 
-		if (_activeStudioEngine === 'canvas2d' || !_activeStudioEngine) {
+		if (_activeStudioEngine === 'webgl' && (global.PhoenixWebGLBatcher || (typeof PhoenixWebGLBatcher !== 'undefined' && PhoenixWebGLBatcher))) {
+			_renderCanvas2DEngine(ctx, canvas.width, canvas.height);
+			ctx.save();
+			ctx.fillStyle = 'rgba(0, 255, 204, 0.04)';
+			for (let y = 0; y < canvas.height; y += 4) {
+				ctx.fillRect(0, y, canvas.width, 1);
+			}
+			ctx.restore();
+		} else if (_activeStudioEngine === 'voxel3d' && (global.PhoenixVoxel3DEngine || (typeof PhoenixVoxel3DEngine !== 'undefined' && PhoenixVoxel3DEngine))) {
+			const voxelEngine = global.PhoenixVoxel3DEngine || (typeof PhoenixVoxel3DEngine !== 'undefined' && PhoenixVoxel3DEngine);
+			if (!_studioVoxelVolume) {
+				_studioVoxelVolume = typeof voxelEngine.generateDungeonVolume === 'function'
+					? voxelEngine.generateDungeonVolume(16, 6, 16)
+					: voxelEngine.createVolume(16, 6, 16, 1);
+			}
+			const camera = {
+				x: _studioPlayer.x,
+				y: 1.5,
+				z: _studioPlayer.y,
+				yaw: _studioPlayer.angle || 0,
+				pitch: 0
+			};
+			if (typeof voxelEngine.renderVoxelView === 'function') {
+				voxelEngine.renderVoxelView(ctx, _studioVoxelVolume, camera, canvas.width, canvas.height);
+			} else if (typeof voxelEngine.renderScene === 'function') {
+				voxelEngine.renderScene(ctx, canvas.width, canvas.height, _studioVoxelVolume, camera);
+			}
+			_updateStudioHUD();
+		} else if (_activeStudioEngine === 'terrain3d' && (global.PhoenixTerrainRaymarcher || (typeof PhoenixTerrainRaymarcher !== 'undefined' && PhoenixTerrainRaymarcher))) {
+			const terrainEngine = global.PhoenixTerrainRaymarcher || (typeof PhoenixTerrainRaymarcher !== 'undefined' && PhoenixTerrainRaymarcher);
+			const camera = {
+				x: _studioPlayer.x * 2,
+				y: 6.0,
+				z: _studioPlayer.y * 2,
+				yaw: _studioPlayer.angle || 0,
+				pitch: -0.1
+			};
+			if (typeof terrainEngine.renderTerrainView === 'function') {
+				terrainEngine.renderTerrainView(ctx, camera, canvas.width, canvas.height);
+			}
+			_updateStudioHUD();
+		} else {
 			_renderCanvas2DEngine(ctx, canvas.width, canvas.height);
 		}
 
 		if (_studioRunning && !_studioPaused) {
 			_studioAnimId = requestAnimationFrame(_renderActiveStudioEngine);
+		}
+	}
+
+	/**
+	 * Dispatches keyboard directional movement to the player entity and camera.
+	 * @param {string} key - Pressed key identifier
+	 * @returns {void}
+	 */
+	function _handleMovementKey(key) {
+		const step = 0.25;
+		const k = (key || '').toLowerCase();
+		let moved = false;
+		if (k === 'w' || k === 'arrowup') {
+			_studioPlayer.y -= step;
+			_studioPlayer.angle = -Math.PI / 2;
+			moved = true;
+		} else if (k === 's' || k === 'arrowdown') {
+			_studioPlayer.y += step;
+			_studioPlayer.angle = Math.PI / 2;
+			moved = true;
+		} else if (k === 'a' || k === 'arrowleft') {
+			_studioPlayer.x -= step;
+			_studioPlayer.angle = Math.PI;
+			moved = true;
+		} else if (k === 'd' || k === 'arrowright') {
+			_studioPlayer.x += step;
+			_studioPlayer.angle = 0;
+			moved = true;
+		}
+		if (moved) {
+			if (_studioLevelGrid && _studioLevelGrid.length > 0) {
+				_studioPlayer.y = Math.max(0.5, Math.min(_studioLevelGrid.length - 0.5, _studioPlayer.y));
+				_studioPlayer.x = Math.max(0.5, Math.min(_studioLevelGrid[ 0 ].length - 0.5, _studioPlayer.x));
+			}
+			if (_studioEntities.player) {
+				_studioEntities.player.x = Math.round(_studioPlayer.x * 32);
+				_studioEntities.player.y = Math.round(_studioPlayer.y * 32);
+				if (_studioCamera?.lookAt) {
+					_studioCamera.lookAt(_studioEntities.player.x, _studioEntities.player.y, 0.2);
+				}
+			}
+			_selectStudioEntity('player');
+			_spawnParticlesBurst(_studioPlayer.x * 32, _studioPlayer.y * 32, 2);
 		}
 	}
 
@@ -732,7 +830,8 @@
 		updateProperties: _selectStudioEntity,
 		renderActiveEngine: _renderActiveStudioEngine,
 		spawnParticles: _spawnParticlesBurst,
-		exportScript: _exportGameScript
+		exportScript: _exportGameScript,
+		handleMovementKey: _handleMovementKey
 	});
 
 	global.PhoenixStudioViewport = PhoenixStudioViewport;

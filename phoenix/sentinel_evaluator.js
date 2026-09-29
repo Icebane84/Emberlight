@@ -9,12 +9,12 @@
  *
  * CMD-DOC-INDEX (Normative Region Jump Table)
  * =============================================================================
- * [SEC-01] Ambient Type Declarations & JSDoc Data Contracts ..... Line ~0026
- * [SEC-02] Singleton Resolution & Environment Attenuation ....... Line ~0038
- * [SEC-03] Layer 1: Synchronous Structural Linter Gate .......... Line ~0085
- * [SEC-04] Layer 2: 3-Tier Governor Submission Pipeline ......... Line ~0135
- * [SEC-05] Layer 3: Automated AI Self-Repair Loop Delegate ...... Line ~0149
- * [SEC-06] Master Evaluator Facade & Multi-Environment Export ... Line ~0194
+ * [SEC-01] AMBIENT TYPE DECLARATIONS & JSDOC DATA CONTRACTS ..... Line ~0029
+ * [SEC-02] SINGLETON RESOLUTION & ENVIRONMENT ATTENUATION ....... Line ~0041
+ * [SEC-03] LAYER 1: SYNCHRONOUS STRUCTURAL LINTER GATE .......... Line ~0101
+ * [SEC-04] LAYER 2: 3-TIER GOVERNOR SUBMISSION PIPELINE ......... Line ~0178
+ * [SEC-05] LAYER 3: AUTOMATED AI SELF-REPAIR LOOP DELEGATE ...... Line ~0195
+ * [SEC-06] MASTER EVALUATOR FACADE & MULTI-ENVIRONMENT EXPORT ... Line ~0314
  * =============================================================================
  */
 
@@ -23,7 +23,7 @@
 /**
  * @param {Record<string, any>} root
  */
-(function(root) {
+((root) => {
 	'use strict';
 
 	//#region [SEC-01] --- AMBIENT TYPE DECLARATIONS & JSDOC DATA CONTRACTS
@@ -39,23 +39,17 @@
 	//#endregion [SEC-01]
 
 	//#region [SEC-02] --- SINGLETON RESOLUTION & ENVIRONMENT ATTENUATION
+
 	/**
-	 * Resolves active Phoenix Sovereign Engine and Governor singletons across global environments.
-	 * Enforces explicit fail-stop assertions if core dependencies are missing or uninitialized.
-	 *
-	 * @throws {Error} If PhoenixSovereignEngine or PhoenixGovernor singletons are unavailable
-	 * @returns {{ Engine: PhoenixSovereignEngineFacade, governor: PhoenixGovernorInstance }}
+	 * Resolves active PhoenixSovereignEngine facade across runtime environments.
+	 * @param {Record<string, any>} targetRoot
+	 * @returns {PhoenixSovereignEngineFacade}
+	 * @private
 	 */
-	function _resolvePhoenixSingletons() {
-		/** @type {PhoenixSovereignEngineFacade | undefined} */
-		let Engine;
-		if (typeof PhoenixSovereignEngine !== 'undefined') {
-			Engine = PhoenixSovereignEngine;
-		} else if (root?.PhoenixSovereignEngine) {
-			Engine = root.PhoenixSovereignEngine;
-		} else if (typeof globalThis !== 'undefined' && (/** @type {any} */ (globalThis)).PhoenixSovereignEngine) {
-			Engine = (/** @type {any} */ (globalThis)).PhoenixSovereignEngine;
-		}
+	function _resolveEngineSingleton(targetRoot) {
+		const Engine = (typeof PhoenixSovereignEngine !== 'undefined' ? PhoenixSovereignEngine : null)
+			|| targetRoot?.PhoenixSovereignEngine
+			|| (typeof globalThis !== 'undefined' ? (/** @type {any} */ (globalThis)).PhoenixSovereignEngine : null);
 
 		if (!Engine) {
 			throw new Error(
@@ -63,16 +57,19 @@
 				'Ensure phoenix_sovereign_engine.js is evaluated before calling evaluateProposalWithSentinel.'
 			);
 		}
+		return Engine;
+	}
 
-		/** @type {PhoenixGovernorInstance | undefined} */
-		let governor;
-		if (typeof PhoenixGovernor !== 'undefined') {
-			governor = PhoenixGovernor;
-		} else if (root?.PhoenixGovernor) {
-			governor = root.PhoenixGovernor;
-		} else if (typeof globalThis !== 'undefined' && (/** @type {any} */ (globalThis)).PhoenixGovernor) {
-			governor = (/** @type {any} */ (globalThis)).PhoenixGovernor;
-		}
+	/**
+	 * Resolves active PhoenixGovernor coordinator across runtime environments.
+	 * @param {Record<string, any>} targetRoot
+	 * @returns {PhoenixGovernorInstance}
+	 * @private
+	 */
+	function _resolveGovernorSingleton(targetRoot) {
+		const governor = (typeof PhoenixGovernor !== 'undefined' ? PhoenixGovernor : null)
+			|| targetRoot?.PhoenixGovernor
+			|| (typeof globalThis !== 'undefined' ? (/** @type {any} */ (globalThis)).PhoenixGovernor : null);
 
 		if (!governor || typeof governor.submit !== 'function') {
 			throw new Error(
@@ -80,12 +77,29 @@
 				'Create a Governor, call governor.initialize(), and assign it to window.PhoenixGovernor.'
 			);
 		}
-
-		return { Engine, governor };
+		return governor;
 	}
+
+	/**
+	 * Resolves active Phoenix Sovereign Engine and Governor singletons across global environments.
+	 * Enforces explicit fail-stop assertions if core dependencies are missing or uninitialized.
+	 *
+	 * @param {Record<string, any>} targetRoot
+	 * @throws {Error} If PhoenixSovereignEngine or PhoenixGovernor singletons are unavailable
+	 * @returns {{ Engine: PhoenixSovereignEngineFacade, governor: PhoenixGovernorInstance }}
+	 * @private
+	 */
+	function _resolvePhoenixSingletons(targetRoot) {
+		return {
+			Engine: _resolveEngineSingleton(targetRoot),
+			governor: _resolveGovernorSingleton(targetRoot)
+		};
+	}
+
 	//#endregion [SEC-02]
 
 	//#region [SEC-03] --- LAYER 1: SYNCHRONOUS STRUCTURAL LINTER GATE
+
 	/**
 	 * Creates a PGE-RECEIPT-1 rejection receipt for structural linter failures.
 	 * @param {PhoenixProposalDTO} proposal
@@ -93,6 +107,7 @@
 	 * @param {string[]} lintErrors
 	 * @param {number} changeIndex
 	 * @returns {PhoenixReceiptDTO}
+	 * @private
 	 */
 	function _createLinterReceipt(proposal, Engine, lintErrors, changeIndex) {
 		const protocols = Array.isArray(Engine.PROTOCOLS) ? Engine.PROTOCOLS.slice() : ['PSGC-001', 'VLT-003'];
@@ -118,6 +133,7 @@
 	 * @param {PhoenixGovernorInstance} governor
 	 * @param {PhoenixReceiptDTO} receipt
 	 * @returns {Promise<void>}
+	 * @private
 	 */
 	async function _appendLinterJournal(governor, receipt) {
 		if (typeof governor.storage?.appendJournalEntry !== 'function') return;
@@ -131,12 +147,13 @@
 
 	/**
 	 * Executes Layer 1 synchronous structural linting on all discrete changes within a proposal.
-	 * Rejects forbidden placeholder tokens ('// ...', block comments, 'T-O-D-O(impl)') before governor submission.
+	 * Rejects forbidden placeholder tokens ('// ...', block comments, 'TO-DO(impl)') before governor submission.
 	 *
 	 * @param {PhoenixProposalDTO} proposal - Candidate proposal envelope
 	 * @param {PhoenixSovereignEngineFacade} Engine - Resolved sovereign engine facade
 	 * @param {PhoenixGovernorInstance} governor - Active governor instance for journal persistence
 	 * @returns {Promise<PhoenixReceiptDTO | null>} Linter rejection receipt if failed, or null if clean
+	 * @private
 	 */
 	async function _lintProposalChanges(proposal, Engine, governor) {
 		if (!Array.isArray(proposal?.changes)) return null;
@@ -155,9 +172,11 @@
 
 		return null;
 	}
+
 	//#endregion [SEC-03]
 
 	//#region [SEC-04] --- LAYER 2: 3-TIER GOVERNOR SUBMISSION PIPELINE
+
 	/**
 	 * Submits proposal to Phoenix Governor 3-tier gates (STRUCTURAL → CAPABILITY → BEHAVIOR → COMMIT).
 	 *
@@ -165,39 +184,76 @@
 	 * @param {string} agentId - Submitting subject or agent identifier
 	 * @param {PhoenixGovernorInstance} governor - Active governor instance
 	 * @returns {Promise<PhoenixReceiptDTO>} Gate evaluation receipt
+	 * @private
 	 */
 	async function _submitToGovernorGates(proposal, agentId, governor) {
 		return governor.submit(proposal, agentId);
 	}
+
 	//#endregion [SEC-04]
 
 	//#region [SEC-05] --- LAYER 3: AUTOMATED AI SELF-REPAIR LOOP DELEGATE
+
 	/**
 	 * Resolves active WebLLM worker bridge instance.
 	 * @param {Record<string, any>} targetRoot
 	 * @returns {any}
+	 * @private
 	 */
 	function _resolveWebLLMBridge(targetRoot) {
-		if (typeof PhoenixWebLLMBridge !== 'undefined') return PhoenixWebLLMBridge;
-		if (targetRoot?.PhoenixWebLLMBridge) return targetRoot.PhoenixWebLLMBridge;
-		if (typeof globalThis !== 'undefined' && (/** @type {any} */ (globalThis)).PhoenixWebLLMBridge) {
-			return (/** @type {any} */ (globalThis)).PhoenixWebLLMBridge;
-		}
-		return undefined;
+		return (typeof PhoenixWebLLMBridge !== 'undefined' ? PhoenixWebLLMBridge : null)
+			|| targetRoot?.PhoenixWebLLMBridge
+			|| (typeof globalThis !== 'undefined' ? (/** @type {any} */ (globalThis)).PhoenixWebLLMBridge : null)
+			|| undefined;
 	}
 
 	/**
 	 * Resolves active proposal parser function.
 	 * @param {Record<string, any>} targetRoot
 	 * @returns {((rawText: string) => PhoenixProposalDTO | Promise<PhoenixProposalDTO>) | undefined}
+	 * @private
 	 */
 	function _resolveProposalParser(targetRoot) {
-		if (typeof PhoenixProposalParser === 'function') return PhoenixProposalParser;
-		if (typeof targetRoot?.PhoenixProposalParser === 'function') return targetRoot.PhoenixProposalParser;
-		if (typeof globalThis !== 'undefined' && typeof (/** @type {any} */ (globalThis)).PhoenixProposalParser === 'function') {
-			return (/** @type {any} */ (globalThis)).PhoenixProposalParser;
-		}
-		return undefined;
+		return (typeof PhoenixProposalParser === 'function' ? PhoenixProposalParser : null)
+			|| (typeof targetRoot?.PhoenixProposalParser === 'function' ? targetRoot.PhoenixProposalParser : null)
+			|| (typeof globalThis !== 'undefined' && typeof (/** @type {any} */ (globalThis)).PhoenixProposalParser === 'function' ? (/** @type {any} */ (globalThis)).PhoenixProposalParser : null)
+			|| undefined;
+	}
+
+	/**
+	 * Resolves active PhoenixERLLedger singleton.
+	 * @param {Record<string, any>} targetRoot
+	 * @returns {PhoenixErrorResolutionLedgerInstance | null}
+	 * @private
+	 */
+	function _resolveERLLedger(targetRoot) {
+		return targetRoot?.PhoenixERLLedger
+			|| (typeof globalThis !== 'undefined' ? (/** @type {any} */ (globalThis)).PhoenixERLLedger : null)
+			|| null;
+	}
+
+	/**
+	 * Records a single replace_text change entry into the Error Resolution Ledger.
+	 * @param {PhoenixErrorResolutionLedgerInstance} erl
+	 * @param {PhoenixChangeDTO} ch
+	 * @param {string} gate
+	 * @param {string} targetFile
+	 * @private
+	 */
+	function _recordChangeEntryInERL(erl, ch, gate, targetFile) {
+		if (ch.type !== 'replace_text' || !ch.search || !ch.content) return;
+		const rule = gate || 'AI-REPAIR';
+		erl.record({
+			id: `erl_repair_${Date.now()}`,
+			fingerprint: erl.computeFingerprint({ rule }, ch.search),
+			rule,
+			description: `Autonomous self-repair for ${rule} in ${targetFile}`,
+			searchPattern: ch.search,
+			replacePattern: ch.content,
+			verifiedReceipt: 'PASS',
+			timestamp: new Date().toISOString(),
+			useCount: 1
+		});
 	}
 
 	/**
@@ -205,34 +261,16 @@
 	 * @param {Record<string, any>} targetRoot
 	 * @param {string} gate
 	 * @param {PhoenixProposalDTO} proposal
+	 * @private
 	 */
 	function _ingestRepairedChangesToERL(targetRoot, gate, proposal) {
-		/** @type {PhoenixErrorResolutionLedgerInstance | undefined} */
-		let erl;
-		if (targetRoot?.PhoenixERLLedger) {
-			erl = targetRoot.PhoenixERLLedger;
-		} else if (typeof globalThis !== 'undefined' && (/** @type {any} */ (globalThis)).PhoenixERLLedger) {
-			erl = (/** @type {any} */ (globalThis)).PhoenixERLLedger;
-		}
-
+		const erl = _resolveERLLedger(targetRoot);
 		if (!erl || typeof erl.record !== 'function') return;
 
 		const changes = Array.isArray(proposal?.changes) ? proposal.changes : [];
+		const targetFile = proposal?.target || 'unknown';
 		for (const ch of changes) {
-			if (ch.type === 'replace_text' && ch.search && ch.content) {
-				const rule = gate || 'AI-REPAIR';
-				erl.record({
-					id: `erl_repair_${Date.now()}`,
-					fingerprint: erl.computeFingerprint({ rule }, ch.search),
-					rule,
-					description: `Autonomous self-repair for ${rule} in ${proposal.target}`,
-					searchPattern: ch.search,
-					replacePattern: ch.content,
-					verifiedReceipt: 'PASS',
-					timestamp: new Date().toISOString(),
-					useCount: 1
-				});
-			}
+			_recordChangeEntryInERL(erl, ch, gate, targetFile);
 		}
 	}
 
@@ -245,6 +283,7 @@
 	 * @param {string} agentId - Identity of the submitting agent
 	 * @param {Record<string, any>} targetRoot - Global environment root
 	 * @returns {Promise<PhoenixReceiptDTO>} Repaired receipt or original rejection receipt
+	 * @private
 	 */
 	async function _attemptAiRepair(governor, receipt, proposal, agentId, targetRoot) {
 		const bridge = _resolveWebLLMBridge(targetRoot);
@@ -269,9 +308,11 @@
 
 		return repairedReceipt || receipt;
 	}
+
 	//#endregion [SEC-05]
 
 	//#region [SEC-06] --- MASTER EVALUATOR FACADE & MULTI-ENVIRONMENT EXPORT
+
 	/**
 	 * Evaluates a candidate proposal envelope through the complete 3-layer Sentinel governance pipeline:
 	 *   1. Layer 1: Synchronous structural linter gate (AST validity & placeholder rejection)
@@ -288,7 +329,7 @@
 		const agentId = typeof subject === 'string' && subject.length > 0 ? subject : 'sentinel-agent';
 		const typedProposal = /** @type {PhoenixProposalDTO} */ (proposal);
 
-		const { Engine, governor } = _resolvePhoenixSingletons();
+		const { Engine, governor } = _resolvePhoenixSingletons(root);
 
 		/* ── Step 1: Synchronous structural linter ──────────────────────────────── */
 		const lintReceipt = await _lintProposalChanges(typedProposal, Engine, governor);
@@ -305,22 +346,25 @@
 		return governorReceipt;
 	}
 
+	const api = /** @type {PhoenixSentinelEvaluatorFacade} */ (evaluateProposalWithSentinel);
+	/* ── Attach Self-References for Modular Facade Access ───────────────────── */
+	api.evaluateProposalWithSentinel = api;
+	api.evaluate = api;
+
 	/* ── Dual-Binding Global & CommonJS Export ──────────────────────────────── */
 	if (typeof window !== 'undefined') {
-		window.evaluateProposalWithSentinel = evaluateProposalWithSentinel;
+		(/** @type {Record<string, unknown>} */ (window)).evaluateProposalWithSentinel = api;
+		(/** @type {Record<string, unknown>} */ (window)).PhoenixSentinelEvaluator = api;
 	}
 	if (typeof globalThis !== 'undefined') {
-		globalThis.evaluateProposalWithSentinel = evaluateProposalWithSentinel;
+		(/** @type {Record<string, unknown>} */ (globalThis)).evaluateProposalWithSentinel = api;
+		(/** @type {Record<string, unknown>} */ (globalThis)).PhoenixSentinelEvaluator = api;
 	}
 	if (typeof module !== 'undefined' && module.exports) {
-		module.exports = evaluateProposalWithSentinel;
+		module.exports = api;
+		module.exports.evaluateProposalWithSentinel = api;
+		module.exports.PhoenixSentinelEvaluator = api;
 	}
+
 	//#endregion [SEC-06]
-})(
-	(function() {
-		if (typeof globalThis !== 'undefined') return globalThis;
-		if (typeof window !== 'undefined') return window;
-		if (typeof global !== 'undefined') return global;
-		return {};
-	})()
-);
+})(typeof globalThis !== 'undefined' ? globalThis : this);

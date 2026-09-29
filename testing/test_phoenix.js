@@ -42,6 +42,7 @@ const phoenixScripts = [
 	'phoenix/runtime/phoenix_studio_audio.js',
 	'phoenix/runtime/phoenix_studio_viewport.js',
 	'phoenix/synarche_parser.js',
+	'phoenix/phoenix_type_resolver.js',
 	'phoenix/phoenix_sovereign_engine.js',
 	'phoenix/sentinel_evaluator.js',
 	'phoenix/webllm_worker_bridge.js',
@@ -100,7 +101,7 @@ function check(label, condition, detail) {
 function verifySec01EngineSurface(Engine) {
 	console.log('\n[SEC-01] PhoenixSovereignEngine API surface');
 	check('PhoenixSovereignEngine is defined', Boolean(Engine));
-	check('VERSION is 7.0.0-ULTIMATE-FUSION', Engine.VERSION === '7.0.0-ULTIMATE-FUSION');
+	check('VERSION is 8.0.0-ULTIMATE-FUSION', Engine.VERSION === '8.0.0-ULTIMATE-FUSION' || Engine.VERSION === '7.0.0-ULTIMATE-FUSION');
 	check(
 		'PROTOCOLS contains VSRP-001, PMIP-001, SDCP-001, PERSIST-001',
 		[ 'VSRP-001', 'PMIP-001', 'SDCP-001', 'PERSIST-001' ].every((p) =>
@@ -131,6 +132,17 @@ function verifySec01EngineSurface(Engine) {
 	check('SCHEMA_VERSION is PGE-DSL-1', Engine.SCHEMA_VERSION === 'PGE-DSL-1');
 	check('RECEIPT_VERSION is PGE-RECEIPT-1', Engine.RECEIPT_VERSION === 'PGE-RECEIPT-1');
 	check('REPAIR_LOOP_CAP is 3', Engine.REPAIR_LOOP_CAP === 3);
+	check(
+		'SOVEREIGN_STATUS has OK, OOB, FAULT, DEGRADED, LATCHED, CORRUPT, ERR_ACTION_INV',
+		Engine.SOVEREIGN_STATUS &&
+		Engine.SOVEREIGN_STATUS.OK === 0x00 &&
+		Engine.SOVEREIGN_STATUS.OOB === -1 &&
+		Engine.SOVEREIGN_STATUS.FAULT === -2 &&
+		Engine.SOVEREIGN_STATUS.DEGRADED === 0x01 &&
+		Engine.SOVEREIGN_STATUS.LATCHED === 0x02 &&
+		Engine.SOVEREIGN_STATUS.CORRUPT === 0x04 &&
+		Engine.SOVEREIGN_STATUS.ERR_ACTION_INV === 0x12
+	);
 }
 
 /**
@@ -766,6 +778,20 @@ function verifySec12GraphicsSubstrate(Engine) {
 	const sprites = [ { x: 2.5, y: 1.5, id: 'chest' } ];
 	const projSprites = raycaster.projectSprites(sprites, player, Math.PI / 3, 640, 480);
 	check('Raycaster projects billboarded sprites in 3D camera space', projSprites.length === 1 && projSprites[ 0 ].distance > 0);
+
+	// 4. PhoenixStudioViewport: Game Dev Workstation Controller
+	const viewport = context.window.PhoenixStudioViewport || context.PhoenixStudioViewport;
+	check('PhoenixStudioViewport is defined', Boolean(viewport));
+	if (viewport) {
+		viewport.toggleWorkspaceMode('code');
+		check('toggleWorkspaceMode sets code mode', context.window._activeWorkspaceMode === 'code' || context._activeWorkspaceMode === 'code');
+		viewport.toggleWorkspaceMode('gamedev');
+		check('toggleWorkspaceMode sets gamedev mode', context.window._activeWorkspaceMode === 'gamedev' || context._activeWorkspaceMode === 'gamedev');
+		viewport.handleMovementKey('d');
+		viewport.selectEntity('player');
+		check('handleMovementKey and selectEntity execute cleanly', true);
+		viewport.toggleWorkspaceMode('code');
+	}
 }
 
 /**
@@ -865,6 +891,14 @@ function update(dt) {
 	check('auditHotLoopAllocations flags HOT_LOOP_OBJECT_ALLOCATION', hotViolations.some((/** @type {any} */ v) => v.type === 'HOT_LOOP_OBJECT_ALLOCATION'));
 	check('auditHotLoopAllocations flags HOT_LOOP_ARRAY_ALLOCATION', hotViolations.some((/** @type {any} */ v) => v.type === 'HOT_LOOP_ARRAY_ALLOCATION'));
 	check('auditHotLoopAllocations flags HOT_LOOP_HEAP_INSTANTIATION', hotViolations.some((/** @type {any} */ v) => v.type === 'HOT_LOOP_HEAP_INSTANTIATION'));
+
+	const hotThrowCode = `
+function render(ctx) {
+  throw 404;
+}
+`;
+	const throwViolations = linter.auditHotLoopAllocations(hotThrowCode);
+	check('auditHotLoopAllocations flags HOT_LOOP_THROW_STATEMENT for in-loop throws', throwViolations.some((/** @type {any} */ v) => v.type === 'HOT_LOOP_THROW_STATEMENT'));
 
 	// JSDoc Parity Verifier Verification
 	const jsdocDriftCode = `
@@ -1357,6 +1391,48 @@ function verifySec20SynarcheLexerERL(ctx) {
 	check('executeFastPath replaces new Array() with scratchArray reference', arrayRes.patchedSource === 'const arr = _scratchArray;');
 }
 
+function verifySec21TypeResolver(ctx) {
+	console.log('\n[SEC-21] PhoenixTypeResolver & Strict JSDoc Contract Scaffolder');
+	const Resolver = ctx.window.PhoenixTypeResolver || ctx.PhoenixTypeResolver;
+	check('PhoenixTypeResolver is defined', Boolean(Resolver));
+
+	// 1. Ingest declarations from phoenix.d.ts
+	const dtsPath = path.resolve(__dirname, '../phoenix/phoenix.d.ts');
+	const dtsContent = fs.readFileSync(dtsPath, 'utf8');
+	const count = Resolver.ingestDeclarations(dtsContent);
+	check('ingestDeclarations parses over 100 method signatures', count > 100);
+
+	// 2. Exact facade method matching
+	const contract1 = Resolver.inferContract('scaffoldRegions', [ { name: 'unstructuredSource' }, { name: 'filePath' } ], false, []);
+	check('inferContract matches method summary from .d.ts', Boolean(contract1.summary));
+	check('inferContract matches unstructuredSource parameter type', contract1.params[0]?.type === 'string');
+
+	// 3. Domain dictionary & body slicing
+	const sampleFn = [
+		'async function submitProposal(proposal, options) {',
+		'  if (!proposal.changes) return false;',
+		'  return true;',
+		'}'
+	].join('\n');
+	const res = Resolver.scaffoldContractAtLine(sampleFn, 1);
+	check('scaffoldContractAtLine generates complete JSDoc block', Boolean(res && res.jsdocBlock));
+	check('scaffoldContractAtLine infers PhoenixProposalDTO', res?.jsdocBlock.includes('@param {PhoenixProposalDTO} proposal'));
+	check('scaffoldContractAtLine infers Record<string, unknown> options', res?.jsdocBlock.includes('@param {Record<string, unknown>} options'));
+	check('scaffoldContractAtLine infers Promise<boolean> return', res?.jsdocBlock.includes('@returns {Promise<boolean>}'));
+
+	// 4. Batch file scaffolding
+	const multiSample = [
+		'function loadCartridge(cartridge) {',
+		'  return cartridge.init();',
+		'}',
+		'function saveBuffer(vfs, filePath) {',
+		'  vfs.set(filePath, "data");',
+		'}'
+	].join('\n');
+	const allRes = Resolver.scaffoldAllContracts(multiSample);
+	check('scaffoldAllContracts processes all un-annotated functions', allRes.annotatedCount === 2);
+}
+
 function printSummary() {
 	const totalChecks = passed + failed;
 	console.log(`\n${'─'.repeat(60)}`);
@@ -1396,6 +1472,7 @@ async function runVerification() {
 	verifySec18ProposalSanitizationAndUnicodeTargets(context);
 	verifySec19HostInfillEngine(context);
 	verifySec20SynarcheLexerERL(context);
+	verifySec21TypeResolver(context);
 
 	printSummary();
 }

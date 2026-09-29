@@ -38,6 +38,10 @@ const testSuites = [
     name: 'STCP Transduction & Synarche Parser Suite',
     file: 'testing/test_synarche_parser.js',
   },
+  {
+    name: 'VLT-003 Compliance & Jump Table Verification Suite',
+    file: 'testing/test_vlt_compliance.js',
+  },
 ];
 
 console.log('╔══════════════════════════════════════════════════════════════╗');

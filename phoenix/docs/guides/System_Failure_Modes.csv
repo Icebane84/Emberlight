@@ -1,0 +1,31 @@
+Failure Mode & Fingerprint,Root Cause Mechanism,Systemic Impact & Symptom,Governing Standard & Invariant,Automated Enforcement & Self-Healing Mechanism
+Animation Loop Collapse,Unhandled exception unwinds tick callback prior to   re-registration.,Frame loop dies permanently; viewport context freezes on canvas.,60Hz Clock Primacy,"Tier 4 Supervisor RAF Watchdog : Registers   on Line 1 of frame callback before tenant evaluation, guaranteeing loop survivability."
+"Hot-Path Stack Trace Churn 
+
+  /",Throwing dynamic exceptions ( ) or   inside 60Hz loops.,V8 stack trace allocation churn; severe GC pauses and frame stutter.,Zero-Transient Policy,"Tier 2 Zero-Throw Return Codes : Replaces dynamic exceptions with in-band numerical status sentinels (  OK,   FAULT,   OOB)."
+Hot-Loop Heap Allocation,"Instantiating objects ( ), arrays ( ), or template strings inside  / .",GC nursery allocation spikes; frame pacing drops below 60 FPS.,Allocation Ban,Pre-Boot AST Linter  ( ): Regex static scan halts boot on dynamic allocations;   rejection.
+"PERSIST-001 Memory Bounds Overflow 
+
+  /","Struct allocation or state payload exceeding 1,952-byte payload capacity.",Memory corruption; state snapshot truncation; rehydration failure.,Contiguous Heap,C2A-001 Logic Lock & Gate 4 : Validates  ; rejects invalid payloads prior to commit.
+"Heap Snapshot Corruption 
+
+  /","Bad CRC32 checksum, magic number mismatch ( ), or tick regression.",Engine boot halt or state deserialization crash on load.,8-Gate Rehydration,"NDR Quarantine Engine  ( ): Routes corrupt buffer to OPFS  , hydrates clean Genesis buffer, resumes execution uninterrupted."
+"Faraday Shielding Breach 
+
+  /","Tier 2 cartridge accessing global  ,  , or   directly.",Cross-plane security leak; ambient authority vulnerability.,Attenuation,CSOC Phase 3 Facade Seal :   deletes global internals;   Capability Broker provides isolated   handles only.
+Direct State Mutation,Tenant directly writing to Host state/memory instead of returning delta envelopes.,Uncontrolled side effects; non-deterministic state drift across clients.,Action Inversion,Delta Envelope Commitment : Mutation rights restricted to Host execution pass; Sentinel   Purity Oracle validates return objects.
+Causal Bus Loop / Cascade,"Subscriber re-emitting identical event topics, creating recursive loops.",UI thread deadlock; call stack overflow; event bus saturation.,Message Bus,PMIP-001 Causal Depth Guard : Tracks trace lineage depth; halts event emission and flags error if depth exceeds   (16).
+Orphaned Bus Link,Emitting topics without subscribers or subscribing to undeclared topics.,Dead event routes; unhandled system intents; memory leaks.,Zero-Orphan Link,Bipartite Link Verifier  ( ): Compares manifest emission/subscription maps at pre-boot; halts on undeclared links.
+Hardware Compute Overload,Frame render processing time exceeding 14.5ms for 5 consecutive ticks.,Frame drops; UI lag; thermal throttling on lower-tier hardware.,Frame Budget,Hardware Compute Load Balancer (DCLB) : Cascading automated load shedding: Stage 1 WebGL fallback -> Stage 2 Audio reduction -> Stage 3 Raw Tick Mode.
+Semantic Compression Trap,LLM token-saving optimization substituting code with   or  .,Missing AST section anchors; broken syntax; CSOC Phase 1 boot halt.,Single-File Autonomy,PGE-DSL-1 Gate 1 Placeholder Scan : Rejects proposals containing placeholder tokens;   re-indexes missing regions.
+Hidden Canvas GC Allocation,"AI using  ,  , or  .",Transient object allocation inside 60Hz   loop; GC frame jank.,/,Hot-Path Filter : Halts   compilation ( ); forces pre-calculated text bounds and static color ramps.
+"Memory Header & Stride Drift 
+
+  /",AI shuffling struct byte offsets or misaligning 16-byte entity strides.,Incorrect DataView reads; garbled state values; SGI hash mismatch.,Layout,GUCA Emitter  ( ): Automatically calculates byte offsets and emits static   getters/setters from   state.
+Cognitive Complexity Spike,AI emitting deeply nested logic structures exceeding S3776 threshold (>15).,JIT de-optimization; unmaintainable hot path; SonarLint non-compliance.,S3776 Standards,AST Fault Slicing  ( ): Isolates failing scope to <300 tokens for precise LLM re-prompting; ERL-001 automated refactoring.
+Unseeded Randomness Injection,AI using native   inside simulation logic.,Loss of bitwise simulation determinism; broken multiplayer/replay state.,Determinism,Compiler Halt : Bans  ; Sentinel Pass 13 enforces Mulberry32 PRNG stream usage.
+Unmapped Capability Invocation,AI invoking host hardware APIs without declaring them in  .,Unauthorized subsystem access; security boundary violation.,Standard,STCP Plane 2 Capability Barrier : Static AST verification rejects unmapped host handle references during compilation.
+"Mix-in Property Collision 
+
+  /",AI composing mixins with duplicate method signatures or state variable names.,Non-deterministic state overriding; ambiguous method resolution.,C3 Linearization,STCP Plane 2 Mixin Linearizer : Enforces C3 Method Resolution Order; halts compilation on unannotated collisions ( / ).
+DOM Tree Over-Nesting,AI generating deeply nested   wrappers inside HTML monolith templates.,Excessive style recalculation latency; slow DOM parsing and layout trees.,Shallow Topology,"Shallow DOM Topology Rule : Enforces maximum DOM depth <= 6; requires native semantic ARIA tags ( ,  ,  )."

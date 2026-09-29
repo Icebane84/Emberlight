@@ -1,4 +1,4 @@
-/* Phoenix Sovereign Engine v7.0.0-ULTIMATE-FUSION — Verification Suite
+/* Phoenix Sovereign Engine v8.0.0-ULTIMATE-FUSION — Verification Suite
  * Protocols: VSRP-001 / PMIP-001 / SDCP-001 / PERSIST-001
  *
  * Native Node.js only. Zero external test framework.
@@ -172,7 +172,7 @@ async function fakeParser(raw) {
 /* ── RUN SUITE ─────────────────────────────────────────────────────────── */
 async function run() {
 	console.log(
-		"\nPHOENIX SOVEREIGN ENGINE v7.0.0-ULTIMATE-FUSION — TEST SUITE\n",
+		"\nPHOENIX SOVEREIGN ENGINE v8.0.0-ULTIMATE-FUSION — TEST SUITE\n",
 	);
 
 	/* ── T-01: Happy path ─────────────────────────────────────────────────── */
@@ -425,12 +425,12 @@ async function run() {
 		// Original proposal with path traversal causing STRUCTURAL_GATE REJECTED
 		const originalProposal = makeProposal({
 			proposalId: "slm-origin",
-			changes: [{
+			changes: [ {
 				type: "replace_text",
 				path: "../outside.js",
 				search: "return 10;",
 				content: "function calculateDamage(){ return 20; }"
-			}]
+			} ]
 		});
 		const firstReceipt = await gov.submit(originalProposal, "local-ai");
 		assert.equal(firstReceipt.status, Phoenix.STATUS.REJECTED);
@@ -510,7 +510,7 @@ async function run() {
 			"const g = 7;"
 		].join("\n");
 
-		const diags = [{ rule: "VSRP/PRNG-AUTHORITY", line: 3, message: "Forbidden Math.random()" }];
+		const diags = [ { rule: "VSRP/PRNG-AUTHORITY", line: 3, message: "Forbidden Math.random()" } ];
 		const result = Phoenix.PhoenixBatchRemediationPipeline.executeFastPath(
 			shiftedCode,
 			diags,
@@ -522,11 +522,11 @@ async function run() {
 		assert.equal(result.fastPathApplied, 1, "Should apply 1 fast path fix via proximity scan");
 		assert.ok(result.patchedSource.includes("_rng.next()"), "Patched source should contain PRNG call");
 		const patchedLines = result.patchedSource.split("\n");
-		assert.ok(patchedLines[5].includes("_rng.next()"), "Line 6 should be the patched line");
+		assert.ok(patchedLines[ 5 ].includes("_rng.next()"), "Line 6 should be the patched line");
 
 		// Test regex fast-path replacement: [a-zA-Z0-9_] -> \w
 		const regexCode = "const isWord = /[a-zA-Z0-9_]/.test(ch);";
-		const regexDiags = [{ rule: "REGEX/VERBOSE_CHAR_CLASS", line: 1, message: "Verbose char class" }];
+		const regexDiags = [ { rule: "REGEX/VERBOSE_CHAR_CLASS", line: 1, message: "Verbose char class" } ];
 		const regexResult = Phoenix.PhoenixBatchRemediationPipeline.executeFastPath(
 			regexCode,
 			regexDiags,
@@ -536,7 +536,7 @@ async function run() {
 		);
 
 		assert.equal(regexResult.fastPathApplied, 1, "Should apply regex replacement");
-		assert.ok(regexResult.patchedSource.includes("/\\w/"), "Patched source should use shorthand \\w");
+		assert.ok(regexResult.patchedSource.includes(String.raw`/\w/`), String.raw`Patched source should use shorthand \w`);
 	});
 
 	await test("T-15: PhoenixChunkDiffEngine.reconcileFuzzyHunk handles drift, indentation, and duplicate blocks", async () => {
@@ -615,8 +615,8 @@ async function run() {
 		const res4 = diffEngine.reconcileFuzzyHunk(src4, dupSearch, dupContent, { activeLine: 7 });
 		assert.equal(res4.pass, true, "Duplicate block resolution should pass");
 		const lines4 = res4.patchedSource.split("\n");
-		assert.equal(lines4[1], "  const val = 10;", "Header block should remain untouched at 10");
-		assert.equal(lines4[6], "  const val = 99;", "Footer block should be patched to 99");
+		assert.equal(lines4[ 1 ], "  const val = 10;", "Header block should remain untouched at 10");
+		assert.equal(lines4[ 6 ], "  const val = 99;", "Footer block should be patched to 99");
 
 		// 5. Anti-theater rejection of low-confidence / generic braces
 		const src5 = "function test() {\n  return false;\n}";
@@ -642,10 +642,10 @@ async function run() {
 		const addTokens = wordDiff.newTokens.filter(t => t.type === "add");
 
 		assert.equal(delTokens.length, 1, "Should detect exactly 1 deleted token chunk");
-		assert.equal(delTokens[0].text, "||", "Deleted token chunk should be '||'");
+		assert.equal(delTokens[ 0 ].text, "||", "Deleted token chunk should be '||'");
 
 		assert.equal(addTokens.length, 1, "Should detect exactly 1 added token chunk");
-		assert.equal(addTokens[0].text, "??", "Added token chunk should be '??'");
+		assert.equal(addTokens[ 0 ].text, "??", "Added token chunk should be '??'");
 
 		// 2. Aligned Split Hunk Rows
 		const src = "function calculate() {\n  const a = 1;\n  const b = 2;\n  return a + b;\n}";
@@ -653,7 +653,7 @@ async function run() {
 		const hunks = diffEngine.computeHunks(src, modified);
 		assert.equal(hunks.length, 1, "Should produce 1 hunk");
 
-		const splitRows = diffEngine.alignHunkSplit(hunks[0]);
+		const splitRows = diffEngine.alignHunkSplit(hunks[ 0 ]);
 		assert.ok(splitRows.length >= 4, "Split rows should include context, paired modifications, and pads");
 
 		// Verify that at least one row has tokens attached for intra-line highlighting
@@ -671,11 +671,11 @@ async function run() {
 	console.log(`\n${"─".repeat(60)}`);
 	if (_failed === 0) {
 		console.log(
-			`PHOENIX SOVEREIGN ENGINE v7.0.0-ULTIMATE-FUSION: ALL ${_passed} TESTS PASS ✓`,
+			`PHOENIX SOVEREIGN ENGINE v8.0.0-ULTIMATE-FUSION: ALL ${_passed} TESTS PASS ✓`,
 		);
 	} else {
 		console.error(
-			`PHOENIX SOVEREIGN ENGINE v7.0.0-ULTIMATE-FUSION: ${_failed} FAILED / ${_passed} PASSED`,
+			`PHOENIX SOVEREIGN ENGINE v8.0.0-ULTIMATE-FUSION: ${_failed} FAILED / ${_passed} PASSED`,
 		);
 		process.exitCode = 1;
 	}
