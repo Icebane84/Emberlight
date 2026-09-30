@@ -2021,8 +2021,8 @@
 			const code = _lookupVFS(vfsMap, src);
 			if (code !== undefined) {
 				inlinedSet.add(src.replace(/^\.?\//, "").trim());
-				const safeCode = code.replaceAll("</script>", safeClosingScript);
-				return `${safeOpeningScript}/* [VFS INLINE SCRIPT: ${src}] */\n${safeCode}\n${safeClosingScript}`;
+				const safeCode = code.replace(/<\/script/gi, '<\\/script').replace(/<!--/g, '<\\!--');
+				return `${safeOpeningScript}/* [VFS INLINE SCRIPT: ${src}] */\n(() => {\n${safeCode}\n})();\n${safeClosingScript}`;
 			}
 			return `<!-- [VFS External Script Skipped: ${src}] -->`;
 		});
@@ -2031,20 +2031,61 @@
 
 	/**
 	 * Builds fallback bundle when no script tags were declared in entry HTML.
+	 * Isolate each script within an IIFE closure to prevent top-level variable collisions.
+	 * Skips IDE host tools, test batteries, and unscaffolded templates.
 	 * @param {Map<string, string> | any} vfsMap
 	 * @param {Set<string>} inlinedSet
+	 * @param {string} [targetEntry]
 	 * @returns {string}
 	 */
-	function _buildFallbackScriptBundle(vfsMap, inlinedSet) {
+	function _buildFallbackScriptBundle(vfsMap, inlinedSet, targetEntry) {
 		if (!vfsMap || typeof vfsMap.entries !== "function") return "";
 		const scripts = [];
 		const safeClosingScript = "<" + "/script>";
 		const safeOpeningScript = "<script>";
+
+		const HOST_TOOL_FILES = new Set([
+			'phoenix_sovereign_engine.js',
+			'synarche_parser.js',
+			'phoenix_type_resolver.js',
+			'monolith_exporter.js',
+			'sentinel_evaluator.js',
+			'vlt_compliance_engine.js',
+			'test_phoenix.js',
+			'test_phoenix_sovereign_engine.js',
+			'audit_esm.js',
+			'vlt_sync.js'
+		]);
+
+		function isExcludedFile(filePath, code) {
+			const lower = filePath.toLowerCase();
+			const baseName = filePath.split('/').pop() || '';
+			if (HOST_TOOL_FILES.has(baseName)) return true;
+			if (lower.startsWith('tools/') || lower.includes('/tools/')) return true;
+			if (lower.startsWith('testing/') || lower.includes('/testing/')) return true;
+			if (lower.startsWith('docs/') || lower.includes('/docs/')) return true;
+			if (lower.includes('_template.') || lower.includes('template_')) return true;
+			if (code && (code.includes("require('node:") || code.includes('require("node:'))) return true;
+			return false;
+		}
+
+		function escapeScript(code) {
+			return code.replace(/<\/script/gi, '<\\/script').replace(/<!--/g, '<\\!--');
+		}
+
+		if (targetEntry && targetEntry.endsWith('.js') && vfsMap.has(targetEntry)) {
+			const targetCode = vfsMap.get(targetEntry);
+			if (targetCode) {
+				scripts.push(`/* [VFS PRIMARY ENTRY: ${targetEntry}] */\n(() => {\n${escapeScript(targetCode)}\n})();`);
+				inlinedSet.add(targetEntry.replace(/^\.?\//, "").trim());
+			}
+		}
+
 		for (const [ path, code ] of vfsMap.entries()) {
-			const clean = path.replace(/^\.?\//, "");
+			const clean = path.replace(/^\.?\//, "").trim();
 			if (path.endsWith(".js") && !path.includes("test_") && !inlinedSet.has(clean)) {
-				const safeCode = code.replaceAll("</script>", safeClosingScript);
-				scripts.push(`/* [VFS: ${path}] */\n${safeCode}`);
+				if (isExcludedFile(path, code)) continue;
+				scripts.push(`/* [VFS: ${path}] */\n(() => {\n${escapeScript(code)}\n})();`);
 			}
 		}
 		return scripts.length > 0 ? `${safeOpeningScript}\n${scripts.join("\n\n")}\n${safeClosingScript}` : "";
@@ -2059,7 +2100,8 @@
 		buildRuntimeHTML(vfsMap, entryFile = "index.html") {
 			const defaultCanvas = "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Phoenix Game Runtime</title><style>body{margin:0;background:#05080c;color:#00ffcc;font-family:monospace;display:flex;align-items:center;justify-content:center;height:100vh;overflow:hidden;}canvas{border:1px solid #00ffcc44;box-shadow:0 0 16px rgba(0,255,204,0.15);}</style></head><body><canvas id=\"gameCanvas\" width=\"640\" height=\"480\"></canvas></body></html>";
 
-			let baseHtml = (vfsMap && typeof vfsMap.get === "function" && vfsMap.has(entryFile))
+			const isHtml = typeof entryFile === "string" && entryFile.toLowerCase().endsWith(".html");
+			let baseHtml = (isHtml && vfsMap && typeof vfsMap.get === "function" && vfsMap.has(entryFile))
 				? (vfsMap.get(entryFile) || defaultCanvas)
 				: defaultCanvas;
 
@@ -2069,7 +2111,7 @@
 			const scriptRes = _inlineScripts(baseHtml, vfsMap, inlinedScripts);
 			baseHtml = scriptRes.html;
 
-			const fallbackBundle = scriptRes.hasScriptTags ? "" : _buildFallbackScriptBundle(vfsMap, inlinedScripts);
+			const fallbackBundle = scriptRes.hasScriptTags ? "" : _buildFallbackScriptBundle(vfsMap, inlinedScripts, entryFile);
 
 			const hookScript = [
 				"<script>",
@@ -2080,6 +2122,7 @@
 				"		lastTick: performance.now(),",
 				"		frameCount: 0,",
 				"		isPaused: false,",
+				"		cartridge: null,",
 				"		step() { window.__PHOENIX_RUNTIME__.frameCount++; },",
 				"		pause() { window.__PHOENIX_RUNTIME__.isPaused = true; },",
 				"		resume() { window.__PHOENIX_RUNTIME__.isPaused = false; }",
@@ -2088,6 +2131,50 @@
 				"		if (window.parent) {",
 				"			window.parent.postMessage({ type: 'PHOENIX_RUNTIME_ERROR', message: e.message, line: e.lineno }, '*');",
 				"		}",
+				"	});",
+				"	window.addEventListener('DOMContentLoaded', function() {",
+				"		const canvas = document.getElementById('gameCanvas');",
+				"		if (!canvas) return;",
+				"		let cartridge = null;",
+				"		for (const key of Object.keys(window)) {",
+				"			try {",
+				"				const obj = window[key];",
+				"				if (obj && typeof obj === 'object' && (obj.protocol === 'VSRP-001' || (typeof obj.update === 'function' && typeof obj.render === 'function'))) {",
+				"					cartridge = obj;",
+				"					break;",
+				"				}",
+				"			} catch (_) {}",
+				"		}",
+				"		if (!cartridge) return;",
+				"		window.__PHOENIX_RUNTIME__.cartridge = cartridge;",
+				"		const ctx = canvas.getContext('2d');",
+				"		const hostCtx = {",
+				"			requestLinearMemory: function(bytes) { return new ArrayBuffer(bytes); },",
+				"			capabilities: { render: 'CANVAS_2D', audio: null, log: console.log }",
+				"		};",
+				"		if (typeof cartridge.configure === 'function') cartridge.configure(hostCtx);",
+				"		if (typeof cartridge.boot === 'function') cartridge.boot(canvas);",
+				"		if (typeof cartridge.activate === 'function') cartridge.activate();",
+				"		const inputState = {};",
+				"		window.addEventListener('keydown', function(e) { inputState[e.key] = true; inputState[e.code] = true; });",
+				"		window.addEventListener('keyup', function(e) { inputState[e.key] = false; inputState[e.code] = false; });",
+				"		const inputAccessor = { isDown: function(k) { return Boolean(inputState[k]); } };",
+				"		let lastTime = performance.now();",
+				"		function loop(now) {",
+				"			requestAnimationFrame(loop);",
+				"			if (window.__PHOENIX_RUNTIME__.isPaused) return;",
+				"			window.__PHOENIX_RUNTIME__.frameCount++;",
+				"			const dt = Math.min(0.1, (now - lastTime) / 1000);",
+				"			lastTime = now;",
+				"			const temporalTick = { deltaTime: dt, elapsedTime: now / 1000 };",
+				"			try {",
+				"				if (typeof cartridge.update === 'function') cartridge.update(temporalTick, inputAccessor);",
+				"				if (ctx && typeof cartridge.render === 'function') cartridge.render(ctx);",
+				"			} catch (err) {",
+				"				console.error('[CARTRIDGE/RUNTIME]', err);",
+				"			}",
+				"		}",
+				"		requestAnimationFrame(loop);",
 				"	});",
 				"})();",
 				"<" + "/script>"

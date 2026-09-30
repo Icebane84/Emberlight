@@ -19,6 +19,11 @@ const rootDir = path.resolve(__dirname, '..');
 
 const testSuites = [
   {
+    name: 'Zero-ESM File-Protocol Linter Gate',
+    file: 'tools/audit_esm.js',
+    args: ['phoenix'],
+  },
+  {
     name: 'Emberlight Sentinel Headless Audit (Pass 1-21)',
     file: 'testing/test_sentinel.js',
   },
@@ -58,7 +63,8 @@ for (const suite of testSuites) {
   console.log('─'.repeat(64));
 
   const startTime = Date.now();
-  const res = spawnSync(process.execPath, [suite.file], {
+  const runArgs = [suite.file, ...(suite.args || [])];
+  const res = spawnSync(process.execPath, runArgs, {
     cwd: rootDir,
     encoding: 'utf8',
     stdio: 'inherit',

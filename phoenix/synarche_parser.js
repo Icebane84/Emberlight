@@ -2615,13 +2615,49 @@
 	}
 
 	/**
+	 * Canonical registry of error-code-driven constitutional rules.
+	 * Evaluated in strict order by SynarcheAdmissionAuthority._evaluateErrorRules.
+	 * @type {ReadonlyArray<{ ruleId: string; errCodes: readonly string[] }>}
+	 */
+	const CONSTITUTIONAL_DIAGNOSTIC_RULES = Object.freeze([
+		{ ruleId: 'STCP-001.MIXIN_INTEGRITY', errCodes: Object.freeze(['ERR_0x10', 'ERR_0x11', 'ERR_0x12']) },
+		{ ruleId: 'SDCP-001.FARADAY', errCodes: Object.freeze(['ERR_0x16']) },
+		{ ruleId: 'SDCP-001.CAPABILITIES', errCodes: Object.freeze(['ERR_0x15']) },
+		{ ruleId: 'INV-08.HOT_LOOP', errCodes: Object.freeze(['ERR_0x17']) },
+		{ ruleId: 'STCP-002.TYPE_UNIFICATION', errCodes: Object.freeze(['ERR_0x1A']) },
+		{ ruleId: 'MPFS-001.BUS_LINK_INTEGRITY', errCodes: Object.freeze(['ERR_0x0D']) },
+		{ ruleId: 'CAP_WASM_SIMD.SOCKET_BREACH', errCodes: Object.freeze(['ERR_0x1B']) },
+		{ ruleId: 'INV-SAB-01.ATOMIC_WAIT', errCodes: Object.freeze(['ERR_0x1F']) }
+	]);
+
+	/**
 	 * Plane 2.5: STCP-002 Constitutional Admission Authority.
 	 * Evaluates CartridgeAST against machine-readable CONSTITUTIONAL_RULE_REGISTRY
 	 * and issues an immutable, proof-carrying ConstitutionalReceipt required for GUCA emission.
 	 */
 	class SynarcheAdmissionAuthority {
 		/**
+		 * Evaluates diagnostic error-driven rules and records pass/fail classifications.
+		 * [Pure Function] Complexity <= 4.
+		 * @param {string[]} errors - Current collection of diagnostic error strings
+		 * @param {string[]} passedRules - Sink for passing rule identifiers
+		 * @param {string[]} failedRules - Sink for failing rule identifiers
+		 * @private
+		 */
+		static _evaluateErrorRules(errors, passedRules, failedRules) {
+			for (const item of CONSTITUTIONAL_DIAGNOSTIC_RULES) {
+				const hasError = errors.some(e => item.errCodes.some(code => e.includes(code)));
+				if (hasError) {
+					failedRules.push(item.ruleId);
+				} else {
+					passedRules.push(item.ruleId);
+				}
+			}
+		}
+
+		/**
 		 * Evaluates constitutional invariants and classifies passed/failed rules.
+		 * [Pure Function] Complexity <= 4.
 		 * @param {CartridgeAST} ast - AST being evaluated
 		 * @param {string[]} errors - Diagnostics
 		 * @param {number} totalMem - Total memory bytes required
@@ -2634,83 +2670,25 @@
 			/** @type {string[]} */
 			const failedRules = [];
 
-			/** @param {string} ruleId */
-			const passRule = (ruleId) => {
-				passedRules.push(ruleId);
-			};
-
-			/** @param {string} ruleId @param {string} [errMsg] */
-			const failRule = (ruleId, errMsg) => {
-				failedRules.push(ruleId);
-				if (errMsg) errors.push(errMsg);
-			};
-
 			if (ast?.name) {
-				passRule('VSRP-001.LIFECYCLE');
+				passedRules.push('VSRP-001.LIFECYCLE');
 			} else {
-				failRule('VSRP-001.LIFECYCLE', `[${ERRORS.ERR_0x19}] L1:C1 - Invalid AST: missing cartridge identity`);
+				failedRules.push('VSRP-001.LIFECYCLE');
+				errors.push(`[${ERRORS.ERR_0x19}] L1:C1 - Invalid AST: missing cartridge identity`);
 			}
 
 			if (totalMem <= MAX_PAYLOAD_MEMORY_BYTES) {
-				passRule('PERSIST-001.CAPACITY');
+				passedRules.push('PERSIST-001.CAPACITY');
 			} else {
-				failRule('PERSIST-001.CAPACITY', `[${ERRORS.ERR_0x13}] L1:C1 - Memory layout ${totalMem}B exceeds max payload capacity ${MAX_PAYLOAD_MEMORY_BYTES}B`);
-			}
-
-			if (!errors.some(e => e.includes('ERR_0x10') || e.includes('ERR_0x11') || e.includes('ERR_0x12'))) {
-				passRule('STCP-001.MIXIN_INTEGRITY');
-			} else {
-				failRule('STCP-001.MIXIN_INTEGRITY');
-			}
-
-			if (!errors.some(e => e.includes('ERR_0x16'))) {
-				passRule('SDCP-001.FARADAY');
-			} else {
-				failRule('SDCP-001.FARADAY');
-			}
-
-			if (!errors.some(e => e.includes('ERR_0x15'))) {
-				passRule('SDCP-001.CAPABILITIES');
-			} else {
-				failRule('SDCP-001.CAPABILITIES');
-			}
-
-			if (!errors.some(e => e.includes('ERR_0x17'))) {
-				passRule('INV-08.HOT_LOOP');
-			} else {
-				failRule('INV-08.HOT_LOOP');
+				failedRules.push('PERSIST-001.CAPACITY');
+				errors.push(`[${ERRORS.ERR_0x13}] L1:C1 - Memory layout ${totalMem}B exceeds max payload capacity ${MAX_PAYLOAD_MEMORY_BYTES}B`);
 			}
 
 			// STCP-002: Hindley-Milner Type Inference Pass
 			const typeEngine = new SynarcheTypeInferenceEngine();
 			typeEngine.inferCartridge(ast, errors);
 
-			if (!errors.some(e => e.includes('ERR_0x1A'))) {
-				passRule('STCP-002.TYPE_UNIFICATION');
-			} else {
-				failRule('STCP-002.TYPE_UNIFICATION');
-			}
-
-			// MPFS-001 v2.3.0: SEC-09 Rule 9 — Bus-Link Integrity (ERR_0x0D)
-			if (!errors.some(e => e.includes('ERR_0x0D'))) {
-				passRule('MPFS-001.BUS_LINK_INTEGRITY');
-			} else {
-				failRule('MPFS-001.BUS_LINK_INTEGRITY');
-			}
-
-			// MPFS-001 v2.3.0: SEC-06B — Polyglot Socket DOM Authority Breach (ERR_0x1B)
-			if (!errors.some(e => e.includes('ERR_0x1B'))) {
-				passRule('CAP_WASM_SIMD.SOCKET_BREACH');
-			} else {
-				failRule('CAP_WASM_SIMD.SOCKET_BREACH');
-			}
-
-			// MPFS-001 v2.3.0: SEC-06C — INV-SAB-01 Atomics.wait() Main Thread Prohibition (ERR_0x1F)
-			if (!errors.some(e => e.includes('ERR_0x1F'))) {
-				passRule('INV-SAB-01.ATOMIC_WAIT');
-			} else {
-				failRule('INV-SAB-01.ATOMIC_WAIT');
-			}
+			SynarcheAdmissionAuthority._evaluateErrorRules(errors, passedRules, failedRules);
 
 			return { passedRules, failedRules };
 		}

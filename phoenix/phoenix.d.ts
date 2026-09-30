@@ -1592,9 +1592,9 @@ declare interface SynarcheStatementParserFacade {
  * @description Master transduction compiler facade.
  */
 declare interface SynarcheCompilerFacade {
-  verifyBusLinkIntegrity: any;
+  verifyBusLinkIntegrity(ast: CartridgeAST | unknown): VLTBusLinkReport;
   tokenize(source: string, options?: SynarcheLexerOptions): SynarcheToken[];
-  parse(tokens: SynarcheToken[], options?: SynarcheParserOptions): { ast: CartridgeAST; errors: string[]; receipt?: ConstitutionalReceipt };
+  parse(input: string | SynarcheToken[], options?: SynarcheParserOptions): { ast: CartridgeAST; errors: string[]; receipt?: ConstitutionalReceipt };
   admit(ast: CartridgeAST, errors?: string[], options?: SynarcheParserOptions): ConstitutionalReceipt;
   emit(ast: CartridgeAST, options?: SynarcheEmitterOptions): string;
   compile(source: string, options?: SynarcheCompileOptions): SynarcheCompileResult;

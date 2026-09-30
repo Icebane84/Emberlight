@@ -14,9 +14,9 @@
  * [SEC-02] REGION SCANNING & STRUCTURAL ANCHOR EXTRACTION ....... Line ~0065
  * [SEC-03] JUMP TABLE FORMATTER & ITERATIVE CONVERGENCE ENGINE .. Line ~0211
  * [SEC-04] STATIC COMPLIANCE AUDIT & COMPLEXITY VERIFICATION .... Line ~0295
- * [SEC-05] PARAMETRIC MODULE SCAFFOLDER & ARCHETYPE EXPANDER .... Line ~0918
- * [SEC-06] UNIVERSAL FACADE & DUAL-BINDING MODULE EXPORT ........ Line ~0978
- * [SEC-07] PHOENIX SYMBOL INDEXER BRIDGE (SEC-10 DELEGATION) .... Line ~1060
+ * [SEC-05] PARAMETRIC MODULE SCAFFOLDER & ARCHETYPE EXPANDER .... Line ~0919
+ * [SEC-06] UNIVERSAL FACADE & DUAL-BINDING MODULE EXPORT ........ Line ~0980
+ * [SEC-07] PHOENIX SYMBOL INDEXER BRIDGE (SEC-10 DELEGATION) .... Line ~1062
  * =============================================================================
  */
 
@@ -43,7 +43,7 @@
 	 * @property {'DRIFT'|'COMPLEXITY'|'CLOSURE'|'ORDER'|'TOKEN'|'BUS_LINK'|'SOCKET_BREACH'|'ATOMIC_WAIT'|'DOWNWARD_DEPENDENCY'|'HOT_LOOP_ALLOC'|'SOCKET_UNGUARDED'|'STAGING_LEAK'|'UNFROZEN_FACADE'} type - Violation category
 	 * @property {string} message - Diagnostic description
 	 * @property {number} [line] - Source line number of violation
-	 * @property {string} [severity] - 'error' | 'warning'
+	 * @property {'error'|'warning'} [severity] - 'error' | 'warning'
 	 *
 	 * @typedef {Object} VLTComplianceReport
 	 * @property {boolean} compliant - True if all gates pass with zero errors
@@ -455,8 +455,9 @@
 			const report = compiler.verifyBusLinkIntegrity(ast);
 			_recordBusLinkViolations(report, violations);
 			return report;
-		} catch (_) {
-			// Non-Synarche source code or parsing syntax failure; skip bus-link validation safely
+		} catch (parseErr) {
+			// Ignored: non-Synarche source code or parsing syntax failure; skip bus-link validation safely
+			console.debug?.('[VLT] Bus-link parse bypassed:', parseErr);
 			return { ok: true, orphanedEmits: [], orphanedListens: [] };
 		}
 	}
@@ -571,7 +572,7 @@
 	 * @param {string} sourceCode - JavaScript source code to audit
 	 * @param {Object} [options]
 	 * @param {number} [options.maxComplexity=15] - Maximum permitted function complexity
-	 * @param {Function} [options.complexityScanner] - Optional injected scanner
+	 * @param {((src: string, threshold: number) => Array<{ name: string; line: number; complexity: number }>)} [options.complexityScanner] - Optional injected scanner
 	 * @param {boolean} [options.skipBusLinkAudit] - If true, skips the SynarcheCompiler bus-link pass
 	 * @param {boolean} [options.skipSocketAudit] - If true, skips the SEC-06B/INV-SAB-01 pass
 	 * @param {boolean} [options.skipDownwardAudit] - If true, skips the downward dependency pass
@@ -965,9 +966,10 @@
 		const resolver = (typeof PhoenixTypeResolver !== 'undefined')
 			? PhoenixTypeResolver
 			: root?.PhoenixTypeResolver;
-		const enriched = (resolver?.isInitialized?.() && typeof resolver.scaffoldAllContracts === 'function')
+		const rawEnriched = (resolver?.isInitialized?.() && typeof resolver.scaffoldAllContracts === 'function')
 			? resolver.scaffoldAllContracts(substituted)
 			: substituted;
+		const enriched = typeof rawEnriched === 'string' ? rawEnriched : (rawEnriched?.scaffoldedSource || substituted);
 
 		// Calibrate jump table line numbers to exact accuracy
 		return syncJumpTable(enriched);
@@ -1115,4 +1117,9 @@
 	}
 
 	//#endregion [SEC-07]
-})(/** @type {Window & typeof globalThis} */ (typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : global)));
+})(/** @type {Window & typeof globalThis} */ (
+	(typeof window !== 'undefined' && window) ||
+	(typeof globalThis !== 'undefined' && globalThis) ||
+	(typeof global !== 'undefined' && global) ||
+	{}
+));

@@ -291,17 +291,17 @@
 	}
 
 	/**
-	 * Parses TypeScript ambient declarations (.d.ts) into the in-memory symbol catalog.
-	 * @param {string} dtsContent - Raw contents of phoenix.d.ts
-	 * @returns {number} Number of indexed method signatures
-	 */
+		 * Parses TypeScript ambient declarations (.d.ts) into the in-memory symbol catalog.
+		 * @param {string} dtsContent - Raw contents of phoenix.d.ts
+		 * @returns {number} Number of indexed method signatures
+		 */
 	function ingestDeclarations(dtsContent) {
 		if (!dtsContent || typeof dtsContent !== 'string') return 0;
 		_methodCatalog.clear();
 		_interfaceCatalog.clear();
 
 		// Match method signatures: e.g. methodName(param1: Type1, param2?: Type2): ReturnType;
-		const methodRegex = /(?:[a-z]+\s+)*([A-Za-z0-9_$]+)\s*\(([^)]*)\)\s*:\s*([^;\x7B\n]+);/g;
+		const methodRegex = /(?:(?:readonly|static|async|public|private)\s+)*([A-Za-z0-9_$]+)\s*\(([^)]*)\)\s*:\s*([^;\x7B\n]+)/g;
 
 		let match;
 		let count = 0;

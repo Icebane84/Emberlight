@@ -1606,6 +1606,7 @@ declare interface PhoenixCodeFormatterFacade {
 }
 
 declare interface PhoenixLinterSuiteFacade {
+  scanFunctionsComplexity?(code: string, threshold?: number): Array<{ name: string; line: number; complexity: number }>;
   lintCode(source: string, filename?: string): Array<{ line: number; col: number; message: string; severity: 'error' | 'warning' }>;
 }
 

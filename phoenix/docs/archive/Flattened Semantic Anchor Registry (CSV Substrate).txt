@@ -1,0 +1,9 @@
+Anchor_ID,Domain,Subsystem,Invariant_Binding,Operational_Definition
+UMB-001,Architecture,Definitions,INV-02,"Zero external dependencies; monolithic single-file HTML autonomy via file:///"
+AOP-001,Operations,Workflows,INV-04,"Fixed 60Hz accumulator loop timing decoupled from display refresh rates"
+GUCA-001,Actions,Execution,INV-05,"Contiguous binary memory authority via pre-allocated typed array heaps"
+SELT-001,Results,Telemetry,ERL-REG-001,"Zero-allocation error handling, error bitmasks, and telemetry ring buffers"
+PERSIST-001,Memory,Heap,PERSIST-001,"Linear ArrayBuffer partition authority with little-endian DataView accessors"
+VSRP-001,Lifecycle,FSM,VSRP-001,"Canonical 9-method finite state machine module lifecycle (configure through destroy)"
+MPFS-001,Staging,Spatial Layout,INV-03,"Shallow DOM topology with isolated rendering sockets and CSS containment"
+SDCP-001,Capabilities,Security,INV-07,"Capability attenuation and zero ambient authority across worker boundaries"

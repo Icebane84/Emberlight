@@ -263,7 +263,8 @@
 							title="Copy all active diagnostics formatted for AI/chat">📋 COPY ALL</button>
 						<button type="button" id="btn-erl-remediate-all" class="btn-quick-fix"
 							style="margin-right:6px; display:none; background:rgba(0, 230, 118, 0.2); border-color:var(--success, #00e676); color:var(--success, #00e676); font-weight:bold;"
-							title="Deterministically remediate all matched violations using ERL-001 & SynarcheLexer (<1ms)">⚡ AUTO-REMEDIATE (ERL)</button>
+							title="Deterministically remediate all matched violations using ERL-001 & SynarcheLexer (<1ms)">⚡
+							AUTO-REMEDIATE (ERL)</button>
 						<button type="button" id="btn-ai-repair-all" class="btn-quick-fix"
 							style="margin-right:8px; display:none; background:rgba(0, 229, 255, 0.2); border-color:var(--accent); color:var(--accent); font-weight:bold;"
 							title="Automatically debug and repair all file diagnostics via local AI (Alt+D)">🤖 AI REPAIR ALL</button>
@@ -304,7 +305,8 @@
 							<button type="button" id="btn-format-code" class="tools-dropdown-item"
 								title="Format code with normalized 2-space indentation (Alt+Shift+F)">🧹 FORMAT CODE</button>
 							<button type="button" id="btn-erl-batch-remediate" class="tools-dropdown-item"
-								title="Auto-remediate all constitutional & lint violations using ERL-001 & SynarcheLexer">⚡ ERL BATCH REMEDIATE</button>
+								title="Auto-remediate all constitutional & lint violations using ERL-001 & SynarcheLexer">⚡ ERL BATCH
+								REMEDIATE</button>
 							<button type="button" id="btn-transpile-stcp" class="tools-dropdown-item"
 								title="Transpile active .phx/.syn cartridge to VSRP-001 JavaScript (Alt+C)">⚡ COMPILE CARTRIDGE
 								(STCP)</button>
@@ -312,7 +314,8 @@
 								title="Deterministically scaffold canonical //#region anchors (ARCH-CODE-PARTITION-001)">📐 SCAFFOLD
 								REGIONS</button>
 							<button type="button" id="btn-scaffold-jsdoc-all" class="tools-dropdown-item"
-								title="Scaffold strict JSDoc typing contracts for all un-annotated functions using phoenix.d.ts">📜 SCAFFOLD ALL JSDOC CONTRACTS</button>
+								title="Scaffold strict JSDoc typing contracts for all un-annotated functions using phoenix.d.ts">📜
+								SCAFFOLD ALL JSDOC CONTRACTS</button>
 							<button type="button" id="btn-verify-contracts" class="tools-dropdown-item"
 								title="Verify module capabilities against AST operations">🛡️ VERIFY CONTRACTS</button>
 							<button type="button" id="btn-analyze-deps" class="tools-dropdown-item"
@@ -673,9 +676,11 @@
 					<span id="ai-chat-model-badge" class="ai-model-badge">AI: INITIALIZING...</span>
 				</div>
 				<div class="ai-chat-header-actions">
-					<button type="button" id="btn-ai-chat-attach-file" class="hud-btn active" title="Toggle active file context injection">📎 @FILE</button>
+					<button type="button" id="btn-ai-chat-attach-file" class="hud-btn active"
+						title="Toggle active file context injection">📎 @FILE</button>
 					<button type="button" id="btn-ai-chat-clear" class="hud-btn" title="Clear conversation history">🧹</button>
-					<button type="button" id="btn-collapse-ai-chat" class="hud-btn" style="padding:1px 5px; font-size:9px;" title="Close AI Chat (Esc)">✖</button>
+					<button type="button" id="btn-collapse-ai-chat" class="hud-btn" style="padding:1px 5px; font-size:9px;"
+						title="Close AI Chat (Esc)">✖</button>
 				</div>
 			</div>
 
@@ -685,7 +690,8 @@
 					📄 <span id="ai-chat-context-filename">No file selected</span>
 					<button type="button" id="btn-remove-chat-context" title="Detach file context">×</button>
 				</span>
-				<span class="ai-chat-memory-info" title="Multi-turn conversation history remembered across reloads">🧠 Memory Active</span>
+				<span class="ai-chat-memory-info" title="Multi-turn conversation history remembered across reloads">🧠 Memory
+					Active</span>
 			</div>
 
 			<!-- Messages Stream -->
@@ -695,20 +701,24 @@
 
 			<!-- Quick Prompt Chips -->
 			<div class="ai-chat-quick-chips">
-				<button type="button" class="ai-chip" data-prompt="Brainstorm 3 new mechanics or features for Emberlight:">💡 Brainstorm</button>
-				<button type="button" class="ai-chip" data-prompt="Explain the structure and architecture of this active file:">🔍 Explain Code</button>
-				<button type="button" class="ai-chip" data-prompt="Review this code for zero-allocation and performance optimizations:">⚡ Optimize</button>
-				<button type="button" class="ai-chip" data-prompt="Help me write a deterministic test case for this functionality:">🧪 Write Tests</button>
+				<button type="button" class="ai-chip" data-prompt="Brainstorm 3 new mechanics or features for Emberlight:">💡
+					Brainstorm</button>
+				<button type="button" class="ai-chip"
+					data-prompt="Explain the structure and architecture of this active file:">🔍 Explain Code</button>
+				<button type="button" class="ai-chip"
+					data-prompt="Review this code for zero-allocation and performance optimizations:">⚡ Optimize</button>
+				<button type="button" class="ai-chip"
+					data-prompt="Help me write a deterministic test case for this functionality:">🧪 Write Tests</button>
 			</div>
 
 			<!-- Input Container -->
 			<div class="ai-chat-input-container">
 				<div class="ai-chat-input-wrapper">
-					<textarea id="ai-chat-input" class="ai-chat-textarea" rows="1"
-						aria-label="Ask Sovereign Copilot..."
+					<textarea id="ai-chat-input" class="ai-chat-textarea" rows="1" aria-label="Ask Sovereign Copilot..."
 						placeholder="Ask anything... talk code, brainstorm, new features (Enter to send, Shift+Enter for newline)"></textarea>
 					<div class="ai-chat-input-actions">
-						<button type="button" id="btn-ai-chat-stop" class="hud-btn danger" style="display:none;" title="Stop generation">⏹ STOP</button>
+						<button type="button" id="btn-ai-chat-stop" class="hud-btn danger" style="display:none;"
+							title="Stop generation">⏹ STOP</button>
 						<button type="button" id="btn-ai-chat-send" class="hud-btn primary" title="Send message (Enter)">🚀</button>
 					</div>
 				</div>
@@ -835,6 +845,8 @@
 	<script src="sentinel_evaluator.js"></script>
 	<script src="synarche_parser.js"></script>
 	<script src="phoenix_type_resolver.js"></script>
+	<script src="phoenix_specs/sdcp-bootstrap.js"></script>
+	<script src="phoenix_specs/sovereign_memory_core.js"></script>
 
 	<!-- Master IDE Controller -->
 	<script>
@@ -1690,8 +1702,8 @@
 				if (storedAttach !== null) {
 					_attachActiveFile = storedAttach === 'true';
 				}
-			} catch (_) {
-				// Suppress corrupt localStorage deserialization and fallback cleanly to empty history
+			} catch (err) {
+				console.debug('[PHOENIX/AI] Chat history deserialization failure ignored:', err);
 				_chatHistory = [];
 			}
 		}
@@ -1814,7 +1826,7 @@
 
 			// 4. Restore code blocks with interactive headers and copy/stage buttons
 			for (let i = 0; i < codeBlocks.length; i++) {
-				const cb = codeBlocks[i];
+				const cb = codeBlocks[ i ];
 				const escapedCode = escapeHtml(cb.code);
 				const codeBlockHtml = `
 <div class="chat-code-block">
@@ -1899,8 +1911,8 @@
 					try {
 						await navigator.clipboard.writeText(rawCode);
 						_toast('Copied code snippet to clipboard!', 'pass');
-					} catch (_) {
-						// Suppress clipboard permission rejections in insecure or headless contexts
+					} catch (clipErr) {
+						console.debug('[PHOENIX/AI] Clipboard copy rejected or permission denied:', clipErr);
 						_toast('Failed to copy code.', 'warn');
 					}
 				});
@@ -1962,7 +1974,7 @@
 						if (parsed.id || parsed.schemaVersion || parsed.fingerprint || parsed.rule) {
 							content = `[Generated Proposal: ${parsed.description || parsed.intent || parsed.rule || parsed.id || 'Patch'}]`;
 						}
-					} catch (_) {}
+					} catch (_) { }
 				}
 				promptParts.push(`${turn.role === 'user' ? 'Developer' : 'Copilot'}: ${content}\n`);
 			}
@@ -1981,7 +1993,7 @@
 			_toast('Connecting to local AI...', 'info');
 			try {
 				await _connectOllama();
-			} catch (_) {}
+			} catch (_) { }
 			if (!_aiBridge?.ready) {
 				_toast('Local AI is offline. Start Ollama or LM Studio.', 'error');
 				_renderChatMessages();
@@ -3555,12 +3567,12 @@
 		 * @returns {number}
 		 */
 		function _findTargetLineIndex(lines, targetIdx, targetStr) {
-			if (lines[targetIdx]?.includes(targetStr)) return targetIdx;
+			if (lines[ targetIdx ]?.includes(targetStr)) return targetIdx;
 			for (let offset = 1; offset <= 25; offset++) {
-				if (targetIdx - offset >= 0 && lines[targetIdx - offset].includes(targetStr)) {
+				if (targetIdx - offset >= 0 && lines[ targetIdx - offset ].includes(targetStr)) {
 					return targetIdx - offset;
 				}
-				if (targetIdx + offset < lines.length && lines[targetIdx + offset].includes(targetStr)) {
+				if (targetIdx + offset < lines.length && lines[ targetIdx + offset ].includes(targetStr)) {
 					return targetIdx + offset;
 				}
 			}
@@ -3585,7 +3597,7 @@
 				return;
 			}
 
-			lines[targetIdx] = lines[targetIdx].replace(targetStr, replacementStr);
+			lines[ targetIdx ] = lines[ targetIdx ].replace(targetStr, replacementStr);
 			editor.value = lines.join('\n');
 			_onEditorContentChanged();
 			_toast(`✓ Applied Quick Fix at Ln ${targetIdx + 1}: ${targetStr}`, 'pass');
@@ -4202,7 +4214,7 @@ Output JSON with a single key "replacement" containing ONLY the replacement code
 				micro.leadingIndent
 			);
 
-			if (proposal.changes[0].content === micro.targetLine) return { pass: false };
+			if (proposal.changes[ 0 ].content === micro.targetLine) return { pass: false };
 
 			_updateRawJSONView(proposal);
 			const verification = _runAISandboxVerification(source, proposal, _activeFilePath);
@@ -4210,7 +4222,7 @@ Output JSON with a single key "replacement" containing ONLY the replacement code
 				return { pass: true, patchedSource: verification.patchedSource };
 			}
 
-			const errFeedback = (verification.linterErrors[0] || verification.remainingErrors[0]?.message || 'Still violated rules').slice(0, 100);
+			const errFeedback = (verification.linterErrors[ 0 ] || verification.remainingErrors[ 0 ]?.message || 'Still violated rules').slice(0, 100);
 			return { pass: false, feedback: errFeedback };
 		}
 
@@ -5975,7 +5987,7 @@ on render {
 			_diffViewMode = mode;
 			try {
 				localStorage.setItem('phoenix_diff_view_mode', mode);
-			} catch (_) {}
+			} catch (_) { }
 			_updateDiffPreview();
 		}
 
@@ -6170,7 +6182,34 @@ on render {
 				_runtimeTicker = null;
 			}
 
-			const html = PhoenixSovereignEngine.PhoenixRuntimeSandbox.buildRuntimeHTML(_vfs, 'index.html');
+			let entryFile = 'index.html';
+			if (!_vfs.has('index.html')) {
+				if (_activeFilePath && (_activeFilePath.endsWith('.js') || _isSynarcheFile(_activeFilePath))) {
+					entryFile = _activeFilePath;
+				} else {
+					for (const k of _vfs.keys()) {
+						if (k.includes('Cartridge') || k.endsWith('.phx') || k.includes('colossus') || k.includes('hero_simulation')) {
+							entryFile = k;
+							break;
+						}
+					}
+				}
+			}
+
+			if (_isSynarcheFile(entryFile)) {
+				const compiler = window.SynarcheCompiler || globalThis.SynarcheCompiler;
+				const phxSource = _vfs.get(entryFile) || '';
+				if (compiler && phxSource) {
+					const res = compiler.compile(phxSource, { format: 'IIFE' });
+					if (res.ok) {
+						const jsPath = entryFile.replace(/\.(phx|syn)$/, '.js');
+						_vfs.set(jsPath, res.code);
+						entryFile = jsPath;
+					}
+				}
+			}
+
+			const html = PhoenixSovereignEngine.PhoenixRuntimeSandbox.buildRuntimeHTML(_vfs, entryFile);
 			frame.srcdoc = html;
 
 			_runtimeTicker = PhoenixSovereignEngine.PhoenixRuntimeSandbox.createTickController({
@@ -7097,7 +7136,17 @@ on render {
 		 */
 		function _bootAndRestoreCartridge(cartridge, canvas) {
 			const hostCtx = {
-				requestLinearMemory: (bytes) => new ArrayBuffer(bytes),
+				requestLinearMemory: (bytes) => {
+					if (typeof SovereignMemoryCore !== 'undefined' && SovereignMemoryCore.allocateLinearMemory) {
+						try {
+							const pages = Math.max(1, Math.ceil(bytes / 65536));
+							return SovereignMemoryCore.allocateLinearMemory({ initialPages: pages }).buffer;
+						} catch (e) {
+							console.warn('[PHOENIX/WASM_MEM] Fallback to ArrayBuffer:', e);
+						}
+					}
+					return new ArrayBuffer(bytes);
+				},
 				capabilities: {
 					render: 'CANVAS_2D',
 					audio: window.PhoenixAudioSynthesizer || null,
@@ -7114,6 +7163,16 @@ on render {
 			let hotswapped = false;
 			if (_lastPreservedCartridgeHeap && typeof cartridge.deserialize === 'function') {
 				try {
+					if (typeof SovereignMemoryCore !== 'undefined' && SovereignMemoryCore.verifyHeaderGates && _lastPreservedCartridgeHeap.byteLength >= 32) {
+						const gateResult = SovereignMemoryCore.verifyHeaderGates(
+							_lastPreservedCartridgeHeap,
+							0,
+							window.__SDCP_MANIFEST__ ? window.__SDCP_MANIFEST__.tokenMask : 0n
+						);
+						if (!gateResult.passed) {
+							console.warn('[PHOENIX/HOTSWAP] PERSIST-001 Header gates rejected heap:', gateResult.reason);
+						}
+					}
 					cartridge.deserialize(_lastPreservedCartridgeHeap);
 					hotswapped = true;
 				} catch (heapErr) {
@@ -8172,6 +8231,15 @@ on render {
 		 */
 		async function _boot() {
 			try {
+				if (typeof SDCPCore !== 'undefined' && SDCPCore.Bootstrap) {
+					try {
+						const sdcpManifest = await SDCPCore.Bootstrap.bootstrap();
+						window.__SDCP_MANIFEST__ = sdcpManifest;
+						console.log(`[SDCP-001] Probed hardware capabilities in ${sdcpManifest.metrics.probeTimeMs.toFixed(1)}ms. Token: ${sdcpManifest.tokenHex}`, sdcpManifest.tiers);
+					} catch (sdcpErr) {
+						console.warn('[SDCP-001] Capability probe error:', sdcpErr);
+					}
+				}
 				await _governor.initialize();
 				if (window.PhoenixTypeResolver?.initializeTypeCatalog) window.PhoenixTypeResolver.initializeTypeCatalog();
 				_initRuntimeSandboxControls();
