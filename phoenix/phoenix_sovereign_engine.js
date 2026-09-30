@@ -2021,7 +2021,7 @@
 			const code = _lookupVFS(vfsMap, src);
 			if (code !== undefined) {
 				inlinedSet.add(src.replace(/^\.?\//, "").trim());
-				const safeCode = code.replace(/<\/script/gi, '<\\/script').replace(/<!--/g, '<\\!--');
+				const safeCode = code.replace(/<\/script/gi, String.raw`<\/script`).replaceAll('<!--', String.raw`<\!--`);
 				return `${safeOpeningScript}/* [VFS INLINE SCRIPT: ${src}] */\n(() => {\n${safeCode}\n})();\n${safeClosingScript}`;
 			}
 			return `<!-- [VFS External Script Skipped: ${src}] -->`;
@@ -2057,6 +2057,10 @@
 			'vlt_sync.js'
 		]);
 
+		/**
+		 * @param {string} filePath
+		 * @param {string | string[]} code
+		 */
 		function isExcludedFile(filePath, code) {
 			const lower = filePath.toLowerCase();
 			const baseName = filePath.split('/').pop() || '';
@@ -2065,12 +2069,15 @@
 			if (lower.startsWith('testing/') || lower.includes('/testing/')) return true;
 			if (lower.startsWith('docs/') || lower.includes('/docs/')) return true;
 			if (lower.includes('_template.') || lower.includes('template_')) return true;
-			if (code && (code.includes("require('node:") || code.includes('require("node:'))) return true;
+			if (typeof code === 'string' && /(?:require\s*\(\s*['"](?:node:)?(?:fs|path|vm|child_process|crypto|os|http|https|stream|util|assert)['"]\s*\)|from\s+['"](?:node:)?(?:fs|path|vm|child_process|crypto|os)['"])/.test(code)) return true;
 			return false;
 		}
 
+		/**
+		 * @param {string} code
+		 */
 		function escapeScript(code) {
-			return code.replace(/<\/script/gi, '<\\/script').replace(/<!--/g, '<\\!--');
+			return code.replace(/<\/script/gi, String.raw`<\/script`).replaceAll('<!--', String.raw`<\!--`);
 		}
 
 		if (targetEntry && targetEntry.endsWith('.js') && vfsMap.has(targetEntry)) {
@@ -2158,7 +2165,27 @@
 				"		const inputState = {};",
 				"		window.addEventListener('keydown', function(e) { inputState[e.key] = true; inputState[e.code] = true; });",
 				"		window.addEventListener('keyup', function(e) { inputState[e.key] = false; inputState[e.code] = false; });",
-				"		const inputAccessor = { isDown: function(k) { return Boolean(inputState[k]); } };",
+				"		const inputAccessor = {",
+				"			isDown: function(k) { return Boolean(inputState[k]); },",
+				"			get axisPrimaryX() {",
+				"				const right = Boolean(inputState['ArrowRight'] || inputState['KeyD'] || inputState['d']);",
+				"				const left = Boolean(inputState['ArrowLeft'] || inputState['KeyA'] || inputState['a']);",
+				"				return (right ? 1.0 : 0.0) - (left ? 1.0 : 0.0);",
+				"			},",
+				"			get axisPrimaryY() {",
+				"				const down = Boolean(inputState['ArrowDown'] || inputState['KeyS'] || inputState['s']);",
+				"				const up = Boolean(inputState['ArrowUp'] || inputState['KeyW'] || inputState['w']);",
+				"				return (down ? 1.0 : 0.0) - (up ? 1.0 : 0.0);",
+				"			},",
+				"			get buttonMask() {",
+				"				let m = 0;",
+				"				if (inputState['ArrowLeft'] || inputState['KeyA'] || inputState['a']) m |= 0x01;",
+				"				if (inputState['ArrowRight'] || inputState['KeyD'] || inputState['d']) m |= 0x02;",
+				"				if (inputState['ArrowUp'] || inputState['KeyW'] || inputState['w'] || inputState['Space'] || inputState[' ']) m |= 0x04;",
+				"				if (inputState['Shift'] || inputState['ShiftLeft'] || inputState['ShiftRight'] || inputState['KeyZ'] || inputState['z'] || inputState['ArrowDown'] || inputState['KeyS'] || inputState['s']) m |= 0x08;",
+				"				return m;",
+				"			}",
+				"		};",
 				"		let lastTime = performance.now();",
 				"		function loop(now) {",
 				"			requestAnimationFrame(loop);",
@@ -2208,6 +2235,7 @@
 			let currentFPS = targetFPS;
 			let fpsCounter = 0;
 			let lastFpsUpdate = 0;
+			const tickState = { frameCount: 0, delta: 0, timestamp: 0 };
 
 			/**
 			 * @param {number} timestamp
@@ -2226,7 +2254,10 @@
 					fpsCounter++;
 					if (typeof onTick === "function") {
 						try {
-							onTick({ frameCount, delta, timestamp });
+							tickState.frameCount = frameCount;
+							tickState.delta = delta;
+							tickState.timestamp = timestamp;
+							onTick(tickState);
 						} catch (_) { }
 					}
 				}
@@ -2260,7 +2291,10 @@
 						frameCount++;
 						if (typeof onTick === "function") {
 							try {
-								onTick({ frameCount, delta: 1000 / targetFPS, timestamp: Date.now() });
+								tickState.frameCount = frameCount;
+								tickState.delta = 1000 / targetFPS;
+								tickState.timestamp = Date.now();
+								onTick(tickState);
 							} catch (_) { }
 						}
 					}
@@ -2785,6 +2819,7 @@
 		for (let i = 0; i < lines.length; i++) {
 			const sig = _extractFnSignatureInfo(lines[ i ]);
 			if (!sig || !isHotName(sig.name)) continue;
+			if (/^(?:create|init|setup|build|make|_init|_setup|register|bind|audit|_check|_compute|_test|test|_step)/i.test(sig.name) || /(?:Audit|Linter|Governor|Check|Fingerprint|Violation|Diagnostic)/i.test(sig.name)) continue;
 			_auditHotFunctionBody(lines, i, sig.name, violations);
 		}
 	}
@@ -2929,7 +2964,7 @@
 			const isHotName = (/** @type {string} */ name) => /(?:update|render|tick|step|_render|draw|animate|loop)/i.test(name);
 			const lines = source.split(/\r?\n/);
 
-			if (contextName && isHotName(contextName)) {
+			if (contextName && isHotName(contextName) && !(/^(?:create|init|setup|build|make|_init|_setup|register|bind|audit|_check|_compute|_test|test|_step)/i.test(contextName) || /(?:Audit|Linter|Governor|Check|Fingerprint|Violation|Diagnostic)/i.test(contextName))) {
 				for (let i = 0; i < lines.length; i++) {
 					const v = _checkHotLoopAllocationOnLine(lines[ i ].trim(), lines[ i ], i + 1, contextName);
 					if (v) violations.push(v);

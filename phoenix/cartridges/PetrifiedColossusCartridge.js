@@ -21,6 +21,18 @@
 		terminalDebriefOpen: false,
 	};
 
+	const _actorStateDelta = {
+		type: 'ACTOR_STATE_DELTA',
+		payload: {
+			x: 0,
+			y: 0,
+			phase: 0,
+			marrow: 0,
+			ward: 0,
+			shake: 0
+		}
+	};
+
 	const memory = {
 		get _view() { return _dataView; },
 
@@ -234,25 +246,56 @@
 			}
 
 			// Delta envelope emitted back to sovereign chassis [INV-06]
-			return {
-				type: 'ACTOR_STATE_DELTA',
-				payload: {
-					x: memory.player_x,
-					y: memory.player_y,
-					phase: memory.cardiac_phase,
-					marrow: memory.vital_marrow,
-					ward: memory.titan_ward,
-					shake: memory.screenshake_intensity
-				}
-			};
+			_actorStateDelta.payload.x = memory.player_x;
+			_actorStateDelta.payload.y = memory.player_y;
+			_actorStateDelta.payload.phase = memory.cardiac_phase;
+			_actorStateDelta.payload.marrow = memory.vital_marrow;
+			_actorStateDelta.payload.ward = memory.titan_ward;
+			_actorStateDelta.payload.shake = memory.screenshake_intensity;
+			return _actorStateDelta;
 		},
 
 		/**
 		 * @param {any} ctx
 		 */
 		render(ctx) {
-			// Zero string allocations in hot loop [INV-08]
-			// Direct OffscreenCanvas manipulation handled through pre-allocated buffers
+			if (!ctx) return;
+			const w = ctx.canvas?.width || 640;
+			const h = ctx.canvas?.height || 480;
+
+			// 1. Arena Backdrop with Cardiac Pulse Tint
+			ctx.fillStyle = memory.cardiac_phase === 1 ? '#180a0a' : '#0a0d14';
+			ctx.fillRect(0, 0, w, h);
+
+			// 2. Colossus Core Metronome Chamber (Center Stage)
+			const cx = w * 0.5;
+			const cy = h * 0.45;
+			const radius = 64 + (memory.cardiac_phase === 1 ? 12 : 0);
+			ctx.beginPath();
+			ctx.arc(cx, cy, radius, 0, 6.28318);
+			ctx.fillStyle = memory.cardiac_phase === 1 ? '#8a1c1c' : '#22384f';
+			ctx.fill();
+			ctx.strokeStyle = memory.boss_shield_active ? '#00e5ff' : '#ff4444';
+			ctx.lineWidth = 4;
+			ctx.stroke();
+
+			// 3. Player Entity
+			const px = cx + (memory.player_x || 0);
+			const py = cy + (memory.player_y || 80);
+			ctx.fillStyle = '#00ffa3';
+			ctx.beginPath();
+			ctx.arc(px, py, 10, 0, 6.28318);
+			ctx.fill();
+			ctx.strokeStyle = '#ffffff';
+			ctx.lineWidth = 2;
+			ctx.stroke();
+
+			// 4. Diegetic HUD Banner
+			ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+			ctx.fillRect(0, 0, w, 40);
+			ctx.fillStyle = '#00ffcc';
+			ctx.font = 'bold 12px monospace';
+			ctx.fillText(memory.cardiac_phase === 1 ? 'COLOSSUS: SYSTOLE (PULSING)' : 'COLOSSUS: DIASTOLE (RESTING)', 16, 24);
 		},
 
 		suspend() {
