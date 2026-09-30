@@ -306,6 +306,9 @@
 					<button type="button" id="btn-compile-cartridge" class="hud-btn primary"
 						style="display:none; border-color:var(--accent); color:var(--accent); font-weight:bold;"
 						title="Transpile .phx Cartridge to VSRP-001 JavaScript (Alt+C)">⚡ COMPILE</button>
+					<button type="button" id="btn-run-cartridge" class="hud-btn primary"
+						style="display:none; background:#00ffa3; color:#060b0f; border-color:#00ffa3; font-weight:bold;"
+						title="Mount and run active cartridge directly in live runtime viewport (Alt+R)">🎮 RUN CARTRIDGE</button>
 					<button type="button" id="btn-submit-proposal" class="primary">🚀 SUBMIT TO GOVERNOR</button>
 				</div>
 				<div class="patch-action-group-right">
@@ -815,6 +818,9 @@
 					AI</span><span class="ctx-shortcut">Ctrl+K</span></div>
 			<div class="context-menu-separator"></div>
 		</div>
+		<div class="context-menu-item" id="ctx-run-cartridge"
+			style="display:none; background:rgba(0,255,163,0.12); color:#00ffa3; font-weight:bold;"><span
+				class="ctx-icon">🎮</span><span>Run Cartridge in Viewport</span><span class="ctx-shortcut">Alt+R</span></div>
 		<div class="context-menu-item" id="ctx-scaffold-jsdoc"><span class="ctx-icon">📜</span><span>Scaffold Strict JSDoc
 				Contract</span><span class="ctx-shortcut">Alt+J</span></div>
 		<div class="context-menu-item" id="ctx-format"><span class="ctx-icon">🧹</span><span>Format Document</span><span
@@ -2855,6 +2861,68 @@
 		}
 
 		/**
+		 * Checks whether a given path or content represents a playable VSRP-001 or Synarche cartridge.
+		 * @param {string} filePath
+		 * @returns {boolean}
+		 */
+		function _isCartridgeFile(filePath) {
+			if (!filePath) return false;
+			if (_isSynarcheFile(filePath)) return true;
+			const lower = filePath.toLowerCase();
+			if (lower.includes('cartridge') && lower.endsWith('.js')) return true;
+			if (lower.includes('mario') && lower.endsWith('.js')) return true;
+			if (lower.includes('colossus') && lower.endsWith('.js')) return true;
+			const content = _vfs.get(filePath);
+			if (content && typeof content === 'string') {
+				if (content.includes('protocol: \'VSRP-001\'') || content.includes('protocol: "VSRP-001"')) return true;
+				if (content.includes('@cartridge')) return true;
+			}
+			return false;
+		}
+
+		/**
+		 * Scans active VFS to catalog all playable cartridges.
+		 * @returns {{ path: string, label: string, isSynarche: boolean }[]}
+		 */
+		function _discoverCartridgesInVFS() {
+			const list = [];
+			for (const path of _vfs.keys()) {
+				if (_isCartridgeFile(path)) {
+					const isSyn = _isSynarcheFile(path);
+					const baseName = path.split('/').pop() || path;
+					let label = isSyn ? `📜 [STCP] ${baseName}` : `🎮 [VSRP] ${baseName}`;
+					if (path.includes('mario')) label = `🍄 Mario Platformer (${baseName})`;
+					else if (path.includes('colossus') || path.includes('Colossus')) label = `🗿 Petrified Colossus (${baseName})`;
+					list.push({ path, label, isSynarche: isSyn });
+				}
+			}
+			return list;
+		}
+
+		/**
+		 * Populates the runtime toolbar cartridge selection dropdown with discovered cartridges.
+		 * @param {string} [preferredPath]
+		 * @returns {void}
+		 */
+		function _populateRuntimeCartridgeSelect(preferredPath) {
+			const select = /** @type {HTMLSelectElement | null} */ (document.getElementById('runtime-cartridge-select'));
+			if (!select) return;
+
+			const currentVal = preferredPath || select.value || 'auto';
+			const cartridges = _discoverCartridgesInVFS();
+
+			let optionsHtml = `<option value="auto">⚡ Auto (Active File / Default)</option>`;
+			for (const c of cartridges) {
+				const selected = (c.path === currentVal) ? ' selected' : '';
+				optionsHtml += `<option value="${escapeHtml(c.path)}"${selected}>${escapeHtml(c.label)}</option>`;
+			}
+			select.innerHTML = optionsHtml;
+			if (currentVal && currentVal !== 'auto') {
+				select.value = currentVal;
+			}
+		}
+
+		/**
 		 * Tokenizes a single line preserving exact line-break invariance.
 		 * @param {string} line - Single source line
 		 * @param {any} [state] - Lexer FSM state
@@ -4882,6 +4950,11 @@ Output JSON with a single key "replacement" containing ONLY the replacement code
 			if (compileBtn) {
 				compileBtn.style.display = isSyn ? 'inline-block' : 'none';
 			}
+			const isCart = _isCartridgeFile(_activeFilePath);
+			const runCartBtn = document.getElementById('btn-run-cartridge');
+			if (runCartBtn) {
+				runCartBtn.style.display = isCart ? 'inline-block' : 'none';
+			}
 			_syncEditorScroll();
 		}
 
@@ -5630,6 +5703,9 @@ Output JSON with a single key "replacement" containing ONLY the replacement code
 			{ id: 'cmd_export', title: '📦 Export Standalone Single-File Monolith Bundle', badge: 'EXPORT', action: () => document.getElementById('btn-export-monolith')?.click() },
 			{ id: 'cmd_ollama', title: '🔌 Connect Local Ollama / LM Studio AI Model', badge: 'AI', action: () => _connectOllama() },
 			{ id: 'cmd_compile_synarche', title: '⚡ Transpile Active .phx Cartridge to VSRP-001 JS (STCP-001)', badge: 'STCP', action: () => _transpileActiveCartridge() },
+			{ id: 'cmd_run_active_cartridge', title: '🎮 Run Active Cartridge in Live Viewport Studio (Alt+R)', badge: 'PLAY', action: () => _mountAndRunActiveCartridge() },
+			{ id: 'cmd_run_mario_cartridge', title: '🍄 Run Mario Platformer Cartridge (mario_platformer_cartridge.js)', badge: 'PLAY', action: () => _mountAndRunActiveCartridge('cartridges/mario_platformer_cartridge.js') },
+			{ id: 'cmd_run_colossus_cartridge', title: '🗿 Run Petrified Colossus Cartridge (PetrifiedColossusCartridge.js)', badge: 'PLAY', action: () => _mountAndRunActiveCartridge('cartridges/PetrifiedColossusCartridge.js') },
 			{ id: 'cmd_mount_active_cartridge', title: '🎮 Mount / Hotswap Active Cartridge into Viewport', badge: 'RUNTIME', action: () => _mountActiveCartridge() },
 			{ id: 'cmd_new_phx_cartridge', title: '📜 Create New Sovereign Cartridge (.phx)', badge: 'STCP', action: () => _createNewPhxCartridge() },
 		];
@@ -5702,31 +5778,46 @@ Output JSON with a single key "replacement" containing ONLY the replacement code
 @version "1.0.0"
 @author "Sovereign Artificer"
 @tier 2
-@capabilities [ "STORAGE_ISOLATED", "CAP_RENDER_CANVAS2D" ]
 
-memory {
-    pos_x: f32,
-    pos_y: f32,
-    health: u16
+capabilities {
+    CAP_RENDER_CANVAS2D,
+    CAP_INPUT_FIFO
+}
+
+memory PERSIST_001 {
+    pos_x: f32;
+    pos_y: f32;
+    vel_x: f32;
+    vel_y: f32;
+    health: u16;
 }
 
 state {
-    score: 0,
-    alive: true
+    score: int32 = 0;
+    alive: boolean = true;
 }
 
-on configure {
-    this.pos_x = 100.0;
-    this.pos_y = 100.0;
-    this.health = 100;
+on configure(ctx) {
+    this.memory.pos_x = 100.0;
+    this.memory.pos_y = 100.0;
+    this.memory.vel_x = 2.0;
+    this.memory.vel_y = 1.0;
+    this.memory.health = 100;
 }
 
-on update {
-    // 60 FPS deterministic simulation tick
+on update(tick, input) {
+    this.memory.pos_x += this.memory.vel_x;
+    this.memory.pos_y += this.memory.vel_y;
+    if (this.memory.pos_x > 600.0) {
+        this.memory.vel_x = -2.0;
+    }
+    if (this.memory.pos_x < 20.0) {
+        this.memory.vel_x = 2.0;
+    }
 }
 
-on render {
-    // 2D Canvas viewport draw calls
+on render(ctx) {
+    // 2D Canvas viewport presentation
 }
 `;
 			_showPromptModal({
@@ -6183,7 +6274,7 @@ on render {
 		 * Hot-reloads the live sandboxed game runtime iframe.
 		 * @returns {void}
 		 */
-		function _hotReloadRuntime() {
+		function _hotReloadRuntime(overrideTarget) {
 			const frame = /** @type {HTMLIFrameElement | null} */ (document.getElementById('runtime-frame'));
 			const fpsEl = document.getElementById('runtime-fps');
 			if (!frame) return;
@@ -6193,19 +6284,27 @@ on render {
 				_runtimeTicker = null;
 			}
 
-			let entryFile = 'index.html';
-			if (!_vfs.has('index.html')) {
-				if (_activeFilePath && (_activeFilePath.endsWith('.js') || _isSynarcheFile(_activeFilePath))) {
+			const selectEl = /** @type {HTMLSelectElement | null} */ (document.getElementById('runtime-cartridge-select'));
+			const selectedInDropdown = (selectEl && selectEl.value !== 'auto') ? selectEl.value : null;
+
+			let entryFile = overrideTarget || selectedInDropdown;
+			if (!entryFile) {
+				if (_activeFilePath && _isCartridgeFile(_activeFilePath)) {
 					entryFile = _activeFilePath;
+				} else if (_vfs.has('index.html')) {
+					entryFile = 'index.html';
 				} else {
 					for (const k of _vfs.keys()) {
-						if (k.includes('Cartridge') || k.endsWith('.phx') || k.includes('colossus') || k.includes('hero_simulation')) {
+						if (_isCartridgeFile(k)) {
 							entryFile = k;
 							break;
 						}
 					}
 				}
 			}
+			if (!entryFile) entryFile = 'index.html';
+
+			let cartridgeDisplayName = entryFile.split('/').pop() || entryFile;
 
 			if (_isSynarcheFile(entryFile)) {
 				const compiler = window.SynarcheCompiler || globalThis.SynarcheCompiler;
@@ -6216,8 +6315,16 @@ on render {
 						const jsPath = entryFile.replace(/\.(phx|syn)$/, '.js');
 						_vfs.set(jsPath, res.code);
 						entryFile = jsPath;
+						cartridgeDisplayName = res.ast?.name || cartridgeDisplayName;
+					} else {
+						_toast(`Cartridge compilation failed for ${entryFile}`, 'err');
 					}
 				}
+			}
+
+			// Keep dropdown synced with the loaded cartridge
+			if (selectEl && entryFile !== 'index.html') {
+				selectEl.value = entryFile;
 			}
 
 			const html = PhoenixSovereignEngine.PhoenixRuntimeSandbox.buildRuntimeHTML(_vfs, entryFile);
@@ -6233,7 +6340,29 @@ on render {
 			});
 			_runtimeTicker.play();
 			_setRuntimePlayState(true);
-			_toast('⚡ Live Game Runtime Hot-Reloaded!', 'pass');
+			_toast(`⚡ Loaded '${cartridgeDisplayName}' into Live Runtime!`, 'pass');
+			_setStatus('CARTRIDGE RUNNING', 'pass');
+		}
+
+		/**
+		 * Loads and executes the active or targeted cartridge into the live viewport.
+		 * Automatically switches to the runtime tab and starts simulation.
+		 * @param {string} [cartridgePath]
+		 * @returns {void}
+		 */
+		function _mountAndRunActiveCartridge(cartridgePath) {
+			const target = cartridgePath || _activeFilePath;
+			if (!target) {
+				_toast('No cartridge selected to run.', 'warn');
+				return;
+			}
+			if (!_vfs.has(target)) {
+				_toast(`Cartridge '${target}' not found in VFS.`, 'err');
+				return;
+			}
+			_populateRuntimeCartridgeSelect(target);
+			_switchTab('runtime');
+			_hotReloadRuntime(target);
 		}
 
 		/**
@@ -6254,9 +6383,13 @@ on render {
 		 */
 		function _initRuntimeSandboxControls() {
 			document.getElementById('btn-runtime-play')?.addEventListener('click', () => {
-				_runtimeTicker?.play();
-				_setRuntimePlayState(true);
-				_toast('▶ Runtime Playing', 'pass');
+				if (!_runtimeTicker) {
+					_hotReloadRuntime();
+				} else {
+					_runtimeTicker.play();
+					_setRuntimePlayState(true);
+					_toast('▶ Runtime Playing', 'pass');
+				}
 			});
 			document.getElementById('btn-runtime-pause')?.addEventListener('click', () => {
 				_runtimeTicker?.pause();
@@ -6268,6 +6401,15 @@ on render {
 			});
 			document.getElementById('btn-runtime-reload')?.addEventListener('click', () => {
 				_hotReloadRuntime();
+			});
+			document.getElementById('btn-load-cartridge')?.addEventListener('click', () => {
+				const select = /** @type {HTMLSelectElement | null} */ (document.getElementById('runtime-cartridge-select'));
+				const val = select ? select.value : 'auto';
+				_hotReloadRuntime(val === 'auto' ? null : val);
+			});
+			document.getElementById('runtime-cartridge-select')?.addEventListener('change', (e) => {
+				const val = /** @type {HTMLSelectElement} */ (e.target).value;
+				_hotReloadRuntime(val === 'auto' ? null : val);
 			});
 
 			document.getElementById('runtime-res-select')?.addEventListener('change', (e) => {
@@ -6926,6 +7068,7 @@ on render {
 				_fileHandleMap.clear();
 				await _scanDirectory(_directoryHandle, '');
 				_renderFileTree();
+				_populateRuntimeCartridgeSelect();
 				_toast(`✓ Mounted directory: ${_directoryHandle.name} (${_vfs.size} files)`, 'pass');
 
 				if (_vfs.has('combat/combat_actions.js')) {
@@ -6955,6 +7098,7 @@ on render {
 				_fileHandleMap.clear();
 				await _scanDirectory(_directoryHandle, '');
 				_renderFileTree();
+				_populateRuntimeCartridgeSelect();
 				if (_activeFilePath && _vfs.has(_activeFilePath)) {
 					_openFile(_activeFilePath);
 				} else if (_vfs.size > 0) {
@@ -7120,8 +7264,9 @@ on render {
 
 				if (!candidate) {
 					for (const key of Object.keys(scope)) {
-						if (scope[ key ] && scope[ key ].protocol === 'VSRP-001') {
-							candidate = scope[ key ];
+						const val = scope[ key ];
+						if (val && typeof val === 'object' && (val.protocol === 'VSRP-001' || (typeof val.update === 'function' && typeof val.render === 'function'))) {
+							candidate = val;
 							break;
 						}
 					}
@@ -7129,6 +7274,23 @@ on render {
 
 				if (!candidate && cartridgeName && window[ cartridgeName ]) {
 					candidate = /** @type {VSRPCartridgeFacade} */ (window[ cartridgeName ]);
+				}
+
+				if (!candidate) {
+					for (const key of Object.keys(window)) {
+						try {
+							const val = window[ key ];
+							if (val && typeof val === 'object' && key.includes('Cartridge') && typeof val.update === 'function') {
+								candidate = val;
+								break;
+							}
+						} catch (_) {}
+					}
+				}
+
+				if (candidate && typeof candidate === 'object') {
+					if (!candidate.protocol) candidate.protocol = 'VSRP-001';
+					if (!candidate.name) candidate.name = cartridgeName || 'Cartridge';
 				}
 
 				return candidate;
@@ -7166,7 +7328,7 @@ on render {
 			};
 			cartridge.configure(hostCtx);
 
-			if (canvas) {
+			if (canvas && typeof cartridge.boot === 'function') {
 				cartridge.boot(canvas);
 			}
 			cartridge.activate();
@@ -7288,6 +7450,14 @@ on render {
 			}
 		}
 
+		const _cartridgeTemporalTick = { deltaTime: 0, elapsedTime: 0 };
+		const _cartridgeInputAccessor = {
+			axisPrimaryX: 0,
+			axisPrimaryY: 0,
+			buttonMask: 0,
+			isDown: (k) => Boolean(_cartridgeInputState[ k ])
+		};
+
 		/**
 		 * Spawns the 60Hz accumulator requestAnimationFrame loop for the cartridge.
 		 * Protected by Tier 4 Supervisor Watchdog (re-queue at line 1) and Tier 3 Circuit Breaker.
@@ -7316,16 +7486,27 @@ on render {
 					return;
 				}
 
-				const temporalTick = {
-					deltaTime: dt,
-					elapsedTime: currentTime / 1000
-				};
-				const input = {
-					isDown: (k) => Boolean(_cartridgeInputState[ k ])
-				};
+				_cartridgeTemporalTick.deltaTime = dt;
+				_cartridgeTemporalTick.elapsedTime = currentTime / 1000;
+
+				const left = Boolean(_cartridgeInputState['ArrowLeft'] || _cartridgeInputState['KeyA'] || _cartridgeInputState['a'] || _cartridgeInputState['A']);
+				const right = Boolean(_cartridgeInputState['ArrowRight'] || _cartridgeInputState['KeyD'] || _cartridgeInputState['d'] || _cartridgeInputState['D']);
+				const up = Boolean(_cartridgeInputState['ArrowUp'] || _cartridgeInputState['KeyW'] || _cartridgeInputState['w'] || _cartridgeInputState['W'] || _cartridgeInputState['Space'] || _cartridgeInputState[' ']);
+				const down = Boolean(_cartridgeInputState['ArrowDown'] || _cartridgeInputState['KeyS'] || _cartridgeInputState['s'] || _cartridgeInputState['S']);
+				const run = Boolean(_cartridgeInputState['Shift'] || _cartridgeInputState['ShiftLeft'] || _cartridgeInputState['ShiftRight'] || _cartridgeInputState['KeyZ'] || _cartridgeInputState['z']);
+
+				let btnMask = 0;
+				if (left) btnMask |= 0x01;
+				if (right) btnMask |= 0x02;
+				if (up) btnMask |= 0x04;
+				if (run || down) btnMask |= 0x08;
+
+				_cartridgeInputAccessor.axisPrimaryX = (right ? 1.0 : 0.0) - (left ? 1.0 : 0.0);
+				_cartridgeInputAccessor.axisPrimaryY = (down ? 1.0 : 0.0) - (up ? 1.0 : 0.0);
+				_cartridgeInputAccessor.buttonMask = btnMask;
 
 				try {
-					cartridge.update(temporalTick, input);
+					cartridge.update(_cartridgeTemporalTick, _cartridgeInputAccessor);
 					if (ctx) {
 						cartridge.render(ctx);
 					}
@@ -7748,6 +7929,10 @@ on render {
 				diagSection.style.display = 'none';
 			}
 
+			const isCart = _isCartridgeFile(_activeFilePath);
+			const runCartCtx = document.getElementById('ctx-run-cartridge');
+			if (runCartCtx) runCartCtx.style.display = isCart ? 'flex' : 'none';
+
 			const x = Math.min(e.clientX, window.innerWidth - 270);
 			const y = Math.min(e.clientY, window.innerHeight - 380);
 
@@ -8002,6 +8187,9 @@ on render {
 			} else if (e.altKey && e.key.toLowerCase() === 'c') {
 				e.preventDefault();
 				_transpileActiveCartridge();
+			} else if (e.altKey && e.key.toLowerCase() === 'r') {
+				e.preventDefault();
+				_mountAndRunActiveCartridge();
 			}
 		});
 
@@ -8052,6 +8240,7 @@ on render {
 		});
 		document.getElementById('btn-format-code')?.addEventListener('click', _handleFormatCode);
 		document.getElementById('btn-compile-cartridge')?.addEventListener('click', _transpileActiveCartridge);
+		document.getElementById('btn-run-cartridge')?.addEventListener('click', () => _mountAndRunActiveCartridge());
 		document.getElementById('btn-erl-batch-remediate')?.addEventListener('click', () => { _executeBatchRemediation(); _toggleToolsMenu(false); });
 		document.getElementById('btn-transpile-stcp')?.addEventListener('click', () => { _transpileActiveCartridge(); _toggleToolsMenu(false); });
 		document.getElementById('btn-scaffold-regions')?.addEventListener('click', () => { _scaffoldActiveDocumentRegions(); _toggleToolsMenu(false); });
@@ -8151,6 +8340,11 @@ on render {
 			} else {
 				_openInlineAIPrompt();
 			}
+		});
+
+		document.getElementById('ctx-run-cartridge')?.addEventListener('click', () => {
+			_hideContextMenu();
+			_mountAndRunActiveCartridge();
 		});
 
 		document.getElementById('ctx-scaffold-jsdoc')?.addEventListener('click', () => {
@@ -8255,6 +8449,7 @@ on render {
 				if (window.PhoenixTypeResolver?.initializeTypeCatalog) window.PhoenixTypeResolver.initializeTypeCatalog();
 				_initRuntimeSandboxControls();
 				_initRuntimeStudio();
+				_populateRuntimeCartridgeSelect();
 				_renderFileTree();
 				if (_vfs.size > 0 && _activeFilePath && _vfs.has(_activeFilePath)) {
 					_openFile(_activeFilePath);

@@ -437,6 +437,21 @@
 				while (cur < source.length && /[0-9.]/.test(source[ cur ])) {
 					val += source[ cur++ ]; curCol++;
 				}
+				if (cur < source.length && (source[ cur ] === 'e' || source[ cur ] === 'E')) {
+					let peek = cur + 1;
+					if (peek < source.length && (source[ peek ] === '+' || source[ peek ] === '-')) {
+						peek++;
+					}
+					if (peek < source.length && /[0-9]/.test(source[ peek ])) {
+						val += source[ cur++ ]; curCol++; // 'e' or 'E'
+						if (cur < source.length && (source[ cur ] === '+' || source[ cur ] === '-')) {
+							val += source[ cur++ ]; curCol++; // '+' or '-'
+						}
+						while (cur < source.length && /[0-9]/.test(source[ cur ])) {
+							val += source[ cur++ ]; curCol++;
+						}
+					}
+				}
 			}
 
 			const token = { type: /** @type {TokenType} */ ('LITERAL_NUMBER'), value: val, start, end: cur, line, col };
@@ -667,6 +682,24 @@
 				callee,
 				args,
 				arguments: args,
+				line: tok?.line || 1,
+				col: tok?.col || 1
+			};
+		},
+
+		/**
+		 * @param {any} callee - Constructor expression
+		 * @param {any[]} args - Constructor arguments
+		 * @param {Token} [tok] - Location token
+		 * @returns {any}
+		 */
+		createNew(callee, args, tok) {
+			return {
+				type: 'NewExpr',
+				kind: 'NewExpr',
+				callee,
+				args: args || [],
+				arguments: args || [],
 				line: tok?.line || 1,
 				col: tok?.col || 1
 			};
@@ -1136,6 +1169,16 @@
 		 */
 		parsePrimary() {
 			const tok = this.peek();
+			if (tok.value === 'new') {
+				this.next();
+				let callee = this.parsePostfix();
+				let args = [];
+				if (callee && callee.type === 'CallExpr') {
+					args = callee.arguments || callee.args || [];
+					callee = callee.callee;
+				}
+				return SynarcheASTFactory.createNew(callee, args, tok);
+			}
 			if (tok.type === 'LITERAL_NUMBER') {
 				this.next();
 				return SynarcheASTFactory.createLiteral(Number(tok.value), 'number', tok.value, tok);
@@ -1410,6 +1453,12 @@
 		 * @private
 		 */
 		_unifyRecords(t1, t2, node, errors) {
+			if (t1.fields.size !== t2.fields.size) {
+				const line = node?.line || 1;
+				const col = node?.col || 1;
+				errors?.push(`[${ERRORS.ERR_0x1A}] L${line}:C${col} - Record field count mismatch: expected ${t2.fields.size} fields, got ${t1.fields.size}`);
+				return false;
+			}
 			let ok = true;
 			for (const [ fieldName, fieldType ] of t2.fields.entries()) {
 				if (!t1.fields.has(fieldName)) {
@@ -2399,17 +2448,79 @@
 		}
 
 		/**
+		 * Architectural: Pure helper. Traverses AST statements and expressions recursively.
+		 * Cognitive Complexity: <= 5.
+		 * @param {any} node - Root AST node or node array
+		 * @param {(node: any) => void} visitor - Node visitor callback
+		 * @private
+		 */
+		static _walkAST(node, visitor) {
+			if (!node || typeof node !== 'object') return;
+			if (Array.isArray(node)) {
+				for (let i = 0; i < node.length; i++) {
+					SynarcheParser._walkAST(node[ i ], visitor);
+				}
+				return;
+			}
+			visitor(node);
+			for (const key of Object.keys(node)) {
+				if (key === 'inferredType' || key === 'parent') continue;
+				const child = node[ key ];
+				if (child && typeof child === 'object') {
+					SynarcheParser._walkAST(child, visitor);
+				}
+			}
+		}
+
+		/**
 		 * Architectural: State-mutating verification pass. Asserts that subsystem calls match declared capabilities.
+		 * Iterates over ast.handlers.get(method).statements using AST walker.
 		 * @returns {void}
 		 */
 		_validateCapabilities() {
 			const declared = new Set(this.ast.capabilities);
 			for (const [ method, handler ] of this.ast.handlers.entries()) {
-				if (/ctx\.audio|playTone|oscillator/i.test(handler.body) && !declared.has('CAP_AUDIO_SYNTH')) {
-					this.fail(ERRORS.ERR_0x15, `Method '${method}' invokes audio without CAP_AUDIO_SYNTH declaration`);
-				}
-				if (/ctx\.draw|ctx\.canvas|fill(Rect|Text)|stroke/i.test(handler.body) && !declared.has('CAP_RENDER_CANVAS2D')) {
-					this.fail(ERRORS.ERR_0x15, `Method '${method}' invokes canvas rendering without CAP_RENDER_CANVAS2D declaration`);
+				const statements = handler.statements || [];
+				let invokedAudio = false;
+				let invokedCanvas = false;
+
+				if (statements.length > 0) {
+					SynarcheParser._walkAST(statements, (node) => {
+						// Audio capability assertion (CAP_AUDIO_SYNTH)
+						if (!invokedAudio && !declared.has('CAP_AUDIO_SYNTH')) {
+							if (node.type === 'MemberExpr') {
+								const prop = String(node.property || '');
+								if (prop === 'audio' || prop === 'playTone' || prop === 'oscillator') {
+									invokedAudio = true;
+									this.fail(ERRORS.ERR_0x15, `Method '${method}' invokes audio without CAP_AUDIO_SYNTH declaration`, node);
+								}
+							} else if (node.type === 'CallExpr' && node.callee?.type === 'Identifier') {
+								if (node.callee.name === 'playTone' || node.callee.name === 'oscillator') {
+									invokedAudio = true;
+									this.fail(ERRORS.ERR_0x15, `Method '${method}' invokes audio without CAP_AUDIO_SYNTH declaration`, node);
+								}
+							}
+						}
+
+						// Canvas rendering assertion (CAP_RENDER_CANVAS2D)
+						if (!invokedCanvas && !declared.has('CAP_RENDER_CANVAS2D')) {
+							if (node.type === 'MemberExpr') {
+								const prop = String(node.property || '');
+								if (prop === 'canvas' || prop === 'draw' || prop === 'fillRect' || prop === 'fillText' || prop === 'stroke' || prop.startsWith('draw')) {
+									invokedCanvas = true;
+									this.fail(ERRORS.ERR_0x15, `Method '${method}' invokes canvas rendering without CAP_RENDER_CANVAS2D declaration`, node);
+								}
+							}
+						}
+					});
+				} else if (handler.body) {
+					// Fallback for unparsed or legacy raw body
+					if (/ctx\.audio|playTone|oscillator/i.test(handler.body) && !declared.has('CAP_AUDIO_SYNTH')) {
+						this.fail(ERRORS.ERR_0x15, `Method '${method}' invokes audio without CAP_AUDIO_SYNTH declaration`);
+					}
+					if (/ctx\.draw|ctx\.canvas|fill(Rect|Text)|stroke/i.test(handler.body) && !declared.has('CAP_RENDER_CANVAS2D')) {
+						this.fail(ERRORS.ERR_0x15, `Method '${method}' invokes canvas rendering without CAP_RENDER_CANVAS2D declaration`);
+					}
 				}
 			}
 		}
@@ -2435,21 +2546,65 @@
 
 		/**
 		 * Architectural: State-mutating verification pass. Asserts Faraday isolation (SDCP-001) and zero-allocation hot loops.
+		 * Iterates over ast.handlers.get(method).statements using AST walker.
 		 * @returns {void}
 		 */
 		_validateFaradayAndHotLoops() {
 			for (const [ method, handler ] of this.ast.handlers.entries()) {
-				for (const forbidden of FARADAY_RESTRICTED_GLOBALS) {
-					const regex = new RegExp(String.raw`\b` + forbidden + String.raw`\b`);
-					if (regex.test(handler.body)) {
-						this.fail(ERRORS.ERR_0x16, `Faraday isolation breach: forbidden global '${forbidden}' in handler '${method}'`);
+				const statements = handler.statements || [];
+				let flaggedFaraday = false;
+				let flaggedHotLoop = false;
+
+				if (statements.length > 0) {
+					SynarcheParser._walkAST(statements, (node) => {
+						// Pass 1: SDCP-001 Faraday global isolation (ERR_0x16)
+						if (!flaggedFaraday && node.type === 'Identifier' && (FARADAY_RESTRICTED_GLOBALS.has?.(node.name) || (Array.isArray(FARADAY_RESTRICTED_GLOBALS) && FARADAY_RESTRICTED_GLOBALS.includes(node.name)))) {
+							flaggedFaraday = true;
+							this.fail(ERRORS.ERR_0x16, `Faraday isolation breach: forbidden global '${node.name}' in handler '${method}'`, node);
+						}
+
+						// Pass 2: INV-08 Zero transient allocation in update() hot path (ERR_0x17)
+						if (method === 'update' && !flaggedHotLoop) {
+							if (node.type === 'NewExpr' || (node.type === 'Identifier' && node.name === 'new')) {
+								const calleeName = node.callee?.name || (node.callee?.type === 'Identifier' ? node.callee.name : '');
+								if (calleeName !== 'DataView' && calleeName !== 'ArrayBuffer') {
+									flaggedHotLoop = true;
+									this.fail(ERRORS.ERR_0x17, `Transient hot-loop heap allocation in 'update' handler violates zero-GC invariant`, node);
+								}
+							} else if (node.type === 'CallExpr') {
+								const callee = node.callee;
+								if (callee?.type === 'MemberExpr') {
+									const objName = callee.object?.name || (callee.object?.type === 'Identifier' ? callee.object.name : '');
+									const prop = callee.property;
+									if (objName === 'Array' && prop === 'from') {
+										flaggedHotLoop = true;
+										this.fail(ERRORS.ERR_0x17, `Transient hot-loop heap allocation in 'update' handler violates zero-GC invariant`, node);
+									} else if (objName === 'Object' && (prop === 'assign' || prop === 'create')) {
+										flaggedHotLoop = true;
+										this.fail(ERRORS.ERR_0x17, `Transient hot-loop heap allocation in 'update' handler violates zero-GC invariant`, node);
+									}
+								} else if (callee?.type === 'Identifier') {
+									if (callee.name === 'Object' || callee.name === 'Array') {
+										flaggedHotLoop = true;
+										this.fail(ERRORS.ERR_0x17, `Transient hot-loop heap allocation in 'update' handler violates zero-GC invariant`, node);
+									}
+								}
+							}
+						}
+					});
+				} else if (handler.body) {
+					for (const forbidden of FARADAY_RESTRICTED_GLOBALS) {
+						const regex = new RegExp(String.raw`\b` + forbidden + String.raw`\b`);
+						if (regex.test(handler.body)) {
+							this.fail(ERRORS.ERR_0x16, `Faraday isolation breach: forbidden global '${forbidden}' in handler '${method}'`);
+						}
 					}
-				}
-				if (method === 'update' && (
-					/\bnew\s+(?!DataView|ArrayBuffer)[A-Za-z0-9_$]+/.test(handler.body) ||
-					/\b(new\s+Object|new\s+Array|Array\.from|Object\.assign|Object\.create)\b/.test(handler.body)
-				)) {
-					this.fail(ERRORS.ERR_0x17, `Transient hot-loop heap allocation in 'update' handler violates zero-GC invariant`);
+					if (method === 'update' && (
+						/\bnew\s+(?!DataView|ArrayBuffer)[A-Za-z0-9_$]+/.test(handler.body) ||
+						/\b(new\s+Object|new\s+Array|Array\.from|Object\.assign|Object\.create)\b/.test(handler.body)
+					)) {
+						this.fail(ERRORS.ERR_0x17, `Transient hot-loop heap allocation in 'update' handler violates zero-GC invariant`);
+					}
 				}
 			}
 		}

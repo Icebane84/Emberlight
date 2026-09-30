@@ -609,6 +609,47 @@ it('Plane 2.5: SynarcheAdmissionAuthority enforces STCP-002.TYPE_UNIFICATION on 
 	assert.ok(invalidReceipt.errors.some(e => e.includes('ERR_0x1A')));
 });
 
+it('Plane 1: SynarcheLexer tokenizes scientific notation numbers with exponents (e/E, +/-, digits)', () => {
+	const src = `1e5 1.2e-5 3e+8 1E10 2.5E-3 100 3.14 0xFF`;
+	const tokens = SynarcheLexer.tokenize(src);
+	const nums = tokens.filter(t => t.type === 'LITERAL_NUMBER').map(t => t.value);
+	assert.deepEqual(nums, ['1e5', '1.2e-5', '3e+8', '1E10', '2.5E-3', '100', '3.14', '0xFF']);
+	assert.equal(Number(nums[0]), 100000);
+	assert.equal(Number(nums[1]), 0.000012);
+	assert.equal(Number(nums[2]), 300000000);
+});
+
+it('Plane 1.6: SynarcheTypeSystem enforces strict record bijection (field count parity)', () => {
+	const ts = new SynarcheTypeSystem();
+	const numType = ts.createPrimitive('number');
+	const boolType = ts.createPrimitive('boolean');
+
+	const r1 = ts.createRecord({ a: numType, b: boolType });
+	const r2 = ts.createRecord({ a: numType, b: boolType });
+	const r3 = ts.createRecord({ a: numType });
+
+	// Parity passes
+	assert.ok(ts.unify(r1, r2));
+
+	// Size mismatch fails strictly
+	const errors = [];
+	const ok = ts.unify(r1, r3, null, errors);
+	assert.equal(ok, false);
+	assert.ok(errors.some(e => e.includes('Record field count mismatch')));
+});
+
+it('Plane 2: AST walker flags Faraday breaches and hot-loop allocations across handler statements', () => {
+	// Faraday violation detected via AST Identifier node
+	const breachDsl = `@cartridge "AstFaraday"\non update { window.location.href = "test"; }`;
+	const diags1 = SynarcheCompiler.lint(breachDsl);
+	assert.ok(diags1.some(d => d.rule.includes('ERR_0x16')), 'Must catch window global via AST walker');
+
+	// Hot-loop allocation detected via NewExpr node
+	const allocDsl = `@cartridge "AstHotLoop"\non update { const x = new Object(); }`;
+	const diags2 = SynarcheCompiler.lint(allocDsl);
+	assert.ok(diags2.some(d => d.rule.includes('ERR_0x17')), 'Must catch new Object via AST walker');
+});
+
 console.log(`\n────────────────────────────────────────────────────────────`);
 console.log(`STCP SYNARCHE PARSER AUDIT: ${passCount}/${passCount} CHECKS PASSED`);
 console.log(`✨ 100% CLEAN TRANSDUCTION: ZERO SYNTAX OR SEMANTIC DRIFT ✨\n`);

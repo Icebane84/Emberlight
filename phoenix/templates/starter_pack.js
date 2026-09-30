@@ -67,37 +67,46 @@
 @version "1.0.0"
 @author "Sovereign Artificer"
 @tier 2
-@capabilities [ "STORAGE_ISOLATED", "CAP_RENDER_CANVAS2D" ]
 
-memory {
-    pos_x: f32,
-    pos_y: f32,
-    vel_x: f32,
-    vel_y: f32,
-    health: u16
+capabilities {
+    CAP_RENDER_CANVAS2D,
+    CAP_INPUT_FIFO
+}
+
+memory PERSIST_001 {
+    pos_x: f32;
+    pos_y: f32;
+    vel_x: f32;
+    vel_y: f32;
+    health: u16;
 }
 
 state {
-    score: 0,
-    alive: true
+    score: int32 = 0;
+    alive: boolean = true;
 }
 
-on configure {
-    this.pos_x = 100.0;
-    this.pos_y = 100.0;
-    this.health = 100;
+on configure(ctx) {
+    this.memory.pos_x = 100.0;
+    this.memory.pos_y = 100.0;
+    this.memory.vel_x = 2.0;
+    this.memory.vel_y = 1.0;
+    this.memory.health = 100;
 }
 
-on update {
-    this.pos_x += this.vel_x * temporalTick;
-    this.pos_y += this.vel_y * temporalTick;
-}
-
-on render {
-    if (ctx && ctx.fillRect) {
-        ctx.fillStyle = '#ffb454';
-        ctx.fillRect(this.pos_x, this.pos_y, 16, 16);
+on update(tick, input) {
+    this.memory.pos_x += this.memory.vel_x;
+    this.memory.pos_y += this.memory.vel_y;
+    if (this.memory.pos_x > 620.0) {
+        this.memory.vel_x = -2.0;
     }
+    if (this.memory.pos_x < 20.0) {
+        this.memory.vel_x = 2.0;
+    }
+}
+
+on render(ctx) {
+    // 2D Canvas viewport presentation
 }
 `
 		},
@@ -521,9 +530,16 @@ on destroy() {
 			ctx.fillStyle = memory.cardiac_phase === 1 ? '#180a0a' : '#0a0d14';
 			ctx.fillRect(0, 0, w, h);
 
-			// 2. Colossus Core Metronome Chamber (Center Stage)
+			// Arena Boundary Ring
 			const cx = w * 0.5;
-			const cy = h * 0.45;
+			const cy = h * 0.48;
+			ctx.strokeStyle = '#1b2a3a';
+			ctx.lineWidth = 2;
+			ctx.beginPath();
+			ctx.arc(cx, cy, 180, 0, 6.28318);
+			ctx.stroke();
+
+			// 2. Colossus Core Metronome Chamber (Center Stage)
 			const radius = 64 + (memory.cardiac_phase === 1 ? 12 : 0);
 			ctx.beginPath();
 			ctx.arc(cx, cy, radius, 0, 6.28318);
@@ -532,6 +548,12 @@ on destroy() {
 			ctx.strokeStyle = memory.boss_shield_active ? '#00e5ff' : '#ff4444';
 			ctx.lineWidth = 4;
 			ctx.stroke();
+
+			// Core Label
+			ctx.fillStyle = '#ffffff';
+			ctx.font = 'bold 11px monospace';
+			ctx.textAlign = 'center';
+			ctx.fillText('COLOSSUS CORE', cx, cy);
 
 			// 3. Player Entity
 			const px = cx + (memory.player_x || 0);
@@ -543,13 +565,18 @@ on destroy() {
 			ctx.strokeStyle = '#ffffff';
 			ctx.lineWidth = 2;
 			ctx.stroke();
+			ctx.fillText('PLAYER', px, py + 22);
 
 			// 4. Diegetic HUD Banner
-			ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-			ctx.fillRect(0, 0, w, 40);
-			ctx.fillStyle = '#00ffcc';
+			ctx.textAlign = 'left';
+			ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+			ctx.fillRect(0, 0, w, 52);
+			ctx.fillStyle = '#00ffa3';
 			ctx.font = 'bold 12px monospace';
-			ctx.fillText(memory.cardiac_phase === 1 ? 'COLOSSUS: SYSTOLE (PULSING)' : 'COLOSSUS: DIASTOLE (RESTING)', 16, 24);
+			ctx.fillText('🗿 PETRIFIED COLOSSUS [VSRP-001 BOSS SLICE]', 16, 20);
+			ctx.fillStyle = '#00ffcc';
+			ctx.font = '11px monospace';
+			ctx.fillText(memory.cardiac_phase === 1 ? 'STATE: SYSTOLE (CRITICAL HEARTBEAT) | CONTROLS: WASD / ARROWS TO MOVE, SHIFT/Z TO DASH' : 'STATE: DIASTOLE (RESTING RECHARGE)  | CONTROLS: WASD / ARROWS TO MOVE, SHIFT/Z TO DASH', 16, 38);
 		},
 
 		suspend() {

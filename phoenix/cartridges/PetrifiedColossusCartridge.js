@@ -267,9 +267,16 @@
 			ctx.fillStyle = memory.cardiac_phase === 1 ? '#180a0a' : '#0a0d14';
 			ctx.fillRect(0, 0, w, h);
 
-			// 2. Colossus Core Metronome Chamber (Center Stage)
+			// Arena Boundary Ring
 			const cx = w * 0.5;
-			const cy = h * 0.45;
+			const cy = h * 0.48;
+			ctx.strokeStyle = '#1b2a3a';
+			ctx.lineWidth = 2;
+			ctx.beginPath();
+			ctx.arc(cx, cy, 180, 0, 6.28318);
+			ctx.stroke();
+
+			// 2. Colossus Core Metronome Chamber (Center Stage)
 			const radius = 64 + (memory.cardiac_phase === 1 ? 12 : 0);
 			ctx.beginPath();
 			ctx.arc(cx, cy, radius, 0, 6.28318);
@@ -278,6 +285,12 @@
 			ctx.strokeStyle = memory.boss_shield_active ? '#00e5ff' : '#ff4444';
 			ctx.lineWidth = 4;
 			ctx.stroke();
+
+			// Core Label
+			ctx.fillStyle = '#ffffff';
+			ctx.font = 'bold 11px monospace';
+			ctx.textAlign = 'center';
+			ctx.fillText('COLOSSUS CORE', cx, cy);
 
 			// 3. Player Entity
 			const px = cx + (memory.player_x || 0);
@@ -289,13 +302,18 @@
 			ctx.strokeStyle = '#ffffff';
 			ctx.lineWidth = 2;
 			ctx.stroke();
+			ctx.fillText('PLAYER', px, py + 22);
 
 			// 4. Diegetic HUD Banner
-			ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-			ctx.fillRect(0, 0, w, 40);
-			ctx.fillStyle = '#00ffcc';
+			ctx.textAlign = 'left';
+			ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+			ctx.fillRect(0, 0, w, 52);
+			ctx.fillStyle = '#00ffa3';
 			ctx.font = 'bold 12px monospace';
-			ctx.fillText(memory.cardiac_phase === 1 ? 'COLOSSUS: SYSTOLE (PULSING)' : 'COLOSSUS: DIASTOLE (RESTING)', 16, 24);
+			ctx.fillText('🗿 PETRIFIED COLOSSUS [VSRP-001 BOSS SLICE]', 16, 20);
+			ctx.fillStyle = '#00ffcc';
+			ctx.font = '11px monospace';
+			ctx.fillText(memory.cardiac_phase === 1 ? 'STATE: SYSTOLE (CRITICAL HEARTBEAT) | CONTROLS: WASD / ARROWS TO MOVE, SHIFT/Z TO DASH' : 'STATE: DIASTOLE (RESTING RECHARGE)  | CONTROLS: WASD / ARROWS TO MOVE, SHIFT/Z TO DASH', 16, 38);
 		},
 
 		suspend() {

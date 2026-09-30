@@ -1,0 +1,45 @@
+@cartridge "NewSovereignCartridge"
+@version "1.0.0"
+@author "Sovereign Artificer"
+@tier 2
+
+capabilities {
+    CAP_RENDER_CANVAS2D,
+    CAP_INPUT_FIFO
+}
+
+memory PERSIST_001 {
+    pos_x: f32;
+    pos_y: f32;
+    vel_x: f32;
+    vel_y: f32;
+    health: u16;
+}
+
+state {
+    score: int32 = 0;
+    alive: boolean = true;
+}
+
+on configure(ctx) {
+    this.memory.pos_x = 100.0;
+    this.memory.pos_y = 100.0;
+    this.memory.vel_x = 2.0;
+    this.memory.vel_y = 1.0;
+    this.memory.health = 100;
+}
+
+on update(tick, input) {
+    this.memory.pos_x += this.memory.vel_x;
+    this.memory.pos_y += this.memory.vel_y;
+    if (this.memory.pos_x > 600.0) {
+        this.memory.vel_x = -2.0;
+    }
+    if (this.memory.pos_x < 20.0) {
+        this.memory.vel_x = 2.0;
+    }
+}
+
+on render(ctx) {
+    // 2D Canvas viewport presentation
+}
