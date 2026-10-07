@@ -21,12 +21,12 @@
  * TABLE OF CONTENTS & NAVIGATION ANCHORS (Ctrl+F):
  *   [SEC-01] .......... Line ~35   -- Constants, Sovereign Constitution & Sampling Schemas
  *   [SEC-02] .......... Line ~125  -- WebGPU Adapter Stub & Streaming SSE / Line Processors
- *   [SEC-03] .......... Line ~309  -- Native Ollama & OpenAI-Compatible Model Adapters
- *   [SEC-04] .......... Line ~449  -- Headless Worker Script Generation (_buildWorkerSource)
- *   [SEC-05] .......... Line ~545  -- Context Packer, Prompt Factories & Diagnostic Envelopes
- *   [SEC-06] .......... Line ~838  -- AST Proposal Parser, Code Repair & Sanitizer
- *   [SEC-07] .......... Line ~1023 -- Sovereign Host Bridge Controller (PhoenixWebLLMWorkerBridge)
- *   [SEC-08] .......... Line ~1254 -- Universal Export Envelope & Module Exports
+ *   [SEC-03] .......... Line ~307  -- Native Ollama & OpenAI-Compatible Model Adapters
+ *   [SEC-04] .......... Line ~447  -- Headless Worker Script Generation (_buildWorkerSource)
+ *   [SEC-05] .......... Line ~543  -- Context Packer, Prompt Factories & Diagnostic Envelopes
+ *   [SEC-06] .......... Line ~836  -- AST Proposal Parser, Code Repair & Sanitizer
+ *   [SEC-07] .......... Line ~1021 -- Sovereign Host Bridge Controller (PhoenixWebLLMWorkerBridge)
+ *   [SEC-08] .......... Line ~1252 -- Universal Export Envelope & Module Exports
  * ============================================================================
  */
 ((/** @type {Record<string, any>} */ global) => {
@@ -149,11 +149,9 @@
 				const limit = Math.min(tokens.length, Math.ceil(maxTokens / 64));
 
 				if (typeof onToken === "function") {
-					for (let i = 0; i < limit; i++) {
-						onToken(tokens[ i ]);
-						await new Promise((r) => {
-							setTimeout(r, 0);
-						});
+					for (let idx = 0; idx < limit; idx++) {
+						onToken(tokens[ idx ]);
+						await new Promise((resolve) => setTimeout(resolve, 0));
 					}
 				}
 

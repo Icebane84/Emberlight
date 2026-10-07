@@ -189,6 +189,33 @@
 	}
 
 	/**
+	 * Mutates current SFX preset using ZzFX procedural variation.
+	 * @returns {void}
+	 */
+	function _mutateSFX() {
+		const synth = global.PhoenixSovereignEngine?.PhoenixAudioSynthesizer || global.PhoenixAudioSynthesizer;
+		const zzfxMutateFn = global.zzfxMutate || synth?.zzfxMutate;
+		const currentParams = _getCurrentSFXParams();
+		const synthPresets = synth?.PRESETS || {};
+		const baseZzfx = synthPresets[ _activeSFXPresetKey ]?.zzfx || synth?.toZzfxParameters?.(currentParams);
+		if (zzfxMutateFn && Array.isArray(baseZzfx)) {
+			const mutated = zzfxMutateFn(baseZzfx, 0.2);
+			const playFn = global.zzfx || synth?.playProceduralSFX;
+			if (playFn) playFn(...mutated);
+
+			const fstartEl = /** @type {HTMLInputElement | null} */ (document.getElementById('sfx-param-fstart'));
+			if (fstartEl && mutated[ 2 ]) fstartEl.value = String(Math.round(mutated[ 2 ]));
+			_updateSFXParamBadges();
+			_renderOscilloscope();
+			if (typeof global._toast === 'function') {
+				global._toast(`🎲 Mutated ${currentParams.name} sound via ZzFX.`, 'pass');
+			}
+		} else {
+			_randomizeSFX();
+		}
+	}
+
+	/**
 	 * Exports or inserts generated procedural SFX code into the active file.
 	 * @returns {void}
 	 */
@@ -229,6 +256,7 @@
 		document.getElementById('btn-close-audio-studio')?.addEventListener('click', _closeAudioStudio);
 		document.getElementById('btn-close-sfx')?.addEventListener('click', _closeAudioStudio);
 		document.getElementById('btn-sfx-play')?.addEventListener('click', _previewSFX);
+		document.getElementById('btn-sfx-mutate')?.addEventListener('click', _mutateSFX);
 		document.getElementById('btn-sfx-randomize')?.addEventListener('click', _randomizeSFX);
 		document.getElementById('btn-sfx-random')?.addEventListener('click', _randomizeSFX);
 		document.getElementById('btn-sfx-copy-code')?.addEventListener('click', _exportSFXCode);

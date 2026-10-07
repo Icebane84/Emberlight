@@ -622,8 +622,17 @@ The flagship living implementations of this universal standard are:
    - **`[DOM-01]` through `[DOM-09]`**: Workspace mode toggles, AST symbol outline tree, Diff staging modals, welcome hubs.
    - **`[SEC-00]` through `[SEC-15]`**: Virtual File System (VFS), PEVM Governor, Ollama local AI bridge, 4-tier Crucible Sandbox, Diff preview, Procedural Audio Synth, and Game Dev Workstation.
 
-2. **[`phoenix/phoenix_sovereign_engine.js`](file:///c:/Users/Chris/Emberlight/phoenix/phoenix_sovereign_engine.js)** (5,600+ lines partitioned into 17 canonical sections):
-   - **`[SEC-01]` through `[SEC-17]`**: Complete engine facade, Tri-Engine graphics, Voxel DDA, Terrain Raymarcher, ERL-001, and governor pipelines.
+2. **[`phoenix/phoenix_sovereign_engine.js`](file:///c:/Users/Chris/Emberlight/phoenix/phoenix_sovereign_engine.js)** (5,800+ lines partitioned into 18 canonical sections):
+   - **`[SEC-01]` through `[SEC-18]`**: Complete engine facade, Tri-Engine graphics, Voxel DDA, Terrain Raymarcher, ERL-001, Host Slot-Filling (Infill) Engine, and governor pipelines.
+
+3. **[`phoenix/synarche_parser.js`](file:///c:/Users/Chris/Emberlight/phoenix/synarche_parser.js)** (2,700+ lines partitioned into 8 canonical sections):
+   - **`[SEC-01]` through `[SEC-08]`**: STCP-001/002 Lexer, Statement Parser, AST Factory, Type Unification System, Memory/Collision Audit, and GUCA 9-Method Cartridge Emitter.
+
+4. **[`phoenix/phoenix_type_resolver.js`](file:///c:/Users/Chris/Emberlight/phoenix/phoenix_type_resolver.js)** (1,380+ lines partitioned into 7 canonical sections):
+   - **`[SEC-01]` through `[SEC-07]`**: Domain Semantic Dictionary, Ambient JSDoc & Signature Scanner, TypeScript `.d.ts` Ingestion, Parameter & Return Type Inference, Contract Synthesis, and Document AST Scaffolder.
+
+5. **[`phoenix/sentinel_evaluator.js`](file:///c:/Users/Chris/Emberlight/phoenix/sentinel_evaluator.js)** (370+ lines partitioned into 6 canonical sections):
+   - **`[SEC-01]` through `[SEC-06]`**: Ambient Type Contracts, Singleton Resolution & Attenuation, Layer 1 Synchronous Linter Gate, Layer 2 3-Tier Governor Submission Pipeline, Layer 3 Automated AI Self-Repair Delegate, and Master Evaluator Facade (`evaluateProposalWithSentinel`).
 <!-- #endregion [SEC-08] -->
 
 ---

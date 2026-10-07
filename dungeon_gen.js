@@ -31,6 +31,7 @@ const EmberlightDungeonGen = (() => {
 
 	const {
 		applyDrunkardsWalk = (/** @type {any} */ _m, /** @type {any} */ _w, /** @type {any} */ _h, /** @type {any} */ _c, /** @type {any} */ _r) => { },
+		applyCellularAutomataCaves = (/** @type {any} */ _m, /** @type {any} */ _w, /** @type {any} */ _h, /** @type {any} */ _c, /** @type {any} */ _r) => { },
 	} = membrane.Drunkard || {};
 
 	const {
@@ -262,8 +263,35 @@ const EmberlightDungeonGen = (() => {
 		configured = false;
 	}
 
+	/**
+	 * Generates an organic cavernous layout using Conway Cellular Automata.
+	 * @param {number} [seed]
+	 * @param {number} [width=12]
+	 * @param {number} [height=10]
+	 * @param {number} [passes=4]
+	 * @param {number} [fillProb=0.45]
+	 * @returns {{ map: string[][], carvedCoords: Array<{x: number, y: number}>, spawn: {x: number, y: number}, exitPt: {x: number, y: number} }}
+	 */
+	function carveCaverns(seed = Date.now(), width = 12, height = 10, passes = 4, fillProb = 0.45) {
+		const rng = createRNG(seed);
+		const w = Math.max(8, width);
+		const h = Math.max(8, height);
+		const map = Array.from({ length: h }, () => new Array(w).fill("#"));
+		const carvedCoords = [];
+		applyCellularAutomataCaves(map, w, h, carvedCoords, rng, passes, fillProb);
+
+		const spawn = carvedCoords[ 0 ] || { x: Math.floor(w / 2), y: Math.floor(h / 2) };
+		const exitPt = carvedCoords[ carvedCoords.length - 1 ] || spawn;
+		map[ spawn.y ][ spawn.x ] = "<";
+		map[ exitPt.y ][ exitPt.x ] = ">";
+
+		return { map, carvedCoords, spawn, exitPt };
+	}
+
 	return {
 		generate,
+		carveCaverns,
+		applyCellularAutomataCaves,
 		ASSET_MANIFEST,
 		configure,
 		init,

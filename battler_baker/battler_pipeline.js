@@ -4,14 +4,40 @@
 if (typeof window !== 'undefined') window._BattlerBakerInternal = window._BattlerBakerInternal || {};
 
 (() => {
-	const { VERSION, SPRITE_SIZE, RENDER_SCALE, cache, diagnosticLog, canvas, ctxConfig, reset } =
-		/** @type {any} */ (window._BattlerBakerInternal?.Primitives || (typeof require !== 'undefined' ? require('./battler_primitives.js') : {}));
-	const { HERO_BAKERS } =
-		/** @type {any} */ (window._BattlerBakerInternal?.Heroes || (typeof require !== 'undefined' ? require('./battler_heroes.js') : {}));
-	const { armor, weapon } =
-		/** @type {any} */ (window._BattlerBakerInternal?.Equipment || (typeof require !== 'undefined' ? require('./battler_equipment.js') : {}));
-	const { ENEMY_BAKERS, EXPLICIT_ALIASES, SEMANTIC_RULES } =
-		/** @type {any} */ (window._BattlerBakerInternal?.Enemies || (typeof require !== 'undefined' ? require('./battler_enemies.js') : {}));
+	const _getInternal = (/** @type {string} */ key, /** @type {string} */ fallbackPath) => /** @type {any} */ (
+		(typeof window !== "undefined" && window._BattlerBakerInternal?.[key]) ||
+		(typeof globalThis !== "undefined" && (/** @type {any} */ (globalThis))._BattlerBakerInternal?.[key]) ||
+		(typeof require !== "undefined" ? require(fallbackPath) : {})
+	);
+
+	const _prim = _getInternal("Primitives", "./battler_primitives.js");
+	const _h = _getInternal("Heroes", "./battler_heroes.js");
+	const _e = _getInternal("Equipment", "./battler_equipment.js");
+	const _en = _getInternal("Enemies", "./battler_enemies.js");
+
+	const VERSION = _prim.VERSION || "4.0.0";
+	const SPRITE_SIZE = _prim.SPRITE_SIZE || 64;
+	const RENDER_SCALE = _prim.RENDER_SCALE || 4;
+	const cache = _prim.cache || new Map();
+	const diagnosticLog = _prim.diagnosticLog || new Map();
+	const canvas = (/** @type {any[]} */ ...args) => (_getInternal("Primitives", "./battler_primitives.js").canvas || _prim.canvas)(...args);
+	const ctxConfig = (/** @type {any[]} */ ...args) => (_getInternal("Primitives", "./battler_primitives.js").ctxConfig || _prim.ctxConfig)(...args);
+	const reset = (/** @type {any[]} */ ...args) => (_getInternal("Primitives", "./battler_primitives.js").reset || _prim.reset)(...args);
+
+	const HERO_BAKERS = new Proxy(_h.HERO_BAKERS || {}, {
+		get: (target, prop) => _getInternal("Heroes", "./battler_heroes.js").HERO_BAKERS?.[prop] ?? target[prop]
+	});
+	const armor = new Proxy(_e.armor || {}, {
+		get: (target, prop) => _getInternal("Equipment", "./battler_equipment.js").armor?.[prop] ?? target[prop]
+	});
+	const weapon = new Proxy(_e.weapon || {}, {
+		get: (target, prop) => _getInternal("Equipment", "./battler_equipment.js").weapon?.[prop] ?? target[prop]
+	});
+	const ENEMY_BAKERS = new Proxy(_en.ENEMY_BAKERS || {}, {
+		get: (target, prop) => _getInternal("Enemies", "./battler_enemies.js").ENEMY_BAKERS?.[prop] ?? target[prop]
+	});
+	const EXPLICIT_ALIASES = _en.EXPLICIT_ALIASES || {};
+	const SEMANTIC_RULES = _en.SEMANTIC_RULES || [];
 
 	//#region [SEC-06] Semantic Resolution, Aliasing & Asset Resolvers
 	/**
@@ -567,7 +593,9 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		};
 	}
 
-	bakeAll();
+	if (typeof window === "undefined" || (window._BattlerBakerInternal?.Primitives && window._BattlerBakerInternal?.Heroes)) {
+		bakeAll();
+	}
 	//#endregion
 
 	const Pipeline = Object.freeze({

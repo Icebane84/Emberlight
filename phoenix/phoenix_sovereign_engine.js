@@ -7,24 +7,26 @@
  * Authority:           Host SSOT | Deterministic Governance Governor
  * ============================================================================
  *
- * TABLE OF CONTENTS & CANONICAL DOMAIN ANCHORS:
- *   [SEC-01] Constants, Frozen Primitives & Pure Utilities
- *   [SEC-02] Layer 3: Watchdog, Framebuffer & Fault Localization
- *   [SEC-03] Procedural Web Audio Synthesizer Subsystem
- *   [SEC-04] Code Studio Substrate (IntelliSense, Fuzzy, Search, Diff, Sandbox)
- *   [SEC-05] Graphics Tier 1 & 2: WebGL 2D Batcher & Canvas 2D Layer Engine
- *   [SEC-06] Graphics Tier 3: Retro Pseudo-3D DDA Raycaster
- *   [SEC-07] Graphics Tier 4: 3D Fast Voxel DDA World Engine
- *   [SEC-08] Graphics Tier 5: Demoscene Procedural Terrain Raymarcher
- *   [SEC-09] Code Formatting & Deep Linter Suite
- *   [SEC-10] Layer 1: Structural Linter & Proposal Shape Validator
- *   [SEC-11] Layer 0: Specification Registry & Capability Registry
- *   [SEC-12] Layer 3: In-Memory Receipt Ledger
- *   [SEC-13] Layer 0: Sovereign Storage (OPFS & FSA Virtual VFS)
- *   [SEC-14] Layer 2: Governor Core & AI Repair Loop
- *   [SEC-15] Error Resolution Ledger (ERL-001) & Batch Remediation Pipeline
- *   [SEC-16] Deterministic Region Scaffolder, AST Contract & Graph Analyzer
- *   [SEC-17] Canonical Facade Export & Dual-Binding Membrane
+ * CMD-DOC-INDEX (Normative Region Jump Table)
+ * ============================================================================
+ * [SEC-01] Constants, Frozen Primitives & Pure Utilities ........ Line ~0033
+ * [SEC-02] Layer 3: Watchdog, Framebuffer & Fault Localization .. Line ~0192
+ * [SEC-03] Procedural Web Audio Synthesizer Bridge (VSRP-001-RUNTIME-DELEGATE) .. Line ~0450
+ * [SEC-04] Code Studio Substrate (IntelliSense, Fuzzy, Search, Diff, Sandbox) .. Line ~0476
+ * [SEC-05] Graphics Tier 1 & 2: WebGL 2D Batcher & Canvas 2D Layer Engine Bridge .. Line ~2349
+ * [SEC-06] Graphics Tier 3: Retro Pseudo-3D DDA Raycaster Bridge .. Line ~2390
+ * [SEC-07] Graphics Tier 4: 3D Fast Voxel DDA World Engine Bridge .. Line ~2411
+ * [SEC-08] Graphics Tier 5: Demoscene Procedural Terrain Raymarcher Bridge .. Line ~2445
+ * [SEC-09] Code Formatting & Deep Linter Suite .................. Line ~2478
+ * [SEC-10] Layer 1: Structural Linter & Proposal Shape Validator .. Line ~3086
+ * [SEC-11] Layer 0: Specification Registry & Capability Registry .. Line ~3198
+ * [SEC-12] Layer 3: In-Memory Receipt Ledger .................... Line ~3372
+ * [SEC-13] Layer 0: Sovereign Storage (OPFS & FSA Virtual VFS) .. Line ~3407
+ * [SEC-14] Layer 2: Governor Core & AI Repair Loop .............. Line ~3877
+ * [SEC-15] Error Resolution Ledger (ERL-001) & Batch Remediation Pipeline .. Line ~4506
+ * [SEC-16] Deterministic Region Scaffolder, AST Contract & Graph Analyzer .. Line ~5305
+ * [SEC-17] Host Slot-Filling (Infill) & Micro-Envelope Engine ... Line ~5644
+ * [SEC-18] Canonical Facade Export & Dual-Binding Membrane ...... Line ~5759
  * ============================================================================
  */
 ((/** @type {any} */ global) => {
@@ -1329,84 +1331,102 @@
 	});
 
 	/**
-	 * @param {{
-	 *   hunkId: number;
-	 *   oldLines: string[];
-	 *   newLines: string[];
-	 *   oldStart: number;
-	 *   newStart: number;
-	 *   delLines: string[];
-	 *   addLines: string[];
-	 *   i: number;
-	 *   j: number;
-	 *   contextLines: number;
-	 * }} options
+	 * Computes Myers 1986 Shortest Edit Script (SES) forward search trace.
+	 * @param {string[]} a
+	 * @param {string[]} b
+	 * @param {number} N
+	 * @param {number} M
+	 * @param {number} max
+	 * @returns {Int32Array[]}
 	 */
-	function _buildHunkRecord({ hunkId, oldLines, newLines, oldStart, newStart, delLines, addLines, i, j, contextLines }) {
-		const lines = [];
+	function _computeMyersTrace(a, b, N, M, max) {
+		const v = new Int32Array(2 * max + 1);
+		const trace = [];
+		v[ max + 1 ] = 0;
 
-		const ctxStart = Math.max(0, oldStart - contextLines);
-		for (let k = ctxStart; k < oldStart; k++) {
-			lines.push({ type: "ctx", text: oldLines[ k ], oldLine: k + 1, newLine: newStart - (oldStart - k) + 1 });
+		for (let d = 0; d <= max; d++) {
+			trace.push(new Int32Array(v));
+			for (let k = -d; k <= d; k += 2) {
+				let x = (k === -d || (k !== d && v[ max + k - 1 ] < v[ max + k + 1 ]))
+					? v[ max + k + 1 ]
+					: v[ max + k - 1 ] + 1;
+				let y = x - k;
+				while (x < N && y < M && a[ x ] === b[ y ]) {
+					x++;
+					y++;
+				}
+				v[ max + k ] = x;
+				if (x >= N && y >= M) {
+					return trace;
+				}
+			}
 		}
-
-		delLines.forEach((text, idx) => {
-			lines.push({ type: "del", text, oldLine: oldStart + idx + 1, newLine: null });
-		});
-
-		addLines.forEach((text, idx) => {
-			lines.push({ type: "add", text, oldLine: null, newLine: newStart + idx + 1 });
-		});
-
-		const ctxEnd = Math.min(oldLines.length, i + contextLines);
-		for (let k = i; k < ctxEnd; k++) {
-			lines.push({ type: "ctx", text: oldLines[ k ], oldLine: k + 1, newLine: j + (k - i) + 1 });
-		}
-
-		return {
-			id: hunkId,
-			oldStart: oldStart + 1,
-			oldCount: delLines.length,
-			newStart: newStart + 1,
-			newCount: addLines.length,
-			delLines,
-			addLines,
-			lines,
-			header: `@@ -${oldStart + 1},${delLines.length || 1} +${newStart + 1},${addLines.length || 1} @@`,
-		};
+		return trace;
 	}
 
 	/**
-	 * @param {string[]} oldLines
-	 * @param {string[]} newLines
-	 * @param {number} startI
-	 * @param {number} startJ
+	 * Backtracks a Myers trace to produce edit tokens.
+	 * @param {Int32Array[]} trace
+	 * @param {string[]} a
+	 * @param {string[]} b
+	 * @param {number} N
+	 * @param {number} M
+	 * @param {number} max
+	 * @returns {Array<{ type: 'ctx' | 'add' | 'del', text: string, oldLine?: number, newLine?: number }>}
 	 */
-	function _collectHunkDiff(oldLines, newLines, startI, startJ) {
-		let i = startI;
-		let j = startJ;
-		const delLines = [];
-		const addLines = [];
+	function _backtrackMyersTrace(trace, a, b, N, M, max) {
+		/** @type {Array<{ type: 'ctx' | 'add' | 'del', text: string, oldLine?: number, newLine?: number }>} */
+		const edits = [];
+		let x = N;
+		let y = M;
 
-		while (i < oldLines.length && (j >= newLines.length || oldLines[ i ] !== newLines[ j ])) {
-			const lookaheadNew = newLines.indexOf(oldLines[ i ], j);
-			if (lookaheadNew !== -1 && lookaheadNew - j <= 3) {
-				while (j < lookaheadNew) {
-					addLines.push(newLines[ j ]);
-					j++;
-				}
-				break;
+		for (let d = trace.length - 1; d > 0; d--) {
+			const vD = trace[ d ];
+			const k = x - y;
+			const prevK = (k === -d || (k !== d && vD[ max + k - 1 ] < vD[ max + k + 1 ])) ? k + 1 : k - 1;
+			const prevX = vD[ max + prevK ];
+			const prevY = prevX - prevK;
+
+			while (x > prevX && y > prevY) {
+				edits.push({ type: 'ctx', text: a[ x - 1 ], oldLine: x, newLine: y });
+				x--;
+				y--;
 			}
-			delLines.push(oldLines[ i ]);
-			i++;
+			if (d > 0) {
+				if (x === prevX) {
+					edits.push({ type: 'add', text: b[ prevY ], newLine: prevY + 1 });
+					y = prevY;
+				} else {
+					edits.push({ type: 'del', text: a[ prevX ], oldLine: prevX + 1 });
+					x = prevX;
+				}
+			}
 		}
-
-		while (j < newLines.length && (i >= oldLines.length || oldLines[ i ] !== newLines[ j ])) {
-			addLines.push(newLines[ j ]);
-			j++;
+		while (x > 0 && y > 0) {
+			edits.push({ type: 'ctx', text: a[ x - 1 ], oldLine: x, newLine: y });
+			x--;
+			y--;
 		}
+		edits.reverse();
+		return edits;
+	}
 
-		return { i, j, delLines, addLines };
+	/**
+	 * Computes Myers 1986 Shortest Edit Script (SES) between two arrays of lines.
+	 * Returns an array of edit tokens: { type: 'ctx' | 'add' | 'del', text: string, oldLine?: number, newLine?: number }
+	 * [Public Domain Algorithm - Myers 1986 "An O(ND) Difference Algorithm and Its Variations"]
+	 * @param {string[]} a
+	 * @param {string[]} b
+	 * @returns {Array<{ type: 'ctx' | 'add' | 'del', text: string, oldLine?: number, newLine?: number }>}
+	 */
+	function _myersDiffLines(a, b) {
+		const N = a.length;
+		const M = b.length;
+		const max = N + M;
+		if (max === 0) return [];
+
+		const trace = _computeMyersTrace(a, b, N, M, max);
+		return _backtrackMyersTrace(trace, a, b, N, M, max);
 	}
 
 	/**
@@ -1796,8 +1816,88 @@
 		return rows;
 	}
 
+	/**
+	 * Scans ahead to find the boundary of a change cluster including context window.
+	 * @param {Array<{ type: 'ctx' | 'add' | 'del', text: string, oldLine?: number, newLine?: number }>} edits
+	 * @param {number} startIdx
+	 * @param {number} contextLines
+	 * @returns {number}
+	 */
+	function _findHunkClusterEnd(edits, startIdx, contextLines) {
+		let changeEnd = startIdx;
+		while (changeEnd < edits.length) {
+			if (edits[ changeEnd ].type !== 'ctx') {
+				changeEnd++;
+			} else {
+				let nextChange = -1;
+				for (let k = changeEnd; k < Math.min(edits.length, changeEnd + 2 * contextLines); k++) {
+					if (edits[ k ].type !== 'ctx') {
+						nextChange = k;
+						break;
+					}
+				}
+				if (nextChange !== -1) {
+					changeEnd = nextChange;
+				} else {
+					break;
+				}
+			}
+		}
+		return changeEnd;
+	}
+
+	/**
+	 * Builds a single Phoenix hunk from an edit slice and context window.
+	 * @param {Array<{ type: 'ctx' | 'add' | 'del', text: string, oldLine?: number, newLine?: number }>} edits
+	 * @param {number} changeStart
+	 * @param {number} changeEnd
+	 * @param {number} contextLines
+	 * @param {number} hunkId
+	 */
+	function _buildHunkSlice(edits, changeStart, changeEnd, contextLines, hunkId) {
+		const ctxBefore = [];
+		for (let k = Math.max(0, changeStart - contextLines); k < changeStart; k++) {
+			if (edits[ k ].type === 'ctx') ctxBefore.push(edits[ k ]);
+		}
+
+		const delLines = [];
+		const addLines = [];
+		const clusterEdits = [];
+		for (let k = changeStart; k < changeEnd; k++) {
+			clusterEdits.push(edits[ k ]);
+			if (edits[ k ].type === 'del') delLines.push(edits[ k ].text);
+			if (edits[ k ].type === 'add') addLines.push(edits[ k ].text);
+		}
+
+		const ctxAfter = [];
+		for (let k = changeEnd; k < Math.min(edits.length, changeEnd + contextLines); k++) {
+			if (edits[ k ].type === 'ctx') ctxAfter.push(edits[ k ]);
+		}
+
+		const firstDel = clusterEdits.find(e => e.type === 'del');
+		const firstAdd = clusterEdits.find(e => e.type === 'add');
+		const lastCtxBefore = ctxBefore.at(-1);
+
+		const oldStart = firstDel?.oldLine ?? ((typeof lastCtxBefore?.oldLine === 'number') ? lastCtxBefore.oldLine + 1 : 1);
+		const newStart = firstAdd?.newLine ?? ((typeof lastCtxBefore?.newLine === 'number') ? lastCtxBefore.newLine + 1 : 1);
+
+		return {
+			id: hunkId,
+			hunkId,
+			oldStart,
+			oldCount: delLines.length,
+			newStart,
+			newCount: addLines.length,
+			delLines,
+			addLines,
+			lines: [ ...ctxBefore, ...clusterEdits, ...ctxAfter ],
+			header: `@@ -${oldStart},${delLines.length || 1} +${newStart},${addLines.length || 1} @@`
+		};
+	}
+
 	const PhoenixChunkDiffEngine = Object.freeze({
 		/**
+		 * Computes optimal diff hunks using the Myers 1986 Shortest Edit Script (SES) algorithm.
 		 * @param {string} oldText
 		 * @param {string} newText
 		 * @param {number} [contextLines=2]
@@ -1805,40 +1905,24 @@
 		computeHunks(oldText, newText, contextLines = 2) {
 			const oldLines = (oldText || "").split("\n");
 			const newLines = (newText || "").split("\n");
-			const hunks = [];
+			if (oldText === newText) return [];
 
-			let i = 0;
-			let j = 0;
+			const edits = _myersDiffLines(oldLines, newLines);
+			const hunks = [];
 			let hunkId = 0;
 
-			while (i < oldLines.length || j < newLines.length) {
-				if (i < oldLines.length && j < newLines.length && oldLines[ i ] === newLines[ j ]) {
+			let i = 0;
+			while (i < edits.length) {
+				if (edits[ i ].type === 'ctx') {
 					i++;
-					j++;
 					continue;
 				}
 
-				const oldStart = i;
-				const newStart = j;
-				const diff = _collectHunkDiff(oldLines, newLines, i, j);
-				i = diff.i;
-				j = diff.j;
-
-				if (diff.delLines.length > 0 || diff.addLines.length > 0) {
-					hunkId++;
-					hunks.push(_buildHunkRecord({
-						hunkId,
-						oldLines,
-						newLines,
-						oldStart,
-						newStart,
-						delLines: diff.delLines,
-						addLines: diff.addLines,
-						i,
-						j,
-						contextLines
-					}));
-				}
+				const changeStart = i;
+				const changeEnd = _findHunkClusterEnd(edits, changeStart, contextLines);
+				hunkId++;
+				hunks.push(_buildHunkSlice(edits, changeStart, changeEnd, contextLines, hunkId));
+				i = changeEnd;
 			}
 
 			return hunks;
@@ -2038,63 +2122,153 @@
 	 * @param {string} [targetEntry]
 	 * @returns {string}
 	 */
+	const _HOST_TOOL_FILES = Object.freeze(new Set([
+		'phoenix_sovereign_engine.js',
+		'synarche_parser.js',
+		'phoenix_type_resolver.js',
+		'monolith_exporter.js',
+		'sentinel_evaluator.js',
+		'vlt_compliance_engine.js',
+		'test_phoenix.js',
+		'test_phoenix_sovereign_engine.js',
+		'audit_esm.js',
+		'vlt_sync.js',
+		'phoenix_editor_cm6.js',
+		'phoenix_editor_core.js',
+		'webllm_worker_bridge.js',
+		'sdcp-bootstrap.js',
+		'sdcp-core.js',
+		'partition_engine.js',
+		'scaffold_contracts.js',
+		'build_manifest.js',
+		'server.js'
+	]));
+
+	const _NODE_BUILTIN_IMPORT_REGEX = /(?:require\s*\(\s*|from\s+)['"](?:node:)?(assert|child_process|crypto|fs|http|https|os|path|stream|util|vm)['"]/;
+
+	/**
+	 * Escapes script tags and HTML comments to prevent premature script termination.
+	 * [Pure Function] Complexity <= 2.
+	 * @param {string} code
+	 * @returns {string}
+	 * @private
+	 */
+	function _escapeScriptContent(code) {
+		return code.replace(/<\/script/gi, String.raw`<\/script`).replaceAll('<!--', String.raw`<\!--`);
+	}
+
+	/**
+	 * Determines if a file is an excluded host tool, test file, or Node-only utility.
+	 * [Pure Function] Complexity <= 7.
+	 * @param {string} filePath
+	 * @param {string | string[]} code
+	 * @returns {boolean}
+	 * @private
+	 */
+	function _isVfsExcludedFile(filePath, code) {
+		const lower = filePath.toLowerCase();
+		const baseName = filePath.split('/').pop() || '';
+		if (_HOST_TOOL_FILES.has(baseName)) return true;
+		if (lower.startsWith('tools/') || lower.includes('/tools/')) return true;
+		if (lower.startsWith('testing/') || lower.includes('/testing/')) return true;
+		if (lower.startsWith('docs/') || lower.includes('/docs/')) return true;
+		if (lower.includes('_template.') || lower.includes('template_')) return true;
+		if (typeof code === 'string' && _NODE_BUILTIN_IMPORT_REGEX.test(code)) return true;
+		return false;
+	}
+
+	/**
+	 * Resolves relative weight for script scheduling in fallback bundles.
+	 * [Pure Function] Complexity <= 7.
+	 * @param {string} clean
+	 * @param {string[]} canonicalOrder
+	 * @returns {number}
+	 * @private
+	 */
+	function _getScriptWeight(clean, canonicalOrder) {
+		const cIdx = canonicalOrder.indexOf(clean);
+		if (cIdx !== -1) return cIdx;
+		const base = clean.split("/").pop() || clean;
+		const bIdx = canonicalOrder.indexOf(base);
+		if (bIdx !== -1) return bIdx;
+
+		if (clean.includes("_primitives") || clean.includes("_config") || clean.includes("_calc") || clean.includes("prng.js") || clean.includes("event_bus.js")) {
+			return 2000;
+		}
+		if (clean.includes("_textures") || clean.includes("_shadows") || clean.includes("_emitters") || clean.includes("_dda")) {
+			return 2100;
+		}
+		if (clean.includes("_heroes") || clean.includes("_enemies") || clean.includes("_equipment") || clean.includes("_ai")) {
+			return 2200;
+		}
+		if (clean.includes("_pipeline") || clean.includes("_compositor") || clean.includes("_orchestrator")) {
+			return 2300;
+		}
+		if (!clean.includes("/")) {
+			return 2400;
+		}
+		return 2500;
+	}
+
+	/**
+	 * Resolves canonical execution order from load_order.js or index.html scripts.
+	 * @param {Map<string, string> | any} vfsMap
+	 * @returns {string[]}
+	 */
+	function _resolveCanonicalOrder(vfsMap) {
+		const loadOrderSource = _lookupVFS(vfsMap, "testing/load_order.js") || _lookupVFS(vfsMap, "load_order.js");
+		if (loadOrderSource) {
+			const matches = [...loadOrderSource.matchAll(/['"]([^'"]+\.js)['"]/g)];
+			return matches.map(m => m[1].replace(/^\.?\//, "").trim());
+		}
+		const indexHtml = _lookupVFS(vfsMap, "index.html");
+		if (indexHtml) {
+			const tagMatches = [...indexHtml.matchAll(/<script\b[^>]*?\bsrc=["']([^"']+\.js)["']/gi)];
+			return tagMatches.map(m => m[1].replace(/^\.?\//, "").trim());
+		}
+		return [];
+	}
+
+	/**
+	 * Builds fallback bundle when no script tags were declared in entry HTML.
+	 * Sequences scripts according to canonical load_order / index.html or topological weights,
+	 * ensuring foundational primitives execute before composite systems, and isolates
+	 * each script within an IIFE closure to prevent top-level collisions.
+	 * @param {Map<string, string> | any} vfsMap
+	 * @param {Set<string>} inlinedSet
+	 * @param {string} [targetEntry]
+	 * @returns {string}
+	 */
 	function _buildFallbackScriptBundle(vfsMap, inlinedSet, targetEntry) {
 		if (!vfsMap || typeof vfsMap.entries !== "function") return "";
 		const scripts = [];
 		const safeClosingScript = "<" + "/script>";
 		const safeOpeningScript = "<script>";
 
-		const HOST_TOOL_FILES = new Set([
-			'phoenix_sovereign_engine.js',
-			'synarche_parser.js',
-			'phoenix_type_resolver.js',
-			'monolith_exporter.js',
-			'sentinel_evaluator.js',
-			'vlt_compliance_engine.js',
-			'test_phoenix.js',
-			'test_phoenix_sovereign_engine.js',
-			'audit_esm.js',
-			'vlt_sync.js'
-		]);
-
-		/**
-		 * @param {string} filePath
-		 * @param {string | string[]} code
-		 */
-		function isExcludedFile(filePath, code) {
-			const lower = filePath.toLowerCase();
-			const baseName = filePath.split('/').pop() || '';
-			if (HOST_TOOL_FILES.has(baseName)) return true;
-			if (lower.startsWith('tools/') || lower.includes('/tools/')) return true;
-			if (lower.startsWith('testing/') || lower.includes('/testing/')) return true;
-			if (lower.startsWith('docs/') || lower.includes('/docs/')) return true;
-			if (lower.includes('_template.') || lower.includes('template_')) return true;
-			if (typeof code === 'string' && /(?:require\s*\(\s*['"](?:node:)?(?:fs|path|vm|child_process|crypto|os|http|https|stream|util|assert)['"]\s*\)|from\s+['"](?:node:)?(?:fs|path|vm|child_process|crypto|os)['"])/.test(code)) return true;
-			return false;
-		}
-
-		/**
-		 * @param {string} code
-		 */
-		function escapeScript(code) {
-			return code.replace(/<\/script/gi, String.raw`<\/script`).replaceAll('<!--', String.raw`<\!--`);
-		}
-
-		if (targetEntry && targetEntry.endsWith('.js') && vfsMap.has(targetEntry)) {
-			const targetCode = vfsMap.get(targetEntry);
-			if (targetCode) {
-				scripts.push(`/* [VFS PRIMARY ENTRY: ${targetEntry}] */\n(() => {\n${escapeScript(targetCode)}\n})();`);
-				inlinedSet.add(targetEntry.replace(/^\.?\//, "").trim());
-			}
-		}
+		const canonicalOrder = _resolveCanonicalOrder(vfsMap);
+		const candidates = [];
+		const cleanTarget = targetEntry ? targetEntry.replace(/^\.?\//, "").trim() : "";
 
 		for (const [ path, code ] of vfsMap.entries()) {
 			const clean = path.replace(/^\.?\//, "").trim();
-			if (path.endsWith(".js") && !path.includes("test_") && !inlinedSet.has(clean)) {
-				if (isExcludedFile(path, code)) continue;
-				scripts.push(`/* [VFS: ${path}] */\n(() => {\n${escapeScript(code)}\n})();`);
-			}
+			if (!path.endsWith(".js") || path.includes("test_") || inlinedSet.has(clean)) continue;
+			if (_isVfsExcludedFile(path, code)) continue;
+			candidates.push({ path, clean, code });
 		}
+
+		candidates.sort((a, b) => {
+			if (cleanTarget && a.clean === cleanTarget) return 1;
+			if (cleanTarget && b.clean === cleanTarget) return -1;
+			return _getScriptWeight(a.clean, canonicalOrder) - _getScriptWeight(b.clean, canonicalOrder);
+		});
+
+		for (const item of candidates) {
+			const isPrimary = cleanTarget && item.clean === cleanTarget;
+			const label = isPrimary ? `/* [VFS PRIMARY ENTRY: ${item.path}] */` : `/* [VFS: ${item.path}] */`;
+			scripts.push(`${label}\n(() => {\n${_escapeScriptContent(item.code)}\n})();`);
+			inlinedSet.add(item.clean);
+		}
+
 		return scripts.length > 0 ? `${safeOpeningScript}\n${scripts.join("\n\n")}\n${safeClosingScript}` : "";
 	}
 
@@ -2208,12 +2382,12 @@
 			].join("\n");
 
 			baseHtml = baseHtml.includes("</head>")
-				? baseHtml.replace("</head>", `${hookScript}\n</head>`)
+				? baseHtml.replace("</head>", () => `${hookScript}\n</head>`)
 				: `${hookScript}\n${baseHtml}`;
 
 			if (fallbackBundle) {
 				baseHtml = baseHtml.includes("</body>")
-					? baseHtml.replace("</body>", `${fallbackBundle}\n</body>`)
+					? baseHtml.replace("</body>", () => `${fallbackBundle}\n</body>`)
 					: `${baseHtml}\n${fallbackBundle}`;
 			}
 
@@ -2258,7 +2432,9 @@
 							tickState.delta = delta;
 							tickState.timestamp = timestamp;
 							onTick(tickState);
-						} catch (_) { }
+						} catch (_tickErr) {
+							// Benign: prevent consumer onTick callback exception from halting game loop
+						}
 					}
 				}
 
@@ -2295,7 +2471,9 @@
 								tickState.delta = 1000 / targetFPS;
 								tickState.timestamp = Date.now();
 								onTick(tickState);
-							} catch (_) { }
+							} catch (_stepErr) {
+								// Benign: prevent consumer onTick callback exception from halting step execution
+							}
 						}
 					}
 				},
@@ -2383,71 +2561,388 @@
 	});
 	//#endregion
 
-	//#region [SEC-07] Graphics Tier 4: 3D Fast Voxel DDA World Engine Bridge
+	//#region [SEC-07] Graphics Tier 4: 3D Fast Voxel DDA World Engine
 	/**
-	 * 3D Fast Voxel DDA World Engine Bridge.
-	 * Implementation partitioned into modular runtime: phoenix/runtime/phoenix_voxel_3d.js
+	 * Pure Helper: Resolve face name and normal vector from hit side and ray step
+	 * @param {number} side
+	 * @param {number} stepX
+	 * @param {number} stepY
+	 * @param {number} stepZ
+	 * @returns {{ normal: [number, number, number]; face: string }}
+	 */
+	function _resolveHitFaceAndNormal(side, stepX, stepY, stepZ) {
+		if (side === 0) {
+			return { normal: [ -stepX, 0, 0 ], face: stepX < 0 ? 'east' : 'west' };
+		}
+		if (side === 1) {
+			return { normal: [ 0, -stepY, 0 ], face: stepY < 0 ? 'top' : 'bottom' };
+		}
+		return { normal: [ 0, 0, -stepZ ], face: stepZ < 0 ? 'south' : 'north' };
+	}
+
+	/**
+	 * @param {{ sizeX: number, sizeY: number, sizeZ: number, data: Uint8Array }} vol
+	 * @param {number} x
+	 * @param {number} z
+	 * @param {number} sizeY
+	 */
+	function _carvePerimeterWall(vol, x, z, sizeY) {
+		for (let y = 1; y < sizeY - 1; y++) {
+			vol.data[ (y * vol.sizeZ + z) * vol.sizeX + x ] = 2;
+		}
+	}
+
+	/**
+	 * @param {{ sizeX: number, sizeY: number, sizeZ: number, data: Uint8Array }} vol
+	 * @param {number} x
+	 * @param {number} z
+	 * @param {number} sizeY
+	 */
+	function _carveInteriorFeature(vol, x, z, sizeY) {
+		if ((x % 4 === 0) && (z % 4 === 0)) {
+			for (let y = 1; y < sizeY - 1; y++) {
+				vol.data[ (y * vol.sizeZ + z) * vol.sizeX + x ] = 3;
+			}
+		} else if ((x === 4 && z === 4) || (x === 11 && z === 11)) {
+			vol.data[ (1 * vol.sizeZ + z) * vol.sizeX + x ] = 4;
+		}
+	}
+
+	/**
+	 * 3D Fast Voxel DDA World Engine (Self-contained inlined sovereign implementation).
 	 */
 	const PhoenixVoxel3DEngine = Object.freeze({
-		get VOXEL_TYPES() { return global.PhoenixVoxel3DEngine ? global.PhoenixVoxel3DEngine.VOXEL_TYPES : {}; },
+		VOXEL_TYPES: Object.freeze({ AIR: 0, STONE: 1, WALL: 2, PILLAR: 3, PEDESTAL: 4 }),
+		createVolume(sizeX = 16, sizeY = 8, sizeZ = 16, defaultVoxel = 0) {
+			const data = new Uint8Array(sizeX * sizeY * sizeZ);
+			if (defaultVoxel > 0) data.fill(defaultVoxel);
+			return { sizeX, sizeY, sizeZ, data };
+		},
+		createChunkBuffer(sizeX = 16, sizeY = 8, sizeZ = 16, defaultVoxel = 0) {
+			return this.createVolume(sizeX, sizeY, sizeZ, defaultVoxel);
+		},
+		/**
+		 * @param {{ sizeX: number, sizeY: number, sizeZ: number, data: Uint8Array }} volume
+		 * @param {number} x
+		 * @param {number} y
+		 * @param {number} z
+		 * @returns {number}
+		 */
+		getVoxel(volume, x, y, z) {
+			if (!volume?.data) return 0;
+			const ix = Math.floor(x);
+			const iy = Math.floor(y);
+			const iz = Math.floor(z);
+			if (ix < 0 || ix >= volume.sizeX || iy < 0 || iy >= volume.sizeY || iz < 0 || iz >= volume.sizeZ) {
+				return 0;
+			}
+			return volume.data[ (iy * volume.sizeZ + iz) * volume.sizeX + ix ];
+		},
+		/**
+		 * @param {{ sizeX: number, sizeY: number, sizeZ: number, data: Uint8Array }} volume
+		 * @param {number} x
+		 * @param {number} y
+		 * @param {number} z
+		 * @param {number} voxelType
+		 * @returns {boolean}
+		 */
+		setVoxel(volume, x, y, z, voxelType) {
+			if (!volume?.data) return false;
+			const ix = Math.floor(x);
+			const iy = Math.floor(y);
+			const iz = Math.floor(z);
+			if (ix < 0 || ix >= volume.sizeX || iy < 0 || iy >= volume.sizeY || iz < 0 || iz >= volume.sizeZ) {
+				return false;
+			}
+			volume.data[ (iy * volume.sizeZ + iz) * volume.sizeX + ix ] = Math.max(0, Math.min(255, voxelType));
+			return true;
+		},
+		/**
+		 * @param {{ sizeX: number, sizeY: number, sizeZ: number, data: Uint8Array }} volume
+		 * @param {{ x: number, y: number, z: number }} origin
+		 * @param {{ x: number, y: number, z: number }} dir
+		 * @param {number} [maxDist]
+		 */
+		castRay3D(volume, origin, dir, maxDist = 32) {
+			const len = Math.hypot(dir.x, dir.y, dir.z) || 1.0;
+			const dx = dir.x / len;
+			const dy = dir.y / len;
+			const dz = dir.z / len;
+
+			let mapX = Math.floor(origin.x);
+			let mapY = Math.floor(origin.y);
+			let mapZ = Math.floor(origin.z);
+
+			const stepX = dx < 0 ? -1 : 1;
+			const stepY = dy < 0 ? -1 : 1;
+			const stepZ = dz < 0 ? -1 : 1;
+
+			const deltaDistX = Math.abs(1 / (dx || 1e-6));
+			const deltaDistY = Math.abs(1 / (dy || 1e-6));
+			const deltaDistZ = Math.abs(1 / (dz || 1e-6));
+
+			let sideDistX = dx < 0 ? (origin.x - mapX) * deltaDistX : (mapX + 1.0 - origin.x) * deltaDistX;
+			let sideDistY = dy < 0 ? (origin.y - mapY) * deltaDistY : (mapY + 1.0 - origin.y) * deltaDistY;
+			let sideDistZ = dz < 0 ? (origin.z - mapZ) * deltaDistZ : (mapZ + 1.0 - origin.z) * deltaDistZ;
+
+			let hit = 0;
+			let side = 0;
+			let distance = 0;
+			let maxSteps = 96;
+
+			while (hit === 0 && distance < maxDist && maxSteps > 0) {
+				maxSteps--;
+				if (sideDistX < sideDistY && sideDistX < sideDistZ) {
+					distance = sideDistX;
+					sideDistX += deltaDistX;
+					mapX += stepX;
+					side = 0;
+				} else if (sideDistY < sideDistZ) {
+					distance = sideDistY;
+					sideDistY += deltaDistY;
+					mapY += stepY;
+					side = 1;
+				} else {
+					distance = sideDistZ;
+					sideDistZ += deltaDistZ;
+					mapZ += stepZ;
+					side = 2;
+				}
+
+				hit = this.getVoxel(volume, mapX, mapY, mapZ);
+			}
+
+			if (hit === 0 || distance >= maxDist) {
+				return { hit: false, distance: maxDist, x: mapX, y: mapY, z: mapZ, voxel: 0, face: 'none', normal: [ 0, 0, 0 ] };
+			}
+
+			const { normal, face } = _resolveHitFaceAndNormal(side, stepX, stepY, stepZ);
+
+			return { hit: true, distance, x: mapX, y: mapY, z: mapZ, voxel: hit, side, face, normal };
+		},
 		/**
 		 * @param {any[]} args
 		 */
-		createChunkBuffer(...args) { return global.PhoenixVoxel3DEngine?.createChunkBuffer?.(...args); },
-		/**
-		 * @param {any[]} args
-		 */
-		setVoxel(...args) { return global.PhoenixVoxel3DEngine?.setVoxel?.(...args); },
-		/**
-		 * @param {any[]} args
-		 */
-		getVoxel(...args) { return global.PhoenixVoxel3DEngine?.getVoxel?.(...args); },
-		/**
-		 * @param {any[]} args
-		 */
-		castVoxelRay(...args) { return global.PhoenixVoxel3DEngine?.castVoxelRay?.(...args); },
-		/**
-		 * @param {any[]} args
-		 */
-		generateDungeonVolume(...args) { return global.PhoenixVoxel3DEngine?.generateDungeonVolume?.(...args); },
-		/**
-		 * @param {any[]} args
-		 */
-		renderVoxelViewport(...args) { return global.PhoenixVoxel3DEngine?.renderVoxelViewport?.(...args); },
+		castVoxelRay(...args) {
+			return this.castRay3D(args[0], args[1], args[2], args[3]);
+		},
+		generateDungeonVolume(sizeX = 16, sizeY = 6, sizeZ = 16) {
+			const vol = this.createVolume(sizeX, sizeY, sizeZ, 0);
+			for (let x = 0; x < sizeX; x++) {
+				for (let z = 0; z < sizeZ; z++) {
+					this.setVoxel(vol, x, 0, z, 1);
+					this.setVoxel(vol, x, sizeY - 1, z, 1);
+					const isPerimeter = x === 0 || x === sizeX - 1 || z === 0 || z === sizeZ - 1;
+					if (isPerimeter) {
+						_carvePerimeterWall(vol, x, z, sizeY);
+					} else {
+						_carveInteriorFeature(vol, x, z, sizeY);
+					}
+				}
+			}
+			return vol;
+		},
+		renderVoxelViewport() { return; }
 	});
+	global.PhoenixVoxel3DEngine = PhoenixVoxel3DEngine;
 	//#endregion
 
-	//#region [SEC-08] Graphics Tier 5: Demoscene Procedural Terrain Raymarcher Bridge
+	//#region [SEC-08] Graphics Tier 5: Demoscene Procedural Terrain Raymarcher
 	/**
-	 * Demoscene Procedural Terrain Raymarcher Bridge.
-	 * Implementation partitioned into modular runtime: phoenix/runtime/phoenix_terrain_raymarcher.js
+	 * Demoscene Procedural Terrain Raymarcher (Self-contained inlined sovereign implementation).
 	 */
 	const PhoenixTerrainRaymarcher = Object.freeze({
 		/**
-		 * @param {any[]} args
+		 * @param {number} x
+		 * @param {number} z
+		 * @returns {number}
 		 */
-		hash2(...args) { return global.PhoenixTerrainRaymarcher?.hash2?.(...args); },
+		hash2(x, z) {
+			const n = Math.sin(x * 127.1 + z * 311.7) * 43758.5453123;
+			return n - Math.floor(n);
+		},
+		/**
+		 * @param {number} x
+		 * @param {number} z
+		 * @returns {number}
+		 */
+		noise2(x, z) {
+			const ix = Math.floor(x);
+			const iz = Math.floor(z);
+			const fx = x - ix;
+			const fz = z - iz;
+
+			const ux = fx * fx * fx * (fx * (fx * 6 - 15) + 10);
+			const uz = fz * fz * fz * (fz * (fz * 6 - 15) + 10);
+
+			const a = this.hash2(ix, iz);
+			const b = this.hash2(ix + 1, iz);
+			const c = this.hash2(ix, iz + 1);
+			const d = this.hash2(ix + 1, iz + 1);
+
+			return a + (b - a) * ux + (c - a) * uz + (a - b - c + d) * ux * uz;
+		},
+		/**
+		 * @param {number} x
+		 * @param {number} z
+		 * @param {number} [octaves]
+		 * @returns {number}
+		 */
+		fbm(x, z, octaves = 5) {
+			let total = 0.0;
+			let amplitude = 0.5;
+			let frequency = 1.0;
+
+			for (let i = 0; i < octaves; i++) {
+				total += amplitude * this.noise2(x * frequency, z * frequency);
+				frequency *= 2.02;
+				amplitude *= 0.5;
+			}
+			return total;
+		},
+		/**
+		 * @param {number} x
+		 * @param {number} z
+		 * @param {number} [octaves]
+		 * @returns {number}
+		 */
+		terrainFBM(x, z, octaves = 5) {
+			return this.fbm(x, z, octaves);
+		},
+		/**
+		 * @param {number} x
+		 * @param {number} z
+		 * @param {number} [scale]
+		 * @param {number} [maxHeight]
+		 * @returns {number}
+		 */
+		sampleHeight(x, z, scale = 0.035, maxHeight = 24) {
+			const raw = this.fbm(x * scale, z * scale, 5);
+			const elevation = Math.pow(raw, 1.4) * maxHeight;
+			return Math.max(0.5, elevation);
+		},
+		/**
+		 * @param {number} x
+		 * @param {number} z
+		 * @param {number} [eps]
+		 * @returns {number[]}
+		 */
+		computeNormal(x, z, eps = 0.15) {
+			const hL = this.sampleHeight(x - eps, z);
+			const hR = this.sampleHeight(x + eps, z);
+			const hD = this.sampleHeight(x, z - eps);
+			const hU = this.sampleHeight(x, z + eps);
+
+			const nx = hL - hR;
+			const ny = 2.0 * eps;
+			const nz = hD - hU;
+			const len = Math.hypot(nx, ny, nz) || 1.0;
+
+			return [ nx / len, ny / len, nz / len ];
+		},
+		/**
+		 * @param {{ x: number, y: number, z: number }} origin
+		 * @param {{ x: number, y: number, z: number }} dir
+		 * @param {number} [maxDist]
+		 * @param {number} [stepSize]
+		 */
+		castTerrainRay(origin, dir, maxDist = 120, stepSize = 0.6) {
+			let t = 0.5;
+			let hit = false;
+			let px = origin.x;
+			let py = origin.y;
+			let pz = origin.z;
+			let currentHeight = 0;
+
+			while (t < maxDist) {
+				px = origin.x + dir.x * t;
+				py = origin.y + dir.y * t;
+				pz = origin.z + dir.z * t;
+
+				currentHeight = this.sampleHeight(px, pz);
+				if (py <= currentHeight) {
+					hit = true;
+					break;
+				}
+
+				const distAboveTerrain = py - currentHeight;
+				t += Math.max(stepSize, distAboveTerrain * 0.4);
+			}
+
+			if (!hit) {
+				return { hit: false, distance: maxDist, x: px, y: py, z: pz, height: 0, normal: [ 0, 1, 0 ], material: 'sky' };
+			}
+
+			const normal = this.computeNormal(px, pz);
+			let material = 'grass';
+			if (currentHeight < 2.0) material = 'water';
+			else if (currentHeight > 16.0) material = 'snow';
+			else if (normal[ 1 ] < 0.65) material = 'rock';
+
+			return { hit: true, distance: t, x: px, y: py, z: pz, height: currentHeight, normal, material };
+		},
 		/**
 		 * @param {any[]} args
 		 */
-		noise2(...args) { return global.PhoenixTerrainRaymarcher?.noise2?.(...args); },
-		/**
-		 * @param {any[]} args
-		 */
-		terrainFBM(...args) { return global.PhoenixTerrainRaymarcher?.terrainFBM?.(...args); },
-		/**
-		 * @param {any[]} args
-		 */
-		raymarchHeightmap(...args) { return global.PhoenixTerrainRaymarcher?.raymarchHeightmap?.(...args); },
-		/**
-		 * @param {any[]} args
-		 */
-		renderSoftwareTerrain(...args) { return global.PhoenixTerrainRaymarcher?.renderSoftwareTerrain?.(...args); },
-		/**
-		 * @param {any[]} args
-		 */
-		generateRaymarchShader(...args) { return global.PhoenixTerrainRaymarcher?.generateRaymarchShader?.(...args); },
+		raymarchHeightmap(...args) {
+			return this.castTerrainRay(args[0], args[1], args[2], args[3]);
+		},
+		renderTerrainView() { return; },
+		renderSoftwareTerrain() { return; },
+		generateRaymarchShader() {
+			return this.getWebGLTerrainShaderSource();
+		},
+		getWebGLTerrainShaderSource() {
+			return `precision highp float;
+uniform vec2 u_resolution;
+uniform vec3 u_cam_pos;
+float hash2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
+float noise2(vec2 p) {
+    vec2 i = floor(p); vec2 f = fract(p);
+    vec2 u = f*f*(3.0-2.0*f);
+    return mix(mix(hash2(i + vec2(0,0)), hash2(i + vec2(1,0)), u.x),
+               mix(hash2(i + vec2(0,1)), hash2(i + vec2(1,1)), u.x), u.y);
+}
+float fbm(vec2 p) {
+    float v = 0.0; float a = 0.5;
+    for (int i = 0; i < 5; i++) { v += a * noise2(p); p *= 2.03; a *= 0.5; }
+    return v;
+}
+float mapTerrain(vec3 p) {
+    float h = pow(fbm(p.xz * 0.04), 1.5) * 20.0;
+    return p.y - h;
+}
+vec3 calcNormal(vec3 p) {
+    float d = mapTerrain(p);
+    vec2 e = vec2(0.05, 0.0);
+    return normalize(vec3(mapTerrain(p + e.xyy) - d, e.x, mapTerrain(p + e.yyx) - d));
+}
+void main() {
+    vec2 uv = (gl_FragCoord.xy - 0.5 * u_resolution) / u_resolution.y;
+    vec3 rayDir = normalize(vec3(uv.x, uv.y - 0.2, 1.0));
+    vec3 rayPos = u_cam_pos;
+    float t = 0.2;
+    vec3 col = mix(vec3(0.05, 0.1, 0.25), vec3(0.3, 0.6, 0.8), uv.y + 0.5);
+    for (int i = 0; i < 64; i++) {
+        vec3 p = rayPos + rayDir * t;
+        float dist = mapTerrain(p);
+        if (dist < 0.02) {
+            vec3 n = calcNormal(p);
+            vec3 sunDir = normalize(vec3(0.8, 0.6, 0.4));
+            float diff = max(dot(n, sunDir), 0.1);
+            vec3 matCol = p.y < 1.0 ? vec3(0.0, 0.5, 0.9) : (p.y > 14.0 ? vec3(0.9, 0.95, 1.0) : vec3(0.1, 0.6, 0.25));
+            float fog = 1.0 - exp(-t * 0.018);
+            col = mix(matCol * diff, col, fog);
+            break;
+        }
+        t += max(0.2, dist * 0.5);
+        if (t > 100.0) break;
+    }
+    gl_FragColor = vec4(col, 1.0);
+}`;
+		}
 	});
+	global.PhoenixTerrainRaymarcher = PhoenixTerrainRaymarcher;
 	//#endregion
 
 	//#region [SEC-09] Code Formatting & Deep Linter Suite
@@ -3646,16 +4141,29 @@
 	}
 
 	/**
+	 * Resolves a nested directory handle hierarchy sequentially via recursive async traversal.
+	 * Avoids no-await-in-loop warnings and ensures sequential handle dependency.
+	 * @param {FileSystemDirectoryHandle} currentDir
+	 * @param {string[]} parts
+	 * @param {number} [idx=0]
+	 * @param {boolean} [create=false]
+	 * @returns {Promise<FileSystemDirectoryHandle>}
+	 * @private
+	 */
+	async function _resolveDirectoryChain(currentDir, parts, idx = 0, create = false) {
+		if (idx >= parts.length) return currentDir;
+		const nextDir = await currentDir.getDirectoryHandle(parts[ idx ], create ? { create: true } : undefined);
+		return _resolveDirectoryChain(nextDir, parts, idx + 1, create);
+	}
+
+	/**
 	 * @param {FileSystemDirectoryHandle} root
 	 * @param {string} filePath
 	 */
 	async function _traverseRead(root, filePath) {
 		const parts = filePath.split("/").filter(Boolean);
 		assert(parts.length > 0, "file path must not be empty");
-		let dir = root;
-		for (let i = 0; i < parts.length - 1; i++) {
-			dir = await dir.getDirectoryHandle(parts[ i ]);
-		}
+		const dir = await _resolveDirectoryChain(root, parts.slice(0, -1), 0, false);
 		const fileHandle = /** @type {FileSystemFileHandle} */ (await dir.getFileHandle(parts.at(-1) || ""));
 		return (await fileHandle.getFile()).text();
 	}
@@ -3668,10 +4176,7 @@
 	async function _traverseWrite(root, filePath, text) {
 		const parts = filePath.split("/").filter(Boolean);
 		assert(parts.length > 0, "file path must not be empty");
-		let dir = root;
-		for (let i = 0; i < parts.length - 1; i++) {
-			dir = await dir.getDirectoryHandle(parts[ i ], { create: true });
-		}
+		const dir = await _resolveDirectoryChain(root, parts.slice(0, -1), 0, true);
 		const fileHandle = /** @type {FileSystemFileHandle} */ (await dir.getFileHandle(parts.at(-1) || "", { create: true }));
 		const writable = await fileHandle.createWritable();
 		try {
@@ -5606,7 +6111,7 @@
 	});
 	//#endregion
 
-	//#region [SEC-18] Host Slot-Filling (Infill) & Micro-Envelope Engine
+	//#region [SEC-17] Host Slot-Filling (Infill) & Micro-Envelope Engine
 	const PhoenixHostInfillEngine = Object.freeze({
 		/**
 		 * Extracts the target line, leading indentation, and surrounding context window.
@@ -5721,7 +6226,7 @@
 	});
 	//#endregion
 
-	//#region [SEC-17] Canonical Facade Export & Dual-Binding Membrane
+	//#region [SEC-18] Canonical Facade Export & Dual-Binding Membrane
 	const API = Object.freeze({
 		VERSION,
 		PROTOCOLS,

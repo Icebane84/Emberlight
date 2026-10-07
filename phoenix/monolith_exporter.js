@@ -257,7 +257,42 @@
 			"</html>",
 		];
 
-		return lines.join("\n");
+		const fullHtml = lines.join("\n");
+		const airGap = verifyAirGapIntegrity(fullHtml);
+		if (!airGap.pass) {
+			throw new Error(`[GATE-4:AIR-GAP] Monolith export failed offline air-gap audit:\n${airGap.violations.join('\n')}`);
+		}
+		return fullHtml;
+	}
+
+	/** Forbidden external URL patterns that violate offline air-gap invariance */
+	const FORBIDDEN_NETWORK_PATTERNS = Object.freeze([
+		/https?:\/\//i,
+		/\/\/cdn\./i,
+		/\/\/unpkg\.com/i,
+		/\/\/cdnjs\.cloudflare\.com/i,
+		/\/\/cdn\.jsdelivr\.net/i,
+	]);
+
+	/**
+	 * Gate 4: Audits artifact for external network references to ensure zero external cloud data transmission.
+	 * @param {string} htmlArtifact - Emitted HTML monolith string
+	 * @returns {{ pass: boolean; violations: string[] }}
+	 */
+	function verifyAirGapIntegrity(htmlArtifact) {
+		const violations = [];
+		const lines = String(htmlArtifact || "").split("\n");
+		for (let i = 0; i < lines.length; i++) {
+			const line = lines[ i ];
+			if (line.includes("<script src=") || line.includes('<link rel="stylesheet"') || line.includes("<link href=") || line.includes("@import")) {
+				for (const pat of FORBIDDEN_NETWORK_PATTERNS) {
+					if (pat.test(line)) {
+						violations.push(`Line ${i + 1}: External network asset forbidden in air-gapped monolith: ${line.trim()}`);
+					}
+				}
+			}
+		}
+		return { pass: violations.length === 0, violations };
 	}
 
 	/* =========================================================================
@@ -291,6 +326,7 @@
 	const API = Object.freeze({
 		exportMonolith,
 		exportMonolithAsync,
+		verifyAirGapIntegrity,
 		EMPTY_WASM_BASE64,
 		DEFAULT_WGSL,
 		MONOLITH_FORMAT,

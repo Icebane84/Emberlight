@@ -3,7 +3,7 @@ name: error-resolution-ledger
 description: Governs the Error Resolution Ledger (ERL-001) catalog of canonical diagnostic fingerprints, pre-commit lint filters, and verified deterministic self-repair patterns across Emberlight and Phoenix engines.
 globs: "**/*.js, **/*.html, **/*.ts, testing/**/*.js, phoenix/**/*.js"
 alwaysApply: false
-version: 2.2.0-PRO
+version: 2.3.0-PRO
 ---
 
 # AGENT OPERATIONAL SPECIFICATION: Error Resolution Ledger (ERL-001)
@@ -24,7 +24,7 @@ When an AI agent (Antigravity, Cursor, Continue, Aider, or Phoenix in-IDE model)
 
 ## 2. Pre-Commit Guardrails & Prohibited Anti-Patterns
 
-Before presenting or applying any code changes, all AI agents must enforce these 6 immutable constraints:
+Before presenting or applying any code changes, all AI agents must enforce these 8 immutable constraints:
 
 1. **Zero Placeholders (Anti-Theater):**
    - NEVER output `// ...`, `/* ... */`, or `TODO(impl)` anywhere in code changes.
@@ -48,6 +48,12 @@ Before presenting or applying any code changes, all AI agents must enforce these
 
 6. **Script Context Async Boundary Protection:**
    - NEVER write top-level `await` inside CommonJS `.js` files or classic `<script>` tags without `type="module"`.
+
+7. **Node.js Core Module Namespace Protocol:**
+   - Always use the `node:` URI scheme when requiring or importing Node.js core modules (`node:fs`, `node:path`, `node:assert`, `node:vm`, `node:crypto`).
+
+8. **Enum & Diagnostic Registry Key Parity:**
+   - Never reference arbitrary or anticipated error codes (e.g. `ERRORS.ERR_0x1B`) without verifying that the key is explicitly declared in the target `ERRORS` object/enum.
 
 ---
 
@@ -1205,6 +1211,83 @@ Before presenting or applying any code changes, all AI agents must enforce these
   // ✅ CANONICAL REPAIR:
   const pattern = String.raw`.replace(/\n/g, '<br/>')`;
   const path = String.raw`C:\Users\Chris\Project`;
+  ```
+
+---
+
+### [ERL-47] `MODULE/NODE_PROTOCOL_PREFERENCE` — Unprefixed Node.js Core Imports
+
+- **Trigger:** SonarLint / ESLint `unicorn/prefer-node-protocol` ("Prefer 'node:fs' over 'fs'").
+- **Hazard:** Bare built-in module names can conflict with local package names, introduce ambiguity in polyfilled environments, and degrade ESM resolution performance.
+- **Rule:** Core Node.js modules must always use the `node:` prefix.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION:
+  const fs = require('fs');
+  const path = require('path');
+
+  // ✅ CANONICAL REPAIR:
+  const fs = require('node:fs');
+  const path = require('node:path');
+  ```
+
+---
+
+### [ERL-48] `ENUM/REGISTERED_CONSTANT_INTEGRITY` — Unregistered Enum Property Access
+
+- **Trigger:** Accessing undefined members on frozen `ERRORS` or enum objects (e.g. `ERRORS.ERR_0x1B` when only `ERR_0x10..0x1A` exist).
+- **Hazard:** Evaluates silently to `undefined` at runtime, corrupting telemetry, fault reporting, error dispatchers, and constitutional receipts with `undefined: ...` strings.
+- **Rule:** Verify the target enum declaration before passing an enum constant. If the error code does not exist in `ERRORS`, either register it canonically in the `ERRORS` freeze map or map to the appropriate existing canonical code (`ERR_0x10`, `ERR_0x16`, etc.).
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION (ERR_0x1B does not exist in ERRORS):
+  this.fail(ERRORS.ERR_0x1B, `SEC-06B socket breach in handler '${method}'`);
+
+  // ✅ CANONICAL REPAIR:
+  // Option A: Use existing mapped generic or subsystem error constant:
+  this.fail(ERRORS.ERR_0x10, `SEC-06B socket breach in handler '${method}'`);
+  // Option B: Authoritatively register the constant in ERRORS before usage:
+  // const ERRORS = Object.freeze({ ... ERR_0x1B: 'ERR_0x1B: SEC_SOCKET_BREACH' });
+  ```
+
+---
+
+### [ERL-49] `SYNTAX/OPTIONAL_CHAINING_PREFERENCE` — Redundant Logical AND Property Guard
+
+- **Trigger:** SonarLint `javascript:S6582` / ESLint `prefer-optional-chain` ("Use optional chaining '?.' instead of logical AND").
+- **Hazard:** Inflates cognitive complexity, increases visual clutter, and causes accidental falsy coercion when properties evaluate to `0` or `""`.
+- **Rule:** Use `target?.property` or `target?.method()` instead of `target && target.property`.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION:
+  if (callee && callee.type === 'CallExpr') { ... }
+
+  // ✅ CANONICAL REPAIR:
+  if (callee?.type === 'CallExpr') { ... }
+  ```
+
+---
+
+### [ERL-50] `ITER/FOR_OF_ARRAY_PREFERENCE` — Traditional Index Loop on Read-Only Arrays
+
+- **Trigger:** SonarLint `javascript:S4138` / ESLint `prefer-for-of` ("Use a 'for...of' loop instead of an index-based 'for' loop").
+- **Hazard:** Unnecessary index counter variable tracking (`let i = 0`), off-by-one boundary hazards, and array element indexing penalties.
+- **Rule:** Use `for (const element of array)` when the numeric index is not needed inside the loop body.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION:
+  for (let i = 0; i < node.length; i++) {
+      SynarcheParser._walkAST(node[i], visitor);
+  }
+
+  // ✅ CANONICAL REPAIR:
+  for (const element of node) {
+      SynarcheParser._walkAST(element, visitor);
+  }
   ```
 
 ---

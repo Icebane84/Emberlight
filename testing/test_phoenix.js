@@ -1,3 +1,4 @@
+// cSpell:ignore zzfx
 /**
  * @fileoverview Phoenix Sovereign Engine & Substrate Governance Test Suite
  * Protocols: VSRP-001 / PMIP-001 / SDCP-001 / PERSIST-001 / PGE-DSL-1 / PGE-RECEIPT-1
@@ -34,11 +35,11 @@ const baseDir = path.resolve(__dirname, '..');
 const coreScripts = require('./load_order.js');
 const phoenixScripts = [
 	'phoenix/templates/starter_pack.js',
+	'phoenix/runtime/phoenix_zzfx.js',
 	'phoenix/runtime/phoenix_audio_synth.js',
+	'phoenix/runtime/phoenix_editor_core.js',
 	'phoenix/runtime/phoenix_graphics_2d.js',
 	'phoenix/runtime/phoenix_pseudo_3d.js',
-	'phoenix/runtime/phoenix_voxel_3d.js',
-	'phoenix/runtime/phoenix_terrain_raymarcher.js',
 	'phoenix/runtime/phoenix_studio_audio.js',
 	'phoenix/runtime/phoenix_studio_viewport.js',
 	'phoenix/synarche_parser.js',
@@ -134,14 +135,13 @@ function verifySec01EngineSurface(Engine) {
 	check('REPAIR_LOOP_CAP is 3', Engine.REPAIR_LOOP_CAP === 3);
 	check(
 		'SOVEREIGN_STATUS has OK, OOB, FAULT, DEGRADED, LATCHED, CORRUPT, ERR_ACTION_INV',
-		Engine.SOVEREIGN_STATUS &&
-		Engine.SOVEREIGN_STATUS.OK === 0x00 &&
-		Engine.SOVEREIGN_STATUS.OOB === -1 &&
-		Engine.SOVEREIGN_STATUS.FAULT === -2 &&
-		Engine.SOVEREIGN_STATUS.DEGRADED === 0x01 &&
-		Engine.SOVEREIGN_STATUS.LATCHED === 0x02 &&
-		Engine.SOVEREIGN_STATUS.CORRUPT === 0x04 &&
-		Engine.SOVEREIGN_STATUS.ERR_ACTION_INV === 0x12
+		Engine.SOVEREIGN_STATUS?.OK === 0x00 &&
+		Engine.SOVEREIGN_STATUS?.OOB === -1 &&
+		Engine.SOVEREIGN_STATUS?.FAULT === -2 &&
+		Engine.SOVEREIGN_STATUS?.DEGRADED === 0x01 &&
+		Engine.SOVEREIGN_STATUS?.LATCHED === 0x02 &&
+		Engine.SOVEREIGN_STATUS?.CORRUPT === 0x04 &&
+		Engine.SOVEREIGN_STATUS?.ERR_ACTION_INV === 0x12
 	);
 }
 
@@ -710,6 +710,18 @@ function verifySec11WorkstationSubstrate(Engine) {
 	const bundledHtml = sandbox.buildRuntimeHTML(vfsMap, 'index.html');
 	check('PhoenixRuntimeSandbox bundles VFS into executable HTML', bundledHtml.includes('window.__PHOENIX_RUNTIME__') && bundledHtml.includes('game.js'));
 
+	const vfsWithOrder = new Map([
+		[ 'testing/load_order.js', 'const ORDER = ["core_prim.js", "core_heroes.js", "core_pipe.js"];' ],
+		[ 'core_heroes.js', 'console.log("heroes");' ],
+		[ 'core_pipe.js', 'console.log("pipe");' ],
+		[ 'core_prim.js', 'console.log("prim");' ],
+	]);
+	const orderedHtml = sandbox.buildRuntimeHTML(vfsWithOrder, 'cartridge.js');
+	const primIdx = orderedHtml.indexOf('core_prim.js');
+	const heroesIdx = orderedHtml.indexOf('core_heroes.js');
+	const pipeIdx = orderedHtml.indexOf('core_pipe.js');
+	check('PhoenixRuntimeSandbox sequences fallback bundle via canonical load_order', primIdx !== -1 && primIdx < heroesIdx && heroesIdx < pipeIdx);
+
 	let ticksCount = 0;
 	const ticker = sandbox.createTickController({
 		onTick: () => { ticksCount++; },
@@ -718,6 +730,19 @@ function verifySec11WorkstationSubstrate(Engine) {
 	ticker.step(3);
 	check('PhoenixRuntimeSandbox tick controller steps deterministic ticks', ticksCount === 3);
 	check('PhoenixRuntimeSandbox getState exposes telemetry', ticker.getState().frameCount === 3);
+
+	// 6. Sovereign Virtual Editor Substrate
+	const EditorCore = context.window.PhoenixEditorCore;
+	check('PhoenixEditorCore is defined on window', Boolean(EditorCore?.PhoenixEditorBuffer && EditorCore?.PhoenixVirtualEditor));
+	if (EditorCore) {
+		const buf = new EditorCore.PhoenixEditorBuffer('const a = 1;');
+		buf.applyTransaction(0, 12, 0, 12, '\nconst b = 2;');
+		check('PhoenixEditorBuffer tracks line insertion', buf.lines.length === 2);
+		const mockContainer = context.document.createElement('div');
+		const vEditor = EditorCore.createEditor(mockContainer);
+		vEditor.setValue('const test = "<safe>";');
+		check('PhoenixVirtualEditor renders escaped token spans without replaceAll error', vEditor.linePool[0].innerHTML.includes('&lt;safe&gt;'));
+	}
 }
 
 /**
@@ -792,6 +817,36 @@ function verifySec12GraphicsSubstrate(Engine) {
 		check('handleMovementKey and selectEntity execute cleanly', true);
 		viewport.toggleWorkspaceMode('code');
 	}
+
+	// 5. Procedural PixelSpriteGenerator
+	const spriteGen = context.window.PhoenixSpriteGenerator || context.PhoenixSpriteGenerator;
+	check('PhoenixSpriteGenerator is defined', Boolean(spriteGen));
+	const spriteA = spriteGen.generate(42, { width: 12, height: 12 });
+	const spriteA2 = spriteGen.generate(42, { width: 12, height: 12 });
+	const spriteB = spriteGen.generate(999, { width: 12, height: 12 });
+	check('PhoenixSpriteGenerator is deterministic across identical seeds',
+		spriteA.data.every((val, idx) => val === spriteA2.data[ idx ]));
+	check('PhoenixSpriteGenerator exhibits vertical bilateral symmetry',
+		(() => {
+			for (let y = 0; y < 12; y++) {
+				for (let x = 0; x < 6; x++) {
+					if (spriteA.data[ y * 12 + x ] !== spriteA.data[ y * 12 + (11 - x) ]) return false;
+				}
+			}
+			return true;
+		})());
+	check('PhoenixSpriteGenerator produces variant bitmaps for distinct seeds',
+		spriteA.data.some((val, idx) => val !== spriteB.data[ idx ]));
+	const shiftedPal = spriteGen.shiftPalette([ '#000', '#111', '#222', '#333' ], [ 1, 2, 3 ], 1);
+	check('PhoenixSpriteGenerator shiftPalette rotates designated color indices',
+		shiftedPal[ 1 ] === '#333' && shiftedPal[ 2 ] === '#111' && shiftedPal[ 3 ] === '#222' && shiftedPal[ 0 ] === '#000');
+
+	// 6. HarmonicTransform
+	const harmonics = context.window.HarmonicTransform || context.Harmonics;
+	check('HarmonicTransform is defined', Boolean(harmonics));
+	const transform = harmonics.getTransform(0.5, 8.0, 3.0, 0.1);
+	check('HarmonicTransform computes bounded bobbing and positive squash scale',
+		Math.abs(transform.bobY) <= 3.0 && transform.squashX > 0 && transform.squashY > 0);
 }
 
 /**
@@ -1415,7 +1470,7 @@ function verifySec21TypeResolver(ctx) {
 		'}'
 	].join('\n');
 	const res = Resolver.scaffoldContractAtLine(sampleFn, 1);
-	check('scaffoldContractAtLine generates complete JSDoc block', Boolean(res && res.jsdocBlock));
+	check('scaffoldContractAtLine generates complete JSDoc block', Boolean(res?.jsdocBlock));
 	check('scaffoldContractAtLine infers PhoenixProposalDTO', res?.jsdocBlock.includes('@param {PhoenixProposalDTO} proposal'));
 	check('scaffoldContractAtLine infers Record<string, unknown> options', res?.jsdocBlock.includes('@param {Record<string, unknown>} options'));
 	check('scaffoldContractAtLine infers Promise<boolean> return', res?.jsdocBlock.includes('@returns {Promise<boolean>}'));

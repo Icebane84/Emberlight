@@ -480,14 +480,201 @@ const PhoenixCanvas2DLayerEngine = Object.freeze({
 			}
 		}
 		ctx.restore();
+	},
+
+	get SpriteGenerator() { return PhoenixSpriteGenerator; },
+	get Harmonics() { return HarmonicTransform; }
+});
+//#endregion
+
+//#region [SEC-06] Procedural 2D Micro-Commodities: Sprite Generator & Harmonics
+/**
+ * Procedural Pixel Sprite Generator (Trevor Martin 2011 / Jared Tarbell 2003 InvaderFractal).
+ * Generates vertical bilateral symmetric sprite bitmaps deterministically from a 32-bit seed.
+ */
+const PhoenixSpriteGenerator = Object.freeze({
+	PALETTES: Object.freeze({
+		DAWNBRINGER_16: Object.freeze([
+			'transparent', '#140c1c', '#442434', '#30346d',
+			'#4e4a4e', '#854c30', '#346524', '#d04648',
+			'#757161', '#597dce', '#d27d2c', '#8595a1',
+			'#6daa2c', '#d2aa99', '#6dc2ca', '#dad45e'
+		]),
+		PICO_8: Object.freeze([
+			'transparent', '#000000', '#1D2B53', '#7E2553',
+			'#008751', '#AB5236', '#5F574F', '#C2C3C7',
+			'#FFF1E8', '#FF004D', '#FFA300', '#FFEC27',
+			'#00E436', '#29ADFF', '#83769C', '#FF77A8'
+		]),
+		GAMEBOY_4: Object.freeze([
+			'transparent', '#0f380f', '#306230', '#8bac0f', '#9bbc0f'
+		])
+	}),
+
+	/**
+	 * Seed-driven PRNG generator (deterministic Mulberry32)
+	 * @param {number} seed
+	 * @returns {() => number} Float between 0 and 1
+	 */
+	createRNG(seed) {
+		let s = (Number(seed) >>> 0) || 1337;
+		return () => {
+			s = (s + 0x6D2B79F5) >>> 0;
+			let t = Math.imul(s ^ (s >>> 15), 1 | s);
+			t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+			return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+		};
+	},
+
+	/**
+	 * Generates a bilateral vertically symmetric sprite bitmap.
+	 * @param {number} seed - 32-bit integer seed
+	 * @param {Object} [options]
+	 * @param {number} [options.width=12] - Sprite width
+	 * @param {number} [options.height=12] - Sprite height
+	 * @param {number} [options.bodyProbability=0.5] - Likelihood of body pixel
+	 * @param {number} [options.shadeProbability=0.3] - Likelihood of shading pixel
+	 * @param {boolean} [options.outline=true] - Whether to generate boundary outline
+	 * @returns {{ width: number, height: number, data: Uint8Array, seed: number }}
+	 */
+	generate(seed = 1337, {
+		width = 12,
+		height = 12,
+		bodyProbability = 0.5,
+		shadeProbability = 0.3,
+		outline = true
+	} = {}) {
+		const rng = this.createRNG(seed);
+		const data = new Uint8Array(width * height);
+		const halfW = Math.ceil(width / 2);
+
+		// 1. Generate half-grid body (1) and shade (2), mirror horizontally
+		for (let y = 0; y < height; y++) {
+			for (let x = 0; x < halfW; x++) {
+				const isMargin = (y === 0 || y === height - 1 || x === 0);
+				const prob = isMargin ? bodyProbability * 0.4 : bodyProbability;
+
+				let val = 0;
+				if (rng() < prob) {
+					val = rng() < shadeProbability ? 2 : 1;
+				}
+
+				data[ y * width + x ] = val;
+				data[ y * width + (width - 1 - x) ] = val;
+			}
+		}
+
+		// 2. Generate 1px outline/border (3) around solid pixels (1 and 2)
+		if (outline) {
+			const outlined = new Uint8Array(data);
+			for (let y = 0; y < height; y++) {
+				for (let x = 0; x < width; x++) {
+					const idx = y * width + x;
+					if (data[ idx ] !== 0) continue;
+
+					let hasSolidNeighbor = false;
+					if (x > 0 && data[ idx - 1 ] > 0 && data[ idx - 1 ] < 3) hasSolidNeighbor = true;
+					else if (x < width - 1 && data[ idx + 1 ] > 0 && data[ idx + 1 ] < 3) hasSolidNeighbor = true;
+					else if (y > 0 && data[ idx - width ] > 0 && data[ idx - width ] < 3) hasSolidNeighbor = true;
+					else if (y < height - 1 && data[ idx + width ] > 0 && data[ idx + width ] < 3) hasSolidNeighbor = true;
+
+					if (hasSolidNeighbor) {
+						outlined[ idx ] = 3;
+					}
+				}
+			}
+			return { width, height, data: outlined, seed };
+		}
+
+		return { width, height, data, seed };
+	},
+
+	/**
+	 * Cycles / shifts specific palette color indices for animated flows (lava, glowing weapons).
+	 * @param {readonly string[]} palette
+	 * @param {number[]} shiftIndices - Array of indices in palette to rotate
+	 * @param {number} offset - Rotation step
+	 * @returns {string[]}
+	 */
+	shiftPalette(palette, shiftIndices, offset = 1) {
+		const out = [ ...palette ];
+		const n = shiftIndices.length;
+		if (n === 0) return out;
+		const effectiveOffset = ((offset % n) + n) % n;
+		for (let i = 0; i < n; i++) {
+			const targetIdx = (i + effectiveOffset) % n;
+			out[ shiftIndices[ targetIdx ] ] = palette[ shiftIndices[ i ] ];
+		}
+		return out;
+	},
+
+	/**
+	 * Renders sprite bitmap directly to a Canvas 2D context.
+	 * @param {CanvasRenderingContext2D} ctx
+	 * @param {{ width: number, height: number, data: Uint8Array }} sprite
+	 * @param {number} dx - Target X coordinate
+	 * @param {number} dy - Target Y coordinate
+	 * @param {number} [scale=2] - Pixel scale multiplier
+	 * @param {readonly string[]} [palette] - Palette array (indices 0..3)
+	 */
+	renderToCanvas(ctx, sprite, dx, dy, scale = 2, palette = this.PALETTES.DAWNBRINGER_16) {
+		if (!ctx || !sprite?.data) return;
+		const { width, height, data } = sprite;
+		for (let y = 0; y < height; y++) {
+			for (let x = 0; x < width; x++) {
+				const val = data[ y * width + x ];
+				if (val === 0) continue;
+				ctx.fillStyle = palette[ val ] || '#ffffff';
+				ctx.fillRect(dx + x * scale, dy + y * scale, scale, scale);
+			}
+		}
+	}
+});
+
+/**
+ * Procedural Harmonic Transform Helper.
+ * Computes sinusoidal squash-and-stretch matrices for procedural walk and breathing cycles.
+ */
+const HarmonicTransform = Object.freeze({
+	/**
+	 * Computes sinusoidal bobbing and squash-and-stretch matrices for procedural animation.
+	 * @param {number} tick - Monotonic animation time / frame tick
+	 * @param {number} [frequency=8.0] - Oscillation speed
+	 * @param {number} [bobAmplitude=2.5] - Vertical bobbing pixels
+	 * @param {number} [squashFactor=0.08] - Squash and stretch ratio
+	 * @returns {{ bobY: number, squashX: number, squashY: number }}
+	 */
+	getTransform(tick, frequency = 8.0, bobAmplitude = 2.5, squashFactor = 0.08) {
+		const phase = tick * frequency;
+		const bobY = Math.sin(phase) * bobAmplitude;
+		const squashX = 1.0 + Math.cos(phase) * squashFactor;
+		const squashY = 1.0 - Math.cos(phase) * squashFactor;
+		return { bobY, squashX, squashY };
+	},
+
+	/**
+	 * Applies transform matrix around a sprite's bottom-center anchor.
+	 * @param {CanvasRenderingContext2D} ctx
+	 * @param {number} x - Sprite bottom-center X
+	 * @param {number} y - Sprite bottom-center Y
+	 * @param {number} width - Sprite display width
+	 * @param {number} height - Sprite display height
+	 * @param {{ bobY: number, squashX: number, squashY: number }} transform
+	 */
+	applyTransform(ctx, x, y, width, height, transform) {
+		ctx.translate(x, y + transform.bobY);
+		ctx.scale(transform.squashX, transform.squashY);
+		ctx.translate(-width / 2, -height);
 	}
 });
 //#endregion
 
 	global.PhoenixWebGLBatcher = PhoenixWebGLBatcher;
 	global.PhoenixCanvas2DLayerEngine = PhoenixCanvas2DLayerEngine;
+	global.PhoenixSpriteGenerator = PhoenixSpriteGenerator;
+	global.HarmonicTransform = HarmonicTransform;
 	if (typeof module !== 'undefined' && module.exports) {
-		module.exports = { PhoenixWebGLBatcher, PhoenixCanvas2DLayerEngine };
+		module.exports = { PhoenixWebGLBatcher, PhoenixCanvas2DLayerEngine, PhoenixSpriteGenerator, HarmonicTransform };
 	}
 })(
 	(() => {

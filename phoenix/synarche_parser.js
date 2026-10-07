@@ -9,15 +9,16 @@
  * Version:             1.1.0-PRO (MPFS-001 constitutional compliance — ERR_0x0D / ERR_0x1B / ERR_0x1F)
  * ============================================================================
  *
- * TABLE OF CONTENTS & NAVIGATION ANCHORS (Ctrl+F):
- *   [SEC-01] .......... Line ~21   -- Constants, Hex Error Registry & Type Primitives
- *   [SEC-02] .......... Line ~227  -- Plane 1: Lexical Ingestion & Scanner (SynarcheLexer)
- *   [SEC-02.5] ........ Line ~562  -- Plane 1.5: STCP-003 Expression AST Factory & Recursive-Descent Parser
- *   [SEC-02.6] ........ Line ~1177 -- Plane 1.6: STCP-003 Hindley-Milner Type Inference Engine & System
- *   [SEC-03] .......... Line ~1935 -- Plane 2: Mixin-Stack Parser & State Atomicity (SynarcheParser)
- *   [SEC-03.5] ........ Line ~2457 -- Plane 2.5: STCP-002 Constitutional Admission Authority
- *   [SEC-04] .......... Line ~2676 -- Plane 3: Generic Universal Cartridge Assembly (GUCAEmitter)
- *   [SEC-05] .......... Line ~2900 -- Master Transduction Facade, verifyBusLinkIntegrity & Universal Exports (SynarcheCompiler)
+ * CMD-DOC-INDEX (Normative Region Jump Table)
+ * ============================================================================
+ * [SEC-01] Constants, Hex Error Registry & Type Primitives ...... Line ~0027
+ * [SEC-02] Plane 1: Lexical Ingestion & Scanner (SynarcheLexer) .. Line ~0254
+ * [SEC-03] Plane 1.5: STCP-003 Expression AST Factory & Recursive-Descent Parser .. Line ~0642
+ * [SEC-04] Plane 1.6: STCP-003 Hindley-Milner Recursive-Descent Type Inference Engine .. Line ~1285
+ * [SEC-05] Plane 2: Mixin-Stack Parser & State Atomicity (SynarcheParser) .. Line ~2049
+ * [SEC-06] Plane 2.5: STCP-002 Constitutional Admission Authority (SynarcheAdmissionAuthority) .. Line ~2844
+ * [SEC-07] Plane 3: Generic Universal Cartridge Assembly (GUCAEmitter) .. Line ~3062
+ * [SEC-08] Master Transduction Facade & Universal Exports (SynarcheCompiler) .. Line ~3286
  * ============================================================================
  */
 ((/** @type {Record<string, any>} */ global) => {
@@ -436,7 +437,55 @@
 		}
 
 		/**
-		 * Architectural: Pure helper. Scans numeric literals (decimal and hexadecimal).
+		 * Scans hexadecimal literal digits after 0x/0X prefix.
+		 * @param {string} source - Input stream
+		 * @param {number} cur - Character index
+		 * @param {number} curCol - Current column
+		 * @returns {{ val: string, cur: number, curCol: number }}
+		 * @private
+		 */
+		static _scanHexLiteral(source, cur, curCol) {
+			let val = source[ cur++ ];
+			curCol++;
+			while (cur < source.length && /[\da-fA-F]/.test(source[ cur ])) {
+				val += source[ cur++ ];
+				curCol++;
+			}
+			return { val, cur, curCol };
+		}
+
+		/**
+		 * Scans scientific notation exponent part after e/E.
+		 * @param {string} source - Input stream
+		 * @param {number} cur - Character index
+		 * @param {number} curCol - Current column
+		 * @returns {{ val: string, cur: number, curCol: number }}
+		 * @private
+		 */
+		static _scanExponentLiteral(source, cur, curCol) {
+			let val = '';
+			let peek = cur + 1;
+			if (peek < source.length && (source[ peek ] === '+' || source[ peek ] === '-')) {
+				peek++;
+			}
+			if (peek < source.length && /\d/.test(source[ peek ])) {
+				val += source[ cur++ ];
+				curCol++;
+				if (cur < source.length && (source[ cur ] === '+' || source[ cur ] === '-')) {
+					val += source[ cur++ ];
+					curCol++;
+				}
+				while (cur < source.length && /\d/.test(source[ cur ])) {
+					val += source[ cur++ ];
+					curCol++;
+				}
+			}
+			return { val, cur, curCol };
+		}
+
+		/**
+		 * Architectural: Pure helper. Scans integer, floating-point, hex, or exponent numeric literals.
+		 * Cognitive Complexity: <= 5 (SonarLint S3776 compliant).
 		 * @param {string} source - Input character stream
 		 * @param {number} idx - Current character index
 		 * @param {number} line - Current line number
@@ -445,35 +494,25 @@
 		 */
 		static _scanNumericLiteral(source, idx, line, col) {
 			const start = idx;
-			let cur = idx;
-			let curCol = col;
+			let cur = idx + 1;
+			let curCol = col + 1;
 			let val = source[ idx ];
-			cur++; curCol++;
-			const isHex = val === '0' && cur < source.length && (source[ cur ] === 'x' || source[ cur ] === 'X');
 
-			if (isHex) {
-				val += source[ cur++ ]; curCol++;
-				while (cur < source.length && /[0-9a-fA-F]/.test(source[ cur ])) {
-					val += source[ cur++ ]; curCol++;
-				}
+			if (val === '0' && cur < source.length && (source[ cur ] === 'x' || source[ cur ] === 'X')) {
+				const hex = SynarcheLexer._scanHexLiteral(source, cur, curCol);
+				val += hex.val;
+				cur = hex.cur;
+				curCol = hex.curCol;
 			} else {
-				while (cur < source.length && /[0-9.]/.test(source[ cur ])) {
-					val += source[ cur++ ]; curCol++;
+				while (cur < source.length && /[\d.]/.test(source[ cur ])) {
+					val += source[ cur++ ];
+					curCol++;
 				}
 				if (cur < source.length && (source[ cur ] === 'e' || source[ cur ] === 'E')) {
-					let peek = cur + 1;
-					if (peek < source.length && (source[ peek ] === '+' || source[ peek ] === '-')) {
-						peek++;
-					}
-					if (peek < source.length && /[0-9]/.test(source[ peek ])) {
-						val += source[ cur++ ]; curCol++; // 'e' or 'E'
-						if (cur < source.length && (source[ cur ] === '+' || source[ cur ] === '-')) {
-							val += source[ cur++ ]; curCol++; // '+' or '-'
-						}
-						while (cur < source.length && /[0-9]/.test(source[ cur ])) {
-							val += source[ cur++ ]; curCol++;
-						}
-					}
+					const exp = SynarcheLexer._scanExponentLiteral(source, cur, curCol);
+					val += exp.val;
+					cur = exp.cur;
+					curCol = exp.curCol;
 				}
 			}
 
@@ -600,7 +639,7 @@
 
 	//#endregion [SEC-02]
 
-	//#region [SEC-02.5] Plane 1.5: STCP-003 Expression AST Factory & Recursive-Descent Parser
+	//#region [SEC-03] Plane 1.5: STCP-003 Expression AST Factory & Recursive-Descent Parser
 
 	/** @type {Record<string, number>} */
 	const OPERATOR_PRECEDENCE = Object.freeze({
@@ -1016,14 +1055,14 @@
 		parseIfStmt() {
 			const ifTok = this.next();
 			this.match('(');
-			const test = this.parseExpression();
+			const condition = this.parseExpression();
 			this.match(')');
 			const consequent = this.parseStatement();
 			let alternate = null;
 			if (this.match('else')) {
 				alternate = this.parseStatement();
 			}
-			return SynarcheASTFactory.createIf(test, consequent, alternate, ifTok);
+			return SynarcheASTFactory.createIf(condition, consequent, alternate, ifTok);
 		}
 
 		/**
@@ -1034,10 +1073,10 @@
 		parseWhileStmt() {
 			const whileTok = this.next();
 			this.match('(');
-			const test = this.parseExpression();
+			const condition = this.parseExpression();
 			this.match(')');
 			const body = this.parseStatement();
-			return SynarcheASTFactory.createWhile(test, body, whileTok);
+			return SynarcheASTFactory.createWhile(condition, body, whileTok);
 		}
 
 		/**
@@ -1241,9 +1280,9 @@
 		}
 	}
 
-	//#endregion [SEC-02.5]
+	//#endregion [SEC-03]
 
-	//#region [SEC-02.6] Plane 1.6: STCP-003 Hindley-Milner Recursive-Descent Type Inference Engine
+	//#region [SEC-04] Plane 1.6: STCP-003 Hindley-Milner Recursive-Descent Type Inference Engine
 
 	/**
 	 * Plane 1.6: Hindley-Milner Type System (Algorithm W).
@@ -2005,9 +2044,9 @@
 		}
 	}
 
-	//#endregion [SEC-02.6]
+	//#endregion [SEC-04]
 
-	//#region [SEC-03] Plane 2: Mixin-Stack Parser & State Atomicity (SynarcheParser)
+	//#region [SEC-05] Plane 2: Mixin-Stack Parser & State Atomicity (SynarcheParser)
 
 	/**
 	 * Plane 2 Mixin-Stack Semantic Synthesizer & Validator.
@@ -2193,10 +2232,10 @@
 					this.fail(ERRORS.ERR_0x14, `Invalid memory primitive '${typeTok.value}'`);
 				}
 
-				let isArray = false;
+				let fieldIsArray = false;
 				let arrayLength = 1;
 				if (this.match('[')) {
-					isArray = true;
+					fieldIsArray = true;
 					const lenTok = this.next();
 					arrayLength = Number.parseInt(lenTok.value, 10) || 1;
 					this.match(']');
@@ -2209,7 +2248,7 @@
 					type: /** @type {'u8'|'i8'|'u16'|'i16'|'u32'|'i32'|'f32'|'f64'} */ (typeTok.value),
 					size: fieldSize,
 					offset,
-					isArray,
+					isArray: fieldIsArray,
 					arrayLength
 				});
 				offset += fieldSize;
@@ -2497,55 +2536,89 @@
 		}
 
 		/**
+		 * Checks if an AST node represents an audio subsystem call.
+		 * @param {any} node - AST node
+		 * @returns {boolean}
+		 * @private
+		 */
+		static _isAudioInvocation(node) {
+			if (node.type === 'MemberExpr') {
+				const prop = String(node.property || '');
+				return prop === 'audio' || prop === 'playTone' || prop === 'oscillator';
+			}
+			if (node.type === 'CallExpr' && node.callee?.type === 'Identifier') {
+				return node.callee.name === 'playTone' || node.callee.name === 'oscillator';
+			}
+			return false;
+		}
+
+		/**
+		 * Checks if an AST node represents a 2D canvas rendering call.
+		 * @param {any} node - AST node
+		 * @returns {boolean}
+		 * @private
+		 */
+		static _isCanvasInvocation(node) {
+			if (node.type === 'MemberExpr') {
+				const prop = String(node.property || '');
+				return prop === 'canvas' || prop === 'draw' || prop === 'fillRect' || prop === 'fillText' || prop === 'stroke' || prop.startsWith('draw');
+			}
+			return false;
+		}
+
+		/**
+		 * Validates legacy raw body capabilities fallbacks.
+		 * @param {string} method
+		 * @param {string} body
+		 * @param {Set<string>} declared
+		 * @private
+		 */
+		_validateRawBodyCapabilities(method, body, declared) {
+			if (/ctx\.audio|playTone|oscillator/i.test(body) && !declared.has('CAP_AUDIO_SYNTH')) {
+				this.fail(ERRORS.ERR_0x15, `Method '${method}' invokes audio without CAP_AUDIO_SYNTH declaration`);
+			}
+			if (/ctx\.draw|ctx\.canvas|fill(Rect|Text)|stroke/i.test(body) && !declared.has('CAP_RENDER_CANVAS2D')) {
+				this.fail(ERRORS.ERR_0x15, `Method '${method}' invokes canvas rendering without CAP_RENDER_CANVAS2D declaration`);
+			}
+		}
+
+		/**
+		 * Validates declared capabilities for a single handler.
+		 * Cognitive Complexity: <= 4.
+		 * @param {string} method
+		 * @param {any} handler
+		 * @param {Set<string>} declared
+		 * @private
+		 */
+		_validateHandlerCapabilities(method, handler, declared) {
+			const statements = handler.statements || [];
+			if (statements.length > 0) {
+				let invokedAudio = false;
+				let invokedCanvas = false;
+				SynarcheParser._walkAST(statements, (node) => {
+					if (!invokedAudio && !declared.has('CAP_AUDIO_SYNTH') && SynarcheParser._isAudioInvocation(node)) {
+						invokedAudio = true;
+						this.fail(ERRORS.ERR_0x15, `Method '${method}' invokes audio without CAP_AUDIO_SYNTH declaration`, node);
+					}
+					if (!invokedCanvas && !declared.has('CAP_RENDER_CANVAS2D') && SynarcheParser._isCanvasInvocation(node)) {
+						invokedCanvas = true;
+						this.fail(ERRORS.ERR_0x15, `Method '${method}' invokes canvas rendering without CAP_RENDER_CANVAS2D declaration`, node);
+					}
+				});
+			} else if (handler.body) {
+				this._validateRawBodyCapabilities(method, handler.body, declared);
+			}
+		}
+
+		/**
 		 * Architectural: State-mutating verification pass. Asserts that subsystem calls match declared capabilities.
-		 * Iterates over ast.handlers.get(method).statements using AST walker.
+		 * Cognitive Complexity: <= 2 (SonarLint S3776 compliant).
 		 * @returns {void}
 		 */
 		_validateCapabilities() {
 			const declared = new Set(this.ast.capabilities);
 			for (const [ method, handler ] of this.ast.handlers.entries()) {
-				const statements = handler.statements || [];
-				let invokedAudio = false;
-				let invokedCanvas = false;
-
-				if (statements.length > 0) {
-					SynarcheParser._walkAST(statements, (node) => {
-						// Audio capability assertion (CAP_AUDIO_SYNTH)
-						if (!invokedAudio && !declared.has('CAP_AUDIO_SYNTH')) {
-							if (node.type === 'MemberExpr') {
-								const prop = String(node.property || '');
-								if (prop === 'audio' || prop === 'playTone' || prop === 'oscillator') {
-									invokedAudio = true;
-									this.fail(ERRORS.ERR_0x15, `Method '${method}' invokes audio without CAP_AUDIO_SYNTH declaration`, node);
-								}
-							} else if (node.type === 'CallExpr' && node.callee?.type === 'Identifier') {
-								if (node.callee.name === 'playTone' || node.callee.name === 'oscillator') {
-									invokedAudio = true;
-									this.fail(ERRORS.ERR_0x15, `Method '${method}' invokes audio without CAP_AUDIO_SYNTH declaration`, node);
-								}
-							}
-						}
-
-						// Canvas rendering assertion (CAP_RENDER_CANVAS2D)
-						if (!invokedCanvas && !declared.has('CAP_RENDER_CANVAS2D')) {
-							if (node.type === 'MemberExpr') {
-								const prop = String(node.property || '');
-								if (prop === 'canvas' || prop === 'draw' || prop === 'fillRect' || prop === 'fillText' || prop === 'stroke' || prop.startsWith('draw')) {
-									invokedCanvas = true;
-									this.fail(ERRORS.ERR_0x15, `Method '${method}' invokes canvas rendering without CAP_RENDER_CANVAS2D declaration`, node);
-								}
-							}
-						}
-					});
-				} else if (handler.body) {
-					// Fallback for unparsed or legacy raw body
-					if (/ctx\.audio|playTone|oscillator/i.test(handler.body) && !declared.has('CAP_AUDIO_SYNTH')) {
-						this.fail(ERRORS.ERR_0x15, `Method '${method}' invokes audio without CAP_AUDIO_SYNTH declaration`);
-					}
-					if (/ctx\.draw|ctx\.canvas|fill(Rect|Text)|stroke/i.test(handler.body) && !declared.has('CAP_RENDER_CANVAS2D')) {
-						this.fail(ERRORS.ERR_0x15, `Method '${method}' invokes canvas rendering without CAP_RENDER_CANVAS2D declaration`);
-					}
-				}
+				this._validateHandlerCapabilities(method, handler, declared);
 			}
 		}
 
@@ -2569,97 +2642,161 @@
 		}
 
 		/**
+		 * Checks if node creates a transient GC allocation in update() hot loop.
+		 * @param {any} node - AST node
+		 * @returns {boolean}
+		 * @private
+		 */
+		static _isTransientAllocationNode(node) {
+			if (node.type === 'NewExpr' || (node.type === 'Identifier' && node.name === 'new')) {
+				const calleeName = node.callee?.name || (node.callee?.type === 'Identifier' ? node.callee.name : '');
+				return calleeName !== 'DataView' && calleeName !== 'ArrayBuffer';
+			}
+			if (node.type === 'CallExpr') {
+				const callee = node.callee;
+				if (callee?.type === 'MemberExpr') {
+					const obj = callee.object?.name || (callee.object?.type === 'Identifier' ? callee.object.name : '');
+					const prop = callee.property;
+					return (obj === 'Array' && prop === 'from') || (obj === 'Object' && (prop === 'assign' || prop === 'create'));
+				}
+				if (callee?.type === 'Identifier') {
+					return callee.name === 'Object' || callee.name === 'Array';
+				}
+			}
+			return false;
+		}
+
+		/**
+		 * Checks if node breaches SEC-06B DOM socket isolation.
+		 * @param {any} node - AST node
+		 * @returns {boolean}
+		 * @private
+		 */
+		static _isDomSocketBreach(node) {
+			if (node.type === 'MemberExpr') {
+				const obj = node.object?.name || (node.object?.type === 'Identifier' ? node.object.name : '');
+				return obj === 'document' && (node.property === 'getElementById' || node.property === 'querySelector');
+			}
+			return false;
+		}
+
+		/**
+		 * Checks if node breaches INV-SAB-01 Atomics.wait on main thread.
+		 * @param {any} node - AST node
+		 * @returns {boolean}
+		 * @private
+		 */
+		static _isAtomicsWaitInvocation(node) {
+			if (node.type === 'MemberExpr') {
+				const obj = node.object?.name || (node.object?.type === 'Identifier' ? node.object.name : '');
+				return obj === 'Atomics' && node.property === 'wait';
+			}
+			return false;
+		}
+
+		/**
+		 * Checks if node breaches SDCP-001 Faraday isolation.
+		 * @param {any} node - AST node
+		 * @returns {boolean}
+		 * @private
+		 */
+		static _isFaradayGlobalBreach(node) {
+			if (node.type !== 'Identifier') return false;
+			return Boolean(FARADAY_RESTRICTED_GLOBALS.has?.(node.name) ||
+				(Array.isArray(FARADAY_RESTRICTED_GLOBALS) && FARADAY_RESTRICTED_GLOBALS.includes(node.name)));
+		}
+
+		/**
+		 * Validates legacy raw body string fallbacks when statements are not available.
+		 * @param {string} method
+		 * @param {string} body
+		 * @param {boolean} isMainThread
+		 * @private
+		 */
+		_validateRawBodyFallbacks(method, body, isMainThread) {
+			for (const forbidden of FARADAY_RESTRICTED_GLOBALS) {
+				const regex = new RegExp(String.raw`\b` + forbidden + String.raw`\b`);
+				if (regex.test(body)) {
+					this.fail(ERRORS.ERR_0x16, `Faraday isolation breach: forbidden global '${forbidden}' in handler '${method}'`);
+				}
+			}
+			if (method === 'update' && (
+				/\bnew\s+(?!DataView|ArrayBuffer)[A-Za-z0-9_$]+/.test(body) ||
+				/\b(new\s+Object|new\s+Array|Array\.from|Object\.assign|Object\.create)\b/.test(body)
+			)) {
+				this.fail(ERRORS.ERR_0x17, `Transient hot-loop heap allocation in 'update' handler violates zero-GC invariant`);
+			}
+			if (/document\.getElementById|document\.querySelector/.test(body)) {
+				this.fail(ERRORS.ERR_0x1B, `SEC-06B socket breach in handler '${method}': Plane 1 must not access DOM sockets. Extract via Plane 2 and pass as PMIP-001 Transferable.`);
+			}
+			if (isMainThread && /Atomics\.wait\b/.test(body)) {
+				this.fail(ERRORS.ERR_0x1F, `INV-SAB-01 violation in handler '${method}': Atomics.wait() is prohibited on the main thread. Use Atomics.notify() from Plane 0/2 only.`);
+			}
+		}
+
+		/**
+		 * Walks AST statements and asserts Faraday isolation, zero-GC hot loops, and DOM/Atomics discipline.
+		 * Cognitive Complexity: <= 5.
+		 * @param {string} method
+		 * @param {any[]} statements
+		 * @param {boolean} isMainThread
+		 * @private
+		 */
+		_walkStatementsFaraday(method, statements, isMainThread) {
+			let flaggedFaraday = false;
+			let flaggedHotLoop = false;
+			let flaggedSocket = false;
+			let flaggedAtomics = false;
+
+			SynarcheParser._walkAST(statements, (node) => {
+				if (!flaggedFaraday && SynarcheParser._isFaradayGlobalBreach(node)) {
+					flaggedFaraday = true;
+					this.fail(ERRORS.ERR_0x16, `Faraday isolation breach: forbidden global '${node.name}' in handler '${method}'`, node);
+				}
+				if (method === 'update' && !flaggedHotLoop && SynarcheParser._isTransientAllocationNode(node)) {
+					flaggedHotLoop = true;
+					this.fail(ERRORS.ERR_0x17, `Transient hot-loop heap allocation in 'update' handler violates zero-GC invariant`, node);
+				}
+				if (!flaggedSocket && SynarcheParser._isDomSocketBreach(node)) {
+					flaggedSocket = true;
+					this.fail(ERRORS.ERR_0x1B, `SEC-06B socket breach in handler '${method}': Plane 1 must not access DOM sockets. Extract via Plane 2 and pass as PMIP-001 Transferable.`, node);
+				}
+				if (!flaggedAtomics && isMainThread && SynarcheParser._isAtomicsWaitInvocation(node)) {
+					flaggedAtomics = true;
+					this.fail(ERRORS.ERR_0x1F, `INV-SAB-01 violation in handler '${method}': Atomics.wait() is prohibited on the main thread. Use Atomics.notify() from Plane 0/2 only.`, node);
+				}
+			});
+		}
+
+		/**
+		 * Validates Faraday boundaries and invariants for a single method handler.
+		 * Cognitive Complexity: <= 3.
+		 * @param {string} method
+		 * @param {any} handler
+		 * @param {boolean} isMainThread
+		 * @private
+		 */
+		_validateHandlerFaraday(method, handler, isMainThread) {
+			const statements = handler.statements || [];
+			if (statements.length > 0) {
+				this._walkStatementsFaraday(method, statements, isMainThread);
+			} else if (handler.body) {
+				this._validateRawBodyFallbacks(method, handler.body, isMainThread);
+			}
+		}
+
+		/**
 		 * Architectural: State-mutating verification pass. Asserts Faraday isolation (SDCP-001), zero-allocation
 		 * hot loops (INV-08), SEC-06B socket capability discipline, and INV-SAB-01 Atomics asymmetry.
 		 * Iterates over ast.handlers.get(method).statements using AST walker.
+		 * Cognitive Complexity: <= 2 (SonarLint S3776 compliant).
 		 * @returns {void}
 		 */
 		_validateFaradayAndHotLoops() {
 			const MAIN_THREAD_METHODS = new Set([ 'boot', 'configure', 'activate', 'render' ]);
 
 			for (const [ method, handler ] of this.ast.handlers.entries()) {
-				const statements = handler.statements || [];
-				let flaggedFaraday = false;
-				let flaggedHotLoop = false;
-				let flaggedSocket = false;
-				let flaggedAtomics = false;
-
-				if (statements.length > 0) {
-					SynarcheParser._walkAST(statements, (node) => {
-						// Pass 1: SDCP-001 Faraday global isolation (ERR_0x16)
-						if (!flaggedFaraday && node.type === 'Identifier' && (FARADAY_RESTRICTED_GLOBALS.has?.(node.name) || (Array.isArray(FARADAY_RESTRICTED_GLOBALS) && FARADAY_RESTRICTED_GLOBALS.includes(node.name)))) {
-							flaggedFaraday = true;
-							this.fail(ERRORS.ERR_0x16, `Faraday isolation breach: forbidden global '${node.name}' in handler '${method}'`, node);
-						}
-
-						// Pass 2: INV-08 Zero transient allocation in update() hot path (ERR_0x17)
-						if (method === 'update' && !flaggedHotLoop) {
-							if (node.type === 'NewExpr' || (node.type === 'Identifier' && node.name === 'new')) {
-								const calleeName = node.callee?.name || (node.callee?.type === 'Identifier' ? node.callee.name : '');
-								if (calleeName !== 'DataView' && calleeName !== 'ArrayBuffer') {
-									flaggedHotLoop = true;
-									this.fail(ERRORS.ERR_0x17, `Transient hot-loop heap allocation in 'update' handler violates zero-GC invariant`, node);
-								}
-							} else if (node.type === 'CallExpr') {
-								const callee = node.callee;
-								if (callee?.type === 'MemberExpr') {
-									const objName = callee.object?.name || (callee.object?.type === 'Identifier' ? callee.object.name : '');
-									const prop = callee.property;
-									if (objName === 'Array' && prop === 'from') {
-										flaggedHotLoop = true;
-										this.fail(ERRORS.ERR_0x17, `Transient hot-loop heap allocation in 'update' handler violates zero-GC invariant`, node);
-									} else if (objName === 'Object' && (prop === 'assign' || prop === 'create')) {
-										flaggedHotLoop = true;
-										this.fail(ERRORS.ERR_0x17, `Transient hot-loop heap allocation in 'update' handler violates zero-GC invariant`, node);
-									}
-								} else if (callee?.type === 'Identifier') {
-									if (callee.name === 'Object' || callee.name === 'Array') {
-										flaggedHotLoop = true;
-										this.fail(ERRORS.ERR_0x17, `Transient hot-loop heap allocation in 'update' handler violates zero-GC invariant`, node);
-									}
-								}
-							}
-						}
-
-						// Pass 3: SEC-06B Polyglot Socket SDCP-001 discipline (ERR_0x1B)
-						if (!flaggedSocket && node.type === 'MemberExpr') {
-							const objName = node.object?.name || (node.object?.type === 'Identifier' ? node.object.name : '');
-							if (objName === 'document' && (node.property === 'getElementById' || node.property === 'querySelector')) {
-								flaggedSocket = true;
-								this.fail(ERRORS.ERR_0x1B, `SEC-06B socket breach in handler '${method}': Plane 1 must not access DOM sockets. Extract via Plane 2 and pass as PMIP-001 Transferable.`, node);
-							}
-						}
-
-						// Pass 4: INV-SAB-01 Atomics.wait() prohibited on main thread (ERR_0x1F)
-						if (!flaggedAtomics && MAIN_THREAD_METHODS.has(method) && node.type === 'MemberExpr') {
-							const objName = node.object?.name || (node.object?.type === 'Identifier' ? node.object.name : '');
-							if (objName === 'Atomics' && node.property === 'wait') {
-								flaggedAtomics = true;
-								this.fail(ERRORS.ERR_0x1F, `INV-SAB-01 violation in handler '${method}': Atomics.wait() is prohibited on the main thread. Use Atomics.notify() from Plane 0/2 only.`, node);
-							}
-						}
-					});
-				} else if (handler.body) {
-					// Fallback for unparsed or legacy raw body
-					for (const forbidden of FARADAY_RESTRICTED_GLOBALS) {
-						const regex = new RegExp(String.raw`\b` + forbidden + String.raw`\b`);
-						if (regex.test(handler.body)) {
-							this.fail(ERRORS.ERR_0x16, `Faraday isolation breach: forbidden global '${forbidden}' in handler '${method}'`);
-						}
-					}
-					if (method === 'update' && (
-						/\bnew\s+(?!DataView|ArrayBuffer)[A-Za-z0-9_$]+/.test(handler.body) ||
-						/\b(new\s+Object|new\s+Array|Array\.from|Object\.assign|Object\.create)\b/.test(handler.body)
-					)) {
-						this.fail(ERRORS.ERR_0x17, `Transient hot-loop heap allocation in 'update' handler violates zero-GC invariant`);
-					}
-					if (/document\.getElementById|document\.querySelector/.test(handler.body)) {
-						this.fail(ERRORS.ERR_0x1B, `SEC-06B socket breach in handler '${method}': Plane 1 must not access DOM sockets. Extract via Plane 2 and pass as PMIP-001 Transferable.`);
-					}
-					if (MAIN_THREAD_METHODS.has(method) && /Atomics\.wait\b/.test(handler.body)) {
-						this.fail(ERRORS.ERR_0x1F, `INV-SAB-01 violation in handler '${method}': Atomics.wait() is prohibited on the main thread. Use Atomics.notify() from Plane 0/2 only.`);
-					}
-				}
+				this._validateHandlerFaraday(method, handler, MAIN_THREAD_METHODS.has(method));
 			}
 		}
 
@@ -2702,9 +2839,9 @@
 		}
 	}
 
-	//#endregion [SEC-03]
+	//#endregion [SEC-05]
 
-	//#region [SEC-03.5] Plane 2.5: STCP-002 Constitutional Admission Authority (SynarcheAdmissionAuthority)
+	//#region [SEC-06] Plane 2.5: STCP-002 Constitutional Admission Authority (SynarcheAdmissionAuthority)
 
 	/**
 	 * @param {CartridgeAST} [ast]
@@ -2920,9 +3057,9 @@
 		}
 	}
 
-	//#endregion [SEC-03.5]
+	//#endregion [SEC-06]
 
-	//#region [SEC-04] Plane 3: Generic Universal Cartridge Assembly (GUCAEmitter)
+	//#region [SEC-07] Plane 3: Generic Universal Cartridge Assembly (GUCAEmitter)
 
 	/**
 	 * Plane 3 Generic Universal Cartridge Assembly Code Generator.
@@ -3144,9 +3281,9 @@ ${wrapperClose}`;
 		}
 	}
 
-	//#endregion [SEC-04]
+	//#endregion [SEC-07]
 
-	//#region [SEC-05] Master Transduction Facade & Universal Exports (SynarcheCompiler)
+	//#region [SEC-08] Master Transduction Facade & Universal Exports (SynarcheCompiler)
 
 	/**
 	 * Master STCP Compiler Facade.
@@ -3331,5 +3468,5 @@ ${wrapperClose}`;
 		};
 	}
 
-	//#endregion [SEC-05]
+	//#endregion [SEC-08]
 })(typeof globalThis !== 'undefined' ? globalThis : this);

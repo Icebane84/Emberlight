@@ -19,8 +19,23 @@ if (typeof window !== "undefined")
 	window._BattlerBakerInternal = window._BattlerBakerInternal || {};
 
 (() => {
-	const primitives = /** @type {any} */ (window._BattlerBakerInternal?.Primitives || (typeof require !== "undefined" ? require("./battler_primitives.js") : {}));
-	const { P, rect, rr, poly, line, diamond, ground, glow, spec } = primitives;
+	const _getPrim = () => /** @type {any} */ (
+		(typeof window !== "undefined" && window._BattlerBakerInternal?.Primitives) ||
+		(typeof globalThis !== "undefined" && (/** @type {any} */ (globalThis))._BattlerBakerInternal?.Primitives) ||
+		(typeof require !== "undefined" ? require("./battler_primitives.js") : {})
+	);
+	const primitives = _getPrim();
+	const P = new Proxy(primitives.P || {}, {
+		get: (target, prop) => _getPrim().P?.[prop] ?? target[prop]
+	});
+	const rect = (/** @type {any} */ ctx, /** @type {any[]} */ ...args) => (_getPrim().rect || primitives.rect)(ctx, ...args);
+	const rr = (/** @type {any} */ ctx, /** @type {any[]} */ ...args) => (_getPrim().rr || primitives.rr)(ctx, ...args);
+	const poly = (/** @type {any} */ ctx, /** @type {any[]} */ ...args) => (_getPrim().poly || primitives.poly)(ctx, ...args);
+	const line = (/** @type {any} */ ctx, /** @type {any[]} */ ...args) => (_getPrim().line || primitives.line)(ctx, ...args);
+	const diamond = (/** @type {any} */ ctx, /** @type {any[]} */ ...args) => (_getPrim().diamond || primitives.diamond)(ctx, ...args);
+	const ground = (/** @type {any} */ ctx, /** @type {any[]} */ ...args) => (_getPrim().ground || primitives.ground)(ctx, ...args);
+	const glow = (/** @type {any} */ ctx, /** @type {any[]} */ ...args) => (_getPrim().glow || primitives.glow)(ctx, ...args);
+	const spec = (/** @type {any} */ ctx, /** @type {any[]} */ ...args) => (_getPrim().spec || primitives.spec)(ctx, ...args);
 
 	//#region [SEC-03] Hero Anatomy, Silhouette Builders & Class Bakers
 	/**

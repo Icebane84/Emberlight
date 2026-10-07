@@ -18,8 +18,20 @@
 if (typeof window !== 'undefined') window._BattlerBakerInternal = window._BattlerBakerInternal || {};
 
 (() => {
-	const primitives = /** @type {any} */ (window._BattlerBakerInternal?.Primitives || (typeof require !== 'undefined' ? require('./battler_primitives.js') : {}));
-	const { P, poly, line, ellipse, diamond, glow } = primitives;
+	const _getPrim = () => /** @type {any} */ (
+		(typeof window !== "undefined" && window._BattlerBakerInternal?.Primitives) ||
+		(typeof globalThis !== "undefined" && (/** @type {any} */ (globalThis))._BattlerBakerInternal?.Primitives) ||
+		(typeof require !== "undefined" ? require("./battler_primitives.js") : {})
+	);
+	const primitives = _getPrim();
+	const P = new Proxy(primitives.P || {}, {
+		get: (target, prop) => _getPrim().P?.[prop] ?? target[prop]
+	});
+	const poly = (/** @type {any} */ ctx, /** @type {any[]} */ ...args) => (_getPrim().poly || primitives.poly)(ctx, ...args);
+	const line = (/** @type {any} */ ctx, /** @type {any[]} */ ...args) => (_getPrim().line || primitives.line)(ctx, ...args);
+	const ellipse = (/** @type {any} */ ctx, /** @type {any[]} */ ...args) => (_getPrim().ellipse || primitives.ellipse)(ctx, ...args);
+	const diamond = (/** @type {any} */ ctx, /** @type {any[]} */ ...args) => (_getPrim().diamond || primitives.diamond)(ctx, ...args);
+	const glow = (/** @type {any} */ ctx, /** @type {any[]} */ ...args) => (_getPrim().glow || primitives.glow)(ctx, ...args);
 
 	//#region [SEC-04] Equipment Overlay Pipeline (Armor & Weapons)
 	/**
