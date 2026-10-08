@@ -2988,7 +2988,42 @@ const EmberlightCombatRenderer = (() => {
 	}
 
 	/**
-	 * Draws battler sprite image or fallback icon.
+	 * Computes analytical harmonic squash, stretch, and tilt kinematics (AOP-HARMONIC-001).
+	 * Enforces physical mass conservation (Sx * Sy ~= 1.0) and enrage-scaled temporal pacing.
+	 * @param {Battler} enemy Target battler entity.
+	 * @param {boolean} isHighlighted Whether the battler is hovered or targeted.
+	 * @param {boolean} isBoss Whether the battler is a boss entity.
+	 * @returns {{ sx: number, sy: number, tilt: number, yBob: number }}
+	 */
+	function computeHarmonicKinematics(enemy, isHighlighted, isBoss) {
+		if (!enemy?.alive) {
+			return { sx: 1.0, sy: 1.0, tilt: 0, yBob: 0 };
+		}
+		const curHp = enemy.hp !== undefined ? enemy.hp : enemy.maxHp || 1;
+		const maxHp = enemy.maxHp || 1;
+		const hpRatio = Math.max(0, Math.min(1, curHp / maxHp));
+		const enrageFactor = isBoss ? (1.0 - hpRatio) : 0;
+
+		const baseFreq = (isBoss ? 2.8 : 2.0) * (1.0 + enrageFactor * 1.25);
+		const phase = (Date.now() / 1000) * baseFreq;
+		const squashAmp = isHighlighted ? 0.06 : (0.03 + enrageFactor * 0.03);
+		let tiltAmp = 0.015;
+		if (isHighlighted) {
+			tiltAmp = 0.04;
+		} else if (isBoss) {
+			tiltAmp = 0.02 + enrageFactor * 0.03;
+		}
+
+		const sx = 1.0 + Math.sin(phase * 2) * squashAmp;
+		const sy = 1.0 - Math.sin(phase * 2) * squashAmp;
+		const tilt = Math.sin(phase) * tiltAmp;
+		const yBob = isHighlighted ? -Math.abs(Math.sin(phase)) * 4 : Math.sin(phase) * -1.5;
+
+		return { sx, sy, tilt, yBob };
+	}
+
+	/**
+	 * Draws battler sprite image or fallback icon with harmonic squash-and-stretch.
 	 * @param {CanvasRenderingContext2D} ctx
 	 * @param {Battler} enemy
 	 * @param {{ x: number, y: number, spriteSize: number, effectiveScale: number, isBoss: boolean, isHighlighted?: boolean }} opts
@@ -2998,6 +3033,7 @@ const EmberlightCombatRenderer = (() => {
 		const { isBossEnraged, heatPulse } = resolveBossDetails(enemy);
 		const url = resolveEnemyBattlerUrl(enemy, isBossEnraged, heatPulse);
 		const img = url ? getCachedBattlerImage(url) : null;
+		const kinematics = computeHarmonicKinematics(enemy, isHighlighted, isBoss);
 
 		ctx.save();
 		if (!enemy.alive) {
@@ -3008,11 +3044,15 @@ const EmberlightCombatRenderer = (() => {
 			ctx.shadowBlur = 18;
 		}
 
+		ctx.translate(x, y + kinematics.yBob);
+		ctx.rotate(kinematics.tilt);
+		ctx.scale(kinematics.sx, kinematics.sy);
+
 		if (img?.complete && img.naturalWidth > 0 && ctx.drawImage) {
 			ctx.drawImage(
 				img,
-				x - spriteSize / 2,
-				y - spriteSize / 2,
+				-spriteSize / 2,
+				-spriteSize / 2,
 				spriteSize,
 				spriteSize,
 			);
@@ -3020,8 +3060,8 @@ const EmberlightCombatRenderer = (() => {
 			drawBattlerFallbackPlaceholder(
 				ctx,
 				enemy,
-				x,
-				y,
+				0,
+				0,
 				spriteSize,
 				effectiveScale,
 				isBoss,
@@ -4147,6 +4187,8 @@ const EmberlightCombatRenderer = (() => {
 			q1EventsBound = false;
 			q2EventsBound = false;
 		},
+
+		computeHarmonicKinematics,
 	};
 	//#endregion
 })();

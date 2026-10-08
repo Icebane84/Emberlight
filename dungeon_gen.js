@@ -58,6 +58,7 @@ const EmberlightDungeonGen = (() => {
 	 * @param {number} [width]
 	 * @param {number} [height]
 	 * @param {number} [floorLevel]
+	 * @param {Record<string, any>} [options]
 	 * @returns {Record<string, any>}
 	 */
 	function generate(
@@ -65,6 +66,7 @@ const EmberlightDungeonGen = (() => {
 		width = 12,
 		height = 10,
 		floorLevel = 1,
+		options = {},
 	) {
 		const rng = createRNG(seed);
 		const w = Math.max(8, width);
@@ -73,15 +75,32 @@ const EmberlightDungeonGen = (() => {
 		const map = Array.from({ length: h }, () => new Array(w).fill("#"));
 		/** @type {Array<any>} */
 		const rooms = [];
+		/** @type {Array<{x: number, y: number}>} */
+		let carvedCoords = [];
 
-		splitLeaf({ rx: 1, ry: 1, rw: w - 2, rh: h - 2, depth: 3 }, { rng, rooms });
-		const carvedCoords = carveLayout(map, rooms, w, h);
-		applyDrunkardsWalk(map, w, h, carvedCoords, rng);
+		const isCavern = options?.layoutType === 'CAVERN' || options?.layoutType === 'cavern';
+		const isPureBSP = options?.layoutType === 'BSP' || options?.layoutType === 'bsp'
+			|| options?.layoutType === 'ARCHITECTURAL' || options?.layoutType === 'architectural';
+
+		if (isCavern) {
+			applyCellularAutomataCaves(map, w, h, carvedCoords, rng, options?.passes || 4, options?.fillProb || 0.45);
+			const cx = Math.floor(w / 2);
+			const cy = Math.floor(h / 2);
+			rooms.push({ rx: 1, ry: 1, rw: w - 2, rh: h - 2, cx, cy });
+		} else if (isPureBSP) {
+			const depth = Math.max(1, Number(options?.depth) || 3);
+			splitLeaf({ rx: 1, ry: 1, rw: w - 2, rh: h - 2, depth }, { rng, rooms });
+			carvedCoords = carveLayout(map, rooms, w, h);
+		} else {
+			splitLeaf({ rx: 1, ry: 1, rw: w - 2, rh: h - 2, depth: 3 }, { rng, rooms });
+			carvedCoords = carveLayout(map, rooms, w, h);
+			applyDrunkardsWalk(map, w, h, carvedCoords, rng);
+		}
 
 		const spawn =
-			rooms.length > 0
+			rooms.length > 0 && map[ rooms[ 0 ].cy ]?.[ rooms[ 0 ].cx ] === "."
 				? { x: rooms[ 0 ].cx, y: rooms[ 0 ].cy }
-				: { x: carvedCoords[ 0 ].x, y: carvedCoords[ 0 ].y };
+				: { x: carvedCoords[ 0 ]?.x || 1, y: carvedCoords[ 0 ]?.y || 1 };
 		map[ spawn.y ][ spawn.x ] = "<";
 
 		const sortedByDist = [ ...carvedCoords ].sort((a, b) => {
@@ -90,16 +109,16 @@ const EmberlightDungeonGen = (() => {
 			return distB - distA;
 		});
 
-		const exitPt = sortedByDist[ 0 ];
+		const exitPt = sortedByDist[ 0 ] || spawn;
 		map[ exitPt.y ][ exitPt.x ] = ">";
 
-		const chestPt = sortedByDist[ 1 ] || sortedByDist[ 0 ];
+		const chestPt = sortedByDist[ 1 ] || sortedByDist[ 0 ] || spawn;
 		if (chestPt.x !== spawn.x || chestPt.y !== spawn.y) {
 			map[ chestPt.y ][ chestPt.x ] = "$";
 		}
 
 		const campPt =
-			sortedByDist[ Math.floor(sortedByDist.length * 0.5) ] || sortedByDist[ 0 ];
+			sortedByDist[ Math.floor(sortedByDist.length * 0.5) ] || sortedByDist[ 0 ] || spawn;
 		if (
 			(campPt.x !== spawn.x || campPt.y !== spawn.y) &&
 			(campPt.x !== exitPt.x || campPt.y !== exitPt.y)
@@ -192,7 +211,8 @@ const EmberlightDungeonGen = (() => {
 		const width = snapshot?.width || 12;
 		const height = snapshot?.height || 10;
 		const depth = snapshot?.depth || 1;
-		lastSimulation = generate(seed, width, height, depth);
+		const options = snapshot?.options || {};
+		lastSimulation = generate(seed, width, height, depth, options);
 		return lastSimulation;
 	}
 
@@ -245,6 +265,8 @@ const EmberlightDungeonGen = (() => {
 			protocolVersion: "VSRP-001",
 			capabilities: [
 				"hybrid_bsp_carver",
+				"cellular_automata_caves",
+				"pure_bsp_architectural_carver",
 				"deterministic_layout",
 				"puzzle_mechanisms",
 				"rich_asset_manifest",
@@ -277,20 +299,56 @@ const EmberlightDungeonGen = (() => {
 		const w = Math.max(8, width);
 		const h = Math.max(8, height);
 		const map = Array.from({ length: h }, () => new Array(w).fill("#"));
+		/** @type {Array<{x: number, y: number}>} */
 		const carvedCoords = [];
 		applyCellularAutomataCaves(map, w, h, carvedCoords, rng, passes, fillProb);
 
 		const spawn = carvedCoords[ 0 ] || { x: Math.floor(w / 2), y: Math.floor(h / 2) };
-		const exitPt = carvedCoords[ carvedCoords.length - 1 ] || spawn;
+		const exitPt = carvedCoords.at(-1) || spawn;
 		map[ spawn.y ][ spawn.x ] = "<";
 		map[ exitPt.y ][ exitPt.x ] = ">";
 
 		return { map, carvedCoords, spawn, exitPt };
 	}
 
+	/**
+	 * Generates a pure rectilinear architectural layout using Binary Space Partitioning (BSP).
+	 * Preserves clean rectangular rooms and connecting corridors without Drunkard's Walk erosion.
+	 *
+	 * @param {number} [seed]
+	 * @param {number} [width=16]
+	 * @param {number} [height=12]
+	 * @param {number} [depth=3]
+	 * @returns {{ map: string[][], rooms: Array<any>, carvedCoords: Array<{x: number, y: number}>, spawn: {x: number, y: number}, exitPt: {x: number, y: number} }}
+	 */
+	function carveBSPDungeon(seed = Date.now(), width = 16, height = 12, depth = 3) {
+		const rng = createRNG(seed);
+		const w = Math.max(8, width);
+		const h = Math.max(8, height);
+		const map = Array.from({ length: h }, () => new Array(w).fill("#"));
+		/** @type {Array<any>} */
+		const rooms = [];
+		splitLeaf({ rx: 1, ry: 1, rw: w - 2, rh: h - 2, depth }, { rng, rooms });
+		const carvedCoords = carveLayout(map, rooms, w, h);
+
+		const spawn = rooms.length > 0 && map[rooms[0].cy]?.[rooms[0].cx] === "."
+			? { x: rooms[0].cx, y: rooms[0].cy }
+			: (carvedCoords[0] || { x: 1, y: 1 });
+		const lastRoom = rooms.at(-1);
+		const exitPt = lastRoom && map[lastRoom.cy]?.[lastRoom.cx] === "."
+			? { x: lastRoom.cx, y: lastRoom.cy }
+			: (carvedCoords.at(-1) || spawn);
+
+		map[spawn.y][spawn.x] = "<";
+		map[exitPt.y][exitPt.x] = ">";
+
+		return { map, rooms, carvedCoords, spawn, exitPt };
+	}
+
 	return {
 		generate,
 		carveCaverns,
+		carveBSPDungeon,
 		applyCellularAutomataCaves,
 		ASSET_MANIFEST,
 		configure,

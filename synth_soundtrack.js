@@ -18,6 +18,7 @@
 /**
  * @typedef {Object} SoundtrackDiagnostics
  * @property {string} driverId Internal driver identifier string.
+ * @property {'TRACKER' | 'BYTEBEAT'} [playbackMode] Active audio playback mode.
  * @property {string} activeMood Active musical mood identifier.
  * @property {number} currentBPM Current beats per minute.
  * @property {number} currentStep Current active sequencer step.
@@ -61,6 +62,11 @@ const EmberlightSoundtrack = (() => {
 	let nextStepTime = 0;
 	const LOOKAHEAD_SEC = 0.12; // 120ms forward scheduling window
 
+	// Algorithmic Bytebeat State (AOP-BYTEBEAT-001)
+	let playbackMode = "TRACKER"; // 'TRACKER' | 'BYTEBEAT'
+	/** @type {AudioBufferSourceNode|null} */
+	let bytebeatSource = null;
+
 	// Noise Buffer Cache for Percussion
 	/** @type {AudioBuffer|null} */
 	let noiseBuffer = null;
@@ -97,6 +103,19 @@ const EmberlightSoundtrack = (() => {
 		},
 		BOSS: { bpm: 152, rootFreq: 73.4, filterCutoff: 1600, bassType: "square" },
 	};
+
+	/**
+	 * Canonical 8-bit algorithmic Bytebeat formulas (AOP-BYTEBEAT-001).
+	 * Evaluated on integer tick t at 8000 Hz virtual clock rate.
+	 * @type {Readonly<Record<string, (t: number) => number>>}
+	 */
+	const BYTEBEAT_FORMULAS = Object.freeze({
+		SURFACE: (t) => ((t * 5 & t >> 7) | (t * 3 & t >> 10)) & 0xFF,
+		TOWN: (t) => (((t >> 6 | t | t >> (t >> 16)) * 10 + ((t >> 11) & 7)) & 0xFF),
+		CATACOMBS: (t) => ((t * (t >> 11 & t >> 8 & 123 & t >> 3)) & 0xFF),
+		COMBAT: (t) => ((((t * (t >> 8 | t >> 9) & 46 & t >> 8)) ^ (t & t >> 13 | t >> 6)) & 0xFF),
+		BOSS: (t) => ((((t >> 7 | t | t >> 6) * 10 + 4 * (t & t >> 13 | t >> 6))) & 0xFF),
+	});
 	//#endregion
 
 	//#region [SEC-02] Web Audio Context Initialization, Buffers & User Gesture Unlocking
@@ -465,6 +484,131 @@ const EmberlightSoundtrack = (() => {
 		scheduleLead(stepIdx, stepTime, stepDuration, scale);
 		schedulePercussion(stepIdx, stepTime);
 	}
+
+	/**
+	 * Evaluates an 8-bit bytebeat formula at sample tick t.
+	 * Pure integer arithmetic procedure.
+	 *
+	 * @param {string} formulaKey - Mood identifier or formula name.
+	 * @param {number} t - Non-negative integer time tick.
+	 * @returns {number} Unsigned 8-bit integer in [0, 255].
+	 */
+	function evaluateBytebeatFormula(formulaKey, t) {
+		const it = Math.trunc(t) >>> 0;
+		switch (formulaKey) {
+			case "TOWN":
+				return (((it >> 6 | it | it >> (it >> 16)) * 10 + ((it >> 11) & 7)) & 0xFF);
+			case "CATACOMBS":
+				return ((it * (it >> 11 & it >> 8 & 123 & it >> 3)) & 0xFF);
+			case "COMBAT":
+				return ((((it * (it >> 8 | it >> 9) & 46 & it >> 8)) ^ (it & it >> 13 | it >> 6)) & 0xFF);
+			case "BOSS":
+				return ((((it >> 7 | it | it >> 6) * 10 + 4 * (it & it >> 13 | it >> 6))) & 0xFF);
+			case "SURFACE":
+			default:
+				return (((it * 5 & it >> 7) | (it * 3 & it >> 10)) & 0xFF);
+		}
+	}
+
+	/**
+	 * Synthesizes an array of PCM samples using an algorithmic bytebeat expression.
+	 * Pure DSP mathematical synthesis procedure.
+	 *
+	 * @param {string} formulaKey - Formula mood key ('SURFACE', 'TOWN', 'CATACOMBS', 'COMBAT', 'BOSS').
+	 * @param {number} sampleCount - Total number of samples to synthesize.
+	 * @param {number} [sampleRate=8000] - Playback sample rate in Hz.
+	 * @returns {Float32Array} Normalized float PCM buffer in [-1.0, 1.0].
+	 */
+	function generateBytebeatPCM(formulaKey, sampleCount, sampleRate = 8000) {
+		const count = Math.max(1, Math.floor(sampleCount));
+		const pcm = new Float32Array(count);
+		for (let i = 0; i < count; i++) {
+			const byteVal = evaluateBytebeatFormula(formulaKey, i);
+			pcm[i] = (byteVal / 127.5) - 1.0;
+		}
+		return pcm;
+	}
+
+	/**
+	 * Constructs a Web Audio AudioBuffer for the given bytebeat formula.
+	 * Resamples virtual 8000 Hz bytebeat clock into host AudioContext rate.
+	 *
+	 * @param {string} formulaKey - Formula mood key.
+	 * @param {number} [durationSec=4.0] - Loop duration in seconds.
+	 * @param {AudioContext | any} [targetCtx=ctx] - Target Web Audio context.
+	 * @returns {AudioBuffer | any}
+	 */
+	function buildBytebeatAudioBuffer(formulaKey, durationSec = 4.0, targetCtx = ctx) {
+		const sampleRate = targetCtx?.sampleRate || 8000;
+		const bytebeatRate = 8000;
+		const targetSamples = Math.floor(sampleRate * durationSec);
+		const pcm = new Float32Array(targetSamples);
+		const ratio = bytebeatRate / sampleRate;
+
+		for (let i = 0; i < targetSamples; i++) {
+			const tick = Math.floor(i * ratio);
+			const byteVal = evaluateBytebeatFormula(formulaKey, tick);
+			pcm[i] = (byteVal / 127.5) - 1.0;
+		}
+
+		if (targetCtx && typeof targetCtx.createBuffer === "function") {
+			try {
+				const buf = targetCtx.createBuffer(1, targetSamples, sampleRate);
+				buf.getChannelData(0).set(pcm);
+				return buf;
+			} catch {
+				// Fallback to conforming descriptor in headless contexts
+			}
+		}
+
+		return {
+			numberOfChannels: 1,
+			length: targetSamples,
+			sampleRate,
+			duration: durationSec,
+			getChannelData: () => pcm,
+		};
+	}
+
+	/**
+	 * Activates continuous loop streaming for the active bytebeat formula.
+	 * (State-mutating Web Audio routine)
+	 * @returns {void}
+	 */
+	function startBytebeatStream() {
+		if (!userUnlocked || !ctx || !masterGain || isMuted) return;
+		stopBytebeatStream();
+		try {
+			const buf = buildBytebeatAudioBuffer(currentMood, 4.0, ctx);
+			if (buf && typeof ctx.createBufferSource === "function") {
+				const src = ctx.createBufferSource();
+				src.buffer = buf;
+				src.loop = true;
+				src.connect(masterGain);
+				src.start(0);
+				bytebeatSource = src;
+			}
+		} catch {
+			bytebeatSource = null;
+		}
+	}
+
+	/**
+	 * Halts and detaches the active bytebeat streaming node.
+	 * (State-mutating cleanup routine)
+	 * @returns {void}
+	 */
+	function stopBytebeatStream() {
+		if (bytebeatSource) {
+			try {
+				bytebeatSource.stop();
+				bytebeatSource.disconnect();
+			} catch {
+				// Ignore node disconnect errors
+			}
+			bytebeatSource = null;
+		}
+	}
 	//#endregion
 
 	//#region [SEC-05] Public VSRP-001 Peripheral Gateway & Lifecycle Interface
@@ -548,6 +692,8 @@ const EmberlightSoundtrack = (() => {
 					eventBus.subscribe("system:command", (evt = {}) => {
 						if (evt?.command === "TOGGLE_MUTE") {
 							this.toggleMute();
+						} else if (evt?.command === "SET_PLAYBACK_MODE" && evt?.value) {
+							this.setPlaybackMode(evt.value);
 						}
 					}),
 				);
@@ -564,6 +710,80 @@ const EmberlightSoundtrack = (() => {
 			if (!MOOD_CONFIG[newMood]) return;
 			targetMood = newMood;
 			targetBPM = MOOD_CONFIG[newMood].bpm;
+			if (playbackMode === "BYTEBEAT" && currentMood !== newMood) {
+				currentMood = newMood;
+				startBytebeatStream();
+			}
+		},
+
+		/**
+		 * Sets the soundtrack playback engine mode ('TRACKER' or 'BYTEBEAT').
+		 * (State-mutating action gateway)
+		 * @param {'TRACKER' | 'BYTEBEAT'} mode
+		 * @returns {'TRACKER' | 'BYTEBEAT'}
+		 */
+		setPlaybackMode(mode) {
+			const target = mode === "BYTEBEAT" ? "BYTEBEAT" : "TRACKER";
+			if (playbackMode !== target) {
+				playbackMode = target;
+				if (playbackMode === "BYTEBEAT") {
+					startBytebeatStream();
+				} else {
+					stopBytebeatStream();
+					if (ctx && nextStepTime === 0) {
+						nextStepTime = ctx.currentTime + 0.05;
+					}
+				}
+			}
+			return playbackMode;
+		},
+
+		/**
+		 * Retrieves the active playback mode.
+		 * @returns {'TRACKER' | 'BYTEBEAT'}
+		 */
+		getPlaybackMode() {
+			return playbackMode;
+		},
+
+		/**
+		 * Evaluates an 8-bit bytebeat formula at tick t.
+		 * @param {string} formulaKey
+		 * @param {number} t
+		 * @returns {number}
+		 */
+		evaluateBytebeatFormula(formulaKey, t) {
+			return evaluateBytebeatFormula(formulaKey, t);
+		},
+
+		/**
+		 * Generates raw Float32Array PCM samples from a bytebeat expression.
+		 * @param {string} formulaKey
+		 * @param {number} sampleCount
+		 * @param {number} [sampleRate=8000]
+		 * @returns {Float32Array}
+		 */
+		generateBytebeatPCM(formulaKey, sampleCount, sampleRate = 8000) {
+			return generateBytebeatPCM(formulaKey, sampleCount, sampleRate);
+		},
+
+		/**
+		 * Builds a Web Audio buffer containing a bytebeat loop.
+		 * @param {string} formulaKey
+		 * @param {number} [durationSec=4.0]
+		 * @param {any} [targetCtx]
+		 * @returns {any}
+		 */
+		buildBytebeatAudioBuffer(formulaKey, durationSec = 4.0, targetCtx) {
+			return buildBytebeatAudioBuffer(formulaKey, durationSec, targetCtx);
+		},
+
+		/**
+		 * Exposes the immutable Bytebeat formulas catalog.
+		 * @returns {typeof BYTEBEAT_FORMULAS}
+		 */
+		getBytebeatFormulas() {
+			return BYTEBEAT_FORMULAS;
 		},
 
 		/**
@@ -575,6 +795,13 @@ const EmberlightSoundtrack = (() => {
 			isMuted = !isMuted;
 			if (masterGain && ctx) {
 				masterGain.gain.setValueAtTime(isMuted ? 0.0 : 0.45, ctx.currentTime);
+			}
+			if (playbackMode === "BYTEBEAT") {
+				if (isMuted) {
+					stopBytebeatStream();
+				} else {
+					startBytebeatStream();
+				}
 			}
 			return isMuted;
 		},
@@ -588,6 +815,13 @@ const EmberlightSoundtrack = (() => {
 		 */
 		update(_dt = 0.016) {
 			if (!userUnlocked || !ctx) return;
+
+			if (playbackMode === "BYTEBEAT") {
+				if (!bytebeatSource && !isMuted) {
+					startBytebeatStream();
+				}
+				return;
+			}
 
 			if (currentMood !== targetMood) {
 				currentMood = targetMood;
@@ -620,6 +854,7 @@ const EmberlightSoundtrack = (() => {
 		getDiagnostics() {
 			return {
 				driverId: "synth_soundtrack_driver",
+				playbackMode,
 				activeMood: currentMood,
 				currentBPM,
 				currentStep,
@@ -642,6 +877,8 @@ const EmberlightSoundtrack = (() => {
 				}
 			});
 			unsubs = [];
+
+			stopBytebeatStream();
 
 			if (ctx) {
 				ctx.close().catch(() => { });

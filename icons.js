@@ -856,6 +856,219 @@ const EmberlightIcons = (() => {
 		DREAD_ACOLYTE: () => drawAcolyte(),
 		CINDER_REVENANT: () => drawMalakorBoss(false, 1.0),
 	});
+
+	/**
+	 * Canonical 4-color palettes for bilateral pixel-art sprites (AOP-SPRITE-001).
+	 * Formatted as: [transparent, dark outline, body color, accent/feature highlight].
+	 * @type {Readonly<Record<string, readonly string[]>>}
+	 */
+	const BILATERAL_PALETTES = Object.freeze({
+		DEFAULT: Object.freeze([ '#00000000', '#2a2f35', '#00ffcc', '#e6f1f7' ]),
+		GOBLIN: Object.freeze([ '#00000000', '#182415', '#43a047', '#a5d6a7' ]),
+		SKELETON: Object.freeze([ '#00000000', '#212121', '#90a4ae', '#eceff1' ]),
+		DEMON: Object.freeze([ '#00000000', '#2b1010', '#e53935', '#ffcdd2' ]),
+		BOSS: Object.freeze([ '#00000000', '#1a001a', '#ab47bc', '#f3e5f5' ]),
+		TREASURE: Object.freeze([ '#00000000', '#3e2723', '#fbc02d', '#fffde7' ]),
+		RELIC: Object.freeze([ '#00000000', '#0d47a1', '#29b6f6', '#e1f5fe' ]),
+		POTION: Object.freeze([ '#00000000', '#311b92', '#7e57c2', '#ede7f6' ]),
+		BEAST: Object.freeze([ '#00000000', '#26170d', '#8d6e63', '#d7ccc8' ]),
+	});
+
+	/**
+	 * Creates a deterministic, isolated PRNG stream for procedural sprite generation.
+	 * Pure stateful math generator.
+	 *
+	 * @param {number | string} [seedInput=1337] Seed integer or string token.
+	 * @returns {{ nextFloat: () => number }}
+	 */
+	function createLocalPRNG(seedInput = 1337) {
+		let s = typeof seedInput === 'number' ? Math.trunc(seedInput) : 1337;
+		if (typeof seedInput === 'string') {
+			let h = 2166136261 >>> 0;
+			for (let i = 0; i < seedInput.length; i++) {
+				h = Math.imul(h ^ (seedInput.codePointAt(i) || 0), 16777619);
+			}
+			s = h >>> 0;
+		}
+		// SplitMix32 phase mixer
+		s = (s + 0x9e3779b9) >>> 0;
+		let z = s;
+		z = Math.imul(z ^ (z >>> 16), 0x21f0aaad);
+		z = Math.imul(z ^ (z >>> 15), 0x735a2d97);
+		let state = (z ^ (z >>> 15)) >>> 0;
+
+		return {
+			nextFloat() {
+				state = (state + 0x6d2b79f5) >>> 0;
+				let t = state;
+				t = Math.imul(t ^ (t >>> 15), t | 1);
+				t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+				return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+			},
+		};
+	}
+
+	/**
+	 * Resolves an archetype 4-color palette based on key or archetype token.
+	 * Pure string analysis procedure.
+	 *
+	 * @param {string} [key] - Entity or archetype name string.
+	 * @returns {readonly string[]}
+	 */
+	function resolveBilateralPalette(key) {
+		const k = String(key || '').toUpperCase();
+		if (k.includes('GOBLIN') || k.includes('ORC') || k.includes('VENOM')) {
+			return BILATERAL_PALETTES.GOBLIN;
+		}
+		if (k.includes('SKELETON') || k.includes('BONE') || k.includes('GHOST')) {
+			return BILATERAL_PALETTES.SKELETON;
+		}
+		if (k.includes('DEMON') || k.includes('CINDER') || k.includes('FIRE') || k.includes('REVENANT')) {
+			return BILATERAL_PALETTES.DEMON;
+		}
+		if (k.includes('BOSS') || k.includes('MALAKOR') || k.includes('ARCHON')) {
+			return BILATERAL_PALETTES.BOSS;
+		}
+		if (k.includes('CHEST') || k.includes('GOLD') || k.includes('COIN') || k.includes('TREASURE')) {
+			return BILATERAL_PALETTES.TREASURE;
+		}
+		if (k.includes('RELIC') || k.includes('SWORD') || k.includes('BLADE') || k.includes('STAFF')) {
+			return BILATERAL_PALETTES.RELIC;
+		}
+		if (k.includes('POTION') || k.includes('ETHER') || k.includes('ELIXIR') || k.includes('FLASK')) {
+			return BILATERAL_PALETTES.POTION;
+		}
+		if (k.includes('WOLF') || k.includes('BEAST') || k.includes('SPIDER') || k.includes('BRUTE')) {
+			return BILATERAL_PALETTES.BEAST;
+		}
+		return BILATERAL_PALETTES.DEFAULT;
+	}
+
+	/**
+	 * Synthesizes a procedurally generated pixel-art sprite with bilateral symmetry and morphological outline.
+	 * (AOP-SPRITE-001 algorithm: Tarbell/Martin PixelSpriteGenerator).
+	 *
+	 * @param {Object} [opts={}]
+	 * @param {number} [opts.w=8] Grid width (even integer).
+	 * @param {number} [opts.h=8] Grid height.
+	 * @param {number | string} [opts.seed=1337] Generation seed.
+	 * @param {any} [opts.prng] Optional custom PRNG.
+	 * @param {readonly string[]} [opts.palette] 4-color palette.
+	 * @param {string} [opts.archetype] Archetype token.
+	 * @returns {{ w: number, h: number, grid: Uint8Array[], palette: readonly string[], seed: number | string }}
+	 */
+	/**
+	 * Checks whether a grid cell has any solid neighbor (body or accent) in 4-neighborhood.
+	 * Pure neighborhood inspection procedure.
+	 *
+	 * @param {Uint8Array[]} grid
+	 * @param {number} x
+	 * @param {number} y
+	 * @param {number} w
+	 * @param {number} h
+	 * @returns {boolean}
+	 */
+	function hasSolidNeighbor(grid, x, y, w, h) {
+		if (x > 0 && grid[ y ][ x - 1 ] >= 2) return true;
+		if (x < w - 1 && grid[ y ][ x + 1 ] >= 2) return true;
+		if (y > 0 && grid[ y - 1 ][ x ] >= 2) return true;
+		return y < h - 1 && grid[ y + 1 ][ x ] >= 2;
+	}
+
+	/**
+	 * Fills left coronal hemisphere with stochastic mass and mirrors across vertical midline.
+	 *
+	 * @param {Uint8Array[]} grid
+	 * @param {number} half
+	 * @param {number} w
+	 * @param {number} h
+	 * @param {{ nextFloat: () => number }} rng
+	 */
+	function fillBilateralHemisphere(grid, half, w, h, rng) {
+		const maxDist = Math.max(1, half);
+		for (let y = 0; y < h; y++) {
+			for (let x = 0; x < half; x++) {
+				const threshold = 0.75 - (x / maxDist) * 0.45;
+				if (rng.nextFloat() < threshold) {
+					const col = rng.nextFloat() > 0.82 ? 3 : 2;
+					grid[ y ][ x ] = col;
+					grid[ y ][ w - 1 - x ] = col;
+				}
+			}
+		}
+	}
+
+	/**
+	 * Applies morphological edge outline detection to empty cells adjacent to solid pixels.
+	 *
+	 * @param {Uint8Array[]} grid
+	 * @param {number} w
+	 * @param {number} h
+	 */
+	function applyMorphologicalEdges(grid, w, h) {
+		for (let y = 0; y < h; y++) {
+			for (let x = 0; x < w; x++) {
+				if (grid[ y ][ x ] === 0 && hasSolidNeighbor(grid, x, y, w, h)) {
+					grid[ y ][ x ] = 1;
+				}
+			}
+		}
+	}
+
+	/**
+	 * Synthesizes a procedurally generated pixel-art sprite with bilateral symmetry and morphological outline.
+	 * (AOP-SPRITE-001 algorithm: Tarbell/Martin PixelSpriteGenerator).
+	 *
+	 * @param {Object} [opts={}]
+	 * @param {number} [opts.w=8] Grid width (even integer).
+	 * @param {number} [opts.h=8] Grid height.
+	 * @param {number | string} [opts.seed=1337] Generation seed.
+	 * @param {any} [opts.prng] Optional custom PRNG.
+	 * @param {readonly string[]} [opts.palette] 4-color palette.
+	 * @param {string} [opts.archetype] Archetype token.
+	 * @returns {{ w: number, h: number, grid: Uint8Array[], palette: readonly string[], seed: number | string }}
+	 */
+	function generateBilateralSprite(opts = {}) {
+		const w = Math.max(4, Math.floor(opts.w || 8));
+		const h = Math.max(4, Math.floor(opts.h || 8));
+		const seed = opts.seed !== undefined ? opts.seed : 1337;
+		const rng = opts.prng && typeof opts.prng.nextFloat === 'function'
+			? opts.prng
+			: createLocalPRNG(seed);
+		const palette = opts.palette || (opts.archetype ? resolveBilateralPalette(opts.archetype) : resolveBilateralPalette(String(seed)));
+
+		const half = Math.ceil(w / 2);
+		const grid = Array.from({ length: h }, () => new Uint8Array(w));
+
+		fillBilateralHemisphere(grid, half, w, h, rng);
+		applyMorphologicalEdges(grid, w, h);
+
+		return { w, h, grid, palette, seed };
+	}
+
+	/**
+	 * Renders a procedural bilateral sprite onto an HTML5 2D canvas context.
+	 * Pure rasterization procedure.
+	 *
+	 * @param {{ w: number, h: number, grid: Uint8Array[], palette: readonly string[] }} sprite
+	 * @param {number} [scale=4] Pixel scaling multiplier.
+	 * @param {CanvasRenderingContext2D | null} [targetCtx=null] Destination canvas rendering context.
+	 * @returns {void}
+	 */
+	function renderBilateralSprite(sprite, scale = 4, targetCtx = null) {
+		const destination = targetCtx || ctx;
+		if (!destination || !sprite?.grid) return;
+		const s = Math.max(1, Math.floor(scale));
+		for (let y = 0; y < sprite.h; y++) {
+			for (let x = 0; x < sprite.w; x++) {
+				const val = sprite.grid[ y ][ x ];
+				if (val > 0 && sprite.palette[ val ]) {
+					destination.fillStyle = sprite.palette[ val ];
+					destination.fillRect(x * s, y * s, s, s);
+				}
+			}
+		}
+	}
 	//#endregion
 
 	//#region [SEC-06] Canonical 9-Method Lifecycle Gateway & Public APIs
@@ -965,9 +1178,14 @@ const EmberlightIcons = (() => {
 		getModuleInfo() {
 			return {
 				moduleId: 'EmberlightIcons',
-				version: '3.0.0',
+				version: '3.1.0',
 				protocolVersion: 'VSRP-001',
-				capabilities: [ 'cinematic_procedural_icons', 'raster_engine', 'glow_shaders' ],
+				capabilities: [
+					'cinematic_procedural_icons',
+					'raster_engine',
+					'glow_shaders',
+					'bilateral_sprite_generation',
+				],
 			};
 		},
 
@@ -1014,7 +1232,20 @@ const EmberlightIcons = (() => {
 			if (cache.size === 0) {
 				this.bakeAll();
 			}
-			return cache.get(id) || null;
+			if (cache.has(id)) {
+				return cache.get(id);
+			}
+			// Procedural bilateral sprite fallback for dynamic/unknown entities
+			try {
+				const dynamicUrl = this.bakeBilateralSprite({ seed: id, archetype: id });
+				if (dynamicUrl) {
+					cache.set(id, dynamicUrl);
+					return dynamicUrl;
+				}
+			} catch (_) { // NOSONAR
+				// Procedural fallback failure is non-fatal
+			}
+			return null;
 		},
 
 		/**
@@ -1029,6 +1260,74 @@ const EmberlightIcons = (() => {
 			if (!canvas?.toDataURL) return null; // Resolved S6582 optional chaining
 			drawMalakorBoss(isEnraged, heatPulse);
 			return canvas.toDataURL('image/png');
+		},
+
+		/**
+		 * Synthesizes a bilateral pixel-art sprite descriptor with symmetry kernel and morphological edges.
+		 * Pure data structure generation procedure.
+		 * @param {Object} [options]
+		 * @returns {any}
+		 */
+		generateBilateralSprite(options) {
+			return generateBilateralSprite(options);
+		},
+
+		/**
+		 * Renders a bilateral sprite onto a target CanvasRenderingContext2D.
+		 * @param {any} sprite
+		 * @param {number} [scale=4]
+		 * @param {CanvasRenderingContext2D | null} [targetCtx=null]
+		 * @returns {void}
+		 */
+		renderBilateralSprite(sprite, scale = 4, targetCtx = null) {
+			renderBilateralSprite(sprite, scale, targetCtx || ctx);
+		},
+
+		/**
+		 * Bakes a bilateral procedural pixel sprite into a PNG base64 Data URL.
+		 * @param {Object} [options] Generation options (w, h, seed, palette, archetype).
+		 * @param {number} [scale=6] Pixel enlargement multiplier.
+		 * @returns {string | null}
+		 */
+		bakeBilateralSprite(options = {}, scale = 6) {
+			ensureCanvas();
+			if (!canvas || !ctx || typeof canvas.toDataURL !== 'function') return null;
+			const sprite = generateBilateralSprite(options);
+			const targetScale = Math.max(1, Math.floor(scale));
+			const prevW = canvas.width;
+			const prevH = canvas.height;
+
+			canvas.width = sprite.w * targetScale;
+			canvas.height = sprite.h * targetScale;
+
+			ctx.clearRect(0, 0, canvas.width, canvas.height);
+			renderBilateralSprite(sprite, targetScale, ctx);
+
+			let dataUrl = null;
+			try {
+				dataUrl = canvas.toDataURL('image/png');
+			} catch (_) { }
+
+			canvas.width = prevW;
+			canvas.height = prevH;
+			return dataUrl;
+		},
+
+		/**
+		 * Retrieves the 4-color palette for a given archetype.
+		 * @param {string} archetype
+		 * @returns {readonly string[]}
+		 */
+		getBilateralArchetypePalette(archetype) {
+			return resolveBilateralPalette(archetype);
+		},
+
+		/**
+		 * Exposes the immutable bilateral palette catalog.
+		 * @returns {typeof BILATERAL_PALETTES}
+		 */
+		getBilateralPalettes() {
+			return BILATERAL_PALETTES;
 		},
 	};
 	//#endregion

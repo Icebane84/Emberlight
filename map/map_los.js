@@ -22,7 +22,25 @@ if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._Map
 
 	//#region [SEC-03] Raycast Line of Sight
 	/**
-	 * Computes line of sight visibility coordinates from player position.
+	 * Resolves ambient SovereignDDARaycaster class from window or global context.
+	 * [Internal Helper]
+	 * @returns {any} SovereignDDARaycaster constructor or null.
+	 */
+	function resolveRaycasterClass() {
+		if (typeof window !== "undefined" && window.SovereignDDARaycaster) {
+			return window.SovereignDDARaycaster;
+		}
+		const glob = /** @type {any} */ (typeof globalThis !== "undefined" ? globalThis : {});
+		if (glob.SovereignDDARaycaster) {
+			return glob.SovereignDDARaycaster;
+		}
+		return null;
+	}
+
+	/**
+	 * Computes line of sight visibility coordinates from player position using
+	 * the Amanatides & Woo (1987) Fast Voxel Traversal (DDA) algorithm.
+	 * Guarantees zero diagonal wall tunneling and O(1) step complexity.
 	 * Pure mathematical calculation procedure.
 	 *
 	 * @param {string[][]} map - 2D terrain grid matrix.
@@ -33,35 +51,47 @@ if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._Map
 	 */
 	function computeLineOfSight(map, px, py, radius = 7) {
 		const visible = new Set();
-		const height = map ? map.length : 0;
-		if (height === 0) return visible;
-		const width = map[0] ? map[0].length : 0;
+		if (!map || map.length === 0 || !map[0]) return visible;
+		const height = map.length;
+		const width = map[0].length;
 
 		visible.add(`${px},${py}`);
 
-		const steps = 48;
+		const Raycaster = resolveRaycasterClass();
+		if (!Raycaster) return visible;
+
+		const raycaster = new Raycaster(
+			map,
+			width,
+			height,
+			/** @param {any} tile */ (tile) => tile === "#",
+		);
+		const startX = px + 0.5;
+		const startY = py + 0.5;
+		const steps = 64;
+
 		for (let i = 0; i < steps; i++) {
 			const angle = (i / steps) * Math.PI * 2;
-			const dx = Math.cos(angle);
-			const dy = Math.sin(angle);
+			const targetX = startX + Math.cos(angle) * radius;
+			const targetY = startY + Math.sin(angle) * radius;
 
-			let cx = px + 0.5;
-			let cy = py + 0.5;
-
-			for (let step = 0; step < radius * 2; step++) {
-				cx += dx * 0.5;
-				cy += dy * 0.5;
-				const tx = Math.floor(cx);
-				const ty = Math.floor(cy);
-
-				if (tx < 0 || tx >= width || ty < 0 || ty >= height) break;
-				visible.add(`${tx},${ty}`);
-
-				if (map[ty][tx] === "#") {
-					break;
-				}
-			}
+			raycaster.traverseSegment(
+				startX,
+				startY,
+				targetX,
+				targetY,
+				/**
+				 * @param {number} x
+				 * @param {number} y
+				 * @param {any} tile
+				 */
+				(x, y, tile) => {
+					visible.add(`${x},${y}`);
+					return tile !== "#";
+				},
+			);
 		}
+
 		return visible;
 	}
 	//#endregion

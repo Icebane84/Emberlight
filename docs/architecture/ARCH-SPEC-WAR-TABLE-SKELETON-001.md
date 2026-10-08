@@ -1,9 +1,9 @@
 # ARCHITECTURAL SPECIFICATION: 4-Quadrant Combat Rig Foundation & Matrix Invariance
 
-**Document Identifier:** ARCH-SPEC-WAR-TABLE-SKELETON-001  
-**Timestamp:** 2026-09-13T15:25:00-04:00  
-**Governing Standards:** MPFS-001 / VSRP-001 / SDCP-001 / PMIP-001 / MVP-001  
-**Index Anchor:** PRS-001  
+**Document Identifier:** ARCH-SPEC-WAR-TABLE-SKELETON-001
+**Timestamp:** 2026-09-13T15:25:00-04:00
+**Governing Standards:** MPFS-001 / VSRP-001 / SDCP-001 / PMIP-001 / MVP-001
+**Index Anchor:** PRS-001
 **Test Suite Verification:** Pass 20 (Sentinel 20-Pass Test Battery, 131/131 Checks PASS)
 
 ---
@@ -15,6 +15,7 @@
 Prior to this specification, entering combat triggered a destructive viewport swap (`hideElement("expedition-rig")` / `showElement("combat-theater")`), discarding the 2x2 grid layout, creating layout thrashing, tearing down WebGL/2D canvas rendering contexts, and breaking the cohesive identity of the War Table.
 
 Under this specification:
+
 1. **Topology Preservation (Zero-Tear Down):** `#war-table-matrix` remains permanently mounted in the DOM across both Exploration and Combat modes.
 2. **Layer Inversion via Pure CSS:** Toggling combat state applies the `.combat-active-matrix` class to `#war-table-matrix`, seamlessly switching active layer display within each quadrant without re-creating DOM nodes or tearing down canvases.
 3. **Strict Lateral Isolation:** Quadrants 1 through 4 have zero direct peer-to-peer references or invocations. All cross-quadrant telemetry and coordination flows exclusively through the `EmberlightEventBus` via immutable PMIP-001 envelopes.
@@ -62,7 +63,7 @@ interface WarTableCombatProjection {
   activeActorId: string | null;
   activeTargetId: string | null;
   selectedAction: CombatAction | null;
-  
+
   // Quadrant 1: Spatial Top-Down Perspective
   q1Spatial: {
     allies: Array<{ id: string; name: string; hp: number; maxHp: number; row: "FRONT" | "BACK"; isFainted: boolean }>;

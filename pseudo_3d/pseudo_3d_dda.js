@@ -1,3 +1,4 @@
+/* cSpell:words Amanatides */
 /**
  * ============================================================================
  * PERIPHERAL DRIVER: PSEUDO-3D RAYCASTER - DDA RAYCASTING KERNEL & CAMERA MATH
@@ -210,6 +211,182 @@ const Pseudo3DDDA = (() => {
 		};
 	}
 
+	/**
+	 * Amanatides & Woo (1987) Fast Voxel Traversal Algorithm (DDA 2.5D / Voxel Raycaster).
+	 * Pure Vanilla JavaScript | Zero Trigonometry in Hot Loop | O(1) Per Boundary Step.
+	 */
+	class SovereignDDARaycaster {
+		/**
+		 * Constructs a new DDA Raycaster on a 1D flat or 2D nested grid.
+		 * @param {Array<string|number>|Array<Array<string|number>>|Uint8Array} grid - 1D or 2D grid matrix.
+		 * @param {number} mapWidth - Width of grid in cells.
+		 * @param {number} mapHeight - Height of grid in cells.
+		 * @param {Set<string|number>|((tile: any) => boolean)|Function|null} [solidPredicate=null] - Optional custom obstacle test.
+		 */
+		constructor(grid, mapWidth, mapHeight, solidPredicate = null) {
+			this.grid = grid;
+			this.width = Math.trunc(mapWidth);
+			this.height = Math.trunc(mapHeight);
+			this.is2D = Array.isArray(grid) && Array.isArray(grid[0]);
+			this.solidPredicate = solidPredicate;
+		}
+
+		/**
+		 * Retrieves the tile value at integer grid coordinate (x, y).
+		 * @param {number} x - Voxel grid column coordinate.
+		 * @param {number} y - Voxel grid row coordinate.
+		 * @returns {any} Tile value or null if out of bounds.
+		 */
+		getTile(x, y) {
+			if (x < 0 || x >= this.width || y < 0 || y >= this.height) {
+				return null;
+			}
+			const g = /** @type {any} */ (this.grid);
+			return this.is2D ? g[y][x] : g[y * this.width + x];
+		}
+
+		/**
+		 * Tests whether a tile value constitutes a solid blocking barrier.
+		 * @param {any} tile - Cell tile value.
+		 * @returns {boolean}
+		 */
+		isSolid(tile) {
+			if (tile === null || tile === undefined) return false;
+			if (typeof this.solidPredicate === 'function') {
+				return Boolean(this.solidPredicate(tile));
+			}
+			if (this.solidPredicate && typeof this.solidPredicate.has === 'function') {
+				return this.solidPredicate.has(tile);
+			}
+			if (WALL_TILES.has(tile)) return true;
+			if (typeof tile === 'number') return tile > 0;
+			return tile !== '.' && tile !== ' ' && tile !== 0;
+		}
+
+		/**
+		 * Casts an Amanatides & Woo DDA ray from origin (px, py) along direction vector (dx, dy).
+		 *
+		 * @param {number} px - Ray origin continuous X coordinate.
+		 * @param {number} py - Ray origin continuous Y coordinate.
+		 * @param {number} dx - Ray direction vector X component.
+		 * @param {number} dy - Ray direction vector Y component.
+		 * @param {number} [maxDist=32.0] - Maximum traversal distance.
+		 * @returns {{ hit: any, distance: number, side: number, mapX: number, mapY: number, hitX: number, hitY: number }}
+		 */
+		castRay(px, py, dx, dy, maxDist = 32.0) {
+			let mapX = Math.floor(px);
+			let mapY = Math.floor(py);
+			const deltaX = Math.abs(1 / (dx || 1e-6));
+			const deltaY = Math.abs(1 / (dy || 1e-6));
+			const stepX = dx < 0 ? -1 : 1;
+			let sideX = (dx < 0 ? (px - mapX) : (mapX + 1.0 - px)) * deltaX;
+			const stepY = dy < 0 ? -1 : 1;
+			let sideY = (dy < 0 ? (py - mapY) : (mapY + 1.0 - py)) * deltaY;
+			let hit = null;
+			let side = 0;
+			let distance = 0;
+
+			while (!hit && distance < maxDist) {
+				if (sideX < sideY) {
+					sideX += deltaX;
+					mapX += stepX;
+					side = 0;
+					distance = sideX - deltaX;
+				} else {
+					sideY += deltaY;
+					mapY += stepY;
+					side = 1;
+					distance = sideY - deltaY;
+				}
+
+				if (mapX < 0 || mapX >= this.width || mapY < 0 || mapY >= this.height) {
+					break;
+				}
+
+				const tile = this.getTile(mapX, mapY);
+				if (this.isSolid(tile)) {
+					hit = tile;
+					break;
+				}
+			}
+
+			const hitX = px + (dx || 1e-6) * distance;
+			const hitY = py + (dy || 1e-6) * distance;
+
+			return { hit, distance, side, mapX, mapY, hitX, hitY };
+		}
+
+		/**
+		 * Evaluates whether a cell is in bounds and visits it via callback.
+		 * [Internal Helper]
+		 * @param {number} x
+		 * @param {number} y
+		 * @param {(x: number, y: number, tile: any) => boolean|void} callback
+		 * @returns {boolean}
+		 */
+		_visitCell(x, y, callback) {
+			if (x < 0 || x >= this.width || y < 0 || y >= this.height) {
+				return false;
+			}
+			return callback(x, y, this.getTile(x, y)) !== false;
+		}
+
+		/**
+		 * Traverses all voxel grid cells along line segment from (x0, y0) to (x1, y1).
+		 * @param {number} x0 - Start coordinate X.
+		 * @param {number} y0 - Start coordinate Y.
+		 * @param {number} x1 - End coordinate X.
+		 * @param {number} y1 - End coordinate Y.
+		 * @param {(x: number, y: number, tile: any) => boolean|void} callback - Visitor callback.
+		 * @returns {boolean} True if completed without early termination.
+		 */
+		traverseSegment(x0, y0, x1, y1, callback) {
+			const dx = x1 - x0;
+			const dy = y1 - y0;
+			const totalDist = Math.hypot(dx, dy);
+			const startMapX = Math.floor(x0);
+			const startMapY = Math.floor(y0);
+
+			if (!this._visitCell(startMapX, startMapY, callback) || totalDist < 1e-6) {
+				return true;
+			}
+
+			let mapX = startMapX;
+			let mapY = startMapY;
+			const targetMapX = Math.floor(x1);
+			const targetMapY = Math.floor(y1);
+
+			const deltaX = Math.abs(1 / (dx / totalDist || 1e-6));
+			const deltaY = Math.abs(1 / (dy / totalDist || 1e-6));
+			const stepX = dx < 0 ? -1 : 1;
+			let sideX = (dx < 0 ? (x0 - mapX) : (mapX + 1.0 - x0)) * deltaX;
+			const stepY = dy < 0 ? -1 : 1;
+			let sideY = (dy < 0 ? (y0 - mapY) : (mapY + 1.0 - y0)) * deltaY;
+
+			let currentDist = 0;
+			while (currentDist < totalDist) {
+				if (mapX === targetMapX && mapY === targetMapY) {
+					break;
+				}
+				if (sideX < sideY) {
+					sideX += deltaX;
+					mapX += stepX;
+					currentDist = sideX - deltaX;
+				} else {
+					sideY += deltaY;
+					mapY += stepY;
+					currentDist = sideY - deltaY;
+				}
+
+				if (!this._visitCell(mapX, mapY, callback)) {
+					return false;
+				}
+			}
+
+			return true;
+		}
+	}
+
 	return Object.freeze({
 		WALL_TILES,
 		computeCameraPlane,
@@ -218,13 +395,28 @@ const Pseudo3DDDA = (() => {
 		computeWallColumnPlan,
 		computeFloorRowPlan,
 		lerpCamera,
+		SovereignDDARaycaster,
+		EmberlightDDARaycaster: SovereignDDARaycaster,
 	});
 })();
 
 if (typeof window !== 'undefined') {
-	window._Pseudo3DInternal = window._Pseudo3DInternal || {};
-	window._Pseudo3DInternal.DDA = Pseudo3DDDA;
+	const win = /** @type {any} */ (window);
+	win._Pseudo3DInternal = win._Pseudo3DInternal || {};
+	win._Pseudo3DInternal.DDA = Pseudo3DDDA;
+	win.SovereignDDARaycaster = Pseudo3DDDA.SovereignDDARaycaster;
+	win.EmberlightDDARaycaster = Pseudo3DDDA.SovereignDDARaycaster;
 }
+
+((g) => {
+	if (!g) return;
+	const target = /** @type {any} */ (g);
+	target._Pseudo3DInternal = target._Pseudo3DInternal || {};
+	target._Pseudo3DInternal.DDA = Pseudo3DDDA;
+	target.SovereignDDARaycaster = Pseudo3DDDA.SovereignDDARaycaster;
+	target.EmberlightDDARaycaster = Pseudo3DDDA.SovereignDDARaycaster;
+})(typeof globalThis !== 'undefined' ? globalThis : null);
+
 if (typeof module !== 'undefined' && module.exports) {
 	module.exports = Pseudo3DDDA;
 }

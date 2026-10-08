@@ -47,6 +47,14 @@ const testSuites = [
     name: 'VLT-003 Compliance & Jump Table Verification Suite',
     file: 'testing/test_vlt_compliance.js',
   },
+  {
+    name: 'Emberlight PRNG Determinism & Decorrelation Battery',
+    file: 'testing/test_prng.js',
+  },
+  {
+    name: 'Emberlight Continuous Noise & Simplex Battery',
+    file: 'testing/test_noise.js',
+  },
 ];
 
 console.log('╔══════════════════════════════════════════════════════════════╗');

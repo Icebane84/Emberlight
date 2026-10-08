@@ -1,4 +1,4 @@
-/* cSpell:words VSRP KNOCKBACK unsubs targetable */
+/* cSpell:words VSRP KNOCKBACK unsubs targetable FABRIK fabrik */
 /**
  * ============================================================================
  * EMBERLIGHT SOVEREIGN ENGINE: COMBAT VFX PRESENTATION DRIVER
@@ -107,10 +107,31 @@
  */
 
 /**
+ * @typedef {Object} KinematicTendril
+ * @property {SovereignFABRIKSolver|null} solver - Solver instance.
+ * @property {number} startX - Origin base X.
+ * @property {number} startY - Origin base Y.
+ * @property {number} targetX - Destination terminus X.
+ * @property {number} targetY - Destination terminus Y.
+ * @property {string} color - Stroke color.
+ * @property {number} alpha - Current opacity multiplier.
+ * @property {number} life - Remaining lifetime in seconds.
+ * @property {number} maxLife - Total initialized lifespan in seconds.
+ */
+
+/**
+ * @typedef {Object} TendrilStrikeOptions
+ * @property {string} [color] - Custom stroke color token.
+ * @property {number} [segments] - Number of bone segments.
+ * @property {number} [segmentLength] - Length per bone segment.
+ */
+
+/**
  * @typedef {Object} CombatVFXDiagnostics
  * @property {string} driverId - Authoritative driver identifier.
  * @property {number} activeParticles - Count of live allocated particles in typed buffer.
  * @property {number} activeSlashes - Count of active Bezier trajectories.
+ * @property {number} [activeTendrils] - Count of active kinematic tendrils.
  * @property {number} activeTexts - Count of active floating damage numbers.
  * @property {boolean} hasBanner - Indicates if cinematic marquee is currently rendering.
  * @property {boolean} isLoopRunning - Status of requestAnimationFrame loop.
@@ -182,6 +203,9 @@ const EmberlightCombatVFX = (() => {
 	/** @type {FloatingText[]} */
 	const floatingTexts = [];
 
+	/** @type {KinematicTendril[]} */
+	const tendrils = [];
+
 	/** @type {CinematicBanner|null} */
 	let activeBanner = null;
 
@@ -241,6 +265,31 @@ const EmberlightCombatVFX = (() => {
 
 	//#region [SEC-03] Spatial Coordinate Mapping & Target Projection
 	/**
+	 * Resolves the DOM element representing a targeted slot in the combat theater.
+	 * [Internal Helper]
+	 * @param {boolean} isAllyTarget
+	 * @param {number} targetIndex
+	 * @returns {Element|null}
+	 */
+	function resolveSlotElement(isAllyTarget, targetIndex) {
+		if (typeof document === "undefined") return null;
+		if (isAllyTarget) {
+			const cards = document.querySelectorAll(".character");
+			return (
+				cards[targetIndex] ||
+				document.querySelector(".character.active-turn") ||
+				document.querySelector(".character:not(.fainted)")
+			);
+		}
+		const enemies = document.querySelectorAll(".enemy");
+		return (
+			enemies[targetIndex] ||
+			document.querySelector(".enemy.targetable") ||
+			document.querySelector(".enemy:not(.dead)")
+		);
+	}
+
+	/**
 	 * Resolves physical pixel center coordinates for a target formation slot.
 	 * [Pure Query / DOM Inspection]
 	 * @param {boolean} isAllyTarget - Whether targeting party formation or hostile wing.
@@ -253,36 +302,18 @@ const EmberlightCombatVFX = (() => {
 		const rect = canvas.getBoundingClientRect
 			? canvas.getBoundingClientRect()
 			: { left: 0, top: 0, width: 600, height: 400 };
-		if (typeof document !== "undefined") {
-			if (isAllyTarget) {
-				const cards = document.querySelectorAll(".character");
-				const targetCard =
-					cards[targetIndex] ||
-					document.querySelector(".character.active-turn") ||
-					document.querySelector(".character:not(.fainted)");
-				if (targetCard?.getBoundingClientRect) {
-					const cRect = targetCard.getBoundingClientRect();
-					return {
-						x: cRect.left - rect.left + cRect.width / 2,
-						y: cRect.top - rect.top + cRect.height / 2,
-					};
-				}
-				return { x: (rect.width || 600) * 0.25, y: (rect.height || 400) * 0.5 };
-			}
-			const enemies = document.querySelectorAll(".enemy");
-			const targetEnemy =
-				enemies[targetIndex] ||
-				document.querySelector(".enemy.targetable") ||
-				document.querySelector(".enemy:not(.dead)");
-			if (targetEnemy?.getBoundingClientRect) {
-				const eRect = targetEnemy.getBoundingClientRect();
-				return {
-					x: eRect.left - rect.left + eRect.width / 2,
-					y: eRect.top - rect.top + eRect.height / 2,
-				};
-			}
+
+		const targetEl = resolveSlotElement(isAllyTarget, targetIndex);
+		if (targetEl?.getBoundingClientRect) {
+			const elRect = targetEl.getBoundingClientRect();
+			return {
+				x: elRect.left - rect.left + elRect.width / 2,
+				y: elRect.top - rect.top + elRect.height / 2,
+			};
 		}
-		return { x: (rect.width || 600) * 0.75, y: (rect.height || 400) * 0.5 };
+
+		const defaultRatio = isAllyTarget ? 0.25 : 0.75;
+		return { x: (rect.width || 600) * defaultRatio, y: (rect.height || 400) * 0.5 };
 	}
 	//#endregion
 
@@ -439,6 +470,47 @@ const EmberlightCombatVFX = (() => {
 		spawnBurst(x, y, 18, 200, 5.0);
 		startLoop();
 	}
+
+	/**
+	 * Renders a procedural FABRIK articulated tendril strike toward the target entity.
+	 * [State Mutating]
+	 * @param {boolean} [isAllyTarget=false] - Target side orientation.
+	 * @param {number} [targetIndex=0] - Target slot index.
+	 * @param {TendrilStrikeOptions} [options={}] - Kinematic options.
+	 * @returns {void}
+	 */
+	function playTendrilStrike(isAllyTarget = false, targetIndex = 0, options = {}) {
+		const coords = getTargetCoords(isAllyTarget, targetIndex);
+		const originX = isAllyTarget ? coords.x + 160 : coords.x - 160;
+		const originY = coords.y + (prngFloat() * 60 - 30);
+		const color = options.color || (isAllyTarget ? "#ef4444" : "#a855f7");
+		const segCount = options.segments || 5;
+		const segLen = options.segmentLength || 36;
+
+		let solver = null;
+		if (typeof SovereignFABRIKSolver !== "undefined") {
+			const lengths = new Float32Array(segCount);
+			lengths.fill(segLen);
+			solver = new SovereignFABRIKSolver(lengths);
+			solver.solve(originX, originY, coords.x, coords.y, 4);
+		}
+
+		tendrils.push({
+			solver,
+			startX: originX,
+			startY: originY,
+			targetX: coords.x,
+			targetY: coords.y,
+			color,
+			alpha: 1.0,
+			life: 0.35,
+			maxLife: 0.35,
+		});
+
+		triggerScreenShake(6);
+		spawnBurst(coords.x, coords.y, 14, isAllyTarget ? 0 : 280, 4.5);
+		startLoop();
+	}
 	//#endregion
 
 	//#region [SEC-07] Simulation Tick & Particle Life State Propagation
@@ -507,6 +579,23 @@ const EmberlightCombatVFX = (() => {
 	}
 
 	/**
+	 * Updates life cycles and opacities of active articulated tendrils.
+	 * [State Mutating]
+	 * @param {number} dt - Frame elapsed delta time.
+	 * @returns {void}
+	 */
+	function updateTendrils(dt) {
+		for (let i = tendrils.length - 1; i >= 0; i--) {
+			const t = tendrils[i];
+			t.life -= dt;
+			t.alpha = Math.max(0, t.life / t.maxLife);
+			if (t.life <= 0) {
+				tendrils.splice(i, 1);
+			}
+		}
+	}
+
+	/**
 	 * Advances the animation envelope of the cinematic marquee banner.
 	 * [State Mutating]
 	 * @param {number} dt - Frame elapsed delta time.
@@ -549,6 +638,7 @@ const EmberlightCombatVFX = (() => {
 	function updateVFX(dt) {
 		updateParticleBuffers(dt);
 		updateSlashCurves(dt);
+		updateTendrils(dt);
 		updateFloatingTexts(dt);
 		updateCinematicBanner(dt);
 		updateScreenShake(dt);
@@ -594,6 +684,33 @@ const EmberlightCombatVFX = (() => {
 			targetCtx.moveTo(s.startX, s.startY);
 			targetCtx.quadraticCurveTo(s.ctrlX, s.ctrlY, s.endX, s.endY);
 			targetCtx.stroke();
+			targetCtx.restore();
+		});
+	}
+
+	/**
+	 * Renders procedural FABRIK articulated tendrils to the 2D context.
+	 * [DOM Canvas Render]
+	 * @returns {void}
+	 */
+	function renderTendrils() {
+		if (!ctx) return;
+		const targetCtx = ctx;
+		tendrils.forEach((t) => {
+			if (!t.solver) return;
+			targetCtx.save();
+			targetCtx.globalAlpha = t.alpha;
+			if (typeof EmberlightFABRIK !== "undefined" && typeof EmberlightFABRIK.renderChain === "function") {
+				EmberlightFABRIK.renderChain(targetCtx, t.solver.getPoints(), {
+					strokeStyle: t.color,
+					lineWidth: 3.5,
+					glowColor: t.color,
+					glowBlur: 6,
+					jointColor: "#ffffff",
+					jointRadius: 2,
+					taper: true,
+				});
+			}
 			targetCtx.restore();
 		});
 	}
@@ -650,6 +767,34 @@ const EmberlightCombatVFX = (() => {
 	}
 
 	/**
+	 * Evaluates whether active visual effects require continued loop ticks.
+	 * [Pure Query]
+	 * @returns {boolean}
+	 */
+	function hasRunningVFX() {
+		return (
+			activeParticleCount > 0 ||
+			slashes.length > 0 ||
+			tendrils.length > 0 ||
+			floatingTexts.length > 0 ||
+			activeBanner !== null ||
+			shakeIntensity > 0.2
+		);
+	}
+
+	/**
+	 * Applies screen shake displacement to the 2D rendering context.
+	 * [State Mutating]
+	 * @returns {void}
+	 */
+	function applyScreenShakeTransform() {
+		if (!ctx || shakeIntensity <= 0.2) return;
+		const ox = (prngFloat() * 2 - 1) * shakeIntensity;
+		const oy = (prngFloat() * 2 - 1) * shakeIntensity;
+		ctx.translate(ox, oy);
+	}
+
+	/**
 	 * Executes a single frame render pass compositing particles, curves, text, and overlays.
 	 * [State Mutating / DOM Canvas Render]
 	 * @returns {void}
@@ -665,14 +810,11 @@ const EmberlightCombatVFX = (() => {
 		ctx.clearRect(0, 0, w, h);
 
 		ctx.save();
-		if (shakeIntensity > 0.2) {
-			const ox = (prngFloat() * 2 - 1) * shakeIntensity;
-			const oy = (prngFloat() * 2 - 1) * shakeIntensity;
-			ctx.translate(ox, oy);
-		}
+		applyScreenShakeTransform();
 
 		renderParticles();
 		renderSlashes();
+		renderTendrils();
 		renderFloatingTexts();
 		renderBanner(w, h);
 
@@ -680,14 +822,7 @@ const EmberlightCombatVFX = (() => {
 
 		updateVFX(0.016);
 
-		const hasActiveEffects =
-			activeParticleCount > 0 ||
-			slashes.length > 0 ||
-			floatingTexts.length > 0 ||
-			activeBanner !== null ||
-			shakeIntensity > 0.2;
-
-		if (hasActiveEffects && typeof requestAnimationFrame !== "undefined") {
+		if (hasRunningVFX() && typeof requestAnimationFrame !== "undefined") {
 			animFrameId = requestAnimationFrame(renderFrame);
 		} else {
 			animFrameId = null;
@@ -862,6 +997,7 @@ const EmberlightCombatVFX = (() => {
 
 		spawnBurst,
 		playSlashVFX,
+		playTendrilStrike,
 		triggerScreenShake,
 		showBanner,
 
@@ -875,6 +1011,7 @@ const EmberlightCombatVFX = (() => {
 				driverId: "combat_vfx",
 				activeParticles: activeParticleCount,
 				activeSlashes: slashes.length,
+				activeTendrils: tendrils.length,
 				activeTexts: floatingTexts.length,
 				hasBanner: Boolean(activeBanner),
 				isLoopRunning: Boolean(animFrameId),
@@ -894,6 +1031,7 @@ const EmberlightCombatVFX = (() => {
 				capabilities: [
 					"typed_particle_pool",
 					"bezier_slashes",
+					"fabrik_kinematics",
 					"kinetic_floating_text",
 					"cinematic_banners",
 					"screen_shake",
@@ -928,6 +1066,7 @@ const EmberlightCombatVFX = (() => {
 			eventBus = null;
 			activeParticleCount = 0;
 			slashes.length = 0;
+			tendrils.length = 0;
 			floatingTexts.length = 0;
 			activeBanner = null;
 			shakeIntensity = 0;

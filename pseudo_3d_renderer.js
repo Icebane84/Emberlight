@@ -50,6 +50,8 @@ const EmberlightPseudo3D = (() => {
 		BILLBOARD_GLYPHS,
 		resolveBillboardShadow,
 		getMinimapTileColor,
+		SovereignDDARaycaster: DDA.SovereignDDARaycaster,
+		EmberlightDDARaycaster: DDA.SovereignDDARaycaster,
 	});
 
 	/**

@@ -147,9 +147,12 @@ declare interface PRNGFacade {
     shuffle?<T>(array: readonly T[] | T[]): T[];
     getState(): number;
     setState(seed: number | string): void;
-    fork?(): unknown;
+    fork?(salt?: number | string): unknown;
+    clone?(): unknown;
     [key: string]: unknown;
   };
+  splitmix32?(seed: number): number;
+  mulberry32Step?(state: number): { value: number; nextState: number };
   nextInt?(min: number, max: number): number;
   nextFloat?(): number;
   nextBool?(chance?: number): boolean;
@@ -1749,7 +1752,127 @@ declare interface PhoenixVLTComplianceEngineFacade {
 
 declare var PhoenixVLTComplianceEngine: PhoenixVLTComplianceEngineFacade;
 
+declare class SovereignFABRIKSolver {
+  constructor(boneLengths: number[] | Float32Array);
+  lengths: Float32Array;
+  jointCount: number;
+  totalLength: number;
+  points: Float32Array;
+  solve(bx: number, by: number, tx: number, ty: number, iterations?: number, tolerance?: number): Float32Array;
+  resetPose(bx?: number, by?: number, angle?: number): Float32Array;
+  solveWithPole(bx: number, by: number, tx: number, ty: number, poleX: number, poleY: number, iterations?: number): Float32Array;
+  getJoint(index: number, out?: { x: number; y: number } | null): { x: number; y: number };
+  getBase(out?: { x: number; y: number } | null): { x: number; y: number };
+  getEndEffector(out?: { x: number; y: number } | null): { x: number; y: number };
+  getPoints(): Float32Array;
+  getJointCount(): number;
+  getTotalLength(): number;
+  getBoneLengths(): Float32Array;
+}
+
+declare var SovereignFABRIKSolver: typeof SovereignFABRIKSolver;
+declare var EmberlightFABRIKSolver: typeof SovereignFABRIKSolver;
+
+declare interface EmberlightFABRIKFacade {
+  createSolver(boneLengths: number[] | Float32Array): SovereignFABRIKSolver;
+  createUniformChain(segmentCount: number, segmentLength: number): SovereignFABRIKSolver;
+  createTaperedChain(segmentCount: number, startLength: number, endLength: number): SovereignFABRIKSolver;
+  solveChain(boneLengths: number[] | Float32Array, bx: number, by: number, tx: number, ty: number, iterations?: number, tolerance?: number): Float32Array;
+  renderChain(ctx: unknown, points: Float32Array, options?: {
+    strokeStyle?: string;
+    lineWidth?: number;
+    taper?: boolean;
+    glowColor?: string | null;
+    glowBlur?: number;
+    drawJoints?: boolean;
+    jointColor?: string;
+    jointRadius?: number;
+  }): void;
+  getDiagnostics(): Record<string, unknown>;
+  getModuleInfo(): {
+    moduleId: string;
+    version: string;
+    protocolVersion: string;
+    capabilities: string[];
+  };
+}
+
+declare var EmberlightFABRIK: EmberlightFABRIKFacade;
+
+declare class SovereignDDARaycaster {
+  constructor(grid: Array<string | number> | Array<Array<string | number>> | Uint8Array, mapWidth: number, mapHeight: number, solidPredicate?: ((tile: any) => boolean) | Set<string | number> | Function | null);
+  grid: Array<string | number> | Array<Array<string | number>> | Uint8Array;
+  width: number;
+  height: number;
+  is2D: boolean;
+  solidPredicate: ((tile: any) => boolean) | Set<string | number> | Function | null;
+  getTile(x: number, y: number): any;
+  isSolid(tile: any): boolean;
+  castRay(px: number, py: number, dx: number, dy: number, maxDist?: number): {
+    hit: any;
+    distance: number;
+    side: number;
+    mapX: number;
+    mapY: number;
+    hitX: number;
+    hitY: number;
+  };
+  traverseSegment(x0: number, y0: number, x1: number, y1: number, callback: (x: number, y: number, tile: any) => boolean | void): boolean;
+}
+
+declare var SovereignDDARaycaster: typeof SovereignDDARaycaster;
+declare var EmberlightDDARaycaster: typeof SovereignDDARaycaster;
+
+declare class SovereignNoise {
+  constructor(seed?: number | string);
+  perm: Uint8Array;
+  permMod12: Uint8Array;
+  seed: number;
+  reseed(seed: number | string): void;
+  noise2D(x: number, y: number): number;
+  fbm2D(x: number, y: number, octaves?: number, lacunarity?: number, gain?: number): number;
+  turbulence2D(x: number, y: number, octaves?: number, lacunarity?: number, gain?: number): number;
+  ridge2D(x: number, y: number, octaves?: number, lacunarity?: number, gain?: number): number;
+  warp2D(x: number, y: number, strength?: number, octaves?: number): number;
+  generateHeightmap(width: number, height: number, options?: {
+    scale?: number;
+    octaves?: number;
+    lacunarity?: number;
+    gain?: number;
+    outBuffer?: Float32Array;
+  }): Float32Array;
+}
+
+declare interface EmberlightNoiseFacade {
+  create(seed?: number | string): SovereignNoise;
+  SovereignNoise: typeof SovereignNoise;
+  getDiagnostics(): {
+    moduleId: string;
+    protocolVersion: string;
+    version: string;
+    algorithm: string;
+    zeroAllocHotLoop: boolean;
+    deterministic: boolean;
+  };
+  getModuleInfo(): {
+    moduleId: string;
+    version: string;
+    protocolVersion: string;
+    capabilities: string[];
+  };
+}
+
+declare var SovereignNoise: typeof SovereignNoise;
+declare var EmberlightNoise: EmberlightNoiseFacade;
+
 declare interface Window {
+  SovereignNoise?: typeof SovereignNoise;
+  EmberlightNoise?: EmberlightNoiseFacade;
+  SovereignDDARaycaster?: typeof SovereignDDARaycaster;
+  EmberlightDDARaycaster?: typeof SovereignDDARaycaster;
+  SovereignFABRIKSolver?: typeof SovereignFABRIKSolver;
+  EmberlightFABRIKSolver?: typeof SovereignFABRIKSolver;
+  EmberlightFABRIK?: EmberlightFABRIKFacade;
   PhoenixVLTComplianceEngine?: PhoenixVLTComplianceEngineFacade;
   PhoenixSentinelEvaluator?: PhoenixSentinelEvaluatorFacade;
   PhoenixSovereignEngine?: PhoenixSovereignEngineFacade;
@@ -1764,3 +1887,5 @@ declare interface Window {
   evaluateProposalWithSentinel?: PhoenixSentinelEvaluatorFacade;
   showDirectoryPicker?: () => Promise<unknown>;
 }
+
+

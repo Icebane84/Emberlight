@@ -28,6 +28,7 @@ const EMBERLIGHT_SCRIPT_LOAD_ORDER = Object.freeze([
   // Manifest facade (seals membrane → deepFreeze → export EmberlightManifest)
   'manifest.js',
   'prng.js',
+  'noise.js',
 
   // ── Tier 1: Host Harness Core ─────────────────────────────────────────────
   'session_store.js',
@@ -52,6 +53,7 @@ const EMBERLIGHT_SCRIPT_LOAD_ORDER = Object.freeze([
   'sprite_baker.js',
 
   // ── Tier 3: Rendering Pipeline ────────────────────────────────────────────
+  'fabrik_ik.js',
   'combat_vfx.js',
   // Dynamic Lights domain subsystems (populate window._DynamicLightsInternal)
   'dynamic_lights/dynamic_lights_primitives.js',

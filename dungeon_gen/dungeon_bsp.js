@@ -59,10 +59,14 @@ if (typeof globalThis !== 'undefined') globalThis._DungeonGenInternal = globalTh
 		const { rx, ry, rw, rh } = leaf;
 		const { rng, rooms } = env;
 		const minRoomSize = 3;
-		const actualW = Math.max(minRoomSize, Math.floor(rng() * (rw - 2)) + 2);
-		const actualH = Math.max(minRoomSize, Math.floor(rng() * (rh - 2)) + 2);
-		const startX = rx + Math.floor(rng() * (rw - actualW - 1)) + 1;
-		const startY = ry + Math.floor(rng() * (rh - actualH - 1)) + 1;
+		const maxW = Math.max(minRoomSize, rw - 2);
+		const maxH = Math.max(minRoomSize, rh - 2);
+		const actualW = Math.max(minRoomSize, Math.min(maxW, Math.floor(rng() * (maxW - minRoomSize + 1)) + minRoomSize));
+		const actualH = Math.max(minRoomSize, Math.min(maxH, Math.floor(rng() * (maxH - minRoomSize + 1)) + minRoomSize));
+		const availX = Math.max(0, rw - actualW - 1);
+		const availY = Math.max(0, rh - actualH - 1);
+		const startX = rx + Math.floor(rng() * (availX + 1));
+		const startY = ry + Math.floor(rng() * (availY + 1));
 
 		rooms.push({
 			x: startX,
@@ -138,14 +142,16 @@ if (typeof globalThis !== 'undefined') globalThis._DungeonGenInternal = globalTh
 	 */
 	function carveCorridorH(map, startX, targetX, cy, w, h, carvedCoords) {
 		let cx = startX;
-		while (cx !== targetX) {
+		const dir = cx < targetX ? 1 : -1;
+		while (true) {
 			if (cy > 0 && cy < h - 1 && cx > 0 && cx < w - 1) {
 				if (map[cy][cx] === "#") {
 					map[cy][cx] = ".";
 					carvedCoords.push({ x: cx, y: cy });
 				}
 			}
-			cx += cx < targetX ? 1 : -1;
+			if (cx === targetX) break;
+			cx += dir;
 		}
 		return cx;
 	}
@@ -163,14 +169,16 @@ if (typeof globalThis !== 'undefined') globalThis._DungeonGenInternal = globalTh
 	 */
 	function carveCorridorV(map, cx, startY, targetY, w, h, carvedCoords) {
 		let cy = startY;
-		while (cy !== targetY) {
+		const dir = cy < targetY ? 1 : -1;
+		while (true) {
 			if (cy > 0 && cy < h - 1 && cx > 0 && cx < w - 1) {
 				if (map[cy][cx] === "#") {
 					map[cy][cx] = ".";
 					carvedCoords.push({ x: cx, y: cy });
 				}
 			}
-			cy += cy < targetY ? 1 : -1;
+			if (cy === targetY) break;
+			cy += dir;
 		}
 		return cy;
 	}

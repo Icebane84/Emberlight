@@ -8,11 +8,11 @@
  *
  * TABLE OF CONTENTS & NAVIGATION ANCHORS:
  *   [SEC-01] Type Definitions & Contract Schemas
- *   [SEC-02] Mulberry32 Mathematical Kernel Step Function
+ *   [SEC-02] SplitMix32 & Mulberry32 Mathematical Kernels
  *   [SEC-03] PRNG Stream Factory & Seed Initialization
  *   [SEC-04] Scalar Distribution Generators (Float, Int, Bool)
  *   [SEC-05] Collection & Sampling Utility Operators
- *   [SEC-06] State Snapshotting, Restoration & Forking Gateways
+ *   [SEC-06] State Snapshotting, Restoration, Cloning & Forking
  *   [SEC-07] Module Export & Global Scope Bindings
  * ============================================================================
  */
@@ -34,11 +34,26 @@ const EmberlightPRNG = (() => {
 	 * @property {<T>(arr: T[]) => T[]} shuffle - Returns a deterministic copy of the array shuffled.
 	 * @property {() => number} getState - Serializes internal state for deterministic snapshotting.
 	 * @property {(state: number | string) => void} setState - Restores internal state.
-	 * @property {() => PRNGStream} fork - Clones this PRNG stream at its exact current state.
+	 * @property {(salt?: number | string) => PRNGStream} fork - Forks an isolated, decorrelated child PRNG stream.
+	 * @property {() => PRNGStream} clone - Clones this PRNG stream at its exact current state.
 	 */
 	//#endregion
 
-	//#region [SEC-02] Mulberry32 Mathematical Kernel Step Function
+	//#region [SEC-02] SplitMix32 & Mulberry32 Mathematical Kernels
+	/**
+	 * Pure SplitMix32 single-step bit-mixing decorrelator.
+	 * Passes an integer seed through high-avalanche mixing to decorrelate
+	 * low-entropy sequential inputs (e.g., consecutive floor/room/frame seeds).
+	 * @param {number} seed - Input 32-bit integer seed value.
+	 * @returns {number} High-entropy 32-bit unsigned integer.
+	 */
+	function splitmix32(seed) {
+		let z = Math.trunc(seed + 0x9E3779B9);
+		z = Math.imul(z ^ (z >>> 16), 0x21F0AAAD);
+		z = Math.imul(z ^ (z >>> 15), 0x735A2D97);
+		return ((z ^ (z >>> 15)) >>> 0);
+	}
+
 	/**
 	 * Internal pure Mulberry32 single-step generator.
 	 * State is a 32-bit unsigned integer.
@@ -58,21 +73,32 @@ const EmberlightPRNG = (() => {
 
 	//#region [SEC-03] PRNG Stream Factory & Seed Initialization
 	/**
+	 * Computes a 32-bit integer hash from a string seed.
+	 * @param {string} str - Input seed string.
+	 * @returns {number} 32-bit unsigned hash.
+	 */
+	function hashStringSeed(str) {
+		let hash = 0;
+		for (let i = 0; i < str.length; i++) {
+			hash = Math.trunc(Math.imul(31, hash) + (str.codePointAt(i) || 0));
+		}
+		return hash >>> 0;
+	}
+
+	/**
 	 * Creates an isolated, deterministic PRNG stream instance.
-	 * State-initializing factory procedure.
+	 * State-initializing factory procedure with SplitMix32 decorrelation.
 	 * @param {number | string} [initialSeed=1337] - Numeric or string seed value.
 	 * @returns {PRNGStream} Configured deterministic PRNG stream instance.
 	 */
 	function create(initialSeed = 1337) {
 		let currentSeed = 0;
 		if (typeof initialSeed === 'string') {
-			let hash = 0;
-			for (let i = 0; i < initialSeed.length; i++) {
-				hash = Math.trunc(Math.imul(31, hash) + (initialSeed.codePointAt(i) || 0));
-			}
-			currentSeed = hash >>> 0;
+			const hash = hashStringSeed(initialSeed);
+			currentSeed = splitmix32(hash);
 		} else {
-			currentSeed = (Number(initialSeed) || 1337) >>> 0;
+			const rawSeed = initialSeed === 0 ? 0 : ((Number(initialSeed) || 1337) >>> 0);
+			currentSeed = splitmix32(rawSeed);
 		}
 
 		const prng = {
@@ -149,7 +175,7 @@ const EmberlightPRNG = (() => {
 			},
 			//#endregion
 
-			//#region [SEC-06] State Snapshotting, Restoration & Forking Gateways
+			//#region [SEC-06] State Snapshotting, Restoration, Cloning & Forking
 			/**
 			 * Serializes internal state for deterministic snapshotting[cite: 5].
 			 * Pure state accessor procedure.
@@ -160,7 +186,7 @@ const EmberlightPRNG = (() => {
 			},
 
 			/**
-			 * Restores internal state[cite: 5].
+			 * Restores internal state directly without additional bit-mixing.
 			 * State-mutating restoration procedure.
 			 * @param {number | string} state - Target state seed value.
 			 * @returns {void}
@@ -170,13 +196,37 @@ const EmberlightPRNG = (() => {
 			},
 
 			/**
-			 * Clones this PRNG stream at its exact current state[cite: 5].
+			 * Clones this PRNG stream at its exact current state without advancing parent.
 			 * Pure cloning factory procedure.
-			 * @returns {PRNGStream} Forked PRNG stream instance.
+			 * @returns {PRNGStream} Cloned PRNG stream instance with identical state.
 			 */
-			fork() {
-				const forked = create(currentSeed);
-				return forked;
+			clone() {
+				const cloned = create(1337);
+				cloned.setState(currentSeed);
+				return cloned;
+			},
+
+			/**
+			 * Forks this PRNG stream into an isolated, decorrelated child stream.
+			 * Advances the parent stream state by one step and mixes the parent
+			 * state with a golden-ratio salt (or custom salt) via SplitMix32,
+			 * guaranteeing that the parent and child sequences diverge immediately
+			 * without future value mirroring.
+			 * @param {number | string} [salt=0x9E3779B9] - Optional branching salt.
+			 * @returns {PRNGStream} Forked, decorrelated child PRNG stream instance.
+			 */
+			fork(salt = 0x9E3779B9) {
+				const parentStep = mulberry32Step(currentSeed);
+				currentSeed = parentStep.nextState;
+
+				const saltVal = typeof salt === 'string'
+					? hashStringSeed(salt)
+					: (Number(salt) || 0x9E3779B9) >>> 0;
+
+				const childSeed = splitmix32(Math.trunc(parentStep.nextState ^ saltVal));
+				const child = create(1337);
+				child.setState(childSeed);
+				return child;
 			},
 		};
 
@@ -187,6 +237,8 @@ const EmberlightPRNG = (() => {
 	//#region [SEC-07] Module Export & Global Scope Bindings
 	return Object.freeze({
 		create,
+		splitmix32,
+		mulberry32Step,
 	});
 	//#endregion
 })();

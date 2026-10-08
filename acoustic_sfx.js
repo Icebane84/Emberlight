@@ -137,6 +137,8 @@ const EmberlightAcousticSFX = (() => {
 	const activeNodes = new Set();
 	/** @type {Map<string, AudioBuffer>} */
 	const impulseBuffers = new Map();
+	/** @type {Map<string, any>} */
+	const sfxBuffers = new Map();
 
 	/**
 	 * Pre-configured acoustic environment zone definitions.
@@ -146,6 +148,30 @@ const EmberlightAcousticSFX = (() => {
 		MEADOW: { dry: 0.95, wet: 0.05, decay: 0.25, power: 3.5 },
 		TOWN: { dry: 0.82, wet: 0.18, decay: 0.65, power: 2.2 },
 		CRYPT: { dry: 0.52, wet: 0.48, decay: 2.4, power: 1.6 },
+	});
+
+	/**
+	 * Micro-ZzFX parametric sound vectors: [vol, freq, attack, sustain, decay, waveType, noise, sweep].
+	 * Wave types: 0=sine, 1=square, 2=triangle, 3=sawtooth.
+	 * @type {Readonly<Record<string, Readonly<number[]>>>}
+	 */
+	const SFX_PARAMETRIC_VECTORS = Object.freeze({
+		SELECT: Object.freeze([0.15, 520, 0.005, 0.02, 0.04, 1, 0, 0]),
+		STEP: Object.freeze([0.08, 110, 0.005, 0.01, 0.035, 2, 0.05, -20]),
+		FOOTSTEP_THUD: Object.freeze([0.12, 85, 0.005, 0.015, 0.05, 2, 0.12, -40]),
+		ATTACK_HIT: Object.freeze([0.22, 180, 0.005, 0.02, 0.12, 3, 0.22, -145]),
+		CRITICAL_HIT: Object.freeze([0.28, 110, 0.005, 0.04, 0.22, 3, 0.42, -75]),
+		SPELL_BOLT: Object.freeze([0.18, 620, 0.01, 0.04, 0.12, 0, 0.15, 260]),
+		FIREBALL_EXPLOSION: Object.freeze([0.3, 130, 0.01, 0.06, 0.32, 3, 0.65, -85]),
+		HEAL: Object.freeze([0.18, 440, 0.01, 0.06, 0.24, 0, 0, 220]),
+		LEVEL_UP: Object.freeze([0.22, 440, 0.01, 0.08, 0.3, 0, 0, 440]),
+		SWIFT_WHOOSH: Object.freeze([0.16, 420, 0.01, 0.02, 0.08, 2, 0.35, -280]),
+		SHIELD_DEFLECT: Object.freeze([0.24, 720, 0.005, 0.03, 0.14, 1, 0.18, -320]),
+		COIN_LOOT: Object.freeze([0.2, 980, 0.005, 0.03, 0.16, 0, 0, 320]),
+		CURSE_DEBUFF: Object.freeze([0.2, 260, 0.01, 0.05, 0.25, 3, 0.25, -180]),
+		DOOR_OPEN: Object.freeze([0.16, 160, 0.02, 0.06, 0.18, 2, 0.28, -40]),
+		VICTORY: Object.freeze([0.24, 523, 0.01, 0.08, 0.28, 1, 0, 140]),
+		DEFEAT: Object.freeze([0.22, 220, 0.01, 0.08, 0.32, 3, 0.12, -120]),
 	});
 	//#endregion
 
@@ -222,8 +248,9 @@ const EmberlightAcousticSFX = (() => {
 				dryBus = dBus;
 				wetBus = wBus;
 
-				// Pre-bake Algorithmic Impulse Buffers
+				// Pre-bake Algorithmic Impulse & Parametric Sound Buffers
 				bakeImpulseResponses();
+				bakeParametricBuffers();
 				applyZoneProfile(currentZone);
 			} catch (ignored) { // NOSONAR
 				// Expected: AudioContext creation may fail if Web Audio is unsupported in mock or headless contexts
@@ -318,6 +345,160 @@ const EmberlightAcousticSFX = (() => {
 		} catch (ignored) { // NOSONAR
 			// Expected: Buffer allocation can fail if mock environment lacks full Web Audio support
 		}
+	}
+
+	/**
+	 * Normalizes parametric vector parameters into a typed configuration object.
+	 * Pure parameter unpacking procedure.
+	 *
+	 * @param {Array<number> | { vol?: number, freq?: number, attack?: number, sustain?: number, decay?: number, waveType?: number, noise?: number, sweep?: number }} params
+	 * @returns {{ vol: number, freq: number, attack: number, sustain: number, decay: number, waveType: number, noise: number, sweep: number }}
+	 */
+	function parseParametricVector(params) {
+		if (Array.isArray(params)) {
+			return {
+				vol: params[0] ?? 0.2,
+				freq: params[1] ?? 440,
+				attack: params[2] ?? 0.005,
+				sustain: params[3] ?? 0.05,
+				decay: params[4] ?? 0.1,
+				waveType: params[5] ?? 0,
+				noise: params[6] ?? 0,
+				sweep: params[7] ?? 0,
+			};
+		}
+		return {
+			vol: params?.vol ?? 0.2,
+			freq: params?.freq ?? 440,
+			attack: params?.attack ?? 0.005,
+			sustain: params?.sustain ?? 0.05,
+			decay: params?.decay ?? 0.1,
+			waveType: params?.waveType ?? 0,
+			noise: params?.noise ?? 0,
+			sweep: params?.sweep ?? 0,
+		};
+	}
+
+	/**
+	 * Computes periodic waveform amplitude for standard oscillator shapes.
+	 * Pure DSP math evaluation procedure.
+	 *
+	 * @param {number} phase - Current angular phase in radians.
+	 * @param {number} waveType - 0=sine, 1=square, 2=triangle, 3=sawtooth.
+	 * @returns {number} Normalized waveform sample in [-1.0, 1.0].
+	 */
+	function evaluateWaveform(phase, waveType) {
+		const twoPi = 2 * Math.PI;
+		switch (waveType) {
+			case 1:
+				return Math.sin(phase) >= 0 ? 1.0 : -1.0;
+			case 2:
+				return (2 / Math.PI) * Math.asin(Math.sin(phase));
+			case 3:
+				return 2 * (phase / twoPi - Math.floor(phase / twoPi + 0.5));
+			case 0:
+			default:
+				return Math.sin(phase);
+		}
+	}
+
+	/**
+	 * Computes envelope amplitude progress across attack, sustain, and decay stages.
+	 * Pure ADSR envelope evaluation procedure.
+	 *
+	 * @param {number} t - Elapsed time in seconds.
+	 * @param {number} attack - Attack duration in seconds.
+	 * @param {number} sustain - Sustain duration in seconds.
+	 * @param {number} decay - Decay duration in seconds.
+	 * @returns {number} Normalized amplitude multiplier in [0.0, 1.0].
+	 */
+	function evaluateEnvelope(t, attack, sustain, decay) {
+		if (t < attack) {
+			const r = t / Math.max(1e-5, attack);
+			return r * r;
+		}
+		if (t < attack + sustain) {
+			return 1.0;
+		}
+		const decayTime = t - attack - sustain;
+		const decayProgress = Math.max(0, 1.0 - decayTime / Math.max(1e-5, decay));
+		return decayProgress * decayProgress;
+	}
+
+	/**
+	 * Synthesizes a parametric sound buffer from an 8-parameter micro-vector (ZzFX architecture).
+	 * Pre-bakes sound into memory to eliminate runtime oscillator allocations and GC jitter.
+	 *
+	 * @param {Array<number> | Object} params - Micro-vector definition.
+	 * @param {AudioContext | any} [targetCtx=ctx] - Target Web Audio context.
+	 * @returns {AudioBuffer | any} Synthesized audio buffer.
+	 */
+	function buildParametricBuffer(params, targetCtx = ctx) {
+		const p = parseParametricVector(params);
+		const sampleRate = targetCtx?.sampleRate || 44100;
+		const totalDuration = Math.max(0.01, p.attack + p.sustain + p.decay);
+		const numSamples = Math.max(1, Math.floor(sampleRate * totalDuration));
+
+		const channelData = new Float32Array(numSamples);
+		let phase = 0;
+		const twoPi = 2 * Math.PI;
+
+		for (let i = 0; i < numSamples; i++) {
+			const t = i / sampleRate;
+			const env = evaluateEnvelope(t, p.attack, p.sustain, p.decay);
+			const progress = t / totalDuration;
+			const curFreq = Math.max(10, p.freq + p.sweep * progress);
+			phase += (curFreq * twoPi) / sampleRate;
+			if (phase > twoPi * 1000) {
+				phase %= twoPi;
+			}
+
+			const toneVal = evaluateWaveform(phase, p.waveType);
+			let sample = toneVal;
+			if (p.noise > 0) {
+				const noiseVal = nextAcousticNoise();
+				sample = (1.0 - p.noise) * toneVal + p.noise * noiseVal;
+			}
+			channelData[i] = sample * env * p.vol;
+		}
+
+		if (targetCtx && typeof targetCtx.createBuffer === "function") {
+			try {
+				const audioBuffer = targetCtx.createBuffer(1, numSamples, sampleRate);
+				audioBuffer.getChannelData(0).set(channelData);
+				return audioBuffer;
+			} catch (ignored) { // NOSONAR
+				// Expected: Fallback to conforming buffer descriptor in mock environments
+			}
+		}
+
+		return {
+			numberOfChannels: 1,
+			length: numSamples,
+			sampleRate,
+			duration: totalDuration,
+			getChannelData: () => channelData,
+		};
+	}
+
+	/**
+	 * Synthesizes all registered parametric SFX vectors into pre-baked memory buffers.
+	 * State-mutating buffer pre-baking procedure.
+	 *
+	 * @returns {void}
+	 */
+	function bakeParametricBuffers() {
+		sfxBuffers.clear();
+		Object.entries(SFX_PARAMETRIC_VECTORS).forEach(([name, params]) => {
+			try {
+				const buf = buildParametricBuffer(params);
+				if (buf) {
+					sfxBuffers.set(name, buf);
+				}
+			} catch (ignored) { // NOSONAR
+				// Expected: Pre-bake failure in mock contexts
+			}
+		});
 	}
 
 	/**
@@ -1125,6 +1306,7 @@ const EmberlightAcousticSFX = (() => {
 
 		/**
 		 * Synthesizes and plays a designated procedural sound effect.
+		 * Dispatches from zero-GC pre-baked buffers when available, falling back to dynamic registry.
 		 * State-mutating audio dispatch procedure.
 		 *
 		 * @param {string} sfxName - Registered sound effect name or legacy alias.
@@ -1133,7 +1315,29 @@ const EmberlightAcousticSFX = (() => {
 		 */
 		play(sfxName, pan = 0.0) {
 			if (!sfxName) return;
+			ensureContext();
 			const key = SFX_ALIASES[sfxName] || sfxName;
+			const buffer = sfxBuffers.get(key);
+			if (buffer && ctx && !isMuted && typeof ctx.createBufferSource === "function") {
+				try {
+					const src = ctx.createBufferSource();
+					src.buffer = buffer;
+					routeSpatialSource(src, pan);
+					src.start(0);
+					activeNodes.add(src);
+					src.onended = () => {
+						activeNodes.delete(src);
+						try {
+							src.disconnect();
+						} catch (ignored) { // NOSONAR
+							// Expected: BufferSource disconnection cleanup
+						}
+					};
+					return;
+				} catch (ignored) { // NOSONAR
+					// Expected: Audio dispatch fallback on restricted AudioContext
+				}
+			}
 			if (SFX_REGISTRY[key]) {
 				SFX_REGISTRY[key](pan);
 			}
@@ -1257,6 +1461,43 @@ const EmberlightAcousticSFX = (() => {
 				convolverNode = null;
 			}
 			impulseBuffers.clear();
+			sfxBuffers.clear();
+		},
+
+		/**
+		 * Pre-bakes all registered parametric sound vectors into memory buffers.
+		 * @returns {void}
+		 */
+		bakeParametricBuffers() {
+			bakeParametricBuffers();
+		},
+
+		/**
+		 * Synthesizes a standalone PCM buffer from a parametric vector.
+		 * Pure DSP procedure for tests and dynamic callers.
+		 * @param {Array<number> | Object} params
+		 * @param {any} [targetCtx]
+		 * @returns {any}
+		 */
+		buildParametricBuffer(params, targetCtx) {
+			return buildParametricBuffer(params, targetCtx);
+		},
+
+		/**
+		 * Retrieves a pre-baked audio buffer by canonical key.
+		 * @param {string} key
+		 * @returns {any}
+		 */
+		getParametricBuffer(key) {
+			return sfxBuffers.get(key);
+		},
+
+		/**
+		 * Exposes the immutable parametric vector catalog.
+		 * @returns {typeof SFX_PARAMETRIC_VECTORS}
+		 */
+		getParametricVectors() {
+			return SFX_PARAMETRIC_VECTORS;
 		},
 		//#endregion
 	};
