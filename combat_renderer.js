@@ -1083,13 +1083,13 @@ const EmberlightCombatRenderer = (() => {
       <div class="enemy formation-slot ${rowClass} ${stanceClass} ${e.alive ? "" : "dead"} ${bossCls} ${ailmentClasses}" data-idx="${idx}" data-ailments="${ailmentList}" tabindex="0" style="position:relative; width:100%;">
         ${affinityBadgeHtml}
         ${spriteHtml}
-        <div style="font-size:7.5px; font-weight:bold; margin-top:2px;">${e.name || "Enemy"} ${isBossEnraged ? '<span style="color:var(--danger)">[ENRAGED]</span>' : ""}</div>
+        <div style="font-family:var(--font-mono, monospace); font-size:9.5px; font-weight:bold; letter-spacing:0.5px; margin-top:2px;">${e.name || "Enemy"} ${isBossEnraged ? '<span style="color:var(--danger)">[ENRAGED]</span>' : ""}</div>
         ${rowTag}
         ${exhaustedBadge}
         <div class="bar-row" style="margin-top:2px; width:90%;">
           <span class="bar-track"><span class="bar-fill hp" style="width:${hpPct}%"></span></span>
         </div>
-        <div class="hp-label" style="font-size:6px;">${e.hp || 0}/${e.maxHp || 1} HP ${ailmentTags}</div>
+        <div class="hp-label" style="font-family:var(--font-mono, monospace); font-size:9px; letter-spacing:0.5px;">${e.hp || 0}/${e.maxHp || 1} HP ${ailmentTags}</div>
       </div>
     `;
 	}
@@ -1117,11 +1117,11 @@ const EmberlightCombatRenderer = (() => {
 		container.innerHTML = `
       <div class="formation-row">
         <div class="formation-row-header">🏹 HOSTILE BACK</div>
-        ${backEnemies.map((item) => renderEnemyCard(item, activeElement)).join("") || '<div style="font-size:6px; color:var(--text-dim); text-align:center; padding:12px;">Back Clear</div>'}
+        ${backEnemies.map((item) => renderEnemyCard(item, activeElement)).join("") || '<div style="font-family:var(--font-mono, monospace); font-size:9px; letter-spacing:0.5px; color:var(--text-dim); text-align:center; padding:12px;">Back Clear</div>'}
       </div>
       <div class="formation-row">
         <div class="formation-row-header">⚔️ HOSTILE FRONT</div>
-        ${frontEnemies.map((item) => renderEnemyCard(item, activeElement)).join("") || '<div style="font-size:6px; color:var(--text-dim); text-align:center; padding:12px;">Front Clear</div>'}
+        ${frontEnemies.map((item) => renderEnemyCard(item, activeElement)).join("") || '<div style="font-family:var(--font-mono, monospace); font-size:9px; letter-spacing:0.5px; color:var(--text-dim); text-align:center; padding:12px;">Front Clear</div>'}
       </div>
     `;
 
@@ -1237,7 +1237,7 @@ const EmberlightCombatRenderer = (() => {
 		return `
       <div class="character formation-slot ${rowClass} ${stanceClass} ${isTurn ? "active-turn" : ""} ${c.alive ? "" : "fainted"} ${ailmentClasses}" data-idx="${idx}" data-ailments="${ailmentList}" tabindex="0" style="position:relative; width:100%;">
         ${spriteHtml}
-        <div style="font-size:7.5px; font-weight:bold; margin-top:2px;">${c.name || "Hero"} <span class="char-class" style="color:var(--text-dim); font-size:6px;">Lv${c.level || 1}</span></div>
+        <div style="font-family:var(--font-mono, monospace); font-size:9.5px; font-weight:bold; letter-spacing:0.5px; margin-top:2px;">${c.name || "Hero"} <span class="char-class" style="color:var(--text-dim); font-size:9px;">Lv${c.level || 1}</span></div>
         ${rowTag}
         ${exhaustedBadge}
         <div class="bar-row" style="margin-top:2px; width:90%;">
@@ -1246,7 +1246,7 @@ const EmberlightCombatRenderer = (() => {
         <div class="bar-row" style="margin-top:1px; width:90%;">
           <span class="bar-track"><span class="hud-bar-fill mp" style="width:${mpPct}%"></span></span>
         </div>
-        <div class="hp-label" style="font-size:6px; color:var(--text-dim); margin-top:1px;">${curHp}/${maxHp} HP${mpLabel} ${ailmentTags}</div>
+        <div class="hp-label" style="font-family:var(--font-mono, monospace); font-size:9px; letter-spacing:0.5px; color:var(--text-dim); margin-top:1px;">${curHp}/${maxHp} HP${mpLabel} ${ailmentTags}</div>
       </div>
     `;
 	}
@@ -1274,11 +1274,11 @@ const EmberlightCombatRenderer = (() => {
 		container.innerHTML = `
       <div class="formation-row">
         <div class="formation-row-header">🛡️ VANGUARD FRONT</div>
-        ${frontParty.map((item) => renderPartyCard(item, currentTurnEntity)).join("") || '<div style="font-size:6px; color:var(--text-dim); text-align:center; padding:8px;">Empty</div>'}
+        ${frontParty.map((item) => renderPartyCard(item, currentTurnEntity)).join("") || '<div style="font-family:var(--font-mono, monospace); font-size:9px; letter-spacing:0.5px; color:var(--text-dim); text-align:center; padding:8px;">Empty</div>'}
       </div>
       <div class="formation-row">
         <div class="formation-row-header">✨ ARCANIST BACK</div>
-        ${backParty.map((item) => renderPartyCard(item, currentTurnEntity)).join("") || '<div style="font-size:6px; color:var(--text-dim); text-align:center; padding:8px;">Empty</div>'}
+        ${backParty.map((item) => renderPartyCard(item, currentTurnEntity)).join("") || '<div style="font-family:var(--font-mono, monospace); font-size:9px; letter-spacing:0.5px; color:var(--text-dim); text-align:center; padding:8px;">Empty</div>'}
       </div>
     `;
 
@@ -1377,7 +1377,11 @@ const EmberlightCombatRenderer = (() => {
 		return `
 			<div class="telemetry-ribbon-card">
 				<div class="telemetry-ribbon-header">
-					<span class="telemetry-target-title">🎯 TARGET: <strong>${targetEnemy.name}</strong> ${affTag}</span>
+					<span class="telemetry-target-title">
+						<button type="button" class="telemetry-target-nav-btn" id="subdeck-prev-target-btn" title="Previous Target">◀</button>
+						🎯 TARGET: <strong>${targetEnemy.name}</strong> ${affTag}
+						<button type="button" class="telemetry-target-nav-btn" id="subdeck-next-target-btn" title="Next Target">▶</button>
+					</span>
 					${activeSkill ? `<div class="telemetry-skill-badge">✨ ${activeSkill.name || activeSkill.label}</div>` : ""}
 					${activeSkill?.cost || activeSkill?.mpCost ? `<div class="telemetry-cost-badge">⚡ ${activeSkill.cost || activeSkill.mpCost} MP</div>` : ""}
 					${cancelBtnHtml}
@@ -1401,10 +1405,73 @@ const EmberlightCombatRenderer = (() => {
 					</div>
 				</div>
 				<div class="telemetry-prompt-text">
-					<span>⚡ <strong>LMB in Q1/Q2</strong> to Execute • <strong>RMB on Target</strong> for Radial Flick Wheel</span>
+					<span>⚡ <strong>LMB in Q1/Q2</strong> or <strong>RMB</strong> for Radial Wheel</span>
+					<button type="button" class="telemetry-commit-btn" id="subdeck-commit-action-btn">
+						${activeSkill ? `✨ CAST [SPACE/ENTER]` : `⚔️ EXECUTE [SPACE/ENTER]`}
+					</button>
 				</div>
 			</div>
 		`;
+	}
+
+	/**
+	 * Binds interaction event listeners to subdeck attack and targeting elements.
+	 * @param {HTMLElement} subDeck
+	 * @param {CombatState} state
+	 * @param {number} targetIdx
+	 * @param {Battler} targetEnemy
+	 * @param {Battler[]} enemies
+	 * @param {Battler|null} activeChar
+	 * @returns {void}
+	 */
+	function attachSubdeckAttackButtons(subDeck, state, targetIdx, targetEnemy, enemies, activeChar) {
+		const cancelBtn = subDeck.querySelector("#subdeck-cancel-skill-btn");
+		if (cancelBtn) {
+			cancelBtn.addEventListener("click", () => emit({ type: "CANCEL_SKILL" }));
+		}
+
+		const commitBtn = subDeck.querySelector("#subdeck-commit-action-btn");
+		if (commitBtn) {
+			commitBtn.addEventListener("click", () => {
+				if (state.pendingSkill) {
+					emit({
+						type: "SKILL",
+						skill: state.pendingSkill,
+						targetIndex: targetIdx,
+						isAlly: false,
+					});
+				} else {
+					emit({
+						type: "ATTACK",
+						targetIndex: targetIdx,
+					});
+				}
+			});
+		}
+
+		if (enemies.length <= 1) return;
+
+		const prevBtn = subDeck.querySelector("#subdeck-prev-target-btn");
+		if (prevBtn) {
+			prevBtn.addEventListener("click", () => {
+				const currIdx = enemies.findIndex((e) => e.id === targetEnemy.id);
+				const nextIdx = (currIdx - 1 + enemies.length) % enemies.length;
+				focusFireTargetId = enemies[nextIdx].id;
+				scheduleSynchronizedRedraw();
+				renderSubdeckAttack(subDeck, state, activeChar);
+			});
+		}
+
+		const nextBtn = subDeck.querySelector("#subdeck-next-target-btn");
+		if (nextBtn) {
+			nextBtn.addEventListener("click", () => {
+				const currIdx = enemies.findIndex((e) => e.id === targetEnemy.id);
+				const nextIdx = (currIdx + 1) % enemies.length;
+				focusFireTargetId = enemies[nextIdx].id;
+				scheduleSynchronizedRedraw();
+				renderSubdeckAttack(subDeck, state, activeChar);
+			});
+		}
 	}
 
 	/**
@@ -1431,7 +1498,7 @@ const EmberlightCombatRenderer = (() => {
 		if (targetEnemy?.alive) {
 			const affinity = resolveAffinity(activeElement, targetEnemy);
 			const cancelBtnHtml = state.pendingSkill
-				? '<button type="button" class="cmd-btn" id="subdeck-cancel-skill-btn" style="font-size:6px; padding:2px 8px; margin-left:8px; border-color:var(--crimson-core); color:var(--crimson-light);">[ESC] CANCEL</button>'
+				? '<button type="button" class="cmd-btn" id="subdeck-cancel-skill-btn" style="font-family:var(--font-mono, monospace); font-size:9px; letter-spacing:0.5px; padding:2px 8px; margin-left:8px; border-color:var(--crimson-core); color:var(--crimson-light);">[ESC] CANCEL</button>'
 				: "";
 
 			subDeck.innerHTML = buildTargetTelemetryHtml(
@@ -1442,12 +1509,7 @@ const EmberlightCombatRenderer = (() => {
 				cancelBtnHtml,
 			);
 
-			const cancelBtn = subDeck.querySelector("#subdeck-cancel-skill-btn");
-			if (cancelBtn) {
-				cancelBtn.addEventListener("click", () =>
-					emit({ type: "CANCEL_SKILL" }),
-				);
-			}
+			attachSubdeckAttackButtons(subDeck, state, targetIdx, targetEnemy, enemies, activeChar);
 		} else {
 			subDeck.innerHTML = `
 				<div class="telemetry-ribbon-card">
@@ -1461,6 +1523,143 @@ const EmberlightCombatRenderer = (() => {
 				</div>
 			`;
 		}
+	}
+
+	/**
+	 * Builds default tactical skill deck for a character phenotype.
+	 * @param {string} [phenotype]
+	 * @returns {SkillNode[]}
+	 */
+	function resolveDefaultPhenotypeSkills(phenotype) {
+		if (phenotype === "MAGE") {
+			return [
+				{
+					id: "mag_des_1",
+					label: "Flame Surge",
+					mpCost: 5,
+					element: "FIRE",
+					description: "Unleash searing firebolt with burn chance.",
+					subType: "bolt",
+					power: 14,
+				},
+				{
+					id: "mag_vor_1",
+					label: "Aether Pull",
+					mpCost: 4,
+					element: "ARCANE",
+					description: "Drag backline enemy into vanguard to break backline cover.",
+					subType: "bolt",
+					mult: 1.2,
+					displacement: "PULL",
+				},
+				{
+					id: "mag_fro_1",
+					label: "Frost Nova",
+					mpCost: 5,
+					element: "ICE",
+					description: "Chills target, pushing their CTB turn clock back.",
+					subType: "bolt",
+					mult: 1.3,
+					delayCost: 600,
+				},
+			];
+		}
+		if (phenotype === "HEALER") {
+			return [
+				{
+					id: "hea_lum_1",
+					label: "Soothing Light",
+					mpCost: 4,
+					element: "HOLY",
+					description: "Restores 28 HP to target ally.",
+					targetType: "ally",
+					subType: "heal",
+					power: 28,
+				},
+				{
+					id: "hea_smi_1",
+					label: "Radiant Smite",
+					mpCost: 4,
+					element: "HOLY",
+					description: "Holy light strike. Deals 1.5x damage against undead.",
+					subType: "bolt",
+					mult: 1.4,
+				},
+				{
+					id: "hea_rep_1",
+					label: "Repulsion Wave",
+					mpCost: 3,
+					element: "HOLY",
+					description: "Blasts enemy backward to the rear row.",
+					subType: "strike",
+					mult: 1.0,
+					displacement: "KNOCKBACK",
+				},
+			];
+		}
+		if (phenotype === "ROGUE") {
+			return [
+				{
+					id: "rog_qui_1",
+					label: "Twin Daggers",
+					mpCost: 3,
+					element: "PHYSICAL",
+					description: "Swift piercing strike with +25% critical strike.",
+					subType: "strike",
+					mult: 1.3,
+				},
+				{
+					id: "rog_hoo_1",
+					label: "Grappling Hook",
+					mpCost: 3,
+					element: "PHYSICAL",
+					description: "Fires wire cable to drag backline foe into vanguard.",
+					subType: "strike",
+					mult: 1.0,
+					displacement: "PULL",
+				},
+				{
+					id: "rog_smo_1",
+					label: "Smoke Screen",
+					mpCost: 4,
+					element: "PHYSICAL",
+					description: "Throws flash bomb, knocking target to the rear row.",
+					subType: "strike",
+					mult: 0.9,
+					displacement: "KNOCKBACK",
+				},
+			];
+		}
+		return [
+			{
+				id: "war_vor_1",
+				label: "Cleave Strike",
+				mpCost: 4,
+				element: "PHYSICAL",
+				description: "Heavy melee slash dealing 1.5x damage.",
+				subType: "strike",
+				mult: 1.5,
+			},
+			{
+				id: "war_bas_1",
+				label: "Shield Bash",
+				mpCost: 3,
+				element: "PHYSICAL",
+				description: "Smashes target backward. Triggers WALL SLAM (+30% DMG) if in rear row!",
+				subType: "strike",
+				mult: 1.1,
+				displacement: "KNOCKBACK",
+			},
+			{
+				id: "war_bul_1",
+				label: "Iron Bulwark",
+				mpCost: 2,
+				element: "PHYSICAL",
+				description: "Adopt defensive turtle stance. +50% Defense for 1 turn.",
+				targetType: "ally",
+				subType: "heal",
+			},
+		];
 	}
 
 	/**
@@ -1511,38 +1710,9 @@ const EmberlightCombatRenderer = (() => {
 		}
 
 		if (activeSkills.length === 0) {
-			if (activeChar?.phenotype === "MAGE") {
-				activeSkills.push({
-					id: "mag_des_1",
-					label: "Flame Surge",
-					mpCost: 5,
-					element: "FIRE",
-					description: "Unleash searing firebolt with burn chance.",
-					subType: "bolt",
-					power: 12,
-				});
-			} else if (activeChar?.phenotype === "HEALER") {
-				activeSkills.push({
-					id: "hea_lum_1",
-					label: "Soothing Light",
-					mpCost: 4,
-					element: "HOLY",
-					description: "Restores 25 HP to target ally.",
-					targetType: "ally",
-					subType: "heal",
-					power: 25,
-				});
-			} else {
-				activeSkills.push({
-					id: "war_vor_1",
-					label: "Cleave Strike",
-					mpCost: 4,
-					element: "PHYSICAL",
-					description: "Heavy melee slash deal 1.5x damage.",
-					subType: "strike",
-					mult: 1.5,
-				});
-			}
+			activeSkills.push(
+				...resolveDefaultPhenotypeSkills(activeChar?.phenotype),
+			);
 		}
 		return activeSkills;
 	}
@@ -1561,7 +1731,7 @@ const EmberlightCombatRenderer = (() => {
         <div class="subdeck-target-selector">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
             <span class="subdeck-title">SELECT ALLY TARGET:</span>
-            <button type="button" class="cmd-btn" id="subdeck-cancel-ally-skill-btn" style="font-size:6px; padding:2px 8px;">[ESC] CANCEL</button>
+            <button type="button" class="cmd-btn" id="subdeck-cancel-ally-skill-btn" style="font-family:var(--font-mono, monospace); font-size:9px; letter-spacing:0.5px; padding:2px 8px;">[ESC] CANCEL</button>
           </div>
           <div class="target-selector-grid">
             ${(state.party || [])
@@ -1714,7 +1884,7 @@ const EmberlightCombatRenderer = (() => {
         <div class="subdeck-target-selector">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
             <span class="subdeck-title">USE ${state.pendingItem} ON ALLY:</span>
-            <button type="button" class="cmd-btn" id="subdeck-cancel-item-btn" style="font-size:6px; padding:2px 8px;">[ESC] CANCEL</button>
+            <button type="button" class="cmd-btn" id="subdeck-cancel-item-btn" style="font-family:var(--font-mono, monospace); font-size:9px; letter-spacing:0.5px; padding:2px 8px;">[ESC] CANCEL</button>
           </div>
           <div class="target-selector-grid">
             ${(state.party || [])
@@ -1925,10 +2095,10 @@ const EmberlightCombatRenderer = (() => {
 	 */
 	function renderCommandDeckRibbon(ribbon, selectedTab) {
 		const tabs = [
-			{ id: "ATTACK", label: "⚔️ ATTACK [1]", cls: "action" },
-			{ id: "SKILLS", label: "✨ SKILLS [2]", cls: "skill" },
-			{ id: "GUARD", label: "🛡️ GUARD [3]", cls: "" },
-			{ id: "POUCH", label: "🧪 POUCH [4]", cls: "run" },
+			{ id: "ATTACK", label: "⚔️ [1] ATTACK / VOLLEY", cls: "action lever-attack" },
+			{ id: "SKILLS", label: "✨ [2] INCANTATIONS", cls: "skill lever-skills" },
+			{ id: "GUARD", label: "🛡️ [3] BULWARK / GUARD", cls: "lever-guard" },
+			{ id: "POUCH", label: "🧪 [4] SATCHEL", cls: "run lever-pouch" },
 		];
 
 		ribbon.innerHTML = tabs
@@ -2036,9 +2206,101 @@ const EmberlightCombatRenderer = (() => {
 	 */
 	function resolveEnemyTokenGlyph(enemy) {
 		if (enemy.isBoss) return "👑";
-		if (enemy.key?.includes("SPIDER")) return "🕷️";
-		if (enemy.key?.includes("ARCHER")) return "🏹";
+		const k = String(enemy.key || enemy.name || "").toUpperCase();
+		if (k.includes("WOLF") || k.includes("HOUND")) return "🐺";
+		if (k.includes("ARCHER") || k.includes("SKELETON")) return "🏹";
+		if (k.includes("BRUTE") || k.includes("GOLEM") || k.includes("OGRE")) return "👹";
+		if (k.includes("SPIDER") || k.includes("ARACHNID")) return "🕷️";
+		if (k.includes("ACOLYTE") || k.includes("CULTIST") || k.includes("MAGE")) return "🔮";
 		return "💀";
+	}
+
+	/**
+	 * Draws the Precursor Brass Astrolabe and Celestial Compass watermark on Q1 War Table.
+	 * [Canvas Presentation Geometry]
+	 * @param {CanvasRenderingContext2D} ctx 2D context.
+	 * @param {number} w Width.
+	 * @param {number} h Height.
+	 * @returns {void}
+	 */
+	function drawQ1AstrolabeWatermark(ctx, w, h) {
+		if (!ctx.arc || !ctx.stroke) return;
+		ctx.save();
+
+		const cx = w / 2;
+		const cy = h / 2;
+
+		// 1. Subtle central ambient illumination
+		if (ctx.createRadialGradient && ctx.fillRect) {
+			const radial = ctx.createRadialGradient(cx, cy, 10, cx, cy, w * 0.55);
+			radial.addColorStop(0, "rgba(217, 119, 6, 0.08)");
+			radial.addColorStop(0.5, "rgba(15, 23, 42, 0.04)");
+			radial.addColorStop(1, "transparent");
+			ctx.fillStyle = radial;
+			ctx.fillRect(0, 0, w, h);
+		}
+
+		// 2. Concentric Brass Astrolabe Rings
+		ctx.strokeStyle = "rgba(217, 119, 6, 0.14)";
+		ctx.lineWidth = 1.2;
+
+		// Outer orbit ring
+		const rOuter = h * 0.44;
+		ctx.beginPath();
+		ctx.arc(cx, cy, rOuter, 0, Math.PI * 2);
+		ctx.stroke();
+
+		// Middle dashed celestial degree ring
+		ctx.strokeStyle = "rgba(251, 191, 36, 0.10)";
+		ctx.lineWidth = 1;
+		if (ctx.setLineDash) ctx.setLineDash([4, 4]);
+		const rMid = h * 0.36;
+		ctx.beginPath();
+		ctx.arc(cx, cy, rMid, 0, Math.PI * 2);
+		ctx.stroke();
+
+		// Inner focal ring
+		if (ctx.setLineDash) ctx.setLineDash([]);
+		ctx.strokeStyle = "rgba(217, 119, 6, 0.12)";
+		const rInner = h * 0.20;
+		ctx.beginPath();
+		ctx.arc(cx, cy, rInner, 0, Math.PI * 2);
+		ctx.stroke();
+
+		// Center sun wheel
+		const rHub = h * 0.06;
+		ctx.beginPath();
+		ctx.arc(cx, cy, rHub, 0, Math.PI * 2);
+		ctx.stroke();
+
+		// 3. 12 Runic / Degree Tick Marks around outer orbit
+		ctx.strokeStyle = "rgba(251, 191, 36, 0.16)";
+		ctx.lineWidth = 1;
+		for (let a = 0; a < 12; a++) {
+			const angle = (Math.PI / 6) * a;
+			const cosA = Math.cos(angle);
+			const sinA = Math.sin(angle);
+			ctx.beginPath();
+			ctx.moveTo(cx + cosA * (rOuter - 4), cy + sinA * (rOuter - 4));
+			ctx.lineTo(cx + cosA * (rOuter + 4), cy + sinA * (rOuter + 4));
+			ctx.stroke();
+		}
+
+		// 4. Subtle 8-Point Compass Axis Cross
+		ctx.strokeStyle = "rgba(217, 119, 6, 0.08)";
+		ctx.beginPath();
+		ctx.moveTo(cx, cy - rOuter - 8);
+		ctx.lineTo(cx, cy + rOuter + 8);
+		ctx.moveTo(cx - rOuter - 8, cy);
+		ctx.lineTo(cx + rOuter + 8, cy);
+		const diag = rOuter * 0.85;
+		ctx.moveTo(cx - diag, cy - diag);
+		ctx.lineTo(cx + diag, cy + diag);
+		ctx.moveTo(cx - diag, cy + diag);
+		ctx.lineTo(cx + diag, cy - diag);
+		ctx.stroke();
+
+		ctx.restore();
 	}
 
 	/**
@@ -2049,15 +2311,15 @@ const EmberlightCombatRenderer = (() => {
 	 */
 	function drawQ1SectorBands(ctx, cellW, h) {
 		if (!ctx.fillRect) return;
-		ctx.fillStyle = "rgba(56, 189, 248, 0.05)";
+		ctx.fillStyle = "rgba(30, 58, 138, 0.08)";
 		ctx.fillRect(0, 0, cellW * 1.5, h);
-		ctx.fillStyle = "rgba(245, 158, 11, 0.06)";
+		ctx.fillStyle = "rgba(217, 119, 6, 0.09)";
 		ctx.fillRect(cellW * 1.5, 0, cellW * 1.5, h);
-		ctx.fillStyle = "rgba(255, 255, 255, 0.02)";
+		ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
 		ctx.fillRect(cellW * 3.0, 0, cellW * 2.0, h);
-		ctx.fillStyle = "rgba(239, 68, 68, 0.06)";
+		ctx.fillStyle = "rgba(185, 28, 28, 0.08)";
 		ctx.fillRect(cellW * 5.0, 0, cellW * 1.5, h);
-		ctx.fillStyle = "rgba(168, 85, 247, 0.05)";
+		ctx.fillStyle = "rgba(107, 33, 168, 0.08)";
 		ctx.fillRect(cellW * 6.5, 0, cellW * 1.5, h);
 	}
 
@@ -2071,20 +2333,10 @@ const EmberlightCombatRenderer = (() => {
 	 * @param {number} w Total width.
 	 * @param {number} h Total height.
 	 */
-	/**
-	 * Draws high-contrast radar grid lines on Q1 canvas.
-	 * @param {CanvasRenderingContext2D} ctx 2D context.
-	 * @param {number} cellW Cell width.
-	 * @param {number} cellH Cell height.
-	 * @param {number} cols Number of columns.
-	 * @param {number} rows Number of rows.
-	 * @param {number} w Total width.
-	 * @param {number} h Total height.
-	 */
 	function drawQ1GridLines(ctx, cellW, cellH, cols, rows, w, h) {
 		if (!ctx.beginPath || !ctx.stroke) return;
 		ctx.save();
-		ctx.strokeStyle = "rgba(56, 189, 248, 0.12)";
+		ctx.strokeStyle = "rgba(217, 119, 6, 0.12)";
 		ctx.lineWidth = 1;
 		ctx.beginPath();
 		for (let c = 0; c <= cols; c++) {
@@ -2096,6 +2348,17 @@ const EmberlightCombatRenderer = (() => {
 			ctx.lineTo(w, r * cellH);
 		}
 		ctx.stroke();
+
+		// Double brass pinstripe framing the central Clash Zone
+		ctx.strokeStyle = "rgba(251, 191, 36, 0.22)";
+		ctx.lineWidth = 1.2;
+		ctx.beginPath();
+		ctx.moveTo(cellW * 3.0, 0);
+		ctx.lineTo(cellW * 3.0, h);
+		ctx.moveTo(cellW * 5.0, 0);
+		ctx.lineTo(cellW * 5.0, h);
+		ctx.stroke();
+
 		ctx.restore();
 	}
 
@@ -2112,7 +2375,7 @@ const EmberlightCombatRenderer = (() => {
 		ctx.fillText("◖ ALLY REAR ◗", cellW * 0.2, 14);
 		ctx.fillStyle = "#fbbf24";
 		ctx.fillText("◈ VANGUARD FRONT ◈", cellW * 1.7, 14);
-		ctx.fillStyle = "#94a3b8";
+		ctx.fillStyle = "#fef08a";
 		ctx.fillText("⚔ CLASH ZONE ⚔", cellW * 3.6, 14);
 		ctx.fillStyle = "#f87171";
 		ctx.fillText("◈ HOSTILE FRONT ◈", cellW * 5.2, 14);
@@ -2169,7 +2432,7 @@ const EmberlightCombatRenderer = (() => {
 			hazardTiles.forEach((haz) => {
 				const hx = haz.x * cellW;
 				const hy = haz.y * cellH;
-				ctx.fillText("▲ WALL", hx + 4, hy + cellH / 2 + 3.5);
+				ctx.fillText("▲ BULWARK", hx + 3, hy + cellH / 2 + 3.5);
 			});
 			ctx.restore();
 		}
@@ -2313,6 +2576,21 @@ const EmberlightCombatRenderer = (() => {
 			ctx.lineTo(toCx, toCy);
 			ctx.stroke();
 
+			// Pinned Iron Ring Endpoints on War Table
+			ctx.beginPath();
+			ctx.arc(fromCx, fromCy, 4.5, 0, Math.PI * 2);
+			ctx.fillStyle = "#1e293b";
+			ctx.fill();
+			ctx.strokeStyle = "#fbbf24";
+			ctx.lineWidth = 1.8;
+			ctx.stroke();
+
+			ctx.beginPath();
+			ctx.arc(toCx, toCy, 4.5, 0, Math.PI * 2);
+			ctx.fillStyle = "#1e293b";
+			ctx.fill();
+			ctx.stroke();
+
 			// Gold Reticle / Arrowhead on Target Enemy
 			const angle = Math.atan2(toCy - fromCy, toCx - fromCx);
 			const arrowLen = 10;
@@ -2392,62 +2670,130 @@ const EmberlightCombatRenderer = (() => {
 	 * @param {number} cellW Cell width.
 	 * @param {number} cellH Cell height.
 	 */
+	/**
+	 * Resolves stroke, fill, and crest styles for Q1 ally token.
+	 * @param {any} ally
+	 * @param {boolean} isHovered
+	 * @returns {{ allyFill: string, allyBorder: string, crestStroke: string, innerRingStroke: string }}
+	 */
+	function resolveQ1AllyTokenStyles(ally, isHovered) {
+		let allyFill = "#1e293b";
+		let allyBorder = "#64748b";
+		let crestStroke = "rgba(100, 116, 139, 0.3)";
+		let innerRingStroke = "rgba(56, 189, 248, 0.4)";
+
+		if (ally.alive) {
+			if (ally.isCurrentTurn) {
+				allyFill = "#78350f";
+				allyBorder = "#fbbf24";
+				crestStroke = "rgba(251, 191, 36, 0.3)";
+				innerRingStroke = "rgba(251, 191, 36, 0.5)";
+			} else {
+				allyFill = "#0f172a";
+				allyBorder = "#38bdf8";
+				crestStroke = "rgba(56, 189, 248, 0.25)";
+			}
+		}
+
+		if (isHovered) {
+			allyBorder = "#ff9d4d";
+		}
+
+		return { allyFill, allyBorder, crestStroke, innerRingStroke };
+	}
+
+	/**
+	 * Draws pulsating celestial halo around active ally token.
+	 * @param {CanvasRenderingContext2D} ctx
+	 * @param {number} cx
+	 * @param {number} cy
+	 * @param {number} r
+	 */
+	function drawQ1AllyActiveHalo(ctx, cx, cy, r) {
+		ctx.save();
+		const pulse = 1.0 + Math.sin(Date.now() * 0.007) * 0.16;
+		ctx.beginPath();
+		ctx.arc(cx, cy, (r + 7) * pulse, 0, Math.PI * 2);
+		ctx.strokeStyle = "#fbbf24";
+		ctx.lineWidth = 2.0;
+		ctx.shadowColor = "rgba(251, 191, 36, 0.9)";
+		ctx.shadowBlur = 12;
+		ctx.stroke();
+
+		const rotAngle = (Date.now() * 0.002) % (Math.PI * 2);
+		for (let i = 0; i < 4; i++) {
+			const dotAngle = rotAngle + (Math.PI / 2) * i;
+			ctx.beginPath();
+			ctx.arc(cx + Math.cos(dotAngle) * (r + 7), cy + Math.sin(dotAngle) * (r + 7), 1.8, 0, Math.PI * 2);
+			ctx.fillStyle = "#fbbf24";
+			ctx.fill();
+		}
+		ctx.restore();
+	}
+
+	/**
+	 * Draws an ally unit node token on Q1 spatial radar.
+	 * @param {CanvasRenderingContext2D} ctx 2D context.
+	 * @param {any} ally Ally node descriptor.
+	 * @param {number} cellW Cell width.
+	 * @param {number} cellH Cell height.
+	 */
 	function drawQ1AllyToken(ctx, ally, cellW, cellH) {
 		const cx = ally.gridX * cellW + cellW / 2;
 		const cy = ally.gridY * cellH + cellH / 2;
-		const size = 16;
-		const isHovered = ephemeralHover && ephemeralHover.id === ally.id;
+		const r = 16;
+		const isHovered = Boolean(ephemeralHover && ephemeralHover.id === ally.id);
 
-		if (ally.alive && ally.isCurrentTurn && ctx.arc && ctx.stroke) {
-			ctx.save();
-			const pulse = 1.0 + Math.sin(Date.now() * 0.007) * 0.18;
-			ctx.beginPath();
-			ctx.arc(cx, cy, (size + 6) * pulse, 0, Math.PI * 2);
-			ctx.strokeStyle = "#fbbf24";
-			ctx.lineWidth = 2.0;
-			ctx.shadowColor = "rgba(251, 191, 36, 0.9)";
-			ctx.shadowBlur = 12;
-			ctx.stroke();
-			ctx.restore();
+		// 1. Active Turn: Golden Celestial Halo Ring
+		if (ally.alive && ally.isCurrentTurn) {
+			drawQ1AllyActiveHalo(ctx, cx, cy, r);
 		}
 
 		ctx.save();
+		// 2. Outer Brass Medallion Coin
 		ctx.beginPath();
-		ctx.moveTo(cx, cy - size);
-		ctx.lineTo(cx + size, cy);
-		ctx.lineTo(cx, cy + size);
-		ctx.lineTo(cx - size, cy);
-		ctx.closePath();
+		ctx.arc(cx, cy, r, 0, Math.PI * 2);
 
-		let allyFill = "#0f172a";
-		let allyStroke = "#38bdf8";
-		if (!ally.alive) {
-			allyFill = "#1e293b";
-			allyStroke = "#64748b";
-		} else if (ally.isCurrentTurn) {
-			allyFill = "#78350f";
-			allyStroke = "#fbbf24";
-		}
+		const { allyFill, allyBorder, crestStroke, innerRingStroke } = resolveQ1AllyTokenStyles(ally, isHovered);
 
 		ctx.fillStyle = allyFill;
 		ctx.fill();
-		ctx.strokeStyle = isHovered ? "#ff9d4d" : allyStroke;
-		ctx.lineWidth = isHovered || ally.isCurrentTurn ? 2.5 : 1.6;
+		ctx.strokeStyle = allyBorder;
+		ctx.lineWidth = isHovered || ally.isCurrentTurn ? 2.5 : 1.8;
 		if (isHovered) {
 			ctx.shadowColor = "#ff9d4d";
 			ctx.shadowBlur = 14;
 		}
 		ctx.stroke();
-		ctx.restore();
 
+		// 3. Inner Concentric Bezel Ring
+		if (ally.alive) {
+			ctx.beginPath();
+			ctx.arc(cx, cy, r - 3.5, 0, Math.PI * 2);
+			ctx.strokeStyle = innerRingStroke;
+			ctx.lineWidth = 1;
+			ctx.stroke();
+		}
+
+		// 4. Inner Embossed Diamond Crest
+		ctx.beginPath();
+		const dSize = r - 5;
+		ctx.moveTo(cx, cy - dSize);
+		ctx.lineTo(cx + dSize, cy);
+		ctx.lineTo(cx, cy + dSize);
+		ctx.lineTo(cx - dSize, cy);
+		ctx.closePath();
+		ctx.strokeStyle = crestStroke;
+		ctx.stroke();
+
+		// 5. Hero Phenotype Glyph
 		if (ctx.fillText) {
-			ctx.save();
 			ctx.fillStyle = ally.alive ? "#ffffff" : "#64748b";
 			ctx.font = "bold 9.5px monospace";
 			if (ctx.textAlign) ctx.textAlign = "center";
 			ctx.fillText(resolveAllyTokenGlyph(ally.phenotype), cx, cy + 3.5);
-			ctx.restore();
 		}
+		ctx.restore();
 	}
 
 	/**
@@ -2491,6 +2837,26 @@ const EmberlightCombatRenderer = (() => {
 	}
 
 	/**
+	 * Draws corner rivets at hexagon vertices.
+	 * @param {CanvasRenderingContext2D} ctx
+	 * @param {number} cx
+	 * @param {number} cy
+	 * @param {number} size
+	 * @param {string} strokeColor
+	 */
+	function drawHexagonRivets(ctx, cx, cy, size, strokeColor) {
+		for (let a = 0; a < 6; a++) {
+			const angle = (Math.PI / 3) * a - Math.PI / 6;
+			const rx = cx + (size - 1.5) * Math.cos(angle);
+			const ry = cy + (size - 1.5) * Math.sin(angle);
+			ctx.beginPath();
+			ctx.arc(rx, ry, 1.2, 0, Math.PI * 2);
+			ctx.fillStyle = strokeColor;
+			ctx.fill();
+		}
+	}
+
+	/**
 	 * Draws a hexagonal enemy token on Q1 spatial radar.
 	 * @param {CanvasRenderingContext2D} ctx 2D context.
 	 * @param {any} enemy Hostile battler node.
@@ -2500,7 +2866,7 @@ const EmberlightCombatRenderer = (() => {
 	function drawQ1EnemyToken(ctx, enemy, cellW, cellH) {
 		const cx = enemy.gridX * cellW + cellW / 2;
 		const cy = enemy.gridY * cellH + cellH / 2;
-		const size = enemy.isBoss ? 19 : 15;
+		const size = enemy.isBoss ? 20 : 16;
 		const isHovered = Boolean(ephemeralHover && ephemeralHover.id === enemy.id);
 		const { enemyFill, enemyStroke, labelColor } = resolveEnemyTokenStyles(
 			enemy,
@@ -2508,26 +2874,37 @@ const EmberlightCombatRenderer = (() => {
 		);
 
 		ctx.save();
+
+		// 1. Double-Walled Hexagonal Talisman
 		traceHexagon(ctx, cx, cy, size);
 		ctx.fillStyle = enemyFill;
 		ctx.fill();
 		ctx.strokeStyle = enemyStroke;
-		ctx.lineWidth = isHovered || enemy.isBoss ? 2.5 : 1.6;
+		ctx.lineWidth = isHovered || enemy.isBoss ? 2.5 : 1.8;
 		if (isHovered) {
 			ctx.shadowColor = "#ff9d4d";
 			ctx.shadowBlur = 14;
 		}
 		ctx.stroke();
-		ctx.restore();
 
-		if (ctx.fillText) {
-			ctx.save();
-			ctx.fillStyle = labelColor;
-			ctx.font = "bold 9px monospace";
-			if (ctx.textAlign) ctx.textAlign = "center";
-			ctx.fillText(resolveEnemyTokenGlyph(enemy), cx, cy + 3.5);
-			ctx.restore();
+		// 2. Inner Runic Talisman Hexagon
+		if (enemy.alive) {
+			traceHexagon(ctx, cx, cy, size - 3.5);
+			ctx.strokeStyle = enemy.isBoss ? "rgba(239, 68, 68, 0.5)" : "rgba(168, 85, 247, 0.4)";
+			ctx.lineWidth = 1;
+			ctx.stroke();
+
+			drawHexagonRivets(ctx, cx, cy, size, enemyStroke);
 		}
+
+		// 3. Enemy Glyph
+		if (ctx.fillText) {
+			ctx.fillStyle = labelColor;
+			ctx.font = enemy.isBoss ? "bold 11px monospace" : "bold 9.5px monospace";
+			if (ctx.textAlign) ctx.textAlign = "center";
+			ctx.fillText(resolveEnemyTokenGlyph(enemy), cx, cy + (enemy.isBoss ? 4.0 : 3.5));
+		}
+		ctx.restore();
 	}
 
 	//#region [SEC-08] Public VSRP-001 Tier-3 Interface Gateway
@@ -2578,6 +2955,7 @@ const EmberlightCombatRenderer = (() => {
 		const cellW = w / cols;
 		const cellH = h / rows;
 
+		drawQ1AstrolabeWatermark(ctx, w, h);
 		drawQ1SectorBands(ctx, cellW, h);
 		drawQ1GridLines(ctx, cellW, cellH, cols, rows, w, h);
 		drawQ1ZoneHeaders(ctx, cellW);
@@ -2748,15 +3126,22 @@ const EmberlightCombatRenderer = (() => {
 	 * Builds Q1 radial spatial kinematics descriptor (AOP-WAR-TABLE-CONTROLS-002).
 	 * @param {number} gx Grid column X.
 	 * @param {number} gy Grid row Y.
-	 * @param {any} [targetAlly] Target ally or active hero.
-	 * @param {any} [_targetEnemy] Target enemy.
+	 * @param {any} [targetAlly=null] Target ally or active hero.
+	 * @param {any} [targetEnemy=null] Target enemy.
 	 * @returns {Object}
 	 */
-	function buildQ1RadialConfig(gx, gy, targetAlly, _targetEnemy) {
+	function buildQ1RadialConfig(gx, gy, targetAlly = null, targetEnemy = null) {
 		const resolvedAlly =
 			targetAlly ||
 			(lastCombatState?.party || []).find((a) => a.isCurrentTurn && a.alive) ||
 			(lastCombatState?.party || []).find((a) => a.alive) ||
+			null;
+		const enemies = lastCombatState?.enemies || [];
+		const resolvedEnemy =
+			targetEnemy ||
+			enemies.find((e) => (/** @type {any} */ (e)).gridX === gx && (/** @type {any} */ (e)).gridY === gy && e.alive) ||
+			(focusFireTargetId ? enemies.find((e) => e.id === focusFireTargetId && e.alive) : null) ||
+			enemies.find((e) => e.alive) ||
 			null;
 		return {
 			centerIcon: "🌐",
@@ -2778,6 +3163,8 @@ const EmberlightCombatRenderer = (() => {
 					emit({
 						type: "SET_DISPLACEMENT_VECTOR",
 						targetTile: { x: gx, y: gy },
+						targetIndex: resolvedEnemy ? enemies.indexOf(resolvedEnemy) : undefined,
+						targetId: resolvedEnemy?.id,
 					}),
 				onHover: () =>
 					setEphemeralPreviewSkill({
@@ -3044,7 +3431,17 @@ const EmberlightCombatRenderer = (() => {
 			ctx.shadowBlur = 18;
 		}
 
-		ctx.translate(x, y + kinematics.yBob);
+		const now = Date.now();
+		const isHitFlashing = Boolean(enemy._hitFlashUntil && enemy._hitFlashUntil > now);
+		const flinchX = isHitFlashing ? Math.sin((now - enemy._hitFlashUntil) * 0.25) * 8 : 0;
+
+		if (isHitFlashing) {
+			if (ctx.filter) ctx.filter = "brightness(3.2) contrast(1.5)";
+			ctx.shadowColor = "#ef4444";
+			ctx.shadowBlur = 24;
+		}
+
+		ctx.translate(x + flinchX, y + kinematics.yBob);
 		ctx.rotate(kinematics.tilt);
 		ctx.scale(kinematics.sx, kinematics.sy);
 
@@ -3148,37 +3545,128 @@ const EmberlightCombatRenderer = (() => {
 	}
 
 	/**
-	 * Draws floating HUD for battler: HP gauge & nameplate.
+	/**
+	 * Resolves bezel and bracket strokes for floating battler HUD.
+	 * @param {boolean} isBoss
+	 * @param {boolean} isHovered
+	 * @returns {{ bezelStroke: string, flangeStroke: string }}
+	 */
+	function resolveBattlerHudStrokes(isBoss, isHovered) {
+		let bezelStroke = "#785a28";
+		let flangeStroke = "#b45309";
+		if (isBoss) {
+			bezelStroke = "#d97706";
+			flangeStroke = "#fbbf24";
+		} else if (isHovered) {
+			bezelStroke = "#f59e0b";
+			flangeStroke = "#fcd34d";
+		}
+		return { bezelStroke, flangeStroke };
+	}
+
+	/**
+	 * Draws brass end-cap brackets around floating health gauge.
+	 * @param {CanvasRenderingContext2D} ctx
+	 * @param {number} bx
+	 * @param {number} barY
+	 * @param {number} barW
+	 * @param {number} barH
+	 * @param {string} flangeStroke
+	 */
+	function drawBattlerFlangeBrackets(ctx, bx, barY, barW, barH, flangeStroke) {
+		if (!ctx.beginPath || !ctx.stroke) return;
+		ctx.strokeStyle = flangeStroke;
+		ctx.lineWidth = 1.5;
+
+		// Left Flange [
+		ctx.beginPath();
+		ctx.moveTo(bx - 1, barY - 4);
+		ctx.lineTo(bx - 4, barY - 4);
+		ctx.lineTo(bx - 4, barY + barH + 4);
+		ctx.lineTo(bx - 1, barY + barH + 4);
+		ctx.stroke();
+
+		// Right Flange ]
+		ctx.beginPath();
+		ctx.moveTo(bx + barW + 1, barY - 4);
+		ctx.lineTo(bx + barW + 4, barY - 4);
+		ctx.lineTo(bx + barW + 4, barY + barH + 4);
+		ctx.lineTo(bx + barW + 1, barY + barH + 4);
+		ctx.stroke();
+	}
+
+	/**
+	 * Creates aetheric fluid gradient and shadow color.
+	 * @param {CanvasRenderingContext2D} ctx
+	 * @param {number} bx
+	 * @param {number} barY
+	 * @param {number} barH
+	 * @param {number} hpPct
+	 * @param {boolean} isBoss
+	 * @returns {{ fluidFill: string | CanvasGradient, shadowColor: string }}
+	 */
+	function createAethericFluidFill(ctx, bx, barY, barH, hpPct, isBoss) {
+		if (hpPct <= 30) {
+			if (typeof ctx.createLinearGradient === "function") {
+				const grad = ctx.createLinearGradient(bx, barY, bx, barY + barH);
+				grad.addColorStop(0, "#fca5a5");
+				grad.addColorStop(0.4, "#ef4444");
+				grad.addColorStop(1, "#7f1d1d");
+				return { fluidFill: grad, shadowColor: "rgba(239, 68, 68, 0.8)" };
+			}
+			return { fluidFill: "#ef4444", shadowColor: "rgba(239, 68, 68, 0.8)" };
+		}
+
+		if (isBoss) {
+			if (typeof ctx.createLinearGradient === "function") {
+				const grad = ctx.createLinearGradient(bx, barY, bx, barY + barH);
+				grad.addColorStop(0, "#fef08a");
+				grad.addColorStop(0.4, "#f59e0b");
+				grad.addColorStop(1, "#92400e");
+				return { fluidFill: grad, shadowColor: "rgba(245, 158, 11, 0.8)" };
+			}
+			return { fluidFill: "#f59e0b", shadowColor: "rgba(245, 158, 11, 0.8)" };
+		}
+
+		if (typeof ctx.createLinearGradient === "function") {
+			const grad = ctx.createLinearGradient(bx, barY, bx, barY + barH);
+			grad.addColorStop(0, "#a7f3d0");
+			grad.addColorStop(0.4, "#10b981");
+			grad.addColorStop(1, "#065f46");
+			return { fluidFill: grad, shadowColor: "rgba(16, 185, 129, 0.8)" };
+		}
+		return { fluidFill: "#10b981", shadowColor: "rgba(16, 185, 129, 0.8)" };
+	}
+
+	/**
+	 * Draws numeric vitality readout for floating HUD.
+	 * @param {CanvasRenderingContext2D} ctx
+	 * @param {number} curHp
+	 * @param {number} maxHp
+	 * @param {number} x
+	 * @param {number} barY
+	 * @param {number} barH
+	 */
+	function drawBattlerVitalityText(ctx, curHp, maxHp, x, barY, barH) {
+		ctx.fillStyle = "#ffffff";
+		ctx.font = "bold 8px monospace";
+		if (ctx.textAlign) ctx.textAlign = "center";
+		ctx.shadowColor = "rgba(0,0,0,0.95)";
+		ctx.shadowBlur = 4;
+		ctx.fillText(`${curHp}/${maxHp}`, x, barY + barH + 9);
+	}
+
+	/**
+	 * Draws enemy name text with diegetic typography and drop shadow.
 	 * @param {CanvasRenderingContext2D} ctx
 	 * @param {any} enemy
-	 * @param {{ x: number, y: number, spriteSize: number, effectiveScale: number, isBoss: boolean, isHovered: boolean }} layout
+	 * @param {number} x
+	 * @param {number} barY
+	 * @param {number} effectiveScale
+	 * @param {boolean} isHovered
+	 * @param {boolean} isBoss
 	 */
-	function drawFloatingBattlerHud(ctx, enemy, layout) {
-		if (!enemy.alive || !ctx.fillRect || !ctx.fillText) return;
-		const { x, y, spriteSize, effectiveScale, isBoss, isHovered } = layout;
-		ctx.save();
-		const barW = Math.max(64, Math.round(spriteSize * 0.95));
-		const barH = isHovered ? 7 : 5;
-		const barY = y - spriteSize / 2 - (isHovered ? 18 : 14);
-		const curHp = enemy.hp !== undefined ? enemy.hp : enemy.maxHp || 1;
-		const maxHp = enemy.maxHp || 1;
-		const hpPct = Math.max(0, Math.min(100, (curHp / maxHp) * 100));
-
-		// Bar Background
-		ctx.fillStyle = "rgba(0, 0, 0, 0.9)";
-		ctx.fillRect(x - barW / 2 - 2, barY - 1, barW + 4, barH + 2);
-
-		// Bar Fill
-		let hpBarFill = "#10b981";
-		if (hpPct <= 30) {
-			hpBarFill = "#ef4444";
-		} else if (isBoss) {
-			hpBarFill = "#f59e0b";
-		}
-		ctx.fillStyle = hpBarFill;
-		ctx.fillRect(x - barW / 2, barY, Math.round(barW * (hpPct / 100)), barH);
-
-		// Name Text with Hover Illumination and Dark Backing Plate
+	function drawBattlerNameLabel(ctx, enemy, x, barY, effectiveScale, isHovered, isBoss) {
 		let foeNameColor = "#f8fafc";
 		if (isHovered) {
 			foeNameColor = "#ff9d4d";
@@ -3186,17 +3674,79 @@ const EmberlightCombatRenderer = (() => {
 			foeNameColor = "#fca5a5";
 		}
 		ctx.fillStyle = foeNameColor;
-		const fontSize = Math.max(
-			isHovered ? 13 : 11,
-			Math.round((isHovered ? 14 : 11) * Math.max(1.0, effectiveScale * 0.8)),
-		);
+		const baseSize = isHovered ? 14 : 11;
+		const fontSize = Math.max(isHovered ? 13 : 11, Math.round(baseSize * Math.max(1.0, effectiveScale * 0.8)));
 		ctx.font = `bold ${fontSize}px monospace`;
 		if (ctx.textAlign) ctx.textAlign = "center";
-		if (isHovered) {
-			ctx.shadowColor = "rgba(255, 157, 77, 0.9)";
-			ctx.shadowBlur = 8;
+		ctx.shadowColor = isHovered ? "rgba(255, 157, 77, 0.9)" : "rgba(0, 0, 0, 0.85)";
+		ctx.shadowBlur = isHovered ? 8 : 4;
+		ctx.fillText(enemy.name || "Foe", x, barY - 7);
+	}
+
+	/**
+	 * Draws floating HUD for battler: HP gauge with dark-iron/brass brackets & glowing aetheric fluid.
+	 * Governed by CANON-MAGITEK-AETHERPUNK-001.
+	 * @param {CanvasRenderingContext2D} ctx
+	 * @param {any} enemy
+	 * @param {{ x: number, y: number, spriteSize: number, effectiveScale: number, isBoss: boolean, isHovered: boolean }} layout
+	 */
+	function drawFloatingBattlerHud(ctx, enemy, layout) {
+		if (!enemy.alive) return;
+		const { x, y, spriteSize, effectiveScale, isBoss, isHovered } = layout;
+		ctx.save();
+		const barW = Math.max(72, Math.round(spriteSize * 0.96));
+		const barH = isHovered ? 8 : 6;
+		const barY = y - spriteSize / 2 - (isHovered ? 20 : 16);
+		const curHp = enemy.hp !== undefined ? enemy.hp : enemy.maxHp || 1;
+		const maxHp = enemy.maxHp || 1;
+		const hpPct = Math.max(0, Math.min(100, (curHp / maxHp) * 100));
+		const fillW = Math.round(barW * (hpPct / 100));
+
+		const bx = Math.round(x - barW / 2);
+
+		// 1. Dark-Iron Outer Base & Drop Shadow
+		ctx.fillStyle = "rgba(10, 13, 20, 0.95)";
+		ctx.fillRect(bx - 3, barY - 2, barW + 6, barH + 4);
+
+		// 2. Cold-Rolled Iron / Brass Bezel Stroke
+		const { bezelStroke, flangeStroke } = resolveBattlerHudStrokes(isBoss, isHovered);
+		ctx.strokeStyle = bezelStroke;
+		ctx.lineWidth = 1;
+		ctx.strokeRect(bx - 3.5, barY - 2.5, barW + 7, barH + 5);
+
+		// 3. Physical Brass End-Cap Brackets (Flanged Mechanical Clamps)
+		drawBattlerFlangeBrackets(ctx, bx, barY, barW, barH, flangeStroke);
+
+		// 4. Glowing Aetheric Fluid Fill
+		if (fillW > 0) {
+			const { fluidFill, shadowColor } = createAethericFluidFill(ctx, bx, barY, barH, hpPct, isBoss);
+
+			ctx.save();
+			ctx.shadowColor = shadowColor;
+			ctx.shadowBlur = isHovered ? 8 : 5;
+			ctx.fillStyle = fluidFill;
+			ctx.fillRect(bx, barY, fillW, barH);
+			ctx.restore();
+
+			// 5. Specular Glass Cylinder Glint (Upper Highlight)
+			ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
+			ctx.fillRect(bx, barY, fillW, Math.max(1, Math.floor(barH * 0.3)));
 		}
-		ctx.fillText(enemy.name || "Foe", x, barY - 6);
+
+		// 6. Graduated Glass Vial Measurement Ticks (at 25%, 50%, 75%)
+		ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
+		for (const step of [0.25, 0.5, 0.75]) {
+			const tx = Math.round(bx + barW * step);
+			ctx.fillRect(tx, barY, 1, barH);
+		}
+
+		// 7. Numeric Vitality Readout on Hover or Boss
+		if (isHovered || isBoss) {
+			drawBattlerVitalityText(ctx, curHp, maxHp, x, barY, barH);
+		}
+
+		// 8. Name Text with Diegetic Typography
+		drawBattlerNameLabel(ctx, enemy, x, barY, effectiveScale, isHovered, isBoss);
 		ctx.restore();
 	}
 
@@ -3325,6 +3875,60 @@ const EmberlightCombatRenderer = (() => {
 	 * @param {CombatState} state Active combat state.
 	 * @returns {void}
 	 */
+	/**
+	 * Renders a perspective Magitek Leyline Arcane Matrix across the arena floor.
+	 * @param {CanvasRenderingContext2D} ctx
+	 * @param {number} W Viewport width
+	 * @param {number} H Viewport height
+	 */
+	function drawMagitekArenaRunes(ctx, W, H) {
+		if (!ctx.beginPath || !ctx.ellipse) return;
+		const cx = W * 0.5;
+		const cy = H * 0.72;
+		const rx = W * 0.44;
+		const ry = H * 0.16;
+		const t = Date.now() * 0.0004;
+
+		ctx.save();
+		// Outer Brass Containment Ring
+		ctx.strokeStyle = "rgba(245, 158, 11, 0.35)";
+		ctx.lineWidth = 2;
+		ctx.beginPath();
+		ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+		ctx.stroke();
+
+		// Inner Cyan Aetheric Ring
+		ctx.strokeStyle = "rgba(6, 182, 212, 0.45)";
+		ctx.lineWidth = 1.5;
+		ctx.shadowColor = "rgba(6, 182, 212, 0.6)";
+		ctx.shadowBlur = 12;
+		ctx.beginPath();
+		ctx.ellipse(cx, cy, rx * 0.72, ry * 0.72, 0, 0, Math.PI * 2);
+		ctx.stroke();
+
+		// Concentric Gear Notch Ring
+		ctx.strokeStyle = "rgba(217, 119, 6, 0.25)";
+		ctx.lineWidth = 1;
+		const spokes = 16;
+		for (let i = 0; i < spokes; i++) {
+			const angle = t + (i * Math.PI * 2) / spokes;
+			const cos = Math.cos(angle);
+			const sin = Math.sin(angle);
+			ctx.beginPath();
+			ctx.moveTo(cx + cos * (rx * 0.68), cy + sin * (ry * 0.68));
+			ctx.lineTo(cx + cos * (rx * 0.76), cy + sin * (ry * 0.76));
+			ctx.stroke();
+		}
+
+		// Runic Core Ring
+		ctx.strokeStyle = "rgba(168, 85, 247, 0.35)";
+		ctx.lineWidth = 1;
+		ctx.beginPath();
+		ctx.ellipse(cx, cy, rx * 0.38, ry * 0.38, 0, 0, Math.PI * 2);
+		ctx.stroke();
+		ctx.restore();
+	}
+
 	function renderQ2ClashCanvas(q2Clash, state) {
 		lastQ2Clash = q2Clash;
 		const canvas = /** @type {HTMLCanvasElement|null} */ (
@@ -3431,6 +4035,8 @@ const EmberlightCombatRenderer = (() => {
 				isHovered,
 			});
 		};
+
+		drawMagitekArenaRunes(ctx, W, H);
 
 		// Draw Back Row First (Depth Sort) - 1.6x Scale
 		backEnemies.forEach(({ e, idx }, slotIdx) => {
@@ -3558,6 +4164,24 @@ const EmberlightCombatRenderer = (() => {
 	}
 
 	/**
+	 * Resolves visual badge class and text for an enemy turn proximity / ETA in CTB queue.
+	 * @param {number | null | undefined} turnEta Turns away in CTB queue.
+	 * @returns {{ etaClass: string, etaText: string }}
+	 */
+	function resolveThreatEtaDescriptor(turnEta) {
+		if (turnEta === 0) {
+			return { etaClass: "imminent", etaText: "🚨 ACTING NOW" };
+		}
+		if (turnEta === 1) {
+			return { etaClass: "impending", etaText: "⚡ NEXT TURN" };
+		}
+		if (typeof turnEta === "number" && turnEta > 1) {
+			return { etaClass: "approaching", etaText: `⏱️ IN ${turnEta} TURNS` };
+		}
+		return { etaClass: "dormant", etaText: "⏳ STANDBY" };
+	}
+
+	/**
 	 * Renders Quadrant 3: Threat Oracle 3-tier console (CTB, Intent Vectors, Elemental Affinity, Chronicle Feed).
 	 * @param {Q3OracleProjection} q3Oracle Oracle projection slice.
 	 * @param {CombatState} state Active combat state.
@@ -3569,17 +4193,21 @@ const EmberlightCombatRenderer = (() => {
 		if (intentFeedEl && q3Oracle?.threatVectors) {
 			if (q3Oracle.threatVectors.length === 0) {
 				intentFeedEl.innerHTML =
-					'<div style="color:var(--text-dim); font-size:6.5px">No hostile threats detected.</div>';
+					'<div style="color:var(--text-dim); font-family:var(--font-mono, monospace); font-size:9.5px; letter-spacing:0.5px;">No hostile threats detected.</div>';
 			} else {
 				intentFeedEl.innerHTML = (/** @type {any[]} */ (q3Oracle.threatVectors))
-					.map(
-						(vec) => `
+					.map((vec) => {
+						const { etaClass, etaText } = resolveThreatEtaDescriptor(vec.turnEta);
+						return `
 					<div class="intent-beacon-item ${vec.isCharged ? "charged" : ""}" data-enemy-id="${vec.enemyId}" data-hero-id="${vec.targetHeroId || ""}">
 						<span class="intent-target-lead">🎯 <strong>${vec.enemyName}</strong> ➔ <span style="color:#38bdf8">${vec.targetHeroName}</span></span>
-						<span class="intent-badge ${vec.isCharged ? "charged" : ""}">${vec.isCharged ? "⚡ CHARGED" : "⚔️ STRIKE"}</span>
+						<div class="intent-badges-cluster">
+							<span class="threat-eta-badge ${etaClass}">${etaText}</span>
+							<span class="intent-badge ${vec.isCharged ? "charged" : "basic"}">${vec.isCharged ? "⚡ CHARGED" : "⚔️ STRIKE"}</span>
+						</div>
 					</div>
-				`,
-					)
+				`;
+					})
 					.join("");
 
 				intentFeedEl
@@ -3595,6 +4223,19 @@ const EmberlightCombatRenderer = (() => {
 						htmlBeacon.addEventListener("mouseleave", () =>
 							setEphemeralHover(null),
 						);
+						htmlBeacon.addEventListener("click", () => {
+							if (enemyId) {
+								focusFireTargetId = enemyId;
+								scheduleSynchronizedRedraw();
+								const subDeck = getElement("command-sub-deck");
+								const activeChar =
+									state?.turnQueue?.[state?.activeTurnIndex ?? 0]?.entity ||
+									state?.party?.[0];
+								if (subDeck && state) {
+									renderSubdeckAttack(subDeck, state, activeChar);
+								}
+							}
+						});
 					});
 			}
 		}
@@ -3625,7 +4266,7 @@ const EmberlightCombatRenderer = (() => {
 				});
 				affinityContainer.innerHTML =
 					badges.join("") ||
-					'<span style="font-size:6px; color:var(--text-dim)">ELEMENTAL MATRIX: NEUTRAL</span>';
+					'<span style="font-family:var(--font-mono, monospace); font-size:9px; letter-spacing:0.5px; color:var(--text-dim)">ELEMENTAL MATRIX: NEUTRAL</span>';
 			}
 		}
 
@@ -4189,6 +4830,25 @@ const EmberlightCombatRenderer = (() => {
 		},
 
 		computeHarmonicKinematics,
+
+		/**
+		 * Returns the cached bounding coordinates of currently rendered enemy battlers in Q2.
+		 * @returns {Array<any>}
+		 */
+		getLastEnemyBounds() {
+			return renderedEnemyBounds;
+		},
+
+		/**
+		 * Triggers an immediate hit-flash and flinch shudder on the specified enemy.
+		 * @param {number} idx
+		 */
+		triggerEnemyHitFlash(idx = 0) {
+			const e = (lastCombatState?.enemies || [])[idx];
+			if (e) {
+				e._hitFlashUntil = Date.now() + 300;
+			}
+		},
 	};
 	//#endregion
 })();

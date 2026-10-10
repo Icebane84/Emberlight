@@ -335,6 +335,25 @@ const EmberlightMapRenderer = (() => {
 	}
 
 	/**
+	 * Resolves label and CSS class for overworld threat readout.
+	 * Pure presentation helper.
+	 * @param {number} steps - Danger steps taken.
+	 * @returns {{ label: string, badgeClass: string }}
+	 */
+	function resolveThreatReadout(steps) {
+		if (steps === 0) {
+			return { label: "CLEAR (0/5 STEPS)", badgeClass: "threat-readout-badge safe" };
+		}
+		if (steps < 3) {
+			return { label: `GRACE (${steps}/3 STEPS)`, badgeClass: "threat-readout-badge low" };
+		}
+		if (steps < 5) {
+			return { label: `ACTIVE RISK (${steps}/5)`, badgeClass: "threat-readout-badge elevated" };
+		}
+		return { label: `AMBUSH IMMINENT (${steps}/5)`, badgeClass: "threat-readout-badge critical" };
+	}
+
+	/**
 	 * Updates the overworld hazard/encounter threat gauge DOM width and color.
 	 * State-mutating DOM presentation procedure.
 	 *
@@ -344,14 +363,27 @@ const EmberlightMapRenderer = (() => {
 	function updateThreatGauge(snapshot) {
 		if (typeof document === "undefined") return;
 		const threatBar = document.getElementById("overworld-threat-gauge");
+		const readout = document.getElementById("overworld-threat-readout");
+		const steps = snapshot.dangerSteps || 0;
+		const threatPct = Math.min(100, Math.round((steps / 5) * 100));
+
 		if (threatBar) {
-			const threatPct = Math.min(
-				100,
-				Math.round(((snapshot.dangerSteps || 0) / 5) * 100),
-			);
 			threatBar.style.width = `${threatPct}%`;
-			threatBar.style.backgroundColor =
-				threatPct > 60 ? "var(--danger)" : "var(--ember)";
+			if (steps >= 5) {
+				threatBar.style.backgroundColor = "var(--danger)";
+			} else if (steps >= 3) {
+				threatBar.style.backgroundColor = "var(--ember)";
+			} else if (steps > 0) {
+				threatBar.style.backgroundColor = "var(--cyan)";
+			} else {
+				threatBar.style.backgroundColor = "var(--ok)";
+			}
+		}
+
+		if (readout) {
+			const { label, badgeClass } = resolveThreatReadout(steps);
+			readout.textContent = label;
+			readout.className = badgeClass;
 		}
 	}
 

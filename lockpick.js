@@ -305,14 +305,14 @@ const EmberlightLockpick = (() => {
 	function buildPanelInnerHtml(resonance, resonanceColor, isHarmonized, styles) {
 		return `
       <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-dim); padding-bottom:6px; margin-bottom:10px;">
-        <div class="panel-title" style="color:var(--ember); margin:0; border:none; padding:0;">DISTRICT 10: RESONANCE DISRUPTOR</div>
-        <div style="font-size:8px; color:var(--text-dim);">SEAL: <b style="color:var(--text);">${sim?.sealKey}</b></div>
+        <div class="panel-title" style="color:var(--ember); margin:0; border:none; padding:0;">HARMONIC LEY-RESONANCE DECOUPLER</div>
+        <div style="font-family:var(--font-mono, monospace); font-size:9.5px; letter-spacing:0.5px; color:var(--text-dim);">SEAL: <b style="color:var(--text);">${sim?.sealKey}</b></div>
       </div>
 
       <div style="display:flex; gap:16px; align-items:center; margin-bottom:12px; background:rgba(0,0,0,0.4); padding:10px; border:1px solid var(--border-dim);">
         <canvas id="lockpick-canvas" width="140" height="140" style="background:#000; border:1px solid var(--border-dim); border-radius:4px;"></canvas>
         
-        <div style="flex:1; font-size:8px; display:flex; flex-direction:column; gap:8px;">
+        <div style="flex:1; font-family:var(--font-mono, monospace); font-size:9px; letter-spacing:0.4px; display:flex; flex-direction:column; gap:8px;">
           <div>
             <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
               <span>RESONANCE MATCH</span>
@@ -327,27 +327,27 @@ const EmberlightLockpick = (() => {
             <div style="display:flex; justify-content:space-between; align-items:center; padding:2px 4px; border-radius:3px; background:${styles.bgA}; border:${styles.borderA};">
               <span style="color:${styles.colorA}; font-weight:${styles.weightA};">${styles.prefixA}Harmonic A:</span>
               <div style="display:flex; gap:4px; align-items:center;">
-                <button type="button" class="cmd-btn" id="btn-a-down" style="font-size:7px; padding:2px 6px;">-</button>
+                <button type="button" class="cmd-btn" id="btn-a-down" style="font-family:var(--font-mono, monospace); font-size:9px; padding:2px 6px;">-</button>
                 <span style="width:24px; text-align:center; color:var(--text);">${sim?.player.harmonicA.toFixed(1)}</span>
-                <button type="button" class="cmd-btn" id="btn-a-up" style="font-size:7px; padding:2px 6px;">+</button>
+                <button type="button" class="cmd-btn" id="btn-a-up" style="font-family:var(--font-mono, monospace); font-size:9px; padding:2px 6px;">+</button>
               </div>
             </div>
 
             <div style="display:flex; justify-content:space-between; align-items:center; padding:2px 4px; border-radius:3px; background:${styles.bgB}; border:${styles.borderB};">
               <span style="color:${styles.colorB}; font-weight:${styles.weightB};">${styles.prefixB}Harmonic B:</span>
               <div style="display:flex; gap:4px; align-items:center;">
-                <button type="button" class="cmd-btn" id="btn-b-down" style="font-size:7px; padding:2px 6px;">-</button>
+                <button type="button" class="cmd-btn" id="btn-b-down" style="font-family:var(--font-mono, monospace); font-size:9px; padding:2px 6px;">-</button>
                 <span style="width:24px; text-align:center; color:var(--text);">${sim?.player.harmonicB.toFixed(1)}</span>
-                <button type="button" class="cmd-btn" id="btn-b-up" style="font-size:7px; padding:2px 6px;">+</button>
+                <button type="button" class="cmd-btn" id="btn-b-up" style="font-family:var(--font-mono, monospace); font-size:9px; padding:2px 6px;">+</button>
               </div>
             </div>
 
             <div style="display:flex; justify-content:space-between; align-items:center; padding:2px 4px; border-radius:3px; background:${styles.bgP}; border:${styles.borderP};">
               <span style="color:${styles.colorP}; font-weight:${styles.weightP};">${styles.prefixP}Phase Shift:</span>
               <div style="display:flex; gap:4px; align-items:center;">
-                <button type="button" class="cmd-btn" id="btn-p-down" style="font-size:7px; padding:2px 6px;">◄</button>
+                <button type="button" class="cmd-btn" id="btn-p-down" style="font-family:var(--font-mono, monospace); font-size:9px; padding:2px 6px;">◄</button>
                 <span style="width:24px; text-align:center; color:var(--text);">${sim?.player.phase.toFixed(2)}</span>
-                <button type="button" class="cmd-btn" id="btn-p-up" style="font-size:7px; padding:2px 6px;">►</button>
+                <button type="button" class="cmd-btn" id="btn-p-up" style="font-family:var(--font-mono, monospace); font-size:9px; padding:2px 6px;">►</button>
               </div>
             </div>
           </div>
@@ -355,12 +355,12 @@ const EmberlightLockpick = (() => {
       </div>
 
       <div style="display:flex; justify-content:space-between; align-items:center;">
-        <div style="font-size:7px; color:var(--text-dim);">[W/S] Select Row • [A/D] Tune • [SPACE] Shatter • [ESC] Abort</div>
+        <div style="font-family:var(--font-mono, monospace); font-size:9px; letter-spacing:0.5px; color:var(--text-dim);">[W/S] Select Row • [A/D] Tune • [SPACE] Decouple • [ESC] Abort</div>
         <div style="display:flex; gap:8px;">
-          <button type="button" class="cmd-btn action" id="btn-shatter-seal" style="font-size:8px;" ${isHarmonized ? '' : 'disabled'}>
-            ⚡ SHATTER SEAL
+          <button type="button" class="cmd-btn action" id="btn-shatter-seal" style="font-family:var(--font-mono, monospace); font-size:9px; letter-spacing:0.5px;" ${isHarmonized ? '' : 'disabled'}>
+            ⚡ DECOUPLE LEY-PINS
           </button>
-          <button type="button" class="cmd-btn back" id="btn-cancel-lockpick" style="font-size:8px;">
+          <button type="button" class="cmd-btn back" id="btn-cancel-lockpick" style="font-family:var(--font-mono, monospace); font-size:9px; letter-spacing:0.5px;">
             ABORT [ESC]
           </button>
         </div>

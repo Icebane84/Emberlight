@@ -159,7 +159,7 @@ if (typeof window !== "undefined") {
 	function cancelCombatState(deps) {
 		if (deps.activeDistrict !== "COMBAT") return false;
 		if (typeof EmberlightCombat === "undefined" || typeof EmberlightCombat.getState !== "function") {
-			return false;
+			return true;
 		}
 		const cState = EmberlightCombat.getState();
 		const canCancel =
@@ -172,9 +172,9 @@ if (typeof window !== "undefined") {
 				EmberlightCombat.handleHostAction("CANCEL");
 			}
 			if (deps.renderHUD) deps.renderHUD();
-			return true;
 		}
-		return false;
+		// In COMBAT district, never fall through to switchDistrict("OVERWORLD")
+		return true;
 	}
 
 	/**
@@ -350,37 +350,13 @@ if (typeof window !== "undefined") {
 	}
 
 	/**
-	 * Resolves sensor target metadata for 3D view.
-	 * @param {EventTarget|HTMLElement|null|any} target
-	 * @param {number} clientX
-	 * @param {number} clientY
-	 * @param {boolean} [expanded3D]
-	 * @param {any} [deps]
-	 * @returns {any}
+	 * Resolves tile description and navigation action for the 3D sensor.
+	 * @param {string} aheadTile
+	 * @param {boolean} inTown
+	 * @param {number} depth
+	 * @returns {{ title: string, icon: string, desc: string, isAdvance: boolean }}
 	 */
-	function resolveSensorTargetMetadata(target, clientX, clientY, expanded3D, deps) {
-		const el = /** @type {HTMLElement|null} */ (target);
-		const isSensorPane = expanded3D || Boolean(el?.closest?.("#pane-sensor, #corridor-canvas, .sensor-viewport, .corridor-viewport"));
-		if (!isSensorPane) return null;
-
-		const store = deps?.store;
-		const facing = store?.getFlag("facingDirection") || "DOWN";
-		const pos = deps?.getWorldPos ? deps.getWorldPos() : { x: 1, y: 1 };
-		const map = deps?.getActiveWorldMap ? deps.getActiveWorldMap() : [];
-		const inTown = Boolean(deps?.getTownId ? deps.getTownId() : null);
-		const depth = deps?.getDungeonDepth ? deps.getDungeonDepth() : 0;
-
-		/** @type {Record<string, { x: number, y: number }>} */
-		const facingDeltas = {
-			UP: { x: 0, y: -1 },
-			RIGHT: { x: 1, y: 0 },
-			DOWN: { x: 0, y: 1 },
-			LEFT: { x: -1, y: 0 },
-		};
-		const d = facingDeltas[facing] || { x: 0, y: 1 };
-		const aheadPos = { x: pos.x + d.x, y: pos.y + d.y };
-		const aheadTile = map[aheadPos.y]?.[aheadPos.x] || "#";
-
+	function getTileSensorDescription(aheadTile, inTown, depth) {
 		const RuntimePres = (typeof window !== "undefined" && window._RuntimeInternal?.Presentation) || {};
 		/**
 		 * @param {boolean} t
@@ -391,7 +367,6 @@ if (typeof window !== "undefined") {
 			return dp > 0 ? "🏔️ Bedrock Wall" : "🏔️ Stone Wall";
 		};
 		const getWallTitle = (/** @type {any} */ (RuntimePres)).getWallTitle || defaultWallTitle;
-
 
 		/** @type {Record<string, { title: string, icon: string, desc: string, isAdvance: boolean }>} */
 		const tileDescriptions = {
@@ -529,12 +504,78 @@ if (typeof window !== "undefined") {
 			},
 		};
 
-		const info = tileDescriptions[aheadTile] || tileDescriptions["."];
+		return tileDescriptions[aheadTile] || tileDescriptions["."];
+	}
+
+	/**
+	 * Resolves sensor bounding box coordinates for tactical chassis positioning.
+	 * @param {number} clientX
+	 * @param {number} clientY
+	 * @returns {{ left: number, top: number, width: number, height: number }}
+	 */
+	function resolveSensorBoundingBox(clientX, clientY) {
+		if (typeof document !== "undefined") {
+			const paneSensor = document.getElementById("pane-sensor") || document.getElementById("overworld-sensor-content");
+			if (paneSensor && typeof paneSensor.getBoundingClientRect === "function") {
+				const sRect = paneSensor.getBoundingClientRect();
+				const cX = Math.round(sRect.right - 68);
+				const cY = Math.round(sRect.bottom - 68);
+				return {
+					left: cX - 24,
+					top: cY - 24,
+					width: 48,
+					height: 48,
+				};
+			}
+		}
+		return {
+			left: clientX - 24,
+			top: clientY - 24,
+			width: 48,
+			height: 48,
+		};
+	}
+
+	/**
+	 * Resolves sensor target metadata for 3D view.
+	 * @param {EventTarget|HTMLElement|null|any} target
+	 * @param {number} clientX
+	 * @param {number} clientY
+	 * @param {boolean} [expanded3D]
+	 * @param {any} [deps]
+	 * @returns {any}
+	 */
+	function resolveSensorTargetMetadata(target, clientX, clientY, expanded3D, deps) {
+		const el = /** @type {HTMLElement|null} */ (target);
+		const isSensorPane = expanded3D || Boolean(el?.closest?.("#pane-sensor, #corridor-canvas, .sensor-viewport, .corridor-viewport"));
+		if (!isSensorPane) return null;
+
+		const store = deps?.store;
+		const facing = store?.getFlag("facingDirection") || "DOWN";
+		const pos = deps?.getWorldPos ? deps.getWorldPos() : { x: 1, y: 1 };
+		const map = deps?.getActiveWorldMap ? deps.getActiveWorldMap() : [];
+		const inTown = Boolean(deps?.getTownId ? deps.getTownId() : null);
+		const depth = deps?.getDungeonDepth ? deps.getDungeonDepth() : 0;
+
+		/** @type {Record<string, { x: number, y: number }>} */
+		const facingDeltas = {
+			UP: { x: 0, y: -1 },
+			RIGHT: { x: 1, y: 0 },
+			DOWN: { x: 0, y: 1 },
+			LEFT: { x: -1, y: 0 },
+		};
+		const d = facingDeltas[facing] || { x: 0, y: 1 };
+		const aheadPos = { x: pos.x + d.x, y: pos.y + d.y };
+		const aheadTile = map[aheadPos.y]?.[aheadPos.x] || "#";
+		const info = getTileSensorDescription(aheadTile, inTown, depth);
 		const northLabel = info.isAdvance ? "Advance" : "Inspect";
 		const northIcon = info.isAdvance ? "👣" : "🔍";
 		let badge2 = "WILDERNESS";
-		if (inTown) badge2 = "SETTLEMENT";
-		else if (depth > 0) badge2 = `CATACOMBS F${depth}`;
+		if (inTown) {
+			badge2 = "SETTLEMENT";
+		} else if (depth > 0) {
+			badge2 = `CATACOMBS F${depth}`;
+		}
 
 		return {
 			category: "3D_SENSOR",
@@ -572,12 +613,7 @@ if (typeof window !== "undefined") {
 				title: is3DViewExpanded ? "Collapse Viewport" : "Expand 3D Immersion",
 				desc: is3DViewExpanded ? "Collapse back to standard War Table matrix layout." : "Expand 3D viewport across top quadrant matrix.",
 			},
-			bbox: {
-				left: clientX - 24,
-				top: clientY - 24,
-				width: 48,
-				height: 48,
-			},
+			bbox: resolveSensorBoundingBox(clientX, clientY),
 		};
 	}
 
@@ -970,6 +1006,32 @@ if (typeof window !== "undefined") {
 	/**
 	 * @param {number} dx
 	 * @param {number} dy
+	 * @returns {'UP'|'DOWN'|'LEFT'|'RIGHT'}
+	 */
+	function resolveFacingDirection(dx, dy) {
+		if (dx > 0) return "RIGHT";
+		if (dx < 0) return "LEFT";
+		if (dy < 0) return "UP";
+		return "DOWN";
+	}
+
+	/**
+	 * @param {any} deps
+	 * @returns {void}
+	 */
+	function updateStepDanger(deps) {
+		const inTown = Boolean(deps.getTownId ? deps.getTownId() : null);
+		if (inTown) {
+			deps.resetDangerSteps?.();
+		} else {
+			deps.incrementDangerSteps?.();
+		}
+	}
+
+	/**
+	 * Moves party across grid in specified direction.
+	 * @param {number} dx
+	 * @param {number} dy
 	 * @param {any} deps
 	 * @returns {void}
 	 */
@@ -979,11 +1041,7 @@ if (typeof window !== "undefined") {
 			return;
 		}
 
-		let facing = "DOWN";
-		if (dx > 0) facing = "RIGHT";
-		else if (dx < 0) facing = "LEFT";
-		else if (dy < 0) facing = "UP";
-
+		const facing = resolveFacingDirection(dx, dy);
 		const store = deps.store;
 		store?.setFlag("facingDirection", facing);
 
@@ -994,11 +1052,13 @@ if (typeof window !== "undefined") {
 		const isPassable = deps.isTilePassable ? deps.isTilePassable(worldMap, targetPos) : false;
 		if (!isPassable) {
 			deps.publishSfx?.("sfx_bump");
+			if (deps.renderHUD) deps.renderHUD();
 			return;
 		}
 
 		deps.setWorldPos?.(targetPos);
 		deps.incrementStepCounter?.();
+		updateStepDanger(deps);
 
 		const stepTile = worldMap?.[targetPos.y]?.[targetPos.x];
 		const depth = deps.getDungeonDepth ? deps.getDungeonDepth() : 0;

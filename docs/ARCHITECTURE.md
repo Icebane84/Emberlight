@@ -130,11 +130,12 @@
 
 31. **Deep Analysis Workstation & Tactical Terminal Canvas (Pass 19 / PRS-DES-027):** Full-matrix expanded workstation mode for party inspection and loadout customization (`[Z]` / `.q4-expanded-deck`). Features real-time pentagonal Stat Radar HTML5 canvas rendering (evaluating HP, MP, ATK, DEF, AGI), animated ECG heartbeat oscilloscope, Overworld Formation Bench (`FRONT` $\leftrightarrow$ `BACK` row toggling with instant frontline shielding recomputation), $2\times$ composite Battler Paper-Doll visualizer, requirement deficit warnings, and party-wide loadout comparator with zero DOM mutations in simulation engines.
 
-32. **Master 2x2 Quad-Matrix War Table Architecture (ARCH-SPEC-WAR-TABLE-001):** Decouples the primary screen into 4 distinct quadrants:
-    - **Quadrant 1 (Top-Left): Tactical Cartography** (2D canvas map, sub-pixel camera damping $\lambda=12$, animated terrain tiles, dynamic shadow extrusions).
-    - **Quadrant 2 (Top-Right): Corridor Sensor** (First-person DDA 3D raycaster, 1D Z-buffered billboards, mini-radar, compass ribbon, $960\times360\text{px}$ `[X]` immersion mode, relative crawler kinematics `W/S/A/D/Q`).
-    - **Quadrant 3 (Bottom-Left): Tactical Scanner / Combat Arena** (Mini-HUD, quick field pouch drawer, 12-slot CTB turn ribbon, opposing wings, threat oracle telemetry).
-    - **Quadrant 4 (Bottom-Right): Readiness Deck / District Modals** (Party vitals, 11 district workstations, `[Z]` Deep Analysis fullscreen deck).
+32. **Master 2x2 Quad-Matrix War Table Architecture (ARCH-SPEC-WAR-TABLE-001 / CANON-MAGITEK-AETHERPUNK-001):**
+    Governed diegetically by the Precursor Arcane-Relic console operated by the Expedition Commander inside the Iron Redoubt:
+    - **Quadrant 1 (Top-Left): The Brass Cartograph // Ley-Matrix** (2D canvas map, sub-pixel camera damping $\lambda=12$, animated terrain tiles, dynamic shadow extrusions; transitions to **Arcane Flank Matrix** in combat).
+    - **Quadrant 2 (Top-Right): The Scrying Oculus // Abyssal Lens** (First-person DDA 3D raycaster channeling vanguard's sensory lantern, $960\times360\text{px}$ `[X]` immersion mode; transitions to **The Clash Theater** in combat).
+    - **Quadrant 3 (Bottom-Left): Resonance Spectrograph & Chronicle** (Acoustic tremors, phosphor ticker-tape; transitions to **Initiative Oracle (CTB) & Threat Radar** in combat).
+    - **Quadrant 4 (Bottom-Right): The Tethered Vanguard // Command Deck** (Alchemical life-vials for HP/MP, 11 district workstations, `[Z]` Deep Analysis fullscreen deck).
 
 33. **Instant Battle End Detection & Interactive Victory Protocol (ARCH-SPEC-COMBAT-VICTORY-001):** Evaluates `checkBattleEnd()` immediately upon lethal damage in physical strikes or skill execution. Dispatches `combat:victory` and `combat:banner` events, computes EXP/Gold spoils and item drops, and mounts an interactive Victory Card with `▶ CONTINUE EXPEDITION [SPACE]` button and automatic scheduled fallback transition to overworld cartography.
 

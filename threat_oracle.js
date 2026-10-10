@@ -444,11 +444,21 @@ const EmberlightThreatOracle = (() => {
 			actionPreviewCost = 0,
 		} = combatState;
 
-		const timeline = forecastQueue || (
-			actionPreviewCost !== 0 && activeHeroId
-				? forecastActionTimeline(party, enemies, activeHeroId, actionPreviewCost, 12)
-				: calculateTimeline(party, enemies, 12)
+		const isForecastMatching = Boolean(
+			forecastQueue && forecastQueue.length > 0 && (!activeHeroId || forecastQueue[0]?.id === activeHeroId),
 		);
+		/** @type {any[]} */
+		let rawTimeline = [];
+		if (isForecastMatching && Array.isArray(forecastQueue)) {
+			rawTimeline = forecastQueue;
+		} else if (activeHeroId) {
+			rawTimeline = forecastActionTimeline(party, enemies, activeHeroId, actionPreviewCost || 0, 12);
+		} else if (Array.isArray(forecastQueue)) {
+			rawTimeline = forecastQueue;
+		} else {
+			rawTimeline = calculateTimeline(party, enemies, 12);
+		}
+		const timeline = Array.isArray(rawTimeline) ? rawTimeline : [];
 
 		const currentActiveId =
 			activeHeroId || (timeline[0]?.type === 'HERO' || timeline[0]?.type === 'party' ? timeline[0]?.id : null);

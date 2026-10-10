@@ -186,13 +186,24 @@ const EmberlightDistrictRouter = (() => {
 		showElement("combat-arena-view");
 		showElement("combat-oracle-view");
 
+		const q1Title = document.getElementById("q1-pane-title");
+		if (q1Title) q1Title.textContent = "⚔️ Q1: ARCANE FLANK MATRIX // FORMATION";
 		const q1Tag = document.getElementById("q1-pane-tag");
-		if (q1Tag) q1Tag.textContent = "⚔️ Formations";
+		if (q1Tag) q1Tag.textContent = "Tactical Flank";
+
+		const q2Title = document.getElementById("q2-pane-title");
+		if (q2Title) q2Title.textContent = "👁️ Q2: THE CLASH THEATER // AETHERIC PLANE";
 		const q2Tag = document.getElementById("q2-pane-tag");
 		if (q2Tag) q2Tag.textContent = "Clash Arena";
+
+		const q3Title = document.getElementById("q3-pane-title");
+		if (q3Title) q3Title.textContent = "⏱️ Q3: INITIATIVE ORACLE // THREAT TELEMETRY";
+		const q3Tag = document.getElementById("q3-pane-tag");
+		if (q3Tag) q3Tag.textContent = "Threat Vectors";
+
 		const q4Title = document.getElementById("q4-pane-title");
+		if (q4Title) q4Title.textContent = "🎯 Q4: VANGUARD COMMAND DECK // ACTION ORDERS";
 		const q4Tag = document.getElementById("q4-pane-tag");
-		if (q4Title) q4Title.textContent = "🎯 Q4: ACTION & COMMAND DECK";
 		if (q4Tag) q4Tag.textContent = "Orders Active";
 	}
 
@@ -216,13 +227,25 @@ const EmberlightDistrictRouter = (() => {
 		hideElement("combat-command-view");
 		const subDeck = document.getElementById("command-sub-deck");
 		if (subDeck) subDeck.innerHTML = "";
+
+		const q1Title = document.getElementById("q1-pane-title");
+		if (q1Title) q1Title.textContent = "🗺️ Q1: THE BRASS CARTOGRAPH // LEY-MATRIX";
 		const q1Tag = document.getElementById("q1-pane-tag");
 		if (q1Tag) q1Tag.textContent = "[WASD] Step";
+
+		const q2Title = document.getElementById("q2-pane-title");
+		if (q2Title) q2Title.textContent = "👁️ Q2: THE SCRYING OCULUS // ABYSSAL LENS";
 		const q2Tag = document.getElementById("q2-pane-tag");
-		if (q2Tag) q2Tag.textContent = "Acoustic Frustum";
+		if (q2Tag) q2Tag.textContent = "Arcane Resonance";
+
+		const q3Title = document.getElementById("q3-pane-title");
+		if (q3Title) q3Title.textContent = "📜 Q3: RESONANCE SPECTROGRAPH & CHRONICLE";
+		const q3Tag = document.getElementById("q3-pane-tag");
+		if (q3Tag) q3Tag.textContent = "Aetheric Tether: Nominal";
+
 		const q4Title = document.getElementById("q4-pane-title");
+		if (q4Title) q4Title.textContent = "🛡️ Q4: THE TETHERED VANGUARD // SATCHEL";
 		const q4Tag = document.getElementById("q4-pane-tag");
-		if (q4Title) q4Title.textContent = "🛡️ Q4: PARTY READINESS DECK";
 		if (q4Tag) q4Tag.textContent = "4 Active";
 		if (
 			typeof EmberlightDynamicLights !== "undefined" &&
@@ -266,7 +289,17 @@ const EmberlightDistrictRouter = (() => {
 		}
 		const q4Title = document.getElementById("q4-pane-title");
 		const q4Tag = document.getElementById("q4-pane-tag");
-		if (q4Title) q4Title.textContent = `📋 Q4: ${district} DISTRICT`;
+		/** @type {Record<string, string>} */
+		const districtCanonMap = {
+			STATUS: "THE TETHERED VANGUARD // STATUS",
+			GEAR: "THE TETHERED VANGUARD // ARMORY",
+			SKILLS: "THE TETHERED VANGUARD // AETHER MATRIX",
+			POUCH: "THE TETHERED VANGUARD // SATCHEL",
+			JOURNAL: "THE TETHERED VANGUARD // CHRONICLE",
+			CONFIG: "WAR TABLE CONSOLE // CONFIG",
+		};
+		const canonTitle = districtCanonMap[district] || `THE TETHERED VANGUARD // ${district}`;
+		if (q4Title) q4Title.textContent = `🛡️ Q4: ${canonTitle}`;
 		if (q4Tag) q4Tag.innerHTML = '<span style="color:var(--ember); font-weight:bold;">[ESC] Return to Move</span>';
 
 		DISTRICT_VIEWS.forEach((id) => {

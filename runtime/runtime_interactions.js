@@ -13,35 +13,47 @@ if (typeof window !== "undefined") {
 
 (() => {
 	/**
+	 * @param {any} deps
+	 * @returns {string[][]|null}
+	 */
+	function resolveDungeonMap(deps) {
+		const depth = typeof deps.getDungeonDepth === "function" ? deps.getDungeonDepth() : 0;
+		const isDungeon = deps.activeDistrict === "dungeon" || deps.activeDistrict === "DUNGEON" || depth > 0;
+		if (!isDungeon) return null;
+
+		const spec = typeof deps.getDungeonSpec === "function" ? deps.getDungeonSpec() : null;
+		if (spec?.map) return spec.map;
+		if (spec?.floorMap) return spec.floorMap;
+		return typeof deps.getDungeonFloor === "function" ? deps.getDungeonFloor() : null;
+	}
+
+	/**
 	 * Resolves active world map from Ecology or manifest.
 	 * @param {any} deps
 	 * @returns {string[][]|null}
 	 */
 	function getActiveWorldMap(deps) {
-		const manifest = typeof EmberlightManifest !== "undefined" ? /** @type {any} */ (EmberlightManifest) : {};
-		const Ecology = typeof EmberlightWorldEcology !== "undefined" ? /** @type {any} */ (EmberlightWorldEcology) : null;
-		const activeDistrict = deps.activeDistrict;
-		const getDungeonSpec = deps.getDungeonSpec;
-		const getTownId = deps.getTownId;
-		const getFlags = deps.getFlags;
-		const getTownMutations = deps.getTownMutations;
-		const getSurfaceMutations = deps.getSurfaceMutations;
-		const stepCounter = deps.stepCounter || 0;
-		const getDungeonDepth = deps.getDungeonDepth;
-		const getSurfaceMap = deps.getSurfaceMap;
+		const dungeonMap = resolveDungeonMap(deps);
+		if (dungeonMap) return dungeonMap;
 
-		if (activeDistrict === "dungeon") return (/** @type {any} */ (getDungeonSpec()))?.floorMap || null;
+		const activeDistrict = deps.activeDistrict;
 		if (activeDistrict === "TITLE" || activeDistrict === "GAME_OVER") return null;
 
-		const townId = getTownId();
+		const manifest = typeof EmberlightManifest !== "undefined" ? /** @type {any} */ (EmberlightManifest) : {};
+		const Ecology = typeof EmberlightWorldEcology !== "undefined" ? /** @type {any} */ (EmberlightWorldEcology) : null;
+		const townId = deps.getTownId();
+
 		if (townId && Ecology?.resolveTownMap) {
-			return Ecology.resolveTownMap(manifest, townId, getFlags(), getTownMutations());
+			return Ecology.resolveTownMap(manifest, townId, deps.getFlags(), deps.getTownMutations());
 		}
+		const customSurface = deps.getSurfaceMap ? deps.getSurfaceMap() : null;
+		if (customSurface) return customSurface;
 		if (Ecology?.resolveSurfaceMap) {
-			return Ecology.resolveSurfaceMap(manifest, getFlags(), getSurfaceMutations(), stepCounter, getDungeonDepth(), townId);
+			const stepCounter = deps.stepCounter || 0;
+			return Ecology.resolveSurfaceMap(manifest, deps.getFlags(), deps.getSurfaceMutations(), stepCounter, deps.getDungeonDepth(), townId);
 		}
-		const rawMap = getSurfaceMap() || manifest.OverworldMap || [["."]];
-		return typeof manifest.getResolvedMap === "function" ? manifest.getResolvedMap(rawMap, getFlags()) : rawMap;
+		const rawMap = manifest.OverworldMap || [["."]];
+		return typeof manifest.getResolvedMap === "function" ? manifest.getResolvedMap(rawMap, deps.getFlags()) : rawMap;
 	}
 
 	/**
@@ -252,37 +264,56 @@ if (typeof window !== "undefined") {
 	/**
 	 * @param {any} res
 	 * @param {any} deps
+	 */
+	function handleForageResource(res, deps) {
+		if (res.rewardItem) deps.modifyItem?.(res.rewardItem, 1);
+		if (res.bonusGold) deps.modifyGold?.(res.bonusGold);
+		if (res.targetPos && deps.store?.recordTileMutation) {
+			deps.store.recordTileMutation(res.targetPos.x, res.targetPos.y, ".");
+		}
+		if (res.message) deps.notifyStatus?.(res.message, "success");
+		deps.publishSfx?.("sfx_coin");
+	}
+
+	/**
+	 * @param {any} res
+	 * @param {any} deps
+	 */
+	function handleMiasmaHazard(res, deps) {
+		if (res.hasWard) return;
+		const rawParty = deps.getParty ? deps.getParty() : [];
+		const party = rawParty.map((/** @type {any} */ c) => {
+			if (!c.alive) return c;
+			const maxHp = c.maxHp || 30;
+			const pct = res.damagePct || 0.05;
+			const dmg = Math.max(1, Math.floor(maxHp * pct));
+			return { ...c, hp: Math.max(1, c.hp - dmg) };
+		});
+		deps.setParty?.(party);
+		deps.notifyStatus?.("The squad suffered miasma corruption (-HP)!", "warning");
+		deps.publishSfx?.("sfx_damage");
+	}
+
+	/**
+	 * @param {any} res
+	 * @param {any} deps
 	 * @returns {boolean}
 	 */
 	function dispatchLootAndHazardTriggers(res, deps) {
 		if (res.type === "LOOT_FLOOR_CHEST") {
+			const gold = res.bonusGold || 25;
 			deps.setFlag?.(res.flagKey, true);
-			deps.modifyGold?.(res.bonusGold || 25);
-			deps.notifyStatus?.(`Found ${res.bonusGold || 25}G in subterranean chest!`, "success");
+			deps.modifyGold?.(gold);
+			deps.notifyStatus?.(`Found ${gold}G in subterranean chest!`, "success");
 			deps.publishSfx?.("sfx_coin");
 			return true;
 		}
 		if (res.type === "FORAGE_RESOURCE") {
-			if (res.rewardItem) deps.modifyItem?.(res.rewardItem, 1);
-			if (res.bonusGold) deps.modifyGold?.(res.bonusGold);
-			if (res.targetPos && deps.store?.recordTileMutation) {
-				deps.store.recordTileMutation(res.targetPos.x, res.targetPos.y, ".");
-			}
-			if (res.message) deps.notifyStatus?.(res.message, "success");
-			deps.publishSfx?.("sfx_coin");
+			handleForageResource(res, deps);
 			return true;
 		}
 		if (res.type === "MIASMA_HAZARD") {
-			if (!res.hasWard) {
-				const party = (deps.getParty ? deps.getParty() : []).map((/** @type {any} */ c) => {
-					if (!c.alive) return c;
-					const dmg = Math.max(1, Math.floor((c.maxHp || 30) * (res.damagePct || 0.05)));
-					return { ...c, hp: Math.max(1, c.hp - dmg) };
-				});
-				deps.setParty?.(party);
-				deps.notifyStatus?.("The squad suffered miasma corruption (-HP)!", "warning");
-				deps.publishSfx?.("sfx_damage");
-			}
+			handleMiasmaHazard(res, deps);
 			return true;
 		}
 		return false;

@@ -46,6 +46,10 @@ if (typeof window !== "undefined") {
 			setDungeonSpec: (/** @type {any} */ s) => store?.setDungeonSpec(s),
 			getSurfaceMap: () => (store ? store.getSurfaceMap() : null),
 			setSurfaceMap: (/** @type {any} */ m) => store?.setSurfaceMap(m),
+			getDangerSteps: () => (store ? store.getDangerSteps() : 0),
+			setDangerSteps: (/** @type {number} */ d) => store?.setDangerSteps(d),
+			incrementDangerSteps: () => (store ? store.incrementDangerSteps() : 0),
+			resetDangerSteps: () => store?.resetDangerSteps(),
 			commitSession: (/** @type {string} */ [reason]) => {
 				if (typeof store?.commit === "function") return store.commit(reason);
 				if (typeof store?.StorageManager?.save === "function") return store.StorageManager.save();
@@ -62,12 +66,23 @@ if (typeof window !== "undefined") {
 	 */
 	function buildTitleSaveSummaryHtml(meta, mostRecentId) {
 		const slotId = meta?.slotId || mostRecentId;
-		const loc = meta?.locationName || "Wilderness";
+		const loc = meta?.locationName || "Wilderness Exploration";
 		const pSize = meta?.partySize || 4;
 		const avgLv = meta?.avgLevel || 1;
 		const gold = meta?.gold || 0;
-		const ts = meta?.timestamp || "";
-		return `📜 Latest Chronicle [${slotId}] • ${loc}<br>Heroes: ${pSize} (Avg Lv ${avgLv}) | Gold: ${gold}G<br><span style="color:var(--text-dim); font-size:6.5px;">${ts}</span>`;
+		const ts = meta?.timestamp ? new Date(meta.timestamp).toLocaleString() : (meta?.timestamp || "ARCHIVED");
+		return `
+			<div class="title-dossier-header">
+				<span class="title-dossier-badge">[${slotId}]</span>
+				<span class="title-dossier-loc">${loc}</span>
+				<span class="title-dossier-active">● RECENT</span>
+			</div>
+			<div class="title-dossier-stats">
+				<span class="dossier-stat-item">👥 <b>${pSize}</b> Heroes (Avg Lv ${avgLv})</span>
+				<span class="dossier-stat-item">🪙 <b>${gold}</b> Gold In Vault</span>
+			</div>
+			<div class="title-dossier-ts">TIMESTAMP: ${ts}</div>
+		`;
 	}
 
 	/**
@@ -96,7 +111,16 @@ if (typeof window !== "undefined") {
 			return;
 		}
 
-		el.innerHTML = `Scanning tactical save records...<br><span style="color:var(--text-dim);">No prior expedition records found. Ready to initialize.</span>`;
+		el.innerHTML = `
+			<div class="title-dossier-header">
+				<span class="title-dossier-badge">[STANDBY]</span>
+				<span class="title-dossier-loc">UNEXPLORED EXPANSE</span>
+			</div>
+			<div class="title-dossier-stats">
+				<span class="dossier-stat-item">No active expedition chronicle found.</span>
+			</div>
+			<div class="title-dossier-ts">ARCH-RELIC MATRIX READY FOR INITIALIZATION</div>
+		`;
 		if (contBtn) contBtn.style.opacity = "0.6";
 		if (loadBtn) loadBtn.style.opacity = "0.75";
 	}
@@ -112,7 +136,7 @@ if (typeof window !== "undefined") {
 			const dateStr = slot.timestamp ? new Date(slot.timestamp).toLocaleString() : "Recent";
 			const partyDesc =
 				slot.party && slot.party.length > 0 ? `${slot.party.length} Heroes (Avg Lv ${slot.avgLevel || 1})` : "Active Vanguard";
-			const activeBadge = isCurr ? '<span style="font-size:7px; color:var(--ok); font-weight:bold;">[ACTIVE]</span>' : "";
+			const activeBadge = isCurr ? '<span style="font-family:var(--font-mono, monospace); font-size:9.5px; letter-spacing:0.5px; color:var(--ok); font-weight:bold;">[ACTIVE]</span>' : "";
 			return `
 				<div class="save-slot-info">
 					<div class="save-slot-header">
@@ -150,7 +174,7 @@ if (typeof window !== "undefined") {
 	function buildSaveSlotActionsHtml(slot, mode) {
 		if (mode === "SAVE") {
 			if (slot.isAuto) {
-				return `<div class="save-slot-actions"><span style="font-size:7.5px; color:var(--text-dim); font-style:italic;">System Managed</span></div>`;
+				return `<div class="save-slot-actions"><span style="font-family:var(--font-mono, monospace); font-size:9.5px; letter-spacing:0.5px; color:var(--text-dim); font-style:italic;">System Managed</span></div>`;
 			}
 			const saveLabel = slot.exists ? "💾 OVERWRITE" : "💾 SAVE";
 			const deleteBtn = slot.exists

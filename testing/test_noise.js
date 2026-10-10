@@ -1,3 +1,4 @@
+/* cSpell:words turb */
 /**
  * ╔══════════════════════════════════════════════════════════════════════════╗
  * ║        EMBERLIGHT COHERENT NOISE & SIMPLEX CONTINUITY TEST BATTERY       ║
@@ -85,7 +86,6 @@ runTest('Vector 3: Identical seed produces bit-exact noise values; different see
 		const y = i * 0.35;
 		const valA1 = noiseA1.noise2D(x, y);
 		const valA2 = noiseA2.noise2D(x, y);
-		const valB = noiseB.noise2D(x, y);
 
 		assert.strictEqual(valA1, valA2, `Non-deterministic output at sample ${i}`);
 	}

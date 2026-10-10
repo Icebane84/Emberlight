@@ -316,11 +316,11 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
         <div class="panel-title" style="color:${simRef.passed ? 'var(--ok)' : 'var(--danger)'}; margin:0; border:none; padding:0;">
           ${simRef.passed ? '🛡️ SENTINEL AUDITOR: ALL SYSTEMS NOMINAL' : '🚨 ARCHITECTURAL GATEKEEPER HALT: INTEGRITY VIOLATION'}
         </div>
-        <div style="font-size:8px; font-weight:bold; color:${passRate === 100 ? 'var(--ok)' : 'var(--danger)'};">
+        <div style="font-family:var(--font-mono, monospace); font-size:9.5px; letter-spacing:0.5px; font-weight:bold; color:${passRate === 100 ? 'var(--ok)' : 'var(--danger)'};">
           SCORE: ${simRef.complianceScore}/${simRef.totalChecks} (${passRate}%)
         </div>
       </div>
-      <div id="audit-log-terminal" style="background:#000; border:1px solid var(--border-dim); padding:8px; height:240px; overflow-y:auto; font-size:7px; line-height:1.7; margin-bottom:10px; font-family:monospace;">
+      <div id="audit-log-terminal" style="background:#000; border:1px solid var(--border-dim); padding:8px; height:240px; overflow-y:auto; font-family:var(--font-mono, monospace); font-size:9.5px; letter-spacing:0.4px; line-height:1.7; margin-bottom:10px;">
       </div>
       <div style="text-align:right;">
         <button class="cmd-btn action" id="close-auditor-btn">

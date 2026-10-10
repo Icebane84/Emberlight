@@ -62,6 +62,10 @@ function resolveAccessors(StateMod, store) {
 		setDungeonSpec: () => {},
 		getSurfaceMap: () => null,
 		setSurfaceMap: () => {},
+		getDangerSteps: () => 0,
+		setDangerSteps: () => {},
+		incrementDangerSteps: () => 0,
+		resetDangerSteps: () => {},
 		commitSession: () => false,
 	};
 	return Object.assign(defaults, raw);
@@ -226,6 +230,9 @@ function createTenantDispatchers(deps) {
 		TITLE() {
 			deps.updateTitleSaveSummary();
 			const Cockpit = typeof EmberlightCockpitRenderer !== "undefined" ? /** @type {any} */ (EmberlightCockpitRenderer) : null;
+			if (Cockpit && typeof Cockpit.renderTitleVanguardPedestals === "function") {
+				Cockpit.renderTitleVanguardPedestals();
+			}
 			if (Cockpit && typeof Cockpit.startTitleAnimation === "function") {
 				Cockpit.startTitleAnimation("title-bg-canvas", () => deps.getActiveDistrict());
 			}
@@ -434,6 +441,10 @@ const GameRuntime = (() => {
 		setDungeonSpec: acc.setDungeonSpec,
 		getSurfaceMap: acc.getSurfaceMap,
 		setSurfaceMap: acc.setSurfaceMap,
+		getDangerSteps: acc.getDangerSteps,
+		setDangerSteps: acc.setDangerSteps,
+		incrementDangerSteps: acc.incrementDangerSteps,
+		resetDangerSteps: acc.resetDangerSteps,
 		getActiveWorldMap,
 		isTilePassable,
 		recordTileMutation,
@@ -735,6 +746,10 @@ const GameRuntime = (() => {
 		setDungeonSpec: acc.setDungeonSpec,
 		getSurfaceMap: acc.getSurfaceMap,
 		setSurfaceMap: acc.setSurfaceMap,
+		getDangerSteps: acc.getDangerSteps,
+		setDangerSteps: acc.setDangerSteps,
+		incrementDangerSteps: acc.incrementDangerSteps,
+		resetDangerSteps: acc.resetDangerSteps,
 		getActiveWorldMap,
 		commitSession: acc.commitSession,
 		getActiveDistrict: () => activeDistrict,

@@ -116,17 +116,17 @@ const Pseudo3DTextures = (() => {
 		E: "\u{1F9D3}",
 		G: "\u{1F6E1}\u{FE0F}",
 		V: "\u{1F464}",
-		"@": "\u{1F42B}",
+		"@": "🐎",
 		">": "\u{1FA9C}",
 		"<": "\u{1F6AA}",
-		"~": "\u{1F30A}",
+		"~": "≈",
 		"%": "\u{2623}\u{FE0F}",
-		H: "\u{1F3E8}",
-		N: "\u{1F4CB}",
+		H: "🏮",
+		N: "📜",
 		A: "\u{2728}",
 		"*": "\u{1F48E}",
-		D: "\u{1F3F0}",
-		S: "\u{26E9}\u{FE0F}",
+		D: "🏛️",
+		S: "💀",
 	});
 
 	const WALL_TILES = Object.freeze(new Set(["#", "B", "F", "P"]));
@@ -225,14 +225,15 @@ const Pseudo3DTextures = (() => {
 			for (let x = 0; x < size; x++) {
 				const isMortarH =
 					y === 0 || y === Math.floor(size / 2) - 1 || y === size - 1;
-				const isMortarV1 = y < size / 2 && x === 0;
-				const isMortarV2 = y >= size / 2 && x === Math.floor(size / 2);
+				const isMortarV1 = y < size / 2 && (x === 0 || x === size - 1);
+				const isMortarV2 = y >= size / 2 && (x === Math.floor(size / 2) || x === 0 || x === size - 1);
 				if (isMortarH || isMortarV1 || isMortarV2) {
-					tex[y * size + x] = packColor(18, 18, 30);
+					tex[y * size + x] = packColor(16, 16, 24);
 				} else {
 					const noise = ((x * 17 + y * 29) % 23) - 11;
-					const base = 48 + noise;
-					tex[y * size + x] = packColor(base, base + 2, base + 14);
+					const moss = ((x * 7 + y * 13) % 19 > 15) ? 6 : 0;
+					const base = 52 + noise;
+					tex[y * size + x] = packColor(base, base + 2 + moss, base + 10);
 				}
 			}
 		}
@@ -249,23 +250,31 @@ const Pseudo3DTextures = (() => {
 		const tex = new Uint32Array(size * size);
 		for (let y = 0; y < size; y++) {
 			for (let x = 0; x < size; x++) {
-				const isVerticalStud = x % 8 === 0 || x === 0 || x === size - 1;
-				const isHorizontalRail = y % 16 === 0 || y === 0 || y === size - 1;
-				const isDiagonalBrace = (Math.floor(y / 16) % 2 === 0)
-					? (x % 16 === Math.floor(y % 16))
-					: (x % 16 === 15 - Math.floor(y % 16));
-				const grain = Math.sin(y * 0.75 + x * 0.15) * 8;
+				// Heavy timber framing on outer edges and center division
+				const isFrameStud = x < 3 || x >= size - 3 || (x >= Math.floor(size / 2) - 1 && x <= Math.floor(size / 2) + 1);
+				const isFrameRail = y < 3 || y >= size - 3;
+				const isRivet = (x === 4 || x === size - 5) && (y === 4 || y === size - 5);
+				const grain = Math.sin(y * 0.45 + x * 0.08) * 6;
 
-				if (isVerticalStud || isHorizontalRail || isDiagonalBrace) {
-					// Dark oak timber beam framing
-					tex[y * size + x] = packColor(48, 24, 10);
+				if (isRivet) {
+					// Forged iron studs on corner framing
+					tex[y * size + x] = packColor(18, 18, 22);
+				} else if (isFrameStud || isFrameRail) {
+					// Dark aged timber framing beam
+					const beamGrain = (x * 3 + y * 7) % 7;
+					tex[y * size + x] = packColor(56 + beamGrain, 32 + beamGrain, 14);
 				} else {
-					// Warm wooden horizontal planking
-					const plankLine = (y % 4 === 0) ? -12 : 0;
-					const r = Math.max(0, Math.min(255, 110 + grain + plankLine));
-					const g = Math.max(0, Math.min(255, 68 + (grain * 0.6) + (plankLine * 0.6)));
-					const b = Math.max(0, Math.min(255, 28 + (grain * 0.2)));
-					tex[y * size + x] = packColor(r, g, b);
+					// Warm horizontal oak planks with groove lines
+					const isPlankGap = y % 7 === 0;
+					if (isPlankGap) {
+						tex[y * size + x] = packColor(24, 14, 8);
+					} else {
+						const plankShade = ((x * 11 + y * 19) % 13) - 6;
+						const r = Math.max(0, Math.min(255, 96 + grain + plankShade));
+						const g = Math.max(0, Math.min(255, 58 + Math.floor(grain * 0.6) + Math.floor(plankShade * 0.5)));
+						const b = Math.max(0, Math.min(255, 26 + Math.floor(grain * 0.2)));
+						tex[y * size + x] = packColor(r, g, b);
+					}
 				}
 			}
 		}
@@ -348,10 +357,13 @@ const Pseudo3DTextures = (() => {
 		const tex = new Uint32Array(size * size);
 		for (let y = 0; y < size; y++) {
 			for (let x = 0; x < size; x++) {
-				const noise = ((x * 37 + y * 41) % 29) - 14;
-				const r = Math.max(0, 14 + Math.floor(noise * 0.4));
-				const g = Math.max(0, 44 + noise);
-				const b = Math.max(0, 18 + Math.floor(noise * 0.5));
+				// Subdued dark ashen wilderness soil with subtle dark moss flecks
+				const n = ((x * 13 + y * 17 + (x ^ y)) % 11) - 5;
+				const isEdge = x === 0 || y === 0;
+				const edgeDim = isEdge ? 4 : 0;
+				const r = Math.max(8, 18 + n - edgeDim);
+				const g = Math.max(10, 24 + n + (n > 0 ? 3 : 0) - edgeDim);
+				const b = Math.max(8, 20 + n - edgeDim);
 				tex[y * size + x] = packColor(r, g, b);
 			}
 		}

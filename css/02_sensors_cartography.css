@@ -176,107 +176,450 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 8px;
-  background: rgba(10, 10, 24, 0.98);
+  padding: 10px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(14, 20, 44, 0.98) 0%, rgba(4, 6, 16, 0.99) 100%);
   height: 100%;
+  min-height: 540px;
   overflow-y: auto;
+  font-family: var(--font-mono, monospace);
 }
 
-.analysis-header-row {
+.deep-analysis-roster {
+  display: flex;
+  gap: 6px;
+  background: rgba(4, 8, 20, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  padding: 6px;
+  border-radius: 4px;
+}
+
+.deep-roster-btn {
+  flex: 1;
+  font-size: 9.5px;
+  font-family: var(--font-mono, monospace);
+  padding: 5px 8px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid var(--border-dim);
+  color: #cbd5e1;
+  border-radius: 3px;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.deep-roster-btn:hover {
+  border-color: #38bdf8;
+  color: #fff;
+  background: #0369a1;
+  transform: translateY(-1px);
+}
+
+.deep-roster-btn.active {
+  background: #3d1c08;
+  border-color: var(--ember);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(255, 157, 77, 0.5);
+}
+
+.deep-analysis-pane {
+  background: radial-gradient(ellipse at 50% 0%, rgba(15, 23, 48, 0.9) 0%, rgba(4, 6, 18, 0.98) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  box-shadow: 0 0 18px rgba(0, 0, 0, 0.85), inset 0 0 20px rgba(56, 189, 248, 0.03);
+  padding: 10px;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.deep-pane-title {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid var(--border-glow);
-  padding-bottom: 6px;
+  font-size: 11px;
+  font-weight: bold;
+  font-family: var(--font-mono, monospace);
+  color: #38bdf8;
+  border-bottom: 1px solid rgba(56, 189, 248, 0.25);
+  padding-bottom: 5px;
+  letter-spacing: 0.75px;
+  text-shadow: 0 0 8px rgba(56, 189, 248, 0.4);
 }
 
-.analysis-main-grid {
+/* =========================================================================
+   PILLAR 2: THE ARMORY & PAPER-DOLL CRUCIBLE ARCHITECTURE
+   ========================================================================= */
+
+.deep-analysis-stage-3col {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  flex: 1;
-}
-
-.radar-terminal-box {
-  background: #050510;
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  padding: 8px;
-  border-radius: 4px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-#tactical-radar-canvas {
-  width: 160px;
-  height: 160px;
-  background: radial-gradient(circle, rgba(14, 165, 233, 0.08) 0%, rgba(2, 6, 23, 0.9) 70%);
-  border-radius: 50%;
-  box-shadow: 0 0 16px rgba(14, 165, 233, 0.2);
-}
-
-.tactical-workstation-panel {
-  display: grid;
-  grid-template-columns: 1fr 1.2fr;
+  grid-template-columns: 1.15fr 1fr 1fr;
   gap: 12px;
-  background: rgba(6, 9, 20, 0.95);
-  border: 1px solid var(--border-glow);
-  padding: 10px;
-  border-radius: 4px;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
+  flex: 1;
+  min-height: 400px;
 }
 
-.workstation-visual-pod {
+.crucible-pane {
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: #02040a;
-  border: 1px solid var(--border-dim);
-  padding: 8px;
-  border-radius: 4px;
 }
 
-#armory-paper-doll-canvas {
-  width: 128px;
-  height: 128px;
-  image-rendering: pixelated;
-  background: radial-gradient(circle, rgba(245, 158, 11, 0.08) 0%, rgba(2, 4, 10, 0.8) 75%);
-  border: 1px solid rgba(245, 158, 11, 0.3);
-  border-radius: 4px;
-  box-shadow: 0 0 12px rgba(245, 158, 11, 0.15);
-}
-
-.hero-selector-pills {
+.crucible-rig-wrapper {
   display: flex;
-  gap: 4px;
-  margin-top: 8px;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.crucible-paper-doll-core {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 157, 77, 0.12) 0%, rgba(4, 6, 16, 0.9) 70%);
+  box-shadow: 0 0 20px rgba(255, 157, 77, 0.25);
+}
+
+.crucible-arcane-ring {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 1px dashed rgba(255, 157, 77, 0.5);
+  animation: rotate-crucible-ring 16s linear infinite;
+}
+
+@keyframes rotate-crucible-ring {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.crucible-pedestal-glow {
+  position: absolute;
+  bottom: 4px;
+  width: 70px;
+  height: 8px;
+  background: radial-gradient(ellipse, rgba(255, 157, 77, 0.7) 0%, transparent 80%);
+  border-radius: 50%;
+}
+
+.battler-paper-doll-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.battler-paper-doll-img {
+  width: 64px;
+  height: 64px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 10px rgba(255, 157, 77, 0.4));
+}
+
+.crucible-sockets-orbit {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
   width: 100%;
 }
 
-.hero-pill-btn {
-  flex: 1;
-  font-size: 6.5px;
-  padding: 4px 2px;
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid var(--border-dim);
-  color: var(--text-dim);
-  border-radius: 2px;
+.crucible-socket-pod {
+  background: rgba(12, 16, 32, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 6px 8px;
+  border-radius: 4px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.18s ease;
+  font-family: var(--font-mono, monospace);
+  text-align: left;
 }
 
-.hero-pill-btn:hover,
-.hero-pill-btn.active {
-  background: #3d1c08;
+.crucible-socket-pod:hover {
+  border-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
+}
+
+.crucible-socket-pod.active {
   border-color: var(--ember);
-  color: #ffffff;
-  box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
+  background: rgba(255, 157, 77, 0.2);
+  box-shadow: 0 0 14px rgba(255, 157, 77, 0.5), inset 0 0 8px rgba(255, 157, 77, 0.2);
 }
 
-.workstation-telemetry-pod {
+.socket-pod-icon {
+  font-size: 14px;
+}
+
+.socket-pod-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.socket-pod-slot {
+  font-size: 9px;
+  color: var(--text-dim);
+  font-weight: bold;
+  letter-spacing: 0.5px;
+}
+
+.socket-pod-item {
+  font-size: 9.5px;
+  font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.5px;
+}
+
+.socket-pod-item.equipped {
+  color: var(--ember);
+}
+
+.socket-pod-item.empty {
+  color: #64748b;
+}
+
+/* --- Live Stat Delta Strip --- */
+.live-stat-delta-strip {
+  background: rgba(14, 165, 233, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  padding: 6px 8px;
+  border-radius: 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.live-stat-delta-empty {
+  font-size: 9px;
+  color: var(--text-dim);
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.5px;
+  padding: 4px 0;
+}
+
+.delta-strip-header {
+  font-size: 9.5px;
+  font-weight: bold;
+  color: #38bdf8;
+  letter-spacing: 0.5px;
+  font-family: var(--font-mono, monospace);
+}
+
+.delta-chips-row {
+  display: flex;
+  gap: 8px;
+}
+
+.delta-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.5px;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 2px 6px;
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.delta-chip.pos {
+  border-color: rgba(74, 222, 128, 0.4);
+}
+.delta-chip.pos .delta-diff {
+  color: #4ade80;
+  font-weight: bold;
+}
+
+.delta-chip.neg {
+  border-color: rgba(239, 68, 68, 0.4);
+}
+.delta-chip.neg .delta-diff {
+  color: #f87171;
+  font-weight: bold;
+}
+
+.delta-chip.zero .delta-diff {
+  color: #94a3b8;
+}
+
+.delta-label {
+  color: #94a3b8;
+}
+
+.delta-proj {
+  color: #fff;
+  font-weight: bold;
+}
+
+/* --- Inventory & Compare Cards --- */
+.compare-card {
+  background: rgba(8, 12, 24, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 8px;
+  border-radius: 3px;
+  transition: all 0.15s ease;
+  font-family: var(--font-mono, monospace);
+}
+
+.compare-card:hover {
+  border-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.08);
+}
+
+.compare-card.selected {
+  border-color: var(--ember);
+  background: rgba(255, 157, 77, 0.15);
+  box-shadow: 0 0 10px rgba(255, 157, 77, 0.4);
+}
+
+.deficit-warning {
+  color: #f87171;
+  font-size: 9px;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  margin-top: 3px;
+}
+
+.combat-telemetry-box {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  font-family: var(--font-mono, monospace);
+}
+
+.telemetry-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 9.5px;
+  letter-spacing: 0.5px;
+}
+
+.deep-analysis-bench {
+  background: rgba(6, 10, 24, 0.9);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  padding: 10px;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.party-loadout-comparator {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+/* =========================================================================
+   PILLAR 3: THE STATUS INSPECTOR 3-CHAMBER BALANCE
+   ========================================================================= */
+
+.status-3chamber-stage {
+  display: grid;
+  grid-template-columns: 1.05fr 1.15fr 1.05fr;
+  gap: 12px;
+  flex: 1;
+  min-height: 460px;
+}
+
+.status-chamber {
+  height: 100%;
+}
+
+.status-battler-pedestal {
+  position: relative;
+  width: 110px;
+  height: 110px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.12) 0%, rgba(4, 6, 18, 0.9) 70%);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.25);
+  margin-top: 4px;
+}
+
+.status-pedestal-ring {
+  position: absolute;
+  bottom: 2px;
+  width: 60px;
+  height: 6px;
+  background: radial-gradient(ellipse, rgba(56, 189, 248, 0.8) 0%, transparent 80%);
+  border-radius: 50%;
+}
+
+.status-ecg-monitor-frame {
+  background: #02040a;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  padding: 6px 8px;
+  border-radius: 4px;
+  box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.9);
+}
+
+.ecg-waveform-canvas {
+  width: 100%;
+  border-radius: 2px;
+  background: #02040a;
+  box-shadow: 0 0 8px rgba(52, 211, 153, 0.15);
+}
+
+.stat-radar-canvas {
+  image-rendering: auto;
+  border-radius: 50%;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);
+}
+
+.formation-bench-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.formation-wing-box {
+  background: rgba(2, 4, 12, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 8px;
+  border-radius: 3px;
+  display: flex;
+  flex-direction: column;
+}
+
+.formation-unit-pill {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid var(--border-dim);
+  padding: 4px 6px;
+  border-radius: 2px;
+  font-size: 9px;
+  letter-spacing: 0.5px;
+}
+
+.formation-unit-pill.selected {
+  border-color: var(--ember);
+  background: rgba(255, 157, 77, 0.15);
 }
 
 .stat-matrix-grid {
@@ -292,8 +635,10 @@
 .stat-matrix-cell {
   display: flex;
   justify-content: space-between;
-  font-size: 7.5px;
-  padding: 2px 4px;
+  font-size: 9.5px;
+  font-family: var(--font-mono, monospace);
+  padding: 3px 6px;
+  letter-spacing: 0.5px;
 }
 
 .stat-matrix-cell .val {
@@ -303,7 +648,8 @@
 
 .stat-matrix-cell .mod {
   color: var(--ok);
-  font-size: 6.5px;
+  font-size: 9px;
+  letter-spacing: 0.5px;
 }
 
 .stat-matrix-cell .mod.negative {
@@ -323,9 +669,11 @@
   align-items: center;
   background: rgba(15, 23, 42, 0.6);
   border: 1px solid var(--border-dim);
-  padding: 3px 6px;
+  padding: 4px 8px;
   border-radius: 2px;
-  font-size: 7px;
+  font-size: 9px;
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.5px;
 }
 
 .equip-slot-row .slot-name {
@@ -338,13 +686,15 @@
 }
 
 .equip-slot-row .equip-btn {
-  font-size: 6px;
-  padding: 1px 4px;
+  font-size: 9px;
+  padding: 2px 6px;
   background: transparent;
   border: 1px solid var(--border-dim);
   color: var(--ember);
   cursor: pointer;
   border-radius: 2px;
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.5px;
 }
 
 .equip-slot-row .equip-btn:hover {
@@ -362,8 +712,10 @@
 
 .tactical-btn {
   flex: 1;
-  font-size: 7.5px;
-  padding: 6px;
+  font-size: 9.5px;
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.5px;
+  padding: 7px 10px;
   background: rgba(15, 23, 42, 0.9);
   border: 1px solid var(--border-dim);
   color: var(--text);
@@ -372,7 +724,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 5px;
   transition: all 0.2s ease;
 }
 
@@ -406,10 +758,12 @@
 }
 
 .formation-row-label {
-  font-size: 7px;
+  font-size: 9px;
   font-weight: bold;
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.5px;
   color: var(--text-dim);
-  width: 45px;
+  width: 55px;
 }
 
 .formation-slots-grid {
@@ -425,9 +779,11 @@
   align-items: center;
   background: #030712;
   border: 1px solid var(--border-dim);
-  padding: 4px;
+  padding: 5px;
   border-radius: 3px;
-  font-size: 6.5px;
+  font-size: 9px;
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.5px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -449,7 +805,8 @@
 
 .formation-hero-slot .hero-role {
   color: var(--text-dim);
-  font-size: 5.5px;
+  font-size: 9px;
+  letter-spacing: 0.5px;
 }
 
 .formation-bench-bar {
@@ -462,8 +819,10 @@
 
 .formation-bench-btn {
   flex: 1;
-  font-size: 6.5px;
-  padding: 4px;
+  font-size: 9px;
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.5px;
+  padding: 5px;
   background: rgba(15, 23, 42, 0.8);
   border: 1px solid var(--border-dim);
   color: var(--text-dim);
@@ -490,8 +849,10 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 7px;
-  padding: 2px 4px;
+  font-size: 9px;
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.5px;
+  padding: 3px 6px;
   background: rgba(2, 4, 10, 0.6);
   border-radius: 2px;
 }
@@ -504,8 +865,10 @@
 }
 
 .medical-btn {
-  font-size: 7px;
-  padding: 5px;
+  font-size: 9.5px;
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.5px;
+  padding: 6px 8px;
   background: rgba(15, 23, 42, 0.8);
   border: 1px solid rgba(74, 222, 128, 0.4);
   color: var(--ok);
@@ -514,7 +877,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 5px;
 }
 
 .medical-btn:hover {
@@ -541,7 +904,9 @@
   gap: 4px;
   min-height: 90px;
   justify-content: center;
-  font-size: 7.5px;
+  font-size: 9px;
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.5px;
   color: var(--text-dim);
 }
 
@@ -560,7 +925,9 @@
 
 .crucible-btn {
   flex: 1;
-  font-size: 7.5px;
+  font-size: 9px;
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.5px;
   padding: 6px;
   background: rgba(15, 23, 42, 0.85);
   border: 1px solid var(--border-dim);
@@ -583,10 +950,13 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 8px;
+  font-family: var(--font-mono, monospace);
+  font-size: 9.5px;
+  letter-spacing: 0.5px;
 }
 
 .quadrant-pane {
+  position: relative;
   background: var(--panel-bg);
   border: 2px solid var(--border-dim);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03), 0 4px 14px rgba(0, 0, 0, 0.65);

@@ -252,47 +252,85 @@ if (typeof window !== "undefined") {
 	}
 
 	/**
+	 * @param {string} encounterKey
+	 * @param {any} deps
+	 */
+	function resetCombatSession(encounterKey, deps) {
+		if (typeof EmberlightCombat === "undefined" || typeof EmberlightCombat.reset !== "function") return;
+		const encounter = buildEncounterSpec(encounterKey);
+		EmberlightCombat.reset({
+			party: deps.getParty?.() || [],
+			gold: deps.getGold?.() || 0,
+			inventory: /** @type {Record<string, number>} */ (deps.getInventory?.() || {}),
+			encounterKey,
+			encounter,
+			dungeonDepth: deps.getDungeonDepth?.() || 0,
+		});
+	}
+
+	/**
+	 * @param {string} encounterKey
+	 * @param {any} deps
+	 */
+	function notifyCombatEncounter(encounterKey, deps) {
+		if (typeof EmberlightSoundtrack !== "undefined" && typeof EmberlightSoundtrack.setMood === "function") {
+			const isBoss = encounterKey?.includes("MALAKOR") || encounterKey?.includes("BOSS");
+			EmberlightSoundtrack.setMood(isBoss ? "BOSS" : "COMBAT");
+		}
+		const bus = deps.bus || deps.eventBus;
+		bus?.publish?.("overworld:encounter", { encounterKey });
+	}
+
+	/**
 	 * @param {string} [encounterKey='DEFAULT']
 	 * @param {any} [deps]
 	 */
 	function startCombat(encounterKey = "DEFAULT", deps = {}) {
-		if (deps.getIs3DViewExpanded?.()) {
-			deps.toggle3DViewportExpansion?.(false);
-		}
-		if (deps.getIsQ4DeckExpanded?.()) {
-			deps.toggleQ4DeckExpansion?.(false);
-		}
+		deps.toggle3DViewportExpansion?.(false);
+		deps.toggleQ4DeckExpansion?.(false);
 		deps.setActiveDistrict?.("COMBAT");
 
-		if (typeof EmberlightCombat !== "undefined" && typeof EmberlightCombat.reset === "function") {
-			const encounter = buildEncounterSpec(encounterKey);
-			EmberlightCombat.reset({
-				party: deps.getParty ? deps.getParty() : [],
-				gold: deps.getGold ? deps.getGold() : 0,
-				inventory: /** @type {Record<string, number>} */ (
-					/** @type {unknown} */ (deps.getInventory ? deps.getInventory() : {})
-				),
-				encounterKey,
-				encounter,
-				dungeonDepth: deps.getDungeonDepth ? deps.getDungeonDepth() : 0,
-			});
-		}
-
+		resetCombatSession(encounterKey, deps);
 		setBackdropForEncounter(encounterKey, deps);
+		notifyCombatEncounter(encounterKey, deps);
 
 		const Router = typeof EmberlightDistrictRouter !== "undefined" ? /** @type {any} */ (EmberlightDistrictRouter) : null;
 		Router?.switchDistrict?.("COMBAT");
 		deps.renderHUD?.();
 	}
 
-	function toggleFullscreenMode(/** @type {any} */ [deps]) {
-		if (typeof document === "undefined") return;
-		if (!document.fullscreenElement) {
-			document.documentElement.requestFullscreen?.().catch(() => {});
-			if (deps?.notifyStatus) deps.notifyStatus("Display mode: FULLSCREEN", "info");
-		} else {
+	/**
+	 * @param {any} deps
+	 */
+	function enterFullscreen(deps) {
+		document.documentElement.requestFullscreen?.().catch(() => {});
+		document.body?.classList.add("fullscreen-mode");
+		deps?.notifyStatus?.("Display mode: FULLSCREEN", "info");
+	}
+
+	/**
+	 * @param {any} deps
+	 */
+	function exitFullscreen(deps) {
+		if (document.fullscreenElement) {
 			document.exitFullscreen?.().catch(() => {});
-			if (deps?.notifyStatus) deps.notifyStatus("Display mode: WINDOWED", "info");
+		}
+		document.body?.classList.remove("fullscreen-mode");
+		deps?.notifyStatus?.("Display mode: WINDOWED", "info");
+	}
+
+	/**
+	 * @param {any} deps
+	 */
+	function toggleFullscreenMode(deps) {
+		if (typeof document === "undefined") return;
+		const isCurrentlyFullscreen = Boolean(
+			document.fullscreenElement || document.body?.classList.contains("fullscreen-mode"),
+		);
+		if (isCurrentlyFullscreen) {
+			exitFullscreen(deps);
+		} else {
+			enterFullscreen(deps);
 		}
 	}
 
@@ -513,6 +551,38 @@ if (typeof window !== "undefined") {
 			window.addEventListener("keydown", (e) => {
 				if (e.key === "Escape") {
 					deps.handleCancelAction?.();
+				} else if (deps.activeDistrict === "TITLE") {
+					if (e.key === " " || e.key === "Enter") {
+						const contBtn = document.getElementById("menu-continue-btn");
+						if (contBtn) {
+							e.preventDefault();
+							contBtn.click();
+						}
+					} else if (e.key === "n" || e.key === "N") {
+						const newBtn = document.getElementById("menu-new-game-btn");
+						if (newBtn) {
+							e.preventDefault();
+							newBtn.click();
+						}
+					} else if (e.key === "l" || e.key === "L") {
+						const loadBtn = document.getElementById("menu-load-btn");
+						if (loadBtn) {
+							e.preventDefault();
+							loadBtn.click();
+						}
+					} else if (e.key === "c" || e.key === "C") {
+						const cfgBtn = document.getElementById("title-settings-btn");
+						if (cfgBtn) {
+							e.preventDefault();
+							cfgBtn.click();
+						}
+					} else if (e.key === "m" || e.key === "M") {
+						const muteBtn = document.getElementById("title-mute-btn");
+						if (muteBtn) {
+							e.preventDefault();
+							muteBtn.click();
+						}
+					}
 				}
 			});
 		}

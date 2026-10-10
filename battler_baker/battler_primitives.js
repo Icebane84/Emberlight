@@ -92,6 +92,26 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		holy1: '#eab308',
 		holy2: '#fde047',
 		holy3: '#ffffff',
+
+		brass0: '#3d2806',
+		brass1: '#855716',
+		brass2: '#d4973b',
+		brass3: '#fde68a',
+
+		copper0: '#3b170c',
+		copper1: '#8a3d1d',
+		copper2: '#d97742',
+		copper3: '#fed7aa',
+
+		aether0: '#083344',
+		aether1: '#0891b2',
+		aether2: '#22d3ee',
+		aether3: '#cffafe',
+
+		orichalcum0: '#4a3307',
+		orichalcum1: '#a17316',
+		orichalcum2: '#f59e0b',
+		orichalcum3: '#fef3c7',
 	});
 
 	/**

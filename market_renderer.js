@@ -238,7 +238,7 @@ const EmberlightMarketRenderer = (() => {
           <span style="color:${currentStock > 0 ? 'var(--text)' : 'var(--text-dim)'}">
             ${item.label} (${price}g)
           </span>
-          <span style="color:var(--text-dim); font-size:7px;"> — ${item.desc} [Stock: ${currentStock}]</span>
+          <span style="color:var(--text-dim); font-family:var(--font-mono, monospace); font-size:9px; letter-spacing:0.5px;"> — ${item.desc} [Stock: ${currentStock}]</span>
         </div>
       </div>
     `;
@@ -246,7 +246,9 @@ const EmberlightMarketRenderer = (() => {
 		const buyBtn = document.createElement('button');
 		buyBtn.type = 'button';
 		buyBtn.className = 'cmd-btn action';
-		buyBtn.style.fontSize = '7px';
+		buyBtn.style.fontFamily = 'var(--font-mono, monospace)';
+		buyBtn.style.fontSize = '9px';
+		buyBtn.style.letterSpacing = '0.5px';
 		buyBtn.style.padding = '4px 8px';
 		buyBtn.textContent = 'BUY';
 		buyBtn.disabled = !canAfford;
@@ -292,7 +294,7 @@ const EmberlightMarketRenderer = (() => {
         ${iconUrl ? `<img src="${iconUrl}" style="width:24px; height:24px; image-rendering:pixelated; border:1px solid var(--border-dim); background:#000;" />` : ''}
         <div>
           <span>${item.label} (Qty: ${count})</span>
-          <span style="color:var(--text-dim); font-size:7px;"> — Sell for ${sellPrice}g</span>
+          <span style="color:var(--text-dim); font-family:var(--font-mono, monospace); font-size:9px; letter-spacing:0.5px;"> — Sell for ${sellPrice}g</span>
         </div>
       </div>
     `;
@@ -300,7 +302,9 @@ const EmberlightMarketRenderer = (() => {
 		const sellBtn = document.createElement('button');
 		sellBtn.type = 'button';
 		sellBtn.className = 'cmd-btn run';
-		sellBtn.style.fontSize = '7px';
+		sellBtn.style.fontFamily = 'var(--font-mono, monospace)';
+		sellBtn.style.fontSize = '9px';
+		sellBtn.style.letterSpacing = '0.5px';
 		sellBtn.style.padding = '4px 8px';
 		sellBtn.textContent = 'SELL';
 		sellBtn.onclick = (e) => {
@@ -358,7 +362,7 @@ const EmberlightMarketRenderer = (() => {
 		if (state.currentTab === 'BUY') {
 			const stockList = shop?.stock || [];
 			if (stockList.length === 0) {
-				contentBox.innerHTML = '<div style="font-size:8px; color:var(--text-dim);">Merchant has no goods in stock.</div>';
+				contentBox.innerHTML = '<div style="font-family:var(--font-mono, monospace); font-size:9.5px; letter-spacing:0.5px; color:var(--text-dim);">Merchant has no goods in stock.</div>';
 			} else {
 				stockList.forEach((entry) => {
 					const row = renderBuyCatalogRow(entry, state, dispatch, shop || undefined);
@@ -368,7 +372,7 @@ const EmberlightMarketRenderer = (() => {
 		} else {
 			const invEntries = Object.entries(state.inventory || {}).filter(([_, count]) => count > 0);
 			if (invEntries.length === 0) {
-				contentBox.innerHTML = '<div style="font-size:8px; color:var(--text-dim);">Your pouch is empty.</div>';
+				contentBox.innerHTML = '<div style="font-family:var(--font-mono, monospace); font-size:9.5px; letter-spacing:0.5px; color:var(--text-dim);">Your pouch is empty.</div>';
 			} else {
 				invEntries.forEach(([itemId, count]) => {
 					const row = renderSellInventoryRow(itemId, count, state, dispatch, shop || undefined);
@@ -395,8 +399,8 @@ const EmberlightMarketRenderer = (() => {
 			card.className = 'market-compat-card incompatible';
 			card.innerHTML = `
         <div class="market-compat-name">${char.name}</div>
-        <div style="color:var(--danger); font-size:6.5px;">INCOMPATIBLE</div>
-        <div style="color:var(--text-dim); font-size:6px;">${char.phenotype}</div>
+        <div style="color:var(--danger); font-family:var(--font-mono, monospace); font-size:9px; letter-spacing:0.5px;">INCOMPATIBLE</div>
+        <div style="color:var(--text-dim); font-family:var(--font-mono, monospace); font-size:9px;">${char.phenotype}</div>
       `;
 		} else if (selectedItem.slot) {
 			const diffInfo = computeItemDiff(char, selectedItem);
@@ -422,16 +426,16 @@ const EmberlightMarketRenderer = (() => {
 
 			card.className = `market-compat-card ${tagClass}`;
 			card.innerHTML = `
-        <div class="market-compat-name">${char.name} <span style="font-size:6px; color:var(--text-dim)">(${char.phenotype})</span></div>
-        <div style="font-size:6.5px; margin:2px 0;">${diffStr}</div>
-        <div style="font-size:6px; color:var(--text-dim);">Wearing: ${diffInfo.currentEquippedLabel}</div>
+        <div class="market-compat-name">${char.name} <span style="font-family:var(--font-mono, monospace); font-size:9px; color:var(--text-dim)">(${char.phenotype})</span></div>
+        <div style="font-family:var(--font-mono, monospace); font-size:9px; letter-spacing:0.5px; margin:2px 0;">${diffStr}</div>
+        <div style="font-family:var(--font-mono, monospace); font-size:9px; color:var(--text-dim);">Wearing: ${diffInfo.currentEquippedLabel}</div>
       `;
 		} else {
 			card.className = 'market-compat-card upgrade';
 			card.innerHTML = `
         <div class="market-compat-name">${char.name}</div>
-        <div style="color:var(--ok); font-size:6.5px;">CAN USE</div>
-        <div style="font-size:6px; color:var(--text-dim)">HP:${char.hp}/${char.maxHp} MP:${char.mp}/${char.maxMp}</div>
+        <div style="color:var(--ok); font-family:var(--font-mono, monospace); font-size:9px; letter-spacing:0.5px;">CAN USE</div>
+        <div style="font-family:var(--font-mono, monospace); font-size:9px; color:var(--text-dim)">HP:${char.hp}/${char.maxHp} MP:${char.mp}/${char.maxMp}</div>
       `;
 		}
 
@@ -466,9 +470,9 @@ const EmberlightMarketRenderer = (() => {
         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-dim); padding-bottom:6px; margin-bottom:10px;">
           <div>
             <div class="panel-title" style="color:var(--ember); margin-bottom:2px; border:none; padding:0;">${shopLabel}</div>
-            <div style="font-size:7px; color:var(--text-dim);">${merchantName}</div>
+            <div style="font-family:var(--font-mono, monospace); font-size:9.5px; letter-spacing:0.5px; color:var(--text-dim);">${merchantName}</div>
           </div>
-          <div style="font-size:9px; color:var(--ember); font-weight:bold;">
+          <div style="font-family:var(--font-mono, monospace); font-size:9.5px; letter-spacing:0.5px; color:var(--ember); font-weight:bold;">
             PURSE: ${state.gold}g
           </div>
         </div>
@@ -496,7 +500,7 @@ const EmberlightMarketRenderer = (() => {
 				}
 
 				inspectDeck.innerHTML = `
-          <div style="font-size:7.5px; color:var(--ember); border-bottom:1px solid var(--border-dim); padding-bottom:4px; margin-bottom:6px;">
+          <div style="font-family:var(--font-mono, monospace); font-size:9.5px; letter-spacing:0.5px; color:var(--ember); border-bottom:1px solid var(--border-dim); padding-bottom:4px; margin-bottom:6px;">
             ${headerDesc}
           </div>
           <div class="market-compat-grid" id="market-compat-roster"></div>

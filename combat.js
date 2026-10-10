@@ -219,16 +219,25 @@ const EmberlightCombat = (() => {
 				(typeof EmberlightCombatRenderer !== "undefined"
 					? EmberlightCombatRenderer
 					: null);
-			if (activeRenderer?.render) {
-				activeRenderer.render(structuredClone(sim), (/** @type {any} */ act) =>
-					Actions.handleViewAction(sim, act, getHelpers()),
-				);
+			if (activeRenderer) {
+				const snapshot = structuredClone(sim);
+				if (typeof activeRenderer.renderWarTable === "function") {
+					const projection = Projection.createProjection(snapshot);
+					activeRenderer.renderWarTable(projection, (/** @type {any} */ act) =>
+						Actions.handleViewAction(sim, act, getHelpers()),
+					);
+				} else if (typeof activeRenderer.render === "function") {
+					activeRenderer.render(snapshot, (/** @type {any} */ act) =>
+						Actions.handleViewAction(sim, act, getHelpers()),
+					);
+				}
 			}
 		}
 
 		function checkBattleEnd() {
 			if (!sim) return true;
 			return CombatState.checkBattleEnd(sim, {
+				Calc,
 				dispatchSFX,
 				appendLog,
 				hostContext,
@@ -562,6 +571,11 @@ const EmberlightCombat = (() => {
 				return this.getModuleInfo();
 			},
 
+			getExpForNextLevel: Calc.getExpForNextLevel,
+			applyHeroLevelUp: Calc.applyHeroLevelUp,
+			distributeVictoryRewards: (/** @type {any} */ s, /** @type {any} */ m, /** @type {any} */ l) =>
+				CombatState.distributeVictoryRewards(s, m, l, Calc),
+
 			destroy() {
 				if (intentUnsub) {
 					intentUnsub();
@@ -580,6 +594,10 @@ const EmberlightCombat = (() => {
 
 	const defaultInstance = /** @type {any} */ (createInstance({ isHeadless: false }));
 	defaultInstance.createInstance = createInstance;
+	defaultInstance.getExpForNextLevel = Calc.getExpForNextLevel;
+	defaultInstance.applyHeroLevelUp = Calc.applyHeroLevelUp;
+	defaultInstance.distributeVictoryRewards = (/** @type {any} */ s, /** @type {any} */ m, /** @type {any} */ l) =>
+		CombatState.distributeVictoryRewards(s, m, l, Calc);
 	return defaultInstance;
 })();
 

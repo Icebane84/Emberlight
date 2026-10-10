@@ -683,6 +683,7 @@ declare interface ThreatVector {
   targetHeroName: string;
   heroIndex: number;
   isCharged: boolean;
+  turnEta?: number | null;
 }
 
 declare interface Q1SpatialProjection {
@@ -1086,6 +1087,8 @@ declare interface CombatEntity {
   atk: number;
   def: number;
   alive: boolean;
+  agi?: number;
+  accumulatedDelay?: number;
   row?: 'FRONT' | 'BACK' | 'BOTH';
   isBoss?: boolean;
   isGuarding?: boolean;

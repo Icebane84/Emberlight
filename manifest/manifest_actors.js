@@ -17,7 +17,7 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 		 * @param {number} level - Numerical target level.
 		 * @returns {number} Required EXP threshold.
 		 */
-		expForNextLevel: (level) => Math.round(20 * level ** 1.4),
+		expForNextLevel: (level) => Math.max(20, Math.floor(25 * (level ** 1.5) + 10 * level)),
 	};
 
 	const PartyRoster = [
@@ -52,8 +52,8 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 
 	const Enemies = {
 		SHADE_WOLF: {
-			label: 'Shade Wolf',
-			sprite: '🐺',
+			label: 'Hollow Shade Wolf',
+			sprite: '🐺⚡',
 			baseStats: { hp: 18, atk: 6, def: 2, agi: 6 },
 			weakness: 'FIRE',
 			resistance: 'ICE',
@@ -62,8 +62,8 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 			ailmentProc: { id: 'POISON', chance: 0.35, duration: 3 },
 		},
 		BONE_ARCHER: {
-			label: 'Bone Archer',
-			sprite: '🏹',
+			label: 'Precursor Bone Archer',
+			sprite: '🏹⚙️',
 			baseStats: { hp: 14, atk: 8, def: 1, agi: 9 },
 			weakness: 'HOLY',
 			resistance: 'PHYSICAL',
@@ -71,8 +71,8 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 			rewards: { exp: 11, gold: 9 },
 		},
 		IRON_BRUTE: {
-			label: 'Iron Brute',
-			sprite: '👹',
+			label: 'Iron Brute Automaton',
+			sprite: '⚙️👹',
 			baseStats: { hp: 30, atk: 10, def: 6, agi: 3 },
 			weakness: 'LIGHTNING',
 			resistance: 'PHYSICAL',
@@ -80,8 +80,8 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 			rewards: { exp: 16, gold: 14 },
 		},
 		CRYPT_SKELETON: {
-			label: 'Crypt Skeleton',
-			sprite: '💀',
+			label: 'Catacomb Skeleton Sentinel',
+			sprite: '💀⚙️',
 			baseStats: { hp: 28, atk: 9, def: 8, agi: 4 },
 			weakness: 'HOLY',
 			resistance: 'PHYSICAL',
@@ -89,8 +89,8 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 			rewards: { exp: 24, gold: 18 },
 		},
 		BLIGHT_SPIDER: {
-			label: 'Blight Spider',
-			sprite: '🕷',
+			label: 'Aether-Spine Blight Spider',
+			sprite: '🕷️💎',
 			baseStats: { hp: 16, atk: 8, def: 2, agi: 9 },
 			weakness: 'FIRE',
 			resistance: 'HOLY',
@@ -99,8 +99,8 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 			ailmentProc: { id: 'POISON', chance: 0.5, duration: 3 },
 		},
 		DREAD_ACOLYTE: {
-			label: 'Dread Acolyte',
-			sprite: '🧙‍♂️',
+			label: 'Umbral Dread Acolyte',
+			sprite: '🧙‍♂️🔮',
 			baseStats: { hp: 22, atk: 11, def: 4, agi: 6 },
 			weakness: 'HOLY',
 			resistance: 'FIRE',
@@ -108,9 +108,38 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 			rewards: { exp: 32, gold: 28 },
 			ailmentProc: { id: 'BURN', chance: 0.4, duration: 3 },
 		},
-		// --- BOSS: Malakor, The Cinder Revenant ---
+		CLOCKWORK_SENTRY: {
+			label: 'Clockwork Sentry Golem',
+			sprite: '⚙️🤖',
+			baseStats: { hp: 36, atk: 12, def: 8, agi: 5 },
+			weakness: 'ICE',
+			resistance: 'PHYSICAL',
+			targeting: 'HIGHEST_ATK',
+			rewards: { exp: 40, gold: 35 },
+		},
+		VOLCANO_SALAMANDER: {
+			label: 'Magma Salamander',
+			sprite: '🦎🔥',
+			baseStats: { hp: 26, atk: 13, def: 5, agi: 7 },
+			weakness: 'ICE',
+			resistance: 'FIRE',
+			targeting: 'LOWEST_DEF',
+			rewards: { exp: 38, gold: 30 },
+			ailmentProc: { id: 'BURN', chance: 0.5, duration: 3 },
+		},
+		VOID_HERALD: {
+			label: 'Abyssal Void Herald',
+			sprite: '👁️✨',
+			baseStats: { hp: 30, atk: 14, def: 4, agi: 8 },
+			weakness: 'HOLY',
+			resistance: 'ICE',
+			targeting: 'RANDOM',
+			rewards: { exp: 48, gold: 42 },
+			ailmentProc: { id: 'POISON', chance: 0.45, duration: 3 },
+		},
+		// --- BOSS: Malakor, The Cinder Revenant / Arch-Core ---
 		CINDER_REVENANT: {
-			label: 'Malakor, Cinder Revenant',
+			label: 'Malakor, Cinder Arch-Core',
 			sprite: '🔥💀',
 			isBoss: true,
 			baseStats: { hp: 160, atk: 15, def: 10, agi: 5 },
@@ -145,6 +174,8 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 		CRYPT_SANCTUM: [ 'DREAD_ACOLYTE', 'CRYPT_SKELETON' ],
 		SPIDER_NEST: [ 'BLIGHT_SPIDER', 'BLIGHT_SPIDER' ],
 		CATACOMBS_DEEP: [ 'CRYPT_SKELETON', 'BLIGHT_SPIDER', 'DREAD_ACOLYTE' ],
+		STEAM_FOUNDRY: [ 'CLOCKWORK_SENTRY', 'VOLCANO_SALAMANDER' ],
+		VOID_VAULT: [ 'VOID_HERALD', 'CLOCKWORK_SENTRY' ],
 		BOSS_MALAKOR: [ 'CINDER_REVENANT' ],
 	};
 

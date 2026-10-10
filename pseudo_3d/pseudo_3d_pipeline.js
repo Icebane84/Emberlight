@@ -252,8 +252,34 @@ const Pseudo3DPipeline = (() => {
 		const shadow = math.resolveBillboardShadow(sp.tile);
 		ctx.shadowColor = shadow.color;
 		ctx.shadowBlur = shadow.blur;
-		if (ctx.fillText)
+
+		if (sp.tile === "~") {
+			// Precursor water hazard: render glowing subterranean stream ripple on ground
+			const rw = proj.spriteH * 0.95;
+			const rh = proj.spriteH * 0.32;
+			const cy = state.H / 2 + proj.spriteH * 0.35;
+			if (ctx.ellipse && ctx.fill) {
+				ctx.fillStyle = "rgba(14, 116, 144, 0.45)";
+				ctx.strokeStyle = "rgba(56, 189, 248, 0.85)";
+				ctx.lineWidth = Math.max(1, fontSize * 0.08);
+				ctx.beginPath();
+				ctx.ellipse(proj.spriteScreenX, cy, rw * 0.5, rh * 0.5, 0, 0, Math.PI * 2);
+				ctx.fill();
+				ctx.stroke();
+
+				// Concentric inner surge ring
+				ctx.beginPath();
+				ctx.ellipse(proj.spriteScreenX, cy, rw * 0.28, rh * 0.25, 0, 0, Math.PI * 2);
+				ctx.stroke();
+			}
+			if (ctx.fillText) {
+				ctx.font = `bold ${Math.round(fontSize * 0.5)}px sans-serif`;
+				ctx.fillStyle = "#e0f2fe";
+				ctx.fillText("≈", proj.spriteScreenX, cy);
+			}
+		} else if (ctx.fillText) {
 			ctx.fillText(glyph, proj.spriteScreenX, state.H / 2 + proj.spriteH * 0.08);
+		}
 		ctx.restore();
 	}
 
@@ -424,17 +450,54 @@ const Pseudo3DPipeline = (() => {
 	function renderDebugHud(ctx, map, facing, camera, isExpandedMode) {
 		if (!ctx?.fillText || isExpandedMode) return;
 		ctx.save();
-		ctx.fillStyle = "#ff9d4d";
-		ctx.font = '8px "Press Start 2P", monospace';
-		ctx.textAlign = "left";
-		ctx.fillText(`BEARING: ${facing || "DOWN"}`, 16, 22);
-
+		/** @type {Record<string, string>} */
+		const cardinalMap = {
+			UP: "NORTH",
+			DOWN: "SOUTH",
+			LEFT: "WEST",
+			RIGHT: "EAST",
+		};
+		const heading = cardinalMap[facing] || facing || "SOUTH";
 		const aheadX = Math.trunc(camera.x + Math.cos(camera.angle) * 1.0);
 		const aheadY = Math.trunc(camera.y + Math.sin(camera.angle) * 1.0);
 		const aheadTile = map[aheadY]?.[aheadX] || "#";
-		ctx.fillStyle = "#7a7a9e";
-		ctx.font = '7px "Press Start 2P", monospace';
-		ctx.fillText(`AHEAD: [${aheadTile}]`, 16, 34);
+		let tileLabel = "PATH CLEAR";
+		if (aheadTile === "#") {
+			tileLabel = "BLOCKED (WALL)";
+		} else if (aheadTile === "~") {
+			tileLabel = "WATER HAZARD";
+		}
+
+		// Subtle precursor brass glassmorphism telemetry badge
+		if (ctx.fillRect && ctx.strokeRect) {
+			ctx.fillStyle = "rgba(10, 10, 18, 0.72)";
+			ctx.strokeStyle = "rgba(255, 157, 77, 0.35)";
+			ctx.lineWidth = 1;
+			if (ctx.roundRect) {
+				ctx.beginPath();
+				ctx.roundRect(14, 12, 164, 30, 4);
+				ctx.fill();
+				ctx.stroke();
+			} else {
+				ctx.fillRect(14, 12, 164, 30);
+				ctx.strokeRect(14, 12, 164, 30);
+			}
+		}
+
+		ctx.fillStyle = "#ff9d4d";
+		ctx.font = '8px "Press Start 2P", monospace';
+		ctx.textAlign = "left";
+		ctx.fillText(`🧭 OCULUS: ${heading}`, 20, 24);
+
+		let labelColor = "#94a3b8";
+		if (aheadTile === "#") {
+			labelColor = "#f87171";
+		} else if (aheadTile === "~") {
+			labelColor = "#38bdf8";
+		}
+		ctx.fillStyle = labelColor;
+		ctx.font = '6.5px "Press Start 2P", monospace';
+		ctx.fillText(`AHEAD: ${tileLabel}`, 20, 35);
 		ctx.restore();
 	}
 

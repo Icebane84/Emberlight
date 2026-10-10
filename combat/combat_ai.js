@@ -23,6 +23,7 @@
 			'BONE_ARCHER',
 			'BLIGHT_SPIDER',
 			'DREAD_ACOLYTE',
+			'VOID_HERALD',
 			'MOSS_GOLEM',
 		]);
 

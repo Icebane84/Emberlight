@@ -35,6 +35,7 @@ if (typeof window !== "undefined") {
 			dungeonFloor: deps?.getDungeonFloor ? deps.getDungeonFloor() : 1,
 			dungeonDepth: deps?.getDungeonDepth ? deps.getDungeonDepth() : 0,
 			stepCounter: deps?.stepCounter || 0,
+			dangerSteps: deps?.getDangerSteps ? deps.getDangerSteps() : 0,
 			flags: deps?.getFlags ? deps.getFlags() : {},
 			facing: store?.getFlag("facingDirection") || "DOWN",
 			pouchOpen: store?.getFlag("pouchOpen") || false,
@@ -101,6 +102,72 @@ if (typeof window !== "undefined") {
 	}
 
 	/**
+	/**
+	 * Assembles comprehensive HUD state snapshot from dependencies.
+	 * @param {any} deps
+	 * @param {{ x: number, y: number }} currentPos
+	 * @param {string|null} currentTownId
+	 * @param {boolean} inTown
+	 * @param {string} facing
+	 * @param {any} facingCtx
+	 * @returns {any}
+	 */
+	function buildHUDSnapshot(deps, currentPos, currentTownId, inTown, facing, facingCtx) {
+		const store = deps.store;
+		return {
+			party: deps.getParty ? deps.getParty() : [],
+			gold: deps.getGold ? deps.getGold() : 0,
+			inventory: deps.getInventory ? deps.getInventory() : {},
+			worldPos: currentPos,
+			playerPos: { ...currentPos, inTown, townId: currentTownId },
+			map: facingCtx.worldMap,
+			macroPos: deps.getMacroPos ? deps.getMacroPos() : { x: 1, y: 1 },
+			activeDistrict: deps.activeDistrict,
+			dungeonFloor: deps.getDungeonFloor ? deps.getDungeonFloor() : 1,
+			dungeonDepth: deps.getDungeonDepth ? deps.getDungeonDepth() : 0,
+			stepCounter: deps.stepCounter || 0,
+			dangerSteps: deps.getDangerSteps ? deps.getDangerSteps() : 0,
+			flags: { ...(deps.getFlags ? deps.getFlags() : {}), in_town: inTown, townId: currentTownId },
+			facing,
+			pouchOpen: store?.getFlag("pouchOpen") || false,
+			facingPos: facingCtx.facingPos,
+			facingTile: facingCtx.facingTile,
+			facingPrompt: facingCtx.facingPrompt,
+			townId: currentTownId,
+			inTown,
+		};
+	}
+
+	/**
+	 * Dispatches snapshot projection to the cockpit renderer if mounted.
+	 * @param {any} snapshot
+	 * @param {any} handleAction
+	 */
+	function dispatchCockpitRender(snapshot, handleAction) {
+		const Cockpit = typeof EmberlightCockpitRenderer !== "undefined" ? /** @type {any} */ (EmberlightCockpitRenderer) : null;
+		if (Cockpit?.render) {
+			Cockpit.render(snapshot, handleAction);
+		} else if (Cockpit?.renderCockpit) {
+			Cockpit.renderCockpit(snapshot, handleAction);
+		}
+	}
+
+	/**
+	 * Routes district-specific graphics updates based on active district token.
+	 * @param {any} snapshot
+	 * @param {any} deps
+	 */
+	function dispatchDistrictPresentation(snapshot, deps) {
+		if (deps.activeDistrict === "COMBAT") {
+			if (typeof EmberlightCombat !== "undefined" && typeof EmberlightCombat.render === "function") {
+				EmberlightCombat.render(typeof EmberlightCombatRenderer !== "undefined" ? EmberlightCombatRenderer : null);
+			}
+		} else if (deps.activeDistrict !== "TITLE" && deps.activeDistrict !== "GAME_OVER") {
+			renderOverworldGraphics(snapshot, deps);
+		}
+	}
+
+	/**
 	 * Renders the top HUD, Cockpit mini-HUD, and spatial overlay projections.
 	 * @param {any} deps
 	 * @returns {void}
@@ -111,44 +178,11 @@ if (typeof window !== "undefined") {
 		const inTown = Boolean(currentTownId);
 		const store = deps.store;
 		const facing = store?.getFlag("facingDirection") || "DOWN";
-		const { facingPos, facingTile, facingPrompt, worldMap } = calculateFacingContext(currentPos, facing, deps);
+		const facingCtx = calculateFacingContext(currentPos, facing, deps);
 
-		const snapshot = {
-			party: deps.getParty ? deps.getParty() : [],
-			gold: deps.getGold ? deps.getGold() : 0,
-			inventory: deps.getInventory ? deps.getInventory() : {},
-			worldPos: currentPos,
-			playerPos: { ...currentPos, inTown, townId: currentTownId },
-			map: worldMap,
-			macroPos: deps.getMacroPos ? deps.getMacroPos() : { x: 1, y: 1 },
-			activeDistrict: deps.activeDistrict,
-			dungeonFloor: deps.getDungeonFloor ? deps.getDungeonFloor() : 1,
-			dungeonDepth: deps.getDungeonDepth ? deps.getDungeonDepth() : 0,
-			stepCounter: deps.stepCounter || 0,
-			flags: { ...(deps.getFlags ? deps.getFlags() : {}), in_town: inTown, townId: currentTownId },
-			facing,
-			pouchOpen: store?.getFlag("pouchOpen") || false,
-			facingPos,
-			facingTile,
-			facingPrompt,
-			townId: currentTownId,
-			inTown,
-		};
-
-		const Cockpit = typeof EmberlightCockpitRenderer !== "undefined" ? /** @type {any} */ (EmberlightCockpitRenderer) : null;
-		if (Cockpit?.render) {
-			Cockpit.render(snapshot, deps.handleCockpitAction);
-		} else if (Cockpit?.renderCockpit) {
-			Cockpit.renderCockpit(snapshot, deps.handleCockpitAction);
-		}
-
-		if (deps.activeDistrict === "COMBAT") {
-			if (typeof EmberlightCombat !== "undefined" && typeof EmberlightCombat.render === "function") {
-				EmberlightCombat.render(typeof EmberlightCombatRenderer !== "undefined" ? EmberlightCombatRenderer : null);
-			}
-		} else if (deps.activeDistrict !== "TITLE" && deps.activeDistrict !== "GAME_OVER") {
-			renderOverworldGraphics(snapshot, deps);
-		}
+		const snapshot = buildHUDSnapshot(deps, currentPos, currentTownId, inTown, facing, facingCtx);
+		dispatchCockpitRender(snapshot, deps.handleCockpitAction);
+		dispatchDistrictPresentation(snapshot, deps);
 	}
 
 	/**

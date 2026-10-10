@@ -223,6 +223,8 @@ const EmberlightCombatVFX = (() => {
 		if (typeof document === "undefined") return;
 		if (canvas?.parentElement) return;
 		const combatView =
+			document.getElementById("combat-arena-view") ||
+			document.getElementById("pane-sensor") ||
 			document.getElementById("combat-theater") ||
 			document.getElementById("combat-view");
 		if (!combatView) return;
@@ -301,7 +303,26 @@ const EmberlightCombatVFX = (() => {
 		if (!canvas) return { x: 200, y: 150 };
 		const rect = canvas.getBoundingClientRect
 			? canvas.getBoundingClientRect()
-			: { left: 0, top: 0, width: 600, height: 400 };
+			: { left: 0, top: 0, width: 600, height: 300 };
+
+		if (!isAllyTarget) {
+			const enemyBounds =
+				typeof window !== "undefined" &&
+				window.EmberlightCombatRenderer?.getLastEnemyBounds?.();
+			if (Array.isArray(enemyBounds) && enemyBounds.length > 0) {
+				const b = enemyBounds[targetIndex] || enemyBounds[0];
+				if (b && typeof b.x === "number") {
+					return {
+						x: b.x + (b.w || 96) / 2,
+						y: b.y + (b.h || 96) / 2,
+					};
+				}
+			}
+			const w = rect.width || 600;
+			const h = rect.height || 300;
+			const slotX = (w / 4) * (targetIndex + 1);
+			return { x: slotX, y: h * 0.65 };
+		}
 
 		const targetEl = resolveSlotElement(isAllyTarget, targetIndex);
 		if (targetEl?.getBoundingClientRect) {
@@ -312,8 +333,9 @@ const EmberlightCombatVFX = (() => {
 			};
 		}
 
-		const defaultRatio = isAllyTarget ? 0.25 : 0.75;
-		return { x: (rect.width || 600) * defaultRatio, y: (rect.height || 400) * 0.5 };
+		const w = rect.width || 600;
+		const h = rect.height || 300;
+		return { x: w * 0.25, y: h * 0.5 };
 	}
 	//#endregion
 
@@ -372,8 +394,20 @@ const EmberlightCombatVFX = (() => {
 	 * @param {number} [intensity=6] - Magnitude of viewport displacement.
 	 * @returns {void}
 	 */
-	function triggerScreenShake(intensity = 6) {
-		shakeIntensity = intensity;
+	function triggerScreenShake(intensity = 8) {
+		shakeIntensity = Math.min(24, Math.max(shakeIntensity, intensity));
+		if (typeof document !== "undefined") {
+			const arena =
+				document.getElementById("combat-arena-view") ||
+				document.getElementById("pane-sensor");
+			if (arena) {
+				arena.classList.remove("arena-screen-shake");
+				void arena.offsetWidth;
+				arena.classList.add("arena-screen-shake");
+				setTimeout(() => arena.classList.remove("arena-screen-shake"), 350);
+			}
+		}
+		startLoop();
 	}
 	//#endregion
 
@@ -437,24 +471,109 @@ const EmberlightCombatVFX = (() => {
 	 * @param {number} [targetIndex=0] - Target slot index.
 	 * @returns {void}
 	 */
-	function playSlashVFX(isAllyTarget = false, targetIndex = 0) {
-		const { x, y } = getTargetCoords(isAllyTarget, targetIndex);
-		triggerScreenShake(8);
+	function playSlashVFX(
+		isAllyTarget = false,
+		targetIndex = 0,
+		explicitX = null,
+		explicitY = null,
+		isCrit = false,
+	) {
+		const coords =
+			explicitX !== null && explicitY !== null
+				? { x: explicitX, y: explicitY }
+				: getTargetCoords(isAllyTarget, targetIndex);
+		const { x, y } = coords;
+		triggerScreenShake(isCrit ? 12 : 8);
 		const dir = isAllyTarget ? 1 : -1;
 		slashes.push({
-			startX: x + dir * 35,
-			startY: y - 35,
-			endX: x - dir * 35,
-			endY: y + 35,
-			ctrlX: x + dir * 10,
+			startX: x + dir * 45,
+			startY: y - 40,
+			endX: x - dir * 45,
+			endY: y + 40,
+			ctrlX: x + dir * 15,
 			ctrlY: y,
-			color: isAllyTarget ? "#ef4444" : "#ff9d4d",
+			color: isAllyTarget ? "#ef4444" : isCrit ? "#fbbf24" : "#ffedd5",
 			alpha: 1.0,
-			life: 0.25,
-			maxLife: 0.25,
+			life: 0.28,
+			maxLife: 0.28,
 		});
-		spawnBurst(x, y, 16, isAllyTarget ? 0 : 30, 4.0);
+		if (isCrit) {
+			slashes.push({
+				startX: x - dir * 45,
+				startY: y - 40,
+				endX: x + dir * 45,
+				endY: y + 40,
+				ctrlX: x - dir * 15,
+				ctrlY: y,
+				color: "#f59e0b",
+				alpha: 1.0,
+				life: 0.28,
+				maxLife: 0.28,
+			});
+		}
+		spawnBurst(x, y, isCrit ? 22 : 14, isAllyTarget ? 0 : isCrit ? 45 : 30, 4.2);
 		startLoop();
+	}
+
+	/**
+	 * Triggers handcrafted Magitek elemental impact effects.
+	 * @param {string} element Elemental affinity token.
+	 * @param {number} x Impact X coordinate.
+	 * @param {number} y Impact Y coordinate.
+	 * @param {boolean} isCrit Critical strike flag.
+	 * @param {boolean} isHeal Healing flag.
+	 */
+	function playElementalVFX(element, x, y, isCrit, isHeal) {
+		if (isHeal) {
+			spawnBurst(x, y, 16, 140, 3.2);
+			return;
+		}
+		const el = String(element || "PHYSICAL").toUpperCase();
+		if (el === "FIRE") {
+			spawnBurst(x, y, isCrit ? 24 : 16, 25, 5.0);
+			slashes.push({
+				startX: x - 40,
+				startY: y,
+				endX: x + 40,
+				endY: y,
+				ctrlX: x,
+				ctrlY: y - 35,
+				color: "#ff7700",
+				alpha: 1.0,
+				life: 0.35,
+				maxLife: 0.35,
+			});
+		} else if (el === "ICE") {
+			spawnBurst(x, y, isCrit ? 22 : 14, 195, 4.2);
+			slashes.push({
+				startX: x - 30,
+				startY: y - 30,
+				endX: x + 30,
+				endY: y + 30,
+				ctrlX: x,
+				ctrlY: y,
+				color: "#38bdf8",
+				alpha: 1.0,
+				life: 0.3,
+				maxLife: 0.3,
+			});
+		} else if (el === "ARCANE") {
+			spawnBurst(x, y, isCrit ? 24 : 16, 275, 4.6);
+			slashes.push({
+				startX: x + 35,
+				startY: y - 30,
+				endX: x - 35,
+				endY: y + 30,
+				ctrlX: x - 10,
+				ctrlY: y - 20,
+				color: "#c084fc",
+				alpha: 1.0,
+				life: 0.35,
+				maxLife: 0.35,
+			});
+		} else {
+			playSlashVFX(false, 0, x, y, isCrit);
+		}
 	}
 
 	/**
@@ -677,12 +796,16 @@ const EmberlightCombatVFX = (() => {
 			targetCtx.save();
 			targetCtx.globalAlpha = s.alpha;
 			targetCtx.strokeStyle = s.color;
-			targetCtx.lineWidth = 3;
+			targetCtx.lineWidth = 8 * s.alpha;
 			targetCtx.shadowColor = s.color;
-			targetCtx.shadowBlur = 10;
+			targetCtx.shadowBlur = 20;
 			targetCtx.beginPath();
 			targetCtx.moveTo(s.startX, s.startY);
 			targetCtx.quadraticCurveTo(s.ctrlX, s.ctrlY, s.endX, s.endY);
+			targetCtx.stroke();
+			targetCtx.strokeStyle = "#ffffff";
+			targetCtx.lineWidth = 2.5 * s.alpha;
+			targetCtx.shadowBlur = 6;
 			targetCtx.stroke();
 			targetCtx.restore();
 		});
@@ -726,11 +849,18 @@ const EmberlightCombatVFX = (() => {
 		floatingTexts.forEach((ft) => {
 			targetCtx.save();
 			targetCtx.globalAlpha = ft.alpha;
-			targetCtx.fillStyle = ft.color;
-			targetCtx.font = ft.isLarge ? "bold 13px monospace" : "bold 9px monospace";
+			targetCtx.font = ft.isLarge
+				? "900 24px 'Cinzel', 'Outfit', monospace"
+				: "bold 17px 'Cinzel', 'Outfit', monospace";
 			targetCtx.textAlign = "center";
+			targetCtx.lineWidth = 4;
+			targetCtx.strokeStyle = "#020617";
 			targetCtx.shadowColor = "#000000";
-			targetCtx.shadowBlur = 4;
+			targetCtx.shadowBlur = 8;
+			targetCtx.strokeText(ft.text, ft.x, ft.y);
+			targetCtx.fillStyle = ft.color;
+			targetCtx.shadowColor = ft.color;
+			targetCtx.shadowBlur = ft.isLarge ? 16 : 8;
 			targetCtx.fillText(ft.text, ft.x, ft.y);
 			targetCtx.restore();
 		});
@@ -874,11 +1004,14 @@ const EmberlightCombatVFX = (() => {
 	 * @param {boolean} isAlly
 	 * @returns {string}
 	 */
-	function resolveDamageTextColor(isHeal, isCrit, isAlly) {
-		if (isHeal) return "#34d399";
-		if (isCrit) return "#fbbf24";
-		if (isAlly) return "#ef4444";
-		return "#ffffff";
+	function resolveDamageTextColor(isHeal, isCrit, isAlly, element = "PHYSICAL") {
+		if (isHeal) return "#4ade80";
+		if (isCrit) return "#facc15";
+		if (element === "FIRE") return "#fb923c";
+		if (element === "ICE") return "#38bdf8";
+		if (element === "ARCANE") return "#c084fc";
+		if (isAlly) return "#f87171";
+		return "#f1f5f9";
 	}
 
 	/**
@@ -887,12 +1020,18 @@ const EmberlightCombatVFX = (() => {
 	 * @param {number} amount
 	 * @param {boolean} isHeal
 	 * @param {boolean} isCrit
+	 * @param {string} [element="PHYSICAL"]
 	 * @returns {string}
 	 */
-	function formatDamageText(amount, isHeal, isCrit) {
-		if (isHeal) return `+${amount}`;
-		const suffix = isCrit ? "!" : "";
-		return `-${amount}${suffix}`;
+	function formatDamageText(amount, isHeal, isCrit, element = "PHYSICAL") {
+		if (isHeal) return `+${amount} 💚`;
+		let prefix = "";
+		if (element === "FIRE") prefix = "🔥 ";
+		else if (element === "ICE") prefix = "❄️ ";
+		else if (element === "ARCANE") prefix = "🔮 ";
+		else if (element === "PHYSICAL") prefix = "⚔️ ";
+		const suffix = isCrit ? " CRIT!" : "";
+		return `${prefix}${amount}${suffix}`;
 	}
 
 	/**
@@ -928,7 +1067,7 @@ const EmberlightCombatVFX = (() => {
 				unsubs.push(
 					eventBus.subscribe(
 						"combat:damage",
-						(/** @type {CombatDamagePayload} */ payload) => {
+						(/** @type {any} */ payload) => {
 							const isAlly = payload.targetType === "party";
 							const { x, y } = getTargetCoords(
 								isAlly,
@@ -936,12 +1075,15 @@ const EmberlightCombatVFX = (() => {
 							);
 							const isHeal = Boolean(payload.isHeal);
 							const isCrit = Boolean(payload.isCrit);
-							const color = resolveDamageTextColor(isHeal, isCrit, isAlly);
-							const text = formatDamageText(payload.amount, isHeal, isCrit);
-							const burstCount = isCrit ? 20 : 8;
-							const burstHue = resolveBurstHue(isHeal, isCrit);
+							const element = payload.element || (isHeal ? "HEAL" : "PHYSICAL");
+							const color = resolveDamageTextColor(isHeal, isCrit, isAlly, element);
+							const text = formatDamageText(payload.amount, isHeal, isCrit, element);
 							spawnFloatingText(x, y, text, color, isCrit);
-							spawnBurst(x, y, burstCount, burstHue, 4.0);
+							playElementalVFX(element, x, y, isCrit, isHeal);
+							triggerScreenShake(isCrit ? 14 : isHeal ? 2 : 8);
+							if (!isAlly && typeof window !== "undefined" && window.EmberlightCombatRenderer?.triggerEnemyHitFlash) {
+								window.EmberlightCombatRenderer.triggerEnemyHitFlash(payload.targetIndex || 0);
+							}
 						},
 					),
 					eventBus.subscribe(
@@ -997,6 +1139,7 @@ const EmberlightCombatVFX = (() => {
 
 		spawnBurst,
 		playSlashVFX,
+		playElementalVFX,
 		playTendrilStrike,
 		triggerScreenShake,
 		showBanner,

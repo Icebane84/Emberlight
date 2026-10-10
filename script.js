@@ -648,7 +648,9 @@ const EmberlightScript = (() => {
 				btn.type = 'button';
 				btn.className = `cmd-btn ${isSelected ? 'action' : ''}`;
 				btn.disabled = !!c.locked;
-				btn.style.fontSize = '8px';
+				btn.style.fontFamily = 'var(--font-mono, monospace)';
+				btn.style.fontSize = '9.5px';
+				btn.style.letterSpacing = '0.5px';
 				btn.style.padding = '6px 10px';
 				btn.style.borderColor = isSelected ? 'var(--ember)' : 'var(--border-dim)';
 				btn.style.boxShadow = isSelected ? '0 0 6px rgba(255, 157, 77, 0.4)' : 'none';
@@ -656,7 +658,7 @@ const EmberlightScript = (() => {
 				if (c.locked) {
 					btn.style.opacity = '0.4';
 					btn.style.cursor = 'not-allowed';
-					btn.innerHTML = `<span style="color:var(--danger); margin-right:4px;">[🔒]</span>${c.text} <span style="font-size:6px; color:var(--text-dim);">(${c.lockReason})</span>`;
+					btn.innerHTML = `<span style="color:var(--danger); margin-right:4px;">[🔒]</span>${c.text} <span style="font-size:9px; color:var(--text-dim);">(${c.lockReason})</span>`;
 				} else {
 					btn.innerHTML = `<span style="color:var(--text-dim); margin-right:4px;">[${index + 1}]</span>${c.text}`;
 				}

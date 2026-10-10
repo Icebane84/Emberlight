@@ -126,6 +126,19 @@ function applyKnockback(target, side, targetIndex, appendLog, dispatchSFX, trigg
 		if (triggerAnimation) {
 			triggerAnimation('KNOCKBACK', side, targetIndex, 450);
 		}
+	} else if (target.row === 'BACK') {
+		const slamBonus = Math.max(6, Math.round((target.maxHp || 30) * 0.30));
+		target.hp = Math.max(0, (target.hp || 0) - slamBonus);
+		if (appendLog) {
+			appendLog(
+				`💥 WALL SLAM! ${target.name} is slammed into the catacomb hazard wall for ${slamBonus} crushing damage! (+30% Slam)`,
+				'damage',
+			);
+		}
+		if (dispatchSFX) dispatchSFX('ATTACK_HIT');
+		if (triggerAnimation) {
+			triggerAnimation('DEFLECT', side, targetIndex, 450);
+		}
 	}
 }
 
@@ -175,7 +188,18 @@ function executeDisplacement(
 	dispatchSFX,
 	triggerAnimation,
 ) {
-	if (!sim || !target?.alive || target.isBoss || target.row === 'BOTH') {
+	if (!sim || !target?.alive) {
+		return;
+	}
+
+	if (target.isBoss || target.row === 'BOTH') {
+		if (appendLog) {
+			appendLog(
+				`🛡️ IMMOVABLE! ${target.name} is an anchoring titan immune to displacement!`,
+				'ember',
+			);
+		}
+		if (dispatchSFX) dispatchSFX('RESIST');
 		return;
 	}
 

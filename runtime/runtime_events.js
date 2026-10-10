@@ -188,11 +188,13 @@ if (typeof window !== "undefined") {
 		}
 		if (evt.outcome === "escaped") {
 			deps.notifyStatus?.("Retreated from the battlefield.", "info");
+			deps.resetDangerSteps?.();
 			deps.switchDistrict?.("OVERWORLD");
 			return;
 		}
 		deps.notifyStatus?.("Victory achieved! Spoils secured.", "success");
 		deps.publishSfx?.("sfx_victory");
+		deps.resetDangerSteps?.();
 		deps.switchDistrict?.("OVERWORLD");
 	}
 
@@ -210,23 +212,32 @@ if (typeof window !== "undefined") {
 	}
 
 	/**
+	 * Distributes gold, items, flags, and notification for successful lockpick.
+	 * @param {any} evt
+	 * @param {any} deps
+	 */
+	function applyLockpickSuccessRewards(evt, deps) {
+		if (evt.rewardLoot?.gold && deps.modifyGold) deps.modifyGold(evt.rewardLoot.gold);
+		if (evt.rewardLoot?.item && deps.modifyItem) deps.modifyItem(evt.rewardLoot.item, 1);
+		if (evt.flagsDelta && deps.setFlag) {
+			Object.entries(evt.flagsDelta).forEach(([k, v]) => {
+				deps.setFlag(k, v);
+			});
+		}
+		const goldTxt = evt.rewardLoot?.gold ? `${evt.rewardLoot.gold}G` : "";
+		const itemTxt = evt.rewardLoot?.item ? ` + ${evt.rewardLoot.item}` : "";
+		deps.notifyStatus?.(`Harmonic seal shattered! Claimed: ${goldTxt}${itemTxt}`, "success");
+		deps.publishSfx?.("sfx_victory");
+	}
+
+	/**
 	 * @param {any} evt
 	 * @param {any} deps
 	 */
 	function handleLockpickResolved(evt, deps) {
 		if (!evt) return;
 		if (evt.success) {
-			if (evt.rewardLoot?.gold && deps.modifyGold) deps.modifyGold(evt.rewardLoot.gold);
-			if (evt.rewardLoot?.item && deps.modifyItem) deps.modifyItem(evt.rewardLoot.item, 1);
-			if (evt.flagsDelta && deps.setFlag) {
-				Object.entries(evt.flagsDelta).forEach(([k, v]) => {
-					deps.setFlag(k, v);
-				});
-			}
-			const goldTxt = evt.rewardLoot?.gold ? `${evt.rewardLoot.gold}G` : "";
-			const itemTxt = evt.rewardLoot?.item ? ` + ${evt.rewardLoot.item}` : "";
-			deps.notifyStatus?.(`Harmonic seal shattered! Claimed: ${goldTxt}${itemTxt}`, "success");
-			deps.publishSfx?.("sfx_victory");
+			applyLockpickSuccessRewards(evt, deps);
 		} else {
 			deps.notifyStatus?.("Harmonic disruption aborted.", "info");
 		}

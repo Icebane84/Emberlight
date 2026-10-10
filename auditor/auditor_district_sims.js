@@ -485,11 +485,14 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
         }
 
         try {
-            p3d.init({ subscribe: () => {}, publish: () => {} });
+            const headlessP3D = typeof p3d.createInstance === 'function'
+                ? p3d.createInstance({ isHeadless: true })
+                : p3d;
+            headlessP3D.init({ subscribe: () => {}, publish: () => {} });
 
             // Step simulation clock headless
-            p3d.update(0.016);
-            const diag = p3d.getDiagnostics();
+            headlessP3D.update(0.016);
+            const diag = headlessP3D.getDiagnostics();
 
             if (diag?.driverId !== 'pseudo_3d_renderer') {
                 throw new Error('Pseudo-3D driver returned invalid or uninstantiated diagnostic header.');
@@ -513,9 +516,31 @@ if (typeof window !== 'undefined') window._AuditorInternal = window._AuditorInte
                 flags: {},
             };
 
-            // Must execute cleanly without throwing canvas or WebGL DOM exceptions
-            p3d.render(testState);
-            logAudit('[PASS] Pseudo-3D Engine: Headless DDA raycast pass asserted (Zero DOM/canvas faults).', true);
+            // Rigorous DDA raycasting and camera orientation invariant verification
+            headlessP3D.markDirty?.();
+            const resDown = headlessP3D.render(testState);
+            if (!resDown || resDown.skipped) {
+                throw new Error('Headless render pass returned null or skipped when dirty');
+            }
+            if (Math.abs(resDown.camera.angle - Math.PI / 2) > 0.01) {
+                throw new Error(`Camera angle failed to align with DOWN facing: expected ${Math.PI / 2}, got ${resDown.camera.angle}`);
+            }
+            if (resDown.centerRay.hitTile !== '#') {
+                throw new Error(`DDA center ray failed to hit south wall: expected '#', got '${resDown.centerRay.hitTile}'`);
+            }
+            if (resDown.centerRay.perpDist <= 0 || resDown.centerRay.perpDist > 2.0) {
+                throw new Error(`DDA perpendicular wall distance out of physical bounds: ${resDown.centerRay.perpDist}`);
+            }
+
+            // Invert facing to test dynamic angular rotation
+            testState.facing = 'LEFT';
+            headlessP3D.markDirty?.();
+            const resLeft = headlessP3D.render(testState);
+            if (Math.abs(resLeft.camera.angle - Math.PI) > 0.01) {
+                throw new Error(`Camera angle failed to align with LEFT facing: expected ${Math.PI}, got ${resLeft.camera.angle}`);
+            }
+
+            logAudit('[PASS] Pseudo-3D Engine: Headless DDA raycast & angular alignment invariants verified (Zero-theater).', true);
         } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
             logAudit(`[FAIL] Pseudo-3D Engine Battery Error: ${msg}`, false);

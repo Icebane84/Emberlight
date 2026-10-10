@@ -423,7 +423,7 @@ const EmberlightRelicForgeRenderer = (() => {
 			panel.style.borderColor = 'var(--ember)';
 			panel.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-dim); padding-bottom:6px; margin-bottom:10px;">
-          <div class="panel-title" style="color:var(--ember); margin:0; border:none; padding:0;">DISTRICT 9: THE RELIC FORGE</div>
+          <div class="panel-title" style="color:var(--ember); margin:0; border:none; padding:0;">PNEUMATIC ARC-CRUCIBLE // ORICHALCUM SOLDER BAY</div>
           <div style="font-size:9px; color:var(--ember); font-weight:bold;">PURSE: ${state.gold}g</div>
         </div>
 
@@ -432,17 +432,17 @@ const EmberlightRelicForgeRenderer = (() => {
 
         <!-- Gear Slot Category Tabs -->
         <div style="display:flex; gap:6px; margin-bottom:12px;">
-          <button type="button" class="cmd-btn ${state.selectedCategory === 'WEAPON' ? 'run' : ''}" id="cat-weapon-btn" style="flex:1; font-size:7px;">WEAPON</button>
-          <button type="button" class="cmd-btn ${state.selectedCategory === 'ARMOR' ? 'run' : ''}" id="cat-armor-btn" style="flex:1; font-size:7px;">ARMOR</button>
-          <button type="button" class="cmd-btn ${state.selectedCategory === 'ACCESSORY' ? 'run' : ''}" id="cat-acc-btn" style="flex:1; font-size:7px;">ACCESSORY</button>
+          <button type="button" class="cmd-btn ${state.selectedCategory === 'WEAPON' ? 'run' : ''}" id="cat-weapon-btn" style="flex:1; font-family:var(--font-mono, monospace); font-size:9.5px; letter-spacing:0.5px;">WEAPON</button>
+          <button type="button" class="cmd-btn ${state.selectedCategory === 'ARMOR' ? 'run' : ''}" id="cat-armor-btn" style="flex:1; font-family:var(--font-mono, monospace); font-size:9.5px; letter-spacing:0.5px;">ARMOR</button>
+          <button type="button" class="cmd-btn ${state.selectedCategory === 'ACCESSORY' ? 'run' : ''}" id="cat-acc-btn" style="flex:1; font-family:var(--font-mono, monospace); font-size:9.5px; letter-spacing:0.5px;">ACCESSORY</button>
         </div>
 
         <!-- Synthesis Preview Deck -->
         <div style="display:flex; gap:14px; align-items:center; margin-bottom:14px; background:rgba(0,0,0,0.35); padding:10px; border:1px solid var(--border-dim);">
           <canvas id="forge-preview-canvas" width="96" height="96" style="background:#000; border:1px solid var(--border-dim); border-radius:4px; image-rendering:pixelated;"></canvas>
-          <div style="font-size:8px; line-height:1.8;">
+          <div style="font-family:var(--font-mono, monospace); font-size:9.5px; letter-spacing:0.4px; line-height:1.8;">
             <div style="color:var(--ember); font-weight:bold;">${recipe.label}</div>
-            <div style="color:var(--text-dim);">Matrix Seed: #${state.currentSeed}</div>
+            <div style="color:var(--text-dim);">Crystallographic Seed: #${state.currentSeed}</div>
             <div style="color:var(--ok);">Yields: ${recipe.canonicalId} (${recipe.slot.toUpperCase()})</div>
             <div style="color:var(--text-dim);">Cost: ${recipe.cost} Gold</div>
           </div>
@@ -450,14 +450,14 @@ const EmberlightRelicForgeRenderer = (() => {
 
         <!-- Command Deck -->
         <div style="display:flex; justify-content:space-between; align-items:center;">
-          <button type="button" class="cmd-btn" id="forge-attune-btn" style="font-size:8px;">
-            ⟳ RE-ATTUNE MATRIX
+          <button type="button" class="cmd-btn" id="forge-attune-btn" style="font-family:var(--font-mono, monospace); font-size:9.5px; letter-spacing:0.5px;">
+            ⟳ RE-POLARIZE CRUCIBLE
           </button>
           <div style="display:flex; gap:8px;">
-            <button type="button" class="cmd-btn action" id="forge-craft-btn" style="font-size:8px;" ${canAfford ? '' : 'disabled'}>
-              ⚙ FORGE GEAR (${recipe.cost}g)
+            <button type="button" class="cmd-btn action" id="forge-craft-btn" style="font-family:var(--font-mono, monospace); font-size:9.5px; letter-spacing:0.5px;" ${canAfford ? '' : 'disabled'}>
+              ⚡ INDUCTION SMELT (${recipe.cost}g)
             </button>
-            <button type="button" class="cmd-btn back" id="close-forge-btn" style="font-size:8px;">
+            <button type="button" class="cmd-btn back" id="close-forge-btn" style="font-family:var(--font-mono, monospace); font-size:9.5px; letter-spacing:0.5px;">
               RETURN
             </button>
           </div>

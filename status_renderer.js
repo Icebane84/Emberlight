@@ -42,6 +42,7 @@ const EmberlightStatusRenderer = (() => {
 	 * @property {Array<{ id: string, duration: number }>} [ailments] - Active status ailments.
 	 * @property {string[]} [unlocked] - Unlocked skill tree node IDs.
 	 * @property {string[]} [unlockedNodes] - Alias for unlocked skill tree node IDs.
+	 * @property {Record<string, string | null | undefined>} [equipment] - Equipped item IDs by slot.
 	 *
 	 * @typedef {Record<string, number>} InventoryBag
 	 *
@@ -339,16 +340,22 @@ const EmberlightStatusRenderer = (() => {
 
 		const w = canvas.width;
 		const h = canvas.height;
-		ctx.fillStyle = "#000";
+		ctx.fillStyle = "#02040a";
 		ctx.fillRect(0, 0, w, h);
 
-		// Draw Grid
-		ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+		// Draw Oscilloscope Grid Lines (both vertical & horizontal)
+		ctx.strokeStyle = "rgba(56, 189, 248, 0.08)";
 		ctx.lineWidth = 1;
-		for (let x = 0; x < w; x += 12) {
+		for (let x = 0; x < w; x += 14) {
 			ctx.beginPath();
 			ctx.moveTo(x, 0);
 			ctx.lineTo(x, h);
+			ctx.stroke();
+		}
+		for (let y = 0; y < h; y += 14) {
+			ctx.beginPath();
+			ctx.moveTo(0, y);
+			ctx.lineTo(w, y);
 			ctx.stroke();
 		}
 
@@ -360,20 +367,22 @@ const EmberlightStatusRenderer = (() => {
 		}
 
 		ctx.strokeStyle = strokeColor;
-		ctx.lineWidth = 1.5;
+		ctx.lineWidth = 2;
 		ctx.beginPath();
 
 		const midY = h / 2;
+		const qrsAmp = Math.max(16, h * 0.36);
+
 		ctx.moveTo(0, midY);
-		ctx.lineTo(w * 0.2, midY);
-		ctx.lineTo(w * 0.28, midY - 4);
-		ctx.lineTo(w * 0.35, midY + 4);
-		ctx.lineTo(w * 0.42, midY - 14);
-		ctx.lineTo(w * 0.48, midY + 12);
-		ctx.lineTo(w * 0.54, midY - 6);
-		ctx.lineTo(w * 0.6, midY);
-		ctx.lineTo(w * 0.72, midY - 5);
-		ctx.lineTo(w * 0.8, midY);
+		ctx.lineTo(w * 0.18, midY);
+		ctx.lineTo(w * 0.25, midY - qrsAmp * 0.25);
+		ctx.lineTo(w * 0.32, midY + qrsAmp * 0.2);
+		ctx.lineTo(w * 0.40, midY - qrsAmp);
+		ctx.lineTo(w * 0.47, midY + qrsAmp * 0.85);
+		ctx.lineTo(w * 0.53, midY - qrsAmp * 0.35);
+		ctx.lineTo(w * 0.60, midY);
+		ctx.lineTo(w * 0.72, midY - qrsAmp * 0.25);
+		ctx.lineTo(w * 0.82, midY);
 		ctx.lineTo(w, midY);
 		ctx.stroke();
 	}
@@ -409,7 +418,7 @@ const EmberlightStatusRenderer = (() => {
 			const btn = document.createElement("button");
 			btn.type = "button";
 			btn.className = `deep-roster-btn ${char.id === activeChar.id ? "active" : ""}`;
-			btn.innerHTML = `<span>${char.name}</span> <span style="font-size:6px; opacity:0.8;">(${char.phenotype || "HERO"})</span>`;
+			btn.innerHTML = `<span>${char.name}</span> <span style="font-size:9px; opacity:0.8; letter-spacing:0.5px;">(${char.phenotype || "HERO"})</span>`;
 			btn.addEventListener("click", () => {
 				selectedCharacterId = char.id;
 				EmberlightStatusRenderer.renderStatus(state, dispatch);
@@ -435,7 +444,7 @@ const EmberlightStatusRenderer = (() => {
 			pill.className = `formation-unit-pill ${char.id === activeChar.id ? "selected" : ""}`;
 			pill.innerHTML = `
 				<span>${char.name} (${char.phenotype || "HERO"})</span>
-				<button type="button" class="cmd-btn" style="font-size:6px; padding:1px 5px;">
+				<button type="button" class="cmd-btn" style="font-size:9px; padding:2px 8px; letter-spacing:0.5px;">
 					${isCharFront ? "MOVE REAR ➡" : "⬅ MOVE FRONT"}
 				</button>
 			`;
@@ -524,13 +533,25 @@ const EmberlightStatusRenderer = (() => {
 		const maxMp = computedStats.maxMp || activeChar.maxMp || 10;
 		const hpPct = Math.max(0, Math.min(1.0, activeChar.hp / maxHp));
 		const mpPct = Math.max(0, Math.min(1.0, activeChar.mp / maxMp));
-		const nextExp = 20 * (activeChar.level || 1) ** 1.4;
+		const nextExp = typeof EmberlightManifest !== "undefined" && typeof EmberlightManifest.Curves?.expForNextLevel === "function"
+			? EmberlightManifest.Curves.expForNextLevel(activeChar.level || 1)
+			: Math.max(20, Math.floor(25 * ((activeChar.level || 1) ** 1.5) + 10 * (activeChar.level || 1)));
 		const expPct = Math.min(100, Math.round(((activeChar.exp || 0) / nextExp) * 100));
 
 		const learnedHeal = findLearnedHealSkill(activeChar);
 		const isFront = activeChar.row === "FRONT" || !activeChar.row;
 		const rowLabel = isFront ? "🛡️ VANGUARD (FRONT)" : "🏹 REAR (BACK)";
 		const charPhenotype = activeChar.phenotype || "HERO";
+
+		// 1. Get Battler Model Paper-Doll
+		let spriteDataUrl = "";
+		if (typeof EmberlightBattlerBaker !== "undefined" && typeof EmberlightBattlerBaker.get === "function") {
+			spriteDataUrl = EmberlightBattlerBaker.get({
+				phenotype: activeChar.phenotype || "HERO",
+				weapon: activeChar.equipment?.weapon,
+				armor: activeChar.equipment?.armor,
+			});
+		}
 
 		const healCost = learnedHeal?.cost || 4;
 		const healLabel = learnedHeal ? learnedHeal.name || learnedHeal.id : "HEAL";
@@ -541,119 +562,133 @@ const EmberlightStatusRenderer = (() => {
 		const isPotionDisabled = !hasPotions || activeChar.hp >= maxHp;
 		const potionDisabledAttr = isPotionDisabled ? "disabled" : "";
 		const ailmentsHtml = formatAilmentsHtml(activeChar);
+		const bpmVal = Math.round(62 + (activeChar.agi || 7) * 3);
 
 		panel.innerHTML = `
 			<div class="deep-analysis-deck">
 				<!-- 1. ROSTER SELECTION RIBBON -->
 				<div class="deep-analysis-roster" id="status-roster-ribbon"></div>
 
-				<!-- 2. PRIMARY OPERATIONAL STAGE -->
-				<div class="deep-analysis-stage">
-					<!-- PANE 1: BIOMETRIC TELEMETRY -->
-					<div class="deep-analysis-pane">
+				<!-- 2. THE THREE CHAMBERS OF STATUS TRIAGE -->
+				<div class="status-3chamber-stage">
+					<!-- CHAMBER A: BIOMETRIC TELEMETRY & ATTRIBUTE RADAR -->
+					<div class="deep-analysis-pane status-chamber chamber-a">
 						<div class="deep-pane-title">
-							<span>BIOMETRIC TELEMETRY: ${activeChar.name.toUpperCase()}</span>
-							<span style="color:var(--ember);">${charPhenotype} · ${rowLabel}</span>
+							<span>CHAMBER I: BIOMETRICS & RADAR</span>
+							<span style="color:var(--ember); font-size:9px; letter-spacing:0.5px;">${charPhenotype} · ${rowLabel}</span>
 						</div>
 
-						<div style="display:flex; flex-direction:column; gap:6px; font-size:8px;">
+						<div style="display:flex; flex-direction:column; gap:6px; font-size:9px; font-family:monospace;">
 							<div>
-								<div style="display:flex; justify-content:space-between; margin-bottom:2px;">
+								<div style="display:flex; justify-content:space-between; margin-bottom:2px; letter-spacing:0.5px;">
 									<span>VITALITY (HP)</span>
 									<span style="font-weight:bold; color:var(--ok);">${activeChar.hp} / ${maxHp} (${Math.round(hpPct * 100)}%)</span>
 								</div>
-								<div style="height:6px; background:#000; border:1px solid var(--border-dim); border-radius:2px; overflow:hidden;">
+								<div style="height:7px; background:#000; border:1px solid var(--border-dim); border-radius:2px; overflow:hidden;">
 									<div style="height:100%; width:${Math.round(hpPct * 100)}%; background:var(--ok);"></div>
 								</div>
 							</div>
 
 							<div>
-								<div style="display:flex; justify-content:space-between; margin-bottom:2px;">
+								<div style="display:flex; justify-content:space-between; margin-bottom:2px; letter-spacing:0.5px;">
 									<span>MANA RESERVE (MP)</span>
 									<span style="font-weight:bold; color:var(--mp);">${activeChar.mp} / ${maxMp} (${Math.round(mpPct * 100)}%)</span>
 								</div>
-								<div style="height:6px; background:#000; border:1px solid var(--border-dim); border-radius:2px; overflow:hidden;">
+								<div style="height:7px; background:#000; border:1px solid var(--border-dim); border-radius:2px; overflow:hidden;">
 									<div style="height:100%; width:${Math.round(mpPct * 100)}%; background:var(--mp);"></div>
 								</div>
 							</div>
 
 							<div>
-								<div style="display:flex; justify-content:space-between; margin-bottom:2px;">
+								<div style="display:flex; justify-content:space-between; margin-bottom:2px; letter-spacing:0.5px;">
 									<span>EXP PROGRESS (LV ${activeChar.level || 1})</span>
 									<span>${activeChar.exp || 0} / ${Math.round(nextExp)} (${expPct}%)</span>
 								</div>
-								<div style="height:4px; background:#000; border:1px solid var(--border-dim); border-radius:2px; overflow:hidden;">
+								<div style="height:5px; background:#000; border:1px solid var(--border-dim); border-radius:2px; overflow:hidden;">
 									<div style="height:100%; width:${expPct}%; background:var(--ember);"></div>
 								</div>
 							</div>
 
-							<div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:4px;">
-								<div style="background:rgba(0,0,0,0.3); padding:4px; border:1px solid var(--border-dim); border-radius:3px;">
-									<div>Base ATK: <b>${activeChar.atk}</b> (+${atkBonus})</div>
-									<div>Base DEF: <b>${activeChar.def}</b> (+${defBonus})</div>
+							<div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:2px;">
+								<div style="background:rgba(0,0,0,0.4); padding:5px 6px; border:1px solid var(--border-dim); border-radius:3px; letter-spacing:0.5px;">
+									<div>Base ATK: <b style="color:#e2e8f0;">${activeChar.atk}</b> (+${atkBonus})</div>
+									<div>Base DEF: <b style="color:#e2e8f0;">${activeChar.def}</b> (+${defBonus})</div>
 								</div>
-								<div style="background:rgba(0,0,0,0.3); padding:4px; border:1px solid var(--border-dim); border-radius:3px;">
-									<div>Agility: <b>${activeChar.agi}</b></div>
+								<div style="background:rgba(0,0,0,0.4); padding:5px 6px; border:1px solid var(--border-dim); border-radius:3px; letter-spacing:0.5px;">
+									<div>Agility: <b style="color:#e2e8f0;">${activeChar.agi}</b></div>
 									<div>Unspent SP: <b style="color:var(--ember);">${activeChar.skillPoints || activeChar.unspentSP || 0} SP</b></div>
 								</div>
 							</div>
 
-							<div style="margin-top:4px;">
-								<div style="font-size:7px; color:var(--text-dim); margin-bottom:2px;">ECG OSCILLOSCOPE HEARTBEAT:</div>
-								<canvas id="status-ecg-canvas" class="ecg-waveform-canvas" width="280" height="48"></canvas>
+							<div style="display:flex; flex-direction:column; align-items:center; margin-top:4px;">
+								<div style="width:100%; font-size:9px; font-weight:bold; color:#38bdf8; margin-bottom:2px; letter-spacing:0.5px;">5-AXIS ATTRIBUTE RADAR:</div>
+								<canvas id="status-radar-canvas" class="stat-radar-canvas" width="220" height="175"></canvas>
 							</div>
 						</div>
 					</div>
 
-					<!-- PANE 2: PENTAGONAL STAT RADAR & TRAUMA -->
-					<div class="deep-analysis-pane">
-						<div class="deep-pane-title">
-							<span>TACTICAL RADAR & DIAGNOSTICS</span>
-							<span style="color:var(--border-bright);">5-AXIS RADAR</span>
+					<!-- CHAMBER B: CRITICAL LIFE-SUPPORT & LIVE BATTLER MODEL -->
+					<div class="deep-analysis-pane status-chamber chamber-b" style="align-items:center;">
+						<div class="deep-pane-title" style="width:100%;">
+							<span>CHAMBER II: LIFE-SUPPORT & BATTLER MODEL</span>
+							<span style="color:var(--ok); font-size:9px; letter-spacing:0.5px;">MONITOR LIVE</span>
 						</div>
-						<canvas id="status-radar-canvas" class="stat-radar-canvas" width="220" height="180"></canvas>
-						<div style="font-size:7px; display:flex; flex-direction:column; gap:3px;">
-							<div style="color:var(--text-dim);">STATUS AILMENTS & TRAUMA:</div>
-							<div style="background:rgba(0,0,0,0.4); padding:4px 6px; border:1px solid var(--border-dim); border-radius:3px;">
+
+						<div class="status-battler-pedestal">
+							${spriteDataUrl ? `<img src="${spriteDataUrl}" class="battler-paper-doll-img" alt="${activeChar.name}" />` : '<div style="font-size:36px;">🧙‍♂️</div>'}
+							<div class="status-pedestal-ring"></div>
+						</div>
+
+						<div class="status-ecg-monitor-frame" style="width:100%; margin-top:8px;">
+							<div style="display:flex; justify-content:space-between; align-items:center; font-size:9px; font-family:monospace; margin-bottom:4px; letter-spacing:0.5px;">
+								<span style="color:#38bdf8; font-weight:bold;">ECG OSCILLOSCOPE MONITOR:</span>
+								<span style="color:var(--ok); font-weight:bold;">${bpmVal} BPM (SINUS)</span>
+							</div>
+							<canvas id="status-ecg-canvas" class="ecg-waveform-canvas" width="310" height="70"></canvas>
+						</div>
+
+						<div style="width:100%; font-size:9px; font-family:monospace; display:flex; flex-direction:column; gap:4px; margin-top:8px;">
+							<div style="color:var(--text-dim); letter-spacing:0.5px;">STATUS AILMENTS & CELLULAR TRAUMA:</div>
+							<div style="background:rgba(0,0,0,0.5); padding:6px 8px; border:1px solid var(--border-dim); border-radius:3px; letter-spacing:0.5px;">
 								${ailmentsHtml}
 							</div>
 						</div>
 					</div>
-				</div>
 
-				<!-- 3. LOWER STAGE: FORMATION BENCH & FIELD MEDICAL SUITE -->
-				<div class="deep-analysis-bench">
-					<div class="deep-pane-title">
-						<span>TACTICAL FORMATION BENCH & FIELD MEDICAL SUITE</span>
-						<button type="button" class="cmd-btn action" id="close-status-btn" style="font-size:7px; padding:2px 8px;">✔ CLOSE STATUS</button>
-					</div>
-
-					<div style="display:grid; grid-template-columns:1.2fr 1fr; gap:12px;">
-						<!-- Formation Grid -->
-						<div class="formation-bench-grid">
-							<div class="formation-wing-box">
-								<div style="font-size:7px; font-weight:bold; color:var(--ok); border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:2px;">
-									🛡️ VANGUARD (FRONT ROW)
-								</div>
-								<div id="vanguard-unit-list" style="display:flex; flex-direction:column; gap:4px;"></div>
-							</div>
-							<div class="formation-wing-box">
-								<div style="font-size:7px; font-weight:bold; color:#60a5fa; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:2px;">
-									🏹 ARCANIST / REAR (BACK ROW)
-								</div>
-								<div id="rearguard-unit-list" style="display:flex; flex-direction:column; gap:4px;"></div>
-							</div>
+					<!-- CHAMBER C: TACTICAL FORMATION BENCH & APOTHECARY WORKBENCH -->
+					<div class="deep-analysis-pane status-chamber chamber-c">
+						<div class="deep-pane-title">
+							<span>CHAMBER III: FORMATION & APOTHECARY</span>
+							<button type="button" class="cmd-btn action" id="close-status-btn" style="font-size:9px; padding:2px 8px; letter-spacing:0.5px;">✔ CLOSE</button>
 						</div>
 
-						<!-- Field Medical Suite -->
-						<div style="display:flex; flex-direction:column; gap:6px;">
-							<div style="font-size:7px; font-weight:bold; color:var(--ember);">FIELD RECOVERY ACTIONS:</div>
-							<button type="button" class="cmd-btn action" id="field-heal-trigger-btn" style="font-size:7px; padding:4px;" ${healDisabledAttr}>
-								✨ CAST ${healLabel} (${healCost} MP)
-							</button>
-							<button type="button" class="cmd-btn action" id="field-potion-trigger-btn" style="font-size:7px; padding:4px;" ${potionDisabledAttr}>
-								🧪 ADMINISTER POTION (+25 HP) [Qty: ${state.inventory?.POTION || 0}]
-							</button>
+						<div style="display:flex; flex-direction:column; gap:10px; height:100%; font-family:monospace;">
+							<!-- Formation Grid -->
+							<div class="formation-bench-grid">
+								<div class="formation-wing-box">
+									<div style="font-size:9px; font-weight:bold; color:var(--ok); border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:3px; letter-spacing:0.5px;">
+										🛡️ VANGUARD (FRONT ROW)
+									</div>
+									<div id="vanguard-unit-list" style="display:flex; flex-direction:column; gap:5px; margin-top:4px;"></div>
+								</div>
+								<div class="formation-wing-box">
+									<div style="font-size:9px; font-weight:bold; color:#60a5fa; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:3px; letter-spacing:0.5px;">
+										🏹 ARCANIST / REAR (BACK ROW)
+									</div>
+									<div id="rearguard-unit-list" style="display:flex; flex-direction:column; gap:5px; margin-top:4px;"></div>
+								</div>
+							</div>
+
+							<!-- Field Medical Suite -->
+							<div style="display:flex; flex-direction:column; gap:6px; margin-top:auto; background:rgba(0,0,0,0.4); padding:8px; border:1px solid var(--border-dim); border-radius:4px;">
+								<div style="font-size:9.5px; font-weight:bold; color:var(--ember); letter-spacing:0.5px;">FIELD APOTHECARY ACTIONS:</div>
+								<button type="button" class="cmd-btn action" id="field-heal-trigger-btn" style="font-size:9px; padding:5px 8px; letter-spacing:0.5px;" ${healDisabledAttr}>
+									✨ CAST ${healLabel} (${healCost} MP)
+								</button>
+								<button type="button" class="cmd-btn action" id="field-potion-trigger-btn" style="font-size:9px; padding:5px 8px; letter-spacing:0.5px;" ${potionDisabledAttr}>
+									🧪 ADMINISTER POTION (+25 HP) [Qty: ${state.inventory?.POTION || 0}]
+								</button>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -681,6 +716,140 @@ const EmberlightStatusRenderer = (() => {
 
 	//#region [SEC-04] Compact Mode Deck Projection
 	/**
+	 * Builds heal button HTML for a character if a heal skill is available.
+	 * @param {any} char
+	 * @returns {string}
+	 */
+	function buildFieldHealButtonHtml(char) {
+		const learnedHeal = findLearnedHealSkill(char);
+		if (!learnedHeal) return "";
+		const healCost = learnedHeal.cost || 4;
+		const healLabel = learnedHeal.name || learnedHeal.id;
+		const isHealDisabled = (char.mp || 0) < healCost;
+		const disabledAttr = isHealDisabled ? "disabled" : "";
+
+		return `
+			<div style="margin-top:6px; padding-top:4px; border-top:1px solid var(--border-dim);">
+				<button type="button" class="cmd-btn action field-heal-btn"
+					data-caster="${char.id}"
+					data-skill="${learnedHeal.id}"
+					style="font-family:var(--font-mono, monospace); font-size:9px; padding:3px 6px; width:100%; letter-spacing:0.5px;"
+					${disabledAttr}>
+					✨ CAST ${healLabel} (${healCost} MP)
+				</button>
+			</div>
+		`;
+	}
+
+	/**
+	 * Resolves next level EXP threshold for compact card display.
+	 * @param {any} char
+	 * @returns {number}
+	 */
+	function resolveCardExpRequirement(char) {
+		if (typeof EmberlightManifest !== "undefined" && typeof EmberlightManifest.Curves?.expForNextLevel === "function") {
+			return EmberlightManifest.Curves.expForNextLevel(char.level || 1);
+		}
+		const lv = char.level || 1;
+		return Math.max(20, Math.floor(25 * (lv ** 1.5) + 10 * lv));
+	}
+
+	/**
+	 * Creates a DOM card element for a single party member.
+	 * @param {any} char
+	 * @param {any} manifest
+	 * @returns {HTMLDivElement}
+	 */
+	function createPartyMemberCardElement(char, manifest) {
+		const gearStats =
+			typeof manifest?.calculateGearStats === "function"
+				? manifest.calculateGearStats(char)
+				: { atk: 0, def: 0 };
+		const atkBonus = gearStats?.atk || 0;
+		const defBonus = gearStats?.def || 0;
+		const charRow = char.row || "FRONT";
+		const charPhenotype = char.phenotype || "HERO";
+		const healButtonHtml = buildFieldHealButtonHtml(char);
+
+		const isAlive = Boolean(char.alive !== false && (char.hp || 0) > 0);
+		const curHp = Math.max(0, char.hp !== undefined ? char.hp : char.maxHp || 1);
+		const maxHp = Math.max(1, char.maxHp || 1);
+		const curMp = Math.max(0, char.mp !== undefined ? char.mp : char.maxMp || 1);
+		const maxMp = Math.max(1, char.maxMp || 1);
+		const hpPct = Math.max(0, Math.min(100, Math.round((curHp / maxHp) * 100)));
+		const mpPct = Math.max(0, Math.min(100, Math.round((curMp / maxMp) * 100)));
+
+		/** @type {Record<string, string>} */
+		const phenotypeGlyphs = {
+			HERO: "⚔️",
+			WARRIOR: "🛡️",
+			MAGE: "🔮",
+			HEALER: "✨",
+		};
+		const glyph = phenotypeGlyphs[charPhenotype] || "⚔️";
+
+		const statusBeaconHtml = !isAlive
+			? `<div style="background:rgba(239, 68, 68, 0.2); border:1px solid #ef4444; color:#fca5a5; font-size:9px; font-weight:bold; text-align:center; padding:2px; margin-bottom:5px; border-radius:2px; letter-spacing:0.5px;">☠️ FAINTED // TETHER SEVERED</div>`
+			: "";
+
+		const card = document.createElement("div");
+		card.className = "status-char-card";
+		card.style.background = "linear-gradient(180deg, rgba(16, 20, 28, 0.95), rgba(8, 10, 16, 0.98))";
+		card.style.border = isAlive ? "1px solid rgba(232, 163, 61, 0.35)" : "1px solid rgba(239, 68, 68, 0.6)";
+		card.style.borderRadius = "3px";
+		card.style.padding = "6px 8px";
+		card.style.fontSize = "9px";
+		card.style.boxShadow = isAlive ? "inset 0 0 10px rgba(0,0,0,0.7), 0 2px 6px rgba(0,0,0,0.5)" : "0 0 8px rgba(239, 68, 68, 0.3)";
+
+		const charReq = resolveCardExpRequirement(char);
+
+		card.innerHTML = `
+			<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; border-bottom:1px solid rgba(232, 163, 61, 0.25); padding-bottom:3px;">
+				<div style="color:var(--gold); font-weight:bold; font-size:10px; display:flex; align-items:center; gap:3px;">
+					<span>${glyph}</span>
+					<span>${char.name}</span>
+				</div>
+				<div style="display:flex; gap:3px; align-items:center;">
+					<span style="font-size:9px; color:var(--text-dim);">${charPhenotype}</span>
+					<span style="font-size:9px; padding:1px 4px; border-radius:2px; font-weight:bold; letter-spacing:0.5px; background:${charRow === "FRONT" ? "rgba(245,158,11,0.2)" : "rgba(56,189,248,0.2)"}; color:${charRow === "FRONT" ? "#f59e0b" : "#38bdf8"}; border:1px solid ${charRow === "FRONT" ? "rgba(245,158,11,0.5)" : "rgba(56,189,248,0.5)"};">${charRow}</span>
+				</div>
+			</div>
+			${statusBeaconHtml}
+			<!-- Alchemical Vitality Mercury Chamber (HP) -->
+			<div style="margin-bottom:4px;">
+				<div style="display:flex; justify-content:space-between; font-size:9px; color:#fca5a5; margin-bottom:1px; letter-spacing:0.5px;">
+					<span>⚗️ VITALITY</span>
+					<span style="font-weight:bold; color:${hpPct <= 25 ? "#ef4444" : "#fca5a5"};">${curHp}/${maxHp}</span>
+				</div>
+				<div style="height:6px; background:#06080a; border:1px solid rgba(239, 68, 68, 0.4); border-radius:2px; overflow:hidden; position:relative;">
+					<div style="height:100%; width:${hpPct}%; background:linear-gradient(90deg, #991b1b, #ef4444, #f87171); transition:width 0.25s ease;"></div>
+				</div>
+			</div>
+			<!-- Alchemical Lapis Aether Chamber (MP) -->
+			<div style="margin-bottom:5px;">
+				<div style="display:flex; justify-content:space-between; font-size:9px; color:#7dd3fc; margin-bottom:1px; letter-spacing:0.5px;">
+					<span>🔮 AETHER</span>
+					<span style="font-weight:bold;">${curMp}/${maxMp}</span>
+				</div>
+				<div style="height:6px; background:#06080a; border:1px solid rgba(56, 189, 248, 0.4); border-radius:2px; overflow:hidden; position:relative;">
+					<div style="height:100%; width:${mpPct}%; background:linear-gradient(90deg, #0369a1, #38bdf8, #7dd3fc); transition:width 0.25s ease;"></div>
+				</div>
+			</div>
+			<!-- Precursor Biometric Telemetry Grid -->
+			<div style="display:grid; grid-template-columns:1fr 1fr; gap:2px 4px; font-family:var(--font-mono, monospace); font-size:9px; letter-spacing:0.4px; color:var(--text-dim); background:rgba(0,0,0,0.3); padding:4px; border-radius:2px; border:1px solid rgba(255,255,255,0.05);">
+				<div>LVL: <b style="color:#fff;">${char.level || 1}</b></div>
+				<div>EXP: <b style="color:#fff;">${char.exp || 0} / ${charReq}</b></div>
+				<div>ATK: <b style="color:#fff;">${char.atk}</b> <span style="color:#10b981;">(+${atkBonus})</span></div>
+				<div>DEF: <b style="color:#fff;">${char.def}</b> <span style="color:#10b981;">(+${defBonus})</span></div>
+				<div>AGI: <b style="color:#fff;">${char.agi}</b></div>
+				<div>SP: <b style="color:var(--gold);">${char.skillPoints || 0}</b></div>
+			</div>
+			${healButtonHtml}
+		`;
+		return card;
+	}
+
+	/**
 	 * Projects compact grid card deck into DOM panel.
 	 * State-mutating DOM projection procedure.
 	 *
@@ -706,53 +875,7 @@ const EmberlightStatusRenderer = (() => {
 
 		if (Array.isArray(state.party)) {
 			state.party.forEach((char) => {
-				const gearStats =
-					typeof manifest?.calculateGearStats === "function"
-						? manifest.calculateGearStats(char)
-						: { atk: 0, def: 0 };
-				const atkBonus = gearStats?.atk || 0;
-				const defBonus = gearStats?.def || 0;
-				const learnedHeal = findLearnedHealSkill(char);
-				const charRow = char.row || "FRONT";
-				const charPhenotype = char.phenotype || "HERO";
-
-				let healButtonHtml = "";
-				if (learnedHeal) {
-					const healCost = learnedHeal.cost || 4;
-					const healLabel = learnedHeal.name || learnedHeal.id;
-					const isHealDisabled = (char.mp || 0) < healCost;
-					const disabledAttr = isHealDisabled ? "disabled" : "";
-
-					healButtonHtml = `
-						<div style="margin-top:6px; padding-top:4px; border-top:1px solid var(--border-dim);">
-							<button type="button" class="cmd-btn action field-heal-btn"
-								data-caster="${char.id}"
-								data-skill="${learnedHeal.id}"
-								style="font-size:7px; padding:2px 6px; width:100%;"
-								${disabledAttr}>
-								✨ CAST ${healLabel} (${healCost} MP)
-							</button>
-						</div>
-					`;
-				}
-
-				const card = document.createElement("div");
-				card.className = "status-char-card";
-				card.style.background = "rgba(0,0,0,0.3)";
-				card.style.border = "1px solid var(--border-dim)";
-				card.style.padding = "8px";
-				card.style.fontSize = "8px";
-
-				card.innerHTML = `
-					<div style="color:var(--ember); font-weight:bold; margin-bottom:4px;">${char.name} (${charPhenotype}) [${charRow}]</div>
-					<div>Level: <b>${char.level || 1}</b> | EXP: ${char.exp || 0}</div>
-					<div>HP: ${char.hp}/${char.maxHp} | MP: ${char.mp}/${char.maxMp}</div>
-					<div>Base ATK: ${char.atk} (+${atkBonus})</div>
-					<div>Base DEF: ${char.def} (+${defBonus})</div>
-					<div>AGI: ${char.agi} | SP: <b>${char.skillPoints || 0}</b></div>
-					${healButtonHtml}
-				`;
-				fragment.appendChild(card);
+				fragment.appendChild(createPartyMemberCardElement(char, manifest));
 			});
 		}
 

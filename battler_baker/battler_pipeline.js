@@ -564,6 +564,9 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 			"DREAD_ACOLYTE",
 			"IRON_BRUTE",
 			"BOSS_MALAKOR",
+			"CLOCKWORK_SENTRY",
+			"VOLCANO_SALAMANDER",
+			"VOID_HERALD",
 		];
 
 		const results = required.map((key) => {

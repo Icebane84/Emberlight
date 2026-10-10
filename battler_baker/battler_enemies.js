@@ -15,17 +15,19 @@
  * ============================================================================
  */
 
-if (typeof window !== 'undefined') window._BattlerBakerInternal = window._BattlerBakerInternal || {};
+if (typeof window !== "undefined") {
+	window._BattlerBakerInternal = window._BattlerBakerInternal || {};
+}
 
 (() => {
-	const _getPrim = () => /** @type {any} */ (
+	const _getPrim = () => /** @type {any} */(
 		(typeof window !== "undefined" && window._BattlerBakerInternal?.Primitives) ||
 		(typeof globalThis !== "undefined" && (/** @type {any} */ (globalThis))._BattlerBakerInternal?.Primitives) ||
 		(typeof require !== "undefined" ? require("./battler_primitives.js") : {})
 	);
 	const primitives = _getPrim();
 	const P = new Proxy(primitives.P || {}, {
-		get: (target, prop) => _getPrim().P?.[prop] ?? target[prop]
+		get: (target, prop) => _getPrim().P?.[ prop ] ?? target[ prop ]
 	});
 	const rect = (/** @type {any} */ ctx, /** @type {any[]} */ ...args) => (_getPrim().rect || primitives.rect)(ctx, ...args);
 	const rr = (/** @type {any} */ ctx, /** @type {any[]} */ ...args) => (_getPrim().rr || primitives.rr)(ctx, ...args);
@@ -50,10 +52,10 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[18, 39],
-				[8, 32],
-				[5, 35],
-				[13, 43],
+				[ 18, 39 ],
+				[ 8, 32 ],
+				[ 5, 35 ],
+				[ 13, 43 ],
 			],
 			P.outline,
 		);
@@ -61,10 +63,10 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[15, 39],
-				[9, 34],
-				[8, 36],
-				[13, 41],
+				[ 15, 39 ],
+				[ 9, 34 ],
+				[ 8, 36 ],
+				[ 13, 41 ],
 			],
 			P.steel1,
 		);
@@ -72,11 +74,11 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[17, 42],
-				[25, 45],
-				[23, 59],
-				[18, 61],
-				[15, 57],
+				[ 17, 42 ],
+				[ 25, 45 ],
+				[ 23, 59 ],
+				[ 18, 61 ],
+				[ 15, 57 ],
 			],
 			P.outline,
 		);
@@ -84,11 +86,11 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[40, 43],
-				[47, 42],
-				[50, 57],
-				[46, 61],
-				[41, 58],
+				[ 40, 43 ],
+				[ 47, 42 ],
+				[ 50, 57 ],
+				[ 46, 61 ],
+				[ 41, 58 ],
 			],
 			P.outline,
 		);
@@ -96,10 +98,10 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[18, 45],
-				[23, 46],
-				[21, 56],
-				[18, 58],
+				[ 18, 45 ],
+				[ 23, 46 ],
+				[ 21, 56 ],
+				[ 18, 58 ],
 			],
 			P.steel1,
 		);
@@ -107,10 +109,10 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[42, 45],
-				[46, 44],
-				[48, 56],
-				[45, 58],
+				[ 42, 45 ],
+				[ 46, 44 ],
+				[ 48, 56 ],
+				[ 45, 58 ],
 			],
 			P.steel2,
 		);
@@ -118,14 +120,14 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[14, 28],
-				[25, 21],
-				[39, 22],
-				[50, 30],
-				[47, 45],
-				[39, 51],
-				[24, 49],
-				[16, 43],
+				[ 14, 28 ],
+				[ 25, 21 ],
+				[ 39, 22 ],
+				[ 50, 30 ],
+				[ 47, 45 ],
+				[ 39, 51 ],
+				[ 24, 49 ],
+				[ 16, 43 ],
 			],
 			P.outline,
 		);
@@ -133,14 +135,14 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[17, 30],
-				[26, 24],
-				[38, 25],
-				[47, 31],
-				[44, 42],
-				[38, 47],
-				[25, 46],
-				[19, 41],
+				[ 17, 30 ],
+				[ 26, 24 ],
+				[ 38, 25 ],
+				[ 47, 31 ],
+				[ 44, 42 ],
+				[ 38, 47 ],
+				[ 25, 46 ],
+				[ 19, 41 ],
 			],
 			P.steel0,
 		);
@@ -148,12 +150,12 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[25, 27],
-				[38, 27],
-				[43, 33],
-				[39, 41],
-				[28, 43],
-				[21, 38],
+				[ 25, 27 ],
+				[ 38, 27 ],
+				[ 43, 33 ],
+				[ 39, 41 ],
+				[ 28, 43 ],
+				[ 21, 38 ],
 			],
 			P.steel1,
 		);
@@ -161,10 +163,10 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[20, 33],
-				[28, 28],
-				[30, 42],
-				[24, 44],
+				[ 20, 33 ],
+				[ 28, 28 ],
+				[ 30, 42 ],
+				[ 24, 44 ],
 			],
 			P.steel2,
 			0.32,
@@ -173,14 +175,14 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[37, 27],
-				[39, 17],
-				[45, 23],
-				[53, 20],
-				[57, 27],
-				[54, 37],
-				[46, 40],
-				[38, 36],
+				[ 37, 27 ],
+				[ 39, 17 ],
+				[ 45, 23 ],
+				[ 53, 20 ],
+				[ 57, 27 ],
+				[ 54, 37 ],
+				[ 46, 40 ],
+				[ 38, 36 ],
 			],
 			P.outline,
 		);
@@ -188,14 +190,14 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[40, 27],
-				[41, 20],
-				[45, 25],
-				[52, 22],
-				[55, 27],
-				[52, 34],
-				[45, 37],
-				[40, 34],
+				[ 40, 27 ],
+				[ 41, 20 ],
+				[ 45, 25 ],
+				[ 52, 22 ],
+				[ 55, 27 ],
+				[ 52, 34 ],
+				[ 45, 37 ],
+				[ 40, 34 ],
 			],
 			P.black,
 		);
@@ -203,9 +205,9 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[41, 21],
-				[44, 25],
-				[41, 27],
+				[ 41, 21 ],
+				[ 44, 25 ],
+				[ 41, 27 ],
 			],
 			P.steel2,
 			0.55,
@@ -214,9 +216,9 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[52, 23],
-				[54, 27],
-				[51, 28],
+				[ 52, 23 ],
+				[ 54, 27 ],
+				[ 51, 28 ],
 			],
 			P.steel1,
 			0.7,
@@ -233,10 +235,10 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[46, 32],
-				[55, 31],
-				[52, 38],
-				[47, 37],
+				[ 46, 32 ],
+				[ 55, 31 ],
+				[ 52, 38 ],
+				[ 47, 37 ],
 			],
 			P.steel1,
 		);
@@ -245,12 +247,12 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 
 		rect(ctx, 53, 35, 1, 2, P.steel4, 0.9);
 
-		for (const x of [17, 21, 44, 48]) {
+		for (const x of [ 17, 21, 44, 48 ]) {
 			line(
 				ctx,
 				[
-					[x, 56],
-					[x - 1, 59],
+					[ x, 56 ],
+					[ x - 1, 59 ],
 				],
 				P.steel3,
 				1,
@@ -259,6 +261,20 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		}
 
 		glow(ctx, 48, 29, 6, P.red2, 0.08);
+
+		// Magitek Aetheric Spinal Conduits & Clockwork Core
+		poly(ctx, [ [ 28, 30 ], [ 36, 29 ], [ 34, 35 ], [ 26, 36 ] ], P.brass2);
+		rr(ctx, 29, 31, [ 5, 4 ], 1, P.brass1);
+		rect(ctx, 30, 32, 2.5, 2, P.orichalcum2);
+		// Pulsing cyan Aetheric veins along the ribs
+		line(ctx, [ [ 24, 34 ], [ 22, 40 ] ], P.aether2, 1.5);
+		line(ctx, [ [ 29, 33 ], [ 28, 41 ] ], P.aether3, 1.5);
+		line(ctx, [ [ 34, 32 ], [ 33, 40 ] ], P.aether2, 1.5);
+		// Piercing Aether flare in the eyes
+		glow(ctx, 46, 29, 6, P.aether3, 0.35);
+		glow(ctx, 52, 28, 6, P.aether3, 0.35);
+		rect(ctx, 45, 28.5, 2, 1.2, P.aether3);
+		rect(ctx, 51, 27.5, 2, 1.2, P.aether3);
 	}
 
 	/**
@@ -273,16 +289,16 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[19, 27],
-				[45, 27],
-				[49, 47],
-				[54, 61],
-				[41, 59],
-				[35, 62],
-				[28, 58],
-				[19, 62],
-				[12, 58],
-				[17, 46],
+				[ 19, 27 ],
+				[ 45, 27 ],
+				[ 49, 47 ],
+				[ 54, 61 ],
+				[ 41, 59 ],
+				[ 35, 62 ],
+				[ 28, 58 ],
+				[ 19, 62 ],
+				[ 12, 58 ],
+				[ 17, 46 ],
 			],
 			P.outline,
 		);
@@ -290,16 +306,16 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[21, 29],
-				[42, 29],
-				[46, 47],
-				[49, 58],
-				[41, 56],
-				[35, 59],
-				[29, 56],
-				[20, 59],
-				[16, 56],
-				[20, 44],
+				[ 21, 29 ],
+				[ 42, 29 ],
+				[ 46, 47 ],
+				[ 49, 58 ],
+				[ 41, 56 ],
+				[ 35, 59 ],
+				[ 29, 56 ],
+				[ 20, 59 ],
+				[ 16, 56 ],
+				[ 20, 44 ],
 			],
 			P.black,
 		);
@@ -313,8 +329,8 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		line(
 			ctx,
 			[
-				[28, 30],
-				[28, 45],
+				[ 28, 30 ],
+				[ 28, 45 ],
 			],
 			P.steel3,
 			1,
@@ -323,8 +339,8 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		line(
 			ctx,
 			[
-				[36, 30],
-				[36, 45],
+				[ 36, 30 ],
+				[ 36, 45 ],
 			],
 			P.steel3,
 			1,
@@ -333,8 +349,8 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		line(
 			ctx,
 			[
-				[22, 32],
-				[16, 47],
+				[ 22, 32 ],
+				[ 16, 47 ],
 			],
 			P.steel2,
 			3,
@@ -343,16 +359,16 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		line(
 			ctx,
 			[
-				[42, 32],
-				[46, 44],
+				[ 42, 32 ],
+				[ 46, 44 ],
 			],
 			P.steel3,
 			3,
 		);
 
-		rr(ctx, 24, 11, [17, 18], 4, P.outline);
+		rr(ctx, 24, 11, [ 17, 18 ], 4, P.outline);
 
-		rr(ctx, 26, 13, [13, 14], 3, P.steel3);
+		rr(ctx, 26, 13, [ 13, 14 ], 3, P.steel3);
 
 		rect(ctx, 28, 17, 4, 4, P.outline);
 
@@ -365,10 +381,10 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[29, 23],
-				[36, 23],
-				[34, 27],
-				[31, 27],
+				[ 29, 23 ],
+				[ 36, 23 ],
+				[ 34, 27 ],
+				[ 31, 27 ],
 			],
 			P.steel1,
 		);
@@ -376,14 +392,14 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[20, 15],
-				[24, 9],
-				[30, 6],
-				[39, 8],
-				[44, 14],
-				[41, 17],
-				[37, 12],
-				[27, 12],
+				[ 20, 15 ],
+				[ 24, 9 ],
+				[ 30, 6 ],
+				[ 39, 8 ],
+				[ 44, 14 ],
+				[ 41, 17 ],
+				[ 37, 12 ],
+				[ 27, 12 ],
 			],
 			P.red0,
 		);
@@ -391,8 +407,8 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		line(
 			ctx,
 			[
-				[14, 11],
-				[14, 53],
+				[ 14, 11 ],
+				[ 14, 53 ],
 			],
 			P.leather3,
 			2.5,
@@ -401,9 +417,9 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		line(
 			ctx,
 			[
-				[14, 11],
-				[19, 31],
-				[14, 53],
+				[ 14, 11 ],
+				[ 19, 31 ],
+				[ 14, 53 ],
 			],
 			P.leather1,
 			2,
@@ -412,8 +428,8 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		line(
 			ctx,
 			[
-				[14, 11],
-				[14, 53],
+				[ 14, 11 ],
+				[ 14, 53 ],
 			],
 			P.steel4,
 			0.6,
@@ -423,8 +439,8 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		line(
 			ctx,
 			[
-				[16, 32],
-				[46, 32],
+				[ 16, 32 ],
+				[ 46, 32 ],
 			],
 			P.steel2,
 			0.7,
@@ -434,8 +450,8 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		line(
 			ctx,
 			[
-				[18, 31],
-				[47, 31],
+				[ 18, 31 ],
+				[ 47, 31 ],
 			],
 			P.steel3,
 			1.2,
@@ -444,14 +460,28 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[47, 31],
-				[43, 29],
-				[43, 33],
+				[ 47, 31 ],
+				[ 43, 29 ],
+				[ 43, 33 ],
 			],
 			P.steel4,
 		);
 
 		glow(ctx, 36, 18, 5, P.green2, 0.06);
+
+		// Magitek Aether-Rail Recurve Crossbow with Brass Cams
+		poly(ctx, [ [ 11, 12 ], [ 16, 10 ], [ 15, 17 ] ], P.brass2);
+		poly(ctx, [ [ 11, 52 ], [ 16, 54 ], [ 15, 47 ] ], P.brass2);
+		line(ctx, [ [ 14, 13 ], [ 19, 31 ], [ 14, 51 ] ], P.aether3, 1.5);
+		glow(ctx, 19, 31, 5, P.aether2, 0.25);
+		// Brass targeting ocular monocular over eye
+		rr(ctx, 28, 17, [ 4, 4 ], 1, P.brass3);
+		rect(ctx, 29, 18, 2, 2, P.aether3);
+		glow(ctx, 29, 18, 5, P.aether3, 0.3);
+		// Aether battery quiver on hip
+		rect(ctx, 43, 35, 3, 9, P.orichalcum2);
+		rect(ctx, 44, 32, 1.5, 3, P.aether3);
+		glow(ctx, 44, 32, 4, P.aether3, 0.2);
 	}
 
 	/**
@@ -466,14 +496,14 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[18, 29],
-				[25, 25],
-				[40, 26],
-				[47, 31],
-				[45, 48],
-				[40, 53],
-				[24, 51],
-				[18, 46],
+				[ 18, 29 ],
+				[ 25, 25 ],
+				[ 40, 26 ],
+				[ 47, 31 ],
+				[ 45, 48 ],
+				[ 40, 53 ],
+				[ 24, 51 ],
+				[ 18, 46 ],
 			],
 			P.outline,
 		);
@@ -481,14 +511,14 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[21, 30],
-				[27, 27],
-				[38, 28],
-				[44, 32],
-				[42, 45],
-				[38, 49],
-				[26, 48],
-				[21, 44],
+				[ 21, 30 ],
+				[ 27, 27 ],
+				[ 38, 28 ],
+				[ 44, 32 ],
+				[ 42, 45 ],
+				[ 38, 49 ],
+				[ 26, 48 ],
+				[ 21, 44 ],
 			],
 			P.leather0,
 		);
@@ -497,8 +527,8 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 			line(
 				ctx,
 				[
-					[27, 31 + i * 4],
-					[38, 31 + i * 4],
+					[ 27, 31 + i * 4 ],
+					[ 38, 31 + i * 4 ],
 				],
 				P.steel3,
 				1.5,
@@ -509,25 +539,25 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		line(
 			ctx,
 			[
-				[32, 30],
-				[32, 47],
+				[ 32, 30 ],
+				[ 32, 47 ],
 			],
 			P.steel2,
 			1.2,
 		);
 
-		rr(ctx, 24, 10, [17, 20], 4, P.outline);
+		rr(ctx, 24, 10, [ 17, 20 ], 4, P.outline);
 
-		rr(ctx, 26, 12, [13, 16], 3, P.steel3);
+		rr(ctx, 26, 12, [ 13, 16 ], 3, P.steel3);
 
 		poly(
 			ctx,
 			[
-				[27, 13],
-				[31, 11],
-				[38, 14],
-				[38, 19],
-				[27, 19],
+				[ 27, 13 ],
+				[ 31, 11 ],
+				[ 38, 14 ],
+				[ 38, 19 ],
+				[ 27, 19 ],
 			],
 			P.steel4,
 			0.65,
@@ -544,9 +574,9 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[30, 23],
-				[36, 23],
-				[33, 27],
+				[ 30, 23 ],
+				[ 36, 23 ],
+				[ 33, 27 ],
 			],
 			P.steel1,
 		);
@@ -554,8 +584,8 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		line(
 			ctx,
 			[
-				[21, 31],
-				[15, 47],
+				[ 21, 31 ],
+				[ 15, 47 ],
 			],
 			P.steel2,
 			3,
@@ -564,8 +594,8 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		line(
 			ctx,
 			[
-				[42, 31],
-				[48, 45],
+				[ 42, 31 ],
+				[ 48, 45 ],
 			],
 			P.steel3,
 			3,
@@ -574,8 +604,8 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		line(
 			ctx,
 			[
-				[48, 47],
-				[55, 16],
+				[ 48, 47 ],
+				[ 55, 16 ],
 			],
 			P.leather1,
 			3,
@@ -584,8 +614,8 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		line(
 			ctx,
 			[
-				[55, 16],
-				[57, 11],
+				[ 55, 16 ],
+				[ 57, 11 ],
 			],
 			P.steel3,
 			2,
@@ -594,8 +624,8 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		line(
 			ctx,
 			[
-				[53, 29],
-				[58, 30],
+				[ 53, 29 ],
+				[ 58, 30 ],
 			],
 			P.gold2,
 			2,
@@ -604,8 +634,8 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		line(
 			ctx,
 			[
-				[27, 47],
-				[24, 60],
+				[ 27, 47 ],
+				[ 24, 60 ],
 			],
 			P.steel2,
 			4,
@@ -614,8 +644,8 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		line(
 			ctx,
 			[
-				[37, 47],
-				[41, 60],
+				[ 37, 47 ],
+				[ 41, 60 ],
 			],
 			P.steel2,
 			4,
@@ -624,8 +654,8 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		line(
 			ctx,
 			[
-				[22, 61],
-				[29, 61],
+				[ 22, 61 ],
+				[ 29, 61 ],
 			],
 			P.steel1,
 			3,
@@ -634,8 +664,8 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		line(
 			ctx,
 			[
-				[39, 61],
-				[46, 61],
+				[ 39, 61 ],
+				[ 46, 61 ],
 			],
 			P.steel1,
 			3,
@@ -653,44 +683,44 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 
 		const legs = [
 			[
-				[24, 35],
-				[15, 29],
-				[7, 25],
+				[ 24, 35 ],
+				[ 15, 29 ],
+				[ 7, 25 ],
 			],
 			[
-				[23, 39],
-				[13, 37],
-				[5, 35],
+				[ 23, 39 ],
+				[ 13, 37 ],
+				[ 5, 35 ],
 			],
 			[
-				[23, 44],
-				[13, 46],
-				[6, 51],
+				[ 23, 44 ],
+				[ 13, 46 ],
+				[ 6, 51 ],
 			],
 			[
-				[27, 47],
-				[19, 54],
-				[13, 61],
+				[ 27, 47 ],
+				[ 19, 54 ],
+				[ 13, 61 ],
 			],
 			[
-				[40, 35],
-				[49, 29],
-				[57, 25],
+				[ 40, 35 ],
+				[ 49, 29 ],
+				[ 57, 25 ],
 			],
 			[
-				[41, 39],
-				[51, 37],
-				[59, 35],
+				[ 41, 39 ],
+				[ 51, 37 ],
+				[ 59, 35 ],
 			],
 			[
-				[41, 44],
-				[51, 46],
-				[58, 51],
+				[ 41, 44 ],
+				[ 51, 46 ],
+				[ 58, 51 ],
 			],
 			[
-				[37, 47],
-				[45, 54],
-				[51, 61],
+				[ 37, 47 ],
+				[ 45, 54 ],
+				[ 51, 61 ],
 			],
 		];
 
@@ -699,7 +729,7 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 
 			line(ctx, pts, P.violet1, 1.7);
 
-			diamond(ctx, pts[1][0], pts[1][1], 2.5, 2.5, P.violet2, 0.7);
+			diamond(ctx, pts[ 1 ][ 0 ], pts[ 1 ][ 1 ], 2.5, 2.5, P.violet2, 0.7);
 		}
 
 		ellipse(ctx, 32, 43, 14, 12, P.outline);
@@ -716,12 +746,12 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 
 		ellipse(ctx, 32, 26, 9, 7, P.black);
 
-		for (const [x, y] of [
-			[27, 24],
-			[32, 22],
-			[37, 24],
-			[28, 28],
-			[36, 28],
+		for (const [ x, y ] of [
+			[ 27, 24 ],
+			[ 32, 22 ],
+			[ 37, 24 ],
+			[ 28, 28 ],
+			[ 36, 28 ],
 		]) {
 			diamond(ctx, x, y, 3, 3, P.green2, 0.95);
 
@@ -731,9 +761,9 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[27, 30],
-				[30, 30],
-				[29, 35],
+				[ 27, 30 ],
+				[ 30, 30 ],
+				[ 29, 35 ],
 			],
 			P.steel4,
 		);
@@ -741,9 +771,9 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[37, 30],
-				[34, 30],
-				[35, 35],
+				[ 37, 30 ],
+				[ 34, 30 ],
+				[ 35, 35 ],
 			],
 			P.steel4,
 		);
@@ -763,15 +793,15 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[19, 27],
-				[45, 27],
-				[49, 41],
-				[53, 62],
-				[40, 61],
-				[32, 55],
-				[24, 61],
-				[11, 62],
-				[16, 42],
+				[ 19, 27 ],
+				[ 45, 27 ],
+				[ 49, 41 ],
+				[ 53, 62 ],
+				[ 40, 61 ],
+				[ 32, 55 ],
+				[ 24, 61 ],
+				[ 11, 62 ],
+				[ 16, 42 ],
 			],
 			P.outline,
 		);
@@ -779,15 +809,15 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[21, 29],
-				[43, 29],
-				[46, 42],
-				[49, 59],
-				[40, 58],
-				[33, 52],
-				[25, 58],
-				[15, 59],
-				[19, 42],
+				[ 21, 29 ],
+				[ 43, 29 ],
+				[ 46, 42 ],
+				[ 49, 59 ],
+				[ 40, 58 ],
+				[ 33, 52 ],
+				[ 25, 58 ],
+				[ 15, 59 ],
+				[ 19, 42 ],
 			],
 			P.violet0,
 		);
@@ -795,11 +825,11 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[26, 30],
-				[38, 30],
-				[40, 53],
-				[33, 56],
-				[25, 53],
+				[ 26, 30 ],
+				[ 38, 30 ],
+				[ 40, 53 ],
+				[ 33, 56 ],
+				[ 25, 53 ],
 			],
 			P.violet1,
 		);
@@ -807,8 +837,8 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		line(
 			ctx,
 			[
-				[32, 30],
-				[33, 53],
+				[ 32, 30 ],
+				[ 33, 53 ],
 			],
 			P.violet3,
 			1.2,
@@ -818,14 +848,14 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[21, 25],
-				[22, 13],
-				[27, 7],
-				[37, 6],
-				[43, 12],
-				[43, 26],
-				[38, 31],
-				[26, 30],
+				[ 21, 25 ],
+				[ 22, 13 ],
+				[ 27, 7 ],
+				[ 37, 6 ],
+				[ 43, 12 ],
+				[ 43, 26 ],
+				[ 38, 31 ],
+				[ 26, 30 ],
 			],
 			P.outline,
 		);
@@ -833,14 +863,14 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[24, 23],
-				[25, 14],
-				[29, 10],
-				[36, 9],
-				[40, 13],
-				[40, 23],
-				[36, 27],
-				[28, 26],
+				[ 24, 23 ],
+				[ 25, 14 ],
+				[ 29, 10 ],
+				[ 36, 9 ],
+				[ 40, 13 ],
+				[ 40, 23 ],
+				[ 36, 27 ],
+				[ 28, 26 ],
 			],
 			P.violet0,
 		);
@@ -848,12 +878,12 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[27, 14],
-				[30, 10],
-				[36, 11],
-				[39, 14],
-				[36, 16],
-				[29, 16],
+				[ 27, 14 ],
+				[ 30, 10 ],
+				[ 36, 11 ],
+				[ 39, 14 ],
+				[ 36, 16 ],
+				[ 29, 16 ],
 			],
 			P.violet2,
 			0.35,
@@ -862,11 +892,11 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[27, 16],
-				[38, 15],
-				[38, 23],
-				[34, 27],
-				[29, 24],
+				[ 27, 16 ],
+				[ 38, 15 ],
+				[ 38, 23 ],
+				[ 34, 27 ],
+				[ 29, 24 ],
 			],
 			P.deepest,
 		);
@@ -875,9 +905,9 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 
 		rect(ctx, 34, 18, 3, 1.6, P.violet3);
 
-		rr(ctx, 13, 43, [6, 6], 2, P.skin1);
+		rr(ctx, 13, 43, [ 6, 6 ], 2, P.skin1);
 
-		rr(ctx, 45, 43, [6, 6], 2, P.skin1);
+		rr(ctx, 45, 43, [ 6, 6 ], 2, P.skin1);
 
 		diamond(ctx, 16, 45, 3, 4, P.fire2);
 
@@ -886,8 +916,8 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		line(
 			ctx,
 			[
-				[48, 58],
-				[51, 13],
+				[ 48, 58 ],
+				[ 51, 13 ],
 			],
 			P.leather0,
 			3,
@@ -896,8 +926,8 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		line(
 			ctx,
 			[
-				[49, 57],
-				[51, 14],
+				[ 49, 57 ],
+				[ 51, 14 ],
 			],
 			P.leather3,
 			1,
@@ -906,10 +936,10 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[51, 15],
-				[47, 10],
-				[51, 4],
-				[55, 10],
+				[ 51, 15 ],
+				[ 47, 10 ],
+				[ 51, 4 ],
+				[ 55, 10 ],
 			],
 			P.violet1,
 		);
@@ -935,16 +965,16 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[13, 26],
-				[22, 20],
-				[42, 20],
-				[51, 27],
-				[48, 43],
-				[45, 52],
-				[38, 55],
-				[26, 55],
-				[19, 51],
-				[15, 42],
+				[ 13, 26 ],
+				[ 22, 20 ],
+				[ 42, 20 ],
+				[ 51, 27 ],
+				[ 48, 43 ],
+				[ 45, 52 ],
+				[ 38, 55 ],
+				[ 26, 55 ],
+				[ 19, 51 ],
+				[ 15, 42 ],
 			],
 			P.outline,
 		);
@@ -952,16 +982,16 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[16, 28],
-				[23, 23],
-				[41, 23],
-				[48, 29],
-				[45, 42],
-				[42, 49],
-				[36, 52],
-				[27, 51],
-				[21, 48],
-				[18, 40],
+				[ 16, 28 ],
+				[ 23, 23 ],
+				[ 41, 23 ],
+				[ 48, 29 ],
+				[ 45, 42 ],
+				[ 42, 49 ],
+				[ 36, 52 ],
+				[ 27, 51 ],
+				[ 21, 48 ],
+				[ 18, 40 ],
 			],
 			P.iron0,
 		);
@@ -969,10 +999,10 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[21, 27],
-				[30, 24],
-				[31, 42],
-				[23, 43],
+				[ 21, 27 ],
+				[ 30, 24 ],
+				[ 31, 42 ],
+				[ 23, 43 ],
 			],
 			P.iron1,
 		);
@@ -980,10 +1010,10 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[33, 24],
-				[41, 26],
-				[43, 43],
-				[34, 42],
+				[ 33, 24 ],
+				[ 41, 26 ],
+				[ 43, 43 ],
+				[ 34, 42 ],
 			],
 			P.iron2,
 		);
@@ -991,8 +1021,8 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		line(
 			ctx,
 			[
-				[22, 31],
-				[29, 30],
+				[ 22, 31 ],
+				[ 29, 30 ],
 			],
 			P.steel3,
 			1,
@@ -1002,8 +1032,8 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		line(
 			ctx,
 			[
-				[35, 30],
-				[41, 31],
+				[ 35, 30 ],
+				[ 41, 31 ],
 			],
 			P.steel4,
 			1,
@@ -1013,8 +1043,8 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		line(
 			ctx,
 			[
-				[21, 38],
-				[29, 37],
+				[ 21, 38 ],
+				[ 29, 37 ],
 			],
 			P.iron3,
 			1,
@@ -1024,8 +1054,8 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		line(
 			ctx,
 			[
-				[35, 38],
-				[43, 39],
+				[ 35, 38 ],
+				[ 43, 39 ],
 			],
 			P.iron0,
 			1,
@@ -1043,11 +1073,11 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[21, 47],
-				[30, 47],
-				[29, 61],
-				[18, 63],
-				[18, 57],
+				[ 21, 47 ],
+				[ 30, 47 ],
+				[ 29, 61 ],
+				[ 18, 63 ],
+				[ 18, 57 ],
 			],
 			P.outline,
 		);
@@ -1055,11 +1085,11 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[34, 47],
-				[43, 47],
-				[47, 61],
-				[37, 63],
-				[34, 58],
+				[ 34, 47 ],
+				[ 43, 47 ],
+				[ 47, 61 ],
+				[ 37, 63 ],
+				[ 34, 58 ],
 			],
 			P.outline,
 		);
@@ -1067,10 +1097,10 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[22, 49],
-				[29, 49],
-				[27, 59],
-				[20, 60],
+				[ 22, 49 ],
+				[ 29, 49 ],
+				[ 27, 59 ],
+				[ 20, 60 ],
 			],
 			P.iron1,
 		);
@@ -1078,10 +1108,10 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[35, 49],
-				[41, 49],
-				[44, 59],
-				[38, 60],
+				[ 35, 49 ],
+				[ 41, 49 ],
+				[ 44, 59 ],
+				[ 38, 60 ],
 			],
 			P.iron2,
 		);
@@ -1089,14 +1119,14 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[22, 14],
-				[27, 8],
-				[38, 8],
-				[43, 14],
-				[42, 27],
-				[36, 31],
-				[27, 29],
-				[21, 24],
+				[ 22, 14 ],
+				[ 27, 8 ],
+				[ 38, 8 ],
+				[ 43, 14 ],
+				[ 42, 27 ],
+				[ 36, 31 ],
+				[ 27, 29 ],
+				[ 21, 24 ],
 			],
 			P.outline,
 		);
@@ -1104,14 +1134,14 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[25, 15],
-				[29, 11],
-				[36, 11],
-				[40, 15],
-				[39, 24],
-				[35, 27],
-				[28, 26],
-				[24, 22],
+				[ 25, 15 ],
+				[ 29, 11 ],
+				[ 36, 11 ],
+				[ 40, 15 ],
+				[ 39, 24 ],
+				[ 35, 27 ],
+				[ 28, 26 ],
+				[ 24, 22 ],
 			],
 			P.iron1,
 		);
@@ -1125,12 +1155,12 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[16, 29],
-				[22, 30],
-				[20, 45],
-				[15, 52],
-				[9, 49],
-				[12, 39],
+				[ 16, 29 ],
+				[ 22, 30 ],
+				[ 20, 45 ],
+				[ 15, 52 ],
+				[ 9, 49 ],
+				[ 12, 39 ],
 			],
 			P.outline,
 		);
@@ -1138,12 +1168,12 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[17, 31],
-				[20, 32],
-				[18, 43],
-				[14, 49],
-				[11, 47],
-				[14, 39],
+				[ 17, 31 ],
+				[ 20, 32 ],
+				[ 18, 43 ],
+				[ 14, 49 ],
+				[ 11, 47 ],
+				[ 14, 39 ],
 			],
 			P.iron2,
 		);
@@ -1151,12 +1181,12 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[48, 29],
-				[42, 30],
-				[44, 45],
-				[50, 52],
-				[55, 49],
-				[52, 39],
+				[ 48, 29 ],
+				[ 42, 30 ],
+				[ 44, 45 ],
+				[ 50, 52 ],
+				[ 55, 49 ],
+				[ 52, 39 ],
 			],
 			P.outline,
 		);
@@ -1164,30 +1194,45 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[47, 31],
-				[44, 32],
-				[46, 43],
-				[50, 49],
-				[53, 47],
-				[50, 39],
+				[ 47, 31 ],
+				[ 44, 32 ],
+				[ 46, 43 ],
+				[ 50, 49 ],
+				[ 53, 47 ],
+				[ 50, 39 ],
 			],
 			P.iron1,
 		);
 
-		rr(ctx, 9, 47, [7, 7], 2, P.iron2);
+		rr(ctx, 9, 47, [ 7, 7 ], 2, P.iron2);
 
-		rr(ctx, 49, 47, [7, 7], 2, P.iron3);
+		rr(ctx, 49, 47, [ 7, 7 ], 2, P.iron3);
 
-		for (const [x, y] of [
-			[23, 29],
-			[39, 29],
-			[23, 42],
-			[41, 43],
-			[27, 14],
-			[37, 14],
+		for (const [ x, y ] of [
+			[ 23, 29 ],
+			[ 39, 29 ],
+			[ 23, 42 ],
+			[ 41, 43 ],
+			[ 27, 14 ],
+			[ 37, 14 ],
 		]) {
 			diamond(ctx, x, y, 2, 2, P.steel3, 0.8);
 		}
+
+		// Magitek Twin Brass Boiler Exhaust Stacks
+		rr(ctx, 16, 17, [ 4, 7 ], 1, P.brass1);
+		rr(ctx, 44, 17, [ 4, 7 ], 1, P.brass1);
+		glow(ctx, 18, 16, 3, P.fire2, 0.2);
+		glow(ctx, 46, 16, 3, P.fire2, 0.2);
+		// Furnace boiler grate bars
+		line(ctx, [ [ 30, 34 ], [ 30, 40 ] ], P.steel1, 1.2);
+		line(ctx, [ [ 34, 34 ], [ 34, 40 ] ], P.steel1, 1.2);
+		// Copper pneumatic conduits across arms
+		line(ctx, [ [ 13, 36 ], [ 16, 46 ] ], P.copper2, 1.5);
+		line(ctx, [ [ 51, 36 ], [ 48, 46 ] ], P.copper2, 1.5);
+		// Brass pressure gauge on wrist
+		diamond(ctx, 12, 48, 3.5, 3.5, P.brass3);
+		rect(ctx, 11.5, 47.5, 1, 1, P.fire3);
 	}
 
 	/**
@@ -1206,14 +1251,14 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[24, 24],
-				[11, 14],
-				[4, 25],
-				[13, 31],
-				[7, 43],
-				[20, 40],
-				[18, 57],
-				[27, 48],
+				[ 24, 24 ],
+				[ 11, 14 ],
+				[ 4, 25 ],
+				[ 13, 31 ],
+				[ 7, 43 ],
+				[ 20, 40 ],
+				[ 18, 57 ],
+				[ 27, 48 ],
 			],
 			P.outline,
 		);
@@ -1221,14 +1266,14 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[40, 24],
-				[53, 14],
-				[60, 25],
-				[51, 31],
-				[57, 43],
-				[44, 40],
-				[46, 57],
-				[37, 48],
+				[ 40, 24 ],
+				[ 53, 14 ],
+				[ 60, 25 ],
+				[ 51, 31 ],
+				[ 57, 43 ],
+				[ 44, 40 ],
+				[ 46, 57 ],
+				[ 37, 48 ],
 			],
 			P.outline,
 		);
@@ -1236,14 +1281,14 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[22, 26],
-				[12, 18],
-				[8, 25],
-				[17, 31],
-				[11, 39],
-				[21, 37],
-				[20, 49],
-				[26, 43],
+				[ 22, 26 ],
+				[ 12, 18 ],
+				[ 8, 25 ],
+				[ 17, 31 ],
+				[ 11, 39 ],
+				[ 21, 37 ],
+				[ 20, 49 ],
+				[ 26, 43 ],
 			],
 			P.red0,
 		);
@@ -1251,14 +1296,14 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[42, 26],
-				[52, 18],
-				[56, 25],
-				[47, 31],
-				[53, 39],
-				[43, 37],
-				[44, 49],
-				[38, 43],
+				[ 42, 26 ],
+				[ 52, 18 ],
+				[ 56, 25 ],
+				[ 47, 31 ],
+				[ 53, 39 ],
+				[ 43, 37 ],
+				[ 44, 49 ],
+				[ 38, 43 ],
 			],
 			P.red1,
 		);
@@ -1266,11 +1311,11 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[22, 43],
-				[31, 45],
-				[29, 61],
-				[20, 63],
-				[17, 58],
+				[ 22, 43 ],
+				[ 31, 45 ],
+				[ 29, 61 ],
+				[ 20, 63 ],
+				[ 17, 58 ],
 			],
 			P.outline,
 		);
@@ -1278,11 +1323,11 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[33, 45],
-				[42, 43],
-				[47, 58],
-				[44, 63],
-				[35, 61],
+				[ 33, 45 ],
+				[ 42, 43 ],
+				[ 47, 58 ],
+				[ 44, 63 ],
+				[ 35, 61 ],
 			],
 			P.outline,
 		);
@@ -1290,10 +1335,10 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[23, 46],
-				[30, 47],
-				[27, 59],
-				[21, 60],
+				[ 23, 46 ],
+				[ 30, 47 ],
+				[ 27, 59 ],
+				[ 21, 60 ],
 			],
 			P.fire0,
 		);
@@ -1301,10 +1346,10 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[34, 47],
-				[40, 46],
-				[44, 59],
-				[37, 60],
+				[ 34, 47 ],
+				[ 40, 46 ],
+				[ 44, 59 ],
+				[ 37, 60 ],
 			],
 			P.fire1,
 		);
@@ -1312,14 +1357,14 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[18, 22],
-				[26, 17],
-				[38, 17],
-				[46, 22],
-				[44, 47],
-				[37, 53],
-				[27, 52],
-				[20, 46],
+				[ 18, 22 ],
+				[ 26, 17 ],
+				[ 38, 17 ],
+				[ 46, 22 ],
+				[ 44, 47 ],
+				[ 37, 53 ],
+				[ 27, 52 ],
+				[ 20, 46 ],
 			],
 			P.outline,
 		);
@@ -1327,14 +1372,14 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[21, 23],
-				[27, 20],
-				[37, 20],
-				[43, 24],
-				[41, 44],
-				[36, 49],
-				[28, 48],
-				[23, 44],
+				[ 21, 23 ],
+				[ 27, 20 ],
+				[ 37, 20 ],
+				[ 43, 24 ],
+				[ 41, 44 ],
+				[ 36, 49 ],
+				[ 28, 48 ],
+				[ 23, 44 ],
 			],
 			P.fire0,
 		);
@@ -1342,11 +1387,11 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[26, 23],
-				[37, 22],
-				[40, 42],
-				[35, 47],
-				[29, 45],
+				[ 26, 23 ],
+				[ 37, 22 ],
+				[ 40, 42 ],
+				[ 35, 47 ],
+				[ 29, 45 ],
 			],
 			P.fire1,
 		);
@@ -1354,11 +1399,11 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[28, 24],
-				[37, 24],
-				[37, 40],
-				[32, 44],
-				[28, 41],
+				[ 28, 24 ],
+				[ 37, 24 ],
+				[ 37, 40 ],
+				[ 32, 44 ],
+				[ 28, 41 ],
 			],
 			P.fire2,
 			0.75,
@@ -1375,14 +1420,14 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[21, 16],
-				[23, 8],
-				[29, 3],
-				[36, 3],
-				[42, 9],
-				[43, 18],
-				[38, 25],
-				[27, 24],
+				[ 21, 16 ],
+				[ 23, 8 ],
+				[ 29, 3 ],
+				[ 36, 3 ],
+				[ 42, 9 ],
+				[ 43, 18 ],
+				[ 38, 25 ],
+				[ 27, 24 ],
 			],
 			P.outline,
 		);
@@ -1390,14 +1435,14 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[24, 15],
-				[26, 9],
-				[30, 6],
-				[36, 6],
-				[40, 10],
-				[40, 17],
-				[36, 21],
-				[29, 20],
+				[ 24, 15 ],
+				[ 26, 9 ],
+				[ 30, 6 ],
+				[ 36, 6 ],
+				[ 40, 10 ],
+				[ 40, 17 ],
+				[ 36, 21 ],
+				[ 29, 20 ],
 			],
 			P.red0,
 		);
@@ -1405,12 +1450,12 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[27, 9],
-				[31, 6],
-				[36, 7],
-				[39, 10],
-				[36, 12],
-				[29, 12],
+				[ 27, 9 ],
+				[ 31, 6 ],
+				[ 36, 7 ],
+				[ 39, 10 ],
+				[ 36, 12 ],
+				[ 29, 12 ],
 			],
 			P.fire1,
 		);
@@ -1426,10 +1471,10 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[27, 7],
-				[18, 0],
-				[20, 11],
-				[25, 14],
+				[ 27, 7 ],
+				[ 18, 0 ],
+				[ 20, 11 ],
+				[ 25, 14 ],
 			],
 			P.fire1,
 		);
@@ -1437,10 +1482,10 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[37, 7],
-				[46, 0],
-				[44, 11],
-				[39, 14],
+				[ 37, 7 ],
+				[ 46, 0 ],
+				[ 44, 11 ],
+				[ 39, 14 ],
 			],
 			P.fire2,
 		);
@@ -1448,12 +1493,12 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[18, 24],
-				[24, 26],
-				[22, 42],
-				[15, 49],
-				[10, 45],
-				[15, 35],
+				[ 18, 24 ],
+				[ 24, 26 ],
+				[ 22, 42 ],
+				[ 15, 49 ],
+				[ 10, 45 ],
+				[ 15, 35 ],
 			],
 			P.outline,
 		);
@@ -1461,12 +1506,12 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[19, 26],
-				[22, 27],
-				[20, 40],
-				[15, 46],
-				[12, 44],
-				[17, 35],
+				[ 19, 26 ],
+				[ 22, 27 ],
+				[ 20, 40 ],
+				[ 15, 46 ],
+				[ 12, 44 ],
+				[ 17, 35 ],
 			],
 			P.red1,
 		);
@@ -1474,12 +1519,12 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[46, 24],
-				[40, 26],
-				[42, 42],
-				[49, 49],
-				[54, 45],
-				[49, 35],
+				[ 46, 24 ],
+				[ 40, 26 ],
+				[ 42, 42 ],
+				[ 49, 49 ],
+				[ 54, 45 ],
+				[ 49, 35 ],
 			],
 			P.outline,
 		);
@@ -1487,12 +1532,12 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[45, 26],
-				[42, 27],
-				[44, 40],
-				[49, 46],
-				[52, 44],
-				[47, 35],
+				[ 45, 26 ],
+				[ 42, 27 ],
+				[ 44, 40 ],
+				[ 49, 46 ],
+				[ 52, 44 ],
+				[ 47, 35 ],
 			],
 			P.red2,
 		);
@@ -1500,8 +1545,8 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		line(
 			ctx,
 			[
-				[50, 46],
-				[57, 17],
+				[ 50, 46 ],
+				[ 57, 17 ],
 			],
 			P.outline,
 			4,
@@ -1510,8 +1555,8 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		line(
 			ctx,
 			[
-				[50, 45],
-				[57, 17],
+				[ 50, 45 ],
+				[ 57, 17 ],
 			],
 			P.steel2,
 			2,
@@ -1522,11 +1567,11 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		poly(
 			ctx,
 			[
-				[26, 8],
-				[28, 1],
-				[32, 7],
-				[36, 1],
-				[39, 8],
+				[ 26, 8 ],
+				[ 28, 1 ],
+				[ 32, 7 ],
+				[ 36, 1 ],
+				[ 39, 8 ],
 			],
 			P.gold1,
 		);
@@ -1534,6 +1579,250 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		diamond(ctx, 32, 7, 4, 4, P.gold3, 0.9);
 	}
 
+
+	/**
+	 * Renders the Clockwork Sentry automaton silhouette.
+	 * State-mutating canvas draw procedure.
+	 * @param {CanvasRenderingContext2D | any} ctx - Target 2D rendering context.
+	 * @returns {void}
+	 */
+	function clockworkSentry(ctx) {
+		ground(ctx, 22);
+
+		// Four mechanical tripod/strut legs
+		// Left back leg
+		poly(ctx, [ [ 14, 40 ], [ 8, 56 ], [ 12, 58 ], [ 18, 43 ] ], P.outline);
+		poly(ctx, [ [ 15, 41 ], [ 10, 55 ], [ 12, 56 ], [ 17, 43 ] ], P.brass0 || P.gold0);
+
+		// Right back leg
+		poly(ctx, [ [ 50, 40 ], [ 56, 56 ], [ 52, 58 ], [ 46, 43 ] ], P.outline);
+		poly(ctx, [ [ 49, 41 ], [ 54, 55 ], [ 52, 56 ], [ 47, 43 ] ], P.brass0 || P.gold0);
+
+		// Left front leg
+		poly(ctx, [ [ 20, 42 ], [ 14, 60 ], [ 18, 62 ], [ 24, 46 ] ], P.outline);
+		poly(ctx, [ [ 21, 43 ], [ 16, 59 ], [ 18, 60 ], [ 23, 46 ] ], P.brass1 || P.gold1);
+
+		// Right front leg
+		poly(ctx, [ [ 44, 42 ], [ 50, 60 ], [ 46, 62 ], [ 40, 46 ] ], P.outline);
+		poly(ctx, [ [ 43, 43 ], [ 48, 59 ], [ 46, 60 ], [ 41, 46 ] ], P.brass1 || P.gold1);
+
+		// Main clockwork bronze chassis (hexagonal barrel)
+		poly(ctx, [
+			[ 20, 24 ],
+			[ 44, 24 ],
+			[ 48, 38 ],
+			[ 44, 48 ],
+			[ 20, 48 ],
+			[ 16, 38 ],
+		], P.outline);
+
+		poly(ctx, [
+			[ 22, 26 ],
+			[ 42, 26 ],
+			[ 46, 38 ],
+			[ 42, 46 ],
+			[ 22, 46 ],
+			[ 18, 38 ],
+		], P.brass1 || P.gold1);
+
+		// Top boiler dome & copper exhaust chimney
+		rr(ctx, 28, 16, [ 8, 10 ], 2, P.outline);
+		rr(ctx, 29, 17, [ 6, 9 ], 1, P.copper1 || P.leather1);
+		rect(ctx, 35, 14, 3, 6, P.copper2 || P.gold1);
+		rect(ctx, 26, 14, 3, 6, P.copper2 || P.gold1);
+
+		// Steam exhaust plume
+		glow(ctx, 32, 12, 6, P.steel3, 0.35);
+
+		// Central gear ring
+		ellipse(ctx, 32, 36, 9, 9, P.outline);
+		ellipse(ctx, 32, 36, 7.5, 7.5, P.brass2 || P.gold2);
+		ellipse(ctx, 32, 36, 5, 5, P.brass0 || P.gold0);
+
+		// Glowing Aetheric Ocular Core
+		glow(ctx, 32, 36, 8, P.aether2 || P.blue2, 0.45);
+		diamond(ctx, 32, 36, 5, 5, P.aether2 || P.blue2);
+		diamond(ctx, 32, 36, 2.5, 2.5, P.aether3 || P.steel4);
+
+		// Left weapon arm: Pneumatic drill/blade
+		poly(ctx, [ [ 14, 32 ], [ 6, 36 ], [ 4, 44 ], [ 10, 42 ] ], P.outline);
+		poly(ctx, [ [ 13, 33 ], [ 7, 37 ], [ 5, 43 ], [ 9, 41 ] ], P.steel2);
+		line(ctx, [ [ 4, 44 ], [ 1, 52 ] ], P.steel3, 2);
+
+		// Right weapon arm: Whirling bronze cog saw
+		poly(ctx, [ [ 48, 32 ], [ 54, 34 ], [ 58, 42 ], [ 52, 44 ] ], P.outline);
+		poly(ctx, [ [ 49, 33 ], [ 53, 35 ], [ 57, 41 ], [ 53, 43 ] ], P.brass2 || P.gold2);
+		diamond(ctx, 58, 42, 7, 7, P.brass3 || P.gold3, 0.85);
+
+		// Rivet highlights
+		spec(ctx, 24, 28, 1.5, 1.5, P.steel4, 0.8);
+		spec(ctx, 40, 28, 1.5, 1.5, P.steel4, 0.8);
+	}
+
+	/**
+	 * Renders the Volcano Salamander molten reptile silhouette.
+	 * State-mutating canvas draw procedure.
+	 * @param {CanvasRenderingContext2D | any} ctx - Target 2D rendering context.
+	 * @returns {void}
+	 */
+	function volcanoSalamander(ctx) {
+		ground(ctx, 26);
+
+		// Molten tail curving upward behind
+		poly(ctx, [
+			[ 12, 44 ],
+			[ 6, 38 ],
+			[ 4, 28 ],
+			[ 9, 24 ],
+			[ 12, 30 ],
+			[ 14, 40 ],
+		], P.outline);
+
+		poly(ctx, [
+			[ 12, 42 ],
+			[ 7, 37 ],
+			[ 5, 29 ],
+			[ 9, 26 ],
+			[ 11, 31 ],
+			[ 13, 39 ],
+		], P.fire1);
+
+		// Molten spine glow along tail
+		glow(ctx, 7, 28, 5, P.fire2, 0.4);
+		diamond(ctx, 7, 28, 3, 3, P.fire3);
+
+		// Hind legs
+		poly(ctx, [ [ 16, 42 ], [ 10, 56 ], [ 16, 58 ], [ 22, 46 ] ], P.outline);
+		poly(ctx, [ [ 17, 43 ], [ 12, 55 ], [ 15, 57 ], [ 21, 46 ] ], P.deepest);
+
+		// Forelegs
+		poly(ctx, [ [ 44, 42 ], [ 50, 58 ], [ 56, 58 ], [ 48, 44 ] ], P.outline);
+		poly(ctx, [ [ 45, 43 ], [ 49, 57 ], [ 54, 57 ], [ 47, 45 ] ], P.deepest);
+
+		// Heavy basalt body torso
+		poly(ctx, [
+			[ 18, 34 ],
+			[ 46, 32 ],
+			[ 52, 44 ],
+			[ 46, 52 ],
+			[ 20, 50 ],
+			[ 14, 42 ],
+		], P.outline);
+
+		poly(ctx, [
+			[ 19, 36 ],
+			[ 45, 34 ],
+			[ 50, 44 ],
+			[ 45, 50 ],
+			[ 21, 48 ],
+			[ 15, 42 ],
+		], P.black);
+
+		// Magma plates on back
+		poly(ctx, [ [ 24, 34 ], [ 38, 33 ], [ 36, 42 ], [ 22, 43 ] ], P.fire0);
+		poly(ctx, [ [ 26, 36 ], [ 36, 35 ], [ 34, 40 ], [ 24, 41 ] ], P.fire1);
+		line(ctx, [ [ 22, 38 ], [ 42, 38 ] ], P.fire2, 1.5);
+
+		// Broad armored reptilian head
+		poly(ctx, [
+			[ 44, 30 ],
+			[ 58, 28 ],
+			[ 62, 36 ],
+			[ 56, 44 ],
+			[ 46, 42 ],
+		], P.outline);
+
+		poly(ctx, [
+			[ 46, 32 ],
+			[ 57, 30 ],
+			[ 60, 36 ],
+			[ 55, 42 ],
+			[ 47, 40 ],
+		], P.deepest);
+
+		// Glowing sulfur throat & fiery eye
+		glow(ctx, 54, 38, 7, P.fire2, 0.45);
+		ellipse(ctx, 54, 39, 4, 3, P.fire2);
+		ellipse(ctx, 54, 39, 2.5, 1.5, P.fire3);
+
+		// Eye slit
+		rect(ctx, 52, 32, 3, 1.5, P.fire3);
+
+		// Smoke vents
+		spec(ctx, 28, 32, 2, 4, P.fire3, 0.7);
+		spec(ctx, 36, 31, 2, 4, P.fire3, 0.7);
+	}
+
+	/**
+	 * Renders the Abyssal Void Herald floating specter silhouette.
+	 * State-mutating canvas draw procedure.
+	 * @param {CanvasRenderingContext2D | any} ctx - Target 2D rendering context.
+	 * @returns {void}
+	 */
+	function voidHerald(ctx) {
+		ground(ctx, 16);
+
+		// Gravitic void aura
+		glow(ctx, 32, 30, 22, P.violet1, 0.22);
+		glow(ctx, 32, 20, 14, P.violet2, 0.18);
+
+		// Shredded floating ethereal robe tendrils
+		poly(ctx, [
+			[ 20, 24 ],
+			[ 10, 36 ],
+			[ 14, 54 ],
+			[ 22, 60 ],
+			[ 32, 52 ],
+			[ 42, 60 ],
+			[ 50, 54 ],
+			[ 54, 36 ],
+			[ 44, 24 ],
+		], P.outline);
+
+		poly(ctx, [
+			[ 22, 26 ],
+			[ 12, 38 ],
+			[ 16, 52 ],
+			[ 23, 57 ],
+			[ 32, 50 ],
+			[ 41, 57 ],
+			[ 48, 52 ],
+			[ 52, 38 ],
+			[ 42, 26 ],
+		], P.cloth0);
+
+		// Inner deep void folds
+		poly(ctx, [
+			[ 26, 28 ],
+			[ 22, 42 ],
+			[ 32, 48 ],
+			[ 42, 42 ],
+			[ 38, 28 ],
+		], P.violet0);
+
+		// Floating Cracked Precursor Soul-Glass Mask
+		diamond(ctx, 32, 18, 9, 13, P.outline);
+		diamond(ctx, 32, 18, 7.5, 11, P.deepest);
+		diamond(ctx, 32, 18, 5.5, 8.5, P.steel3, 0.9);
+
+		// Glowing Aetheric Crack in Mask
+		line(ctx, [ [ 30, 14 ], [ 34, 22 ] ], P.aether2 || P.blue2, 1.8);
+		spec(ctx, 32, 17, 2, 3, P.aether3 || P.steel4, 0.95);
+
+		// Twin floating occult aether foci
+		glow(ctx, 10, 22, 6, P.violet2, 0.4);
+		diamond(ctx, 10, 22, 4, 4, P.violet2);
+		diamond(ctx, 10, 22, 2, 2, P.steel4);
+
+		glow(ctx, 54, 22, 6, P.violet2, 0.4);
+		diamond(ctx, 54, 22, 4, 4, P.violet2);
+		diamond(ctx, 54, 22, 2, 2, P.steel4);
+
+		// Tendrils of void aether dripping downwards
+		line(ctx, [ [ 22, 54 ], [ 18, 62 ] ], P.violet2, 1.2);
+		line(ctx, [ [ 32, 50 ], [ 32, 64 ] ], P.aether1 || P.blue1, 1.4);
+		line(ctx, [ [ 42, 54 ], [ 46, 62 ] ], P.violet2, 1.2);
+	}
 	const ENEMY_BAKERS = Object.freeze({
 		SHADE_WOLF: shadeWolf,
 		BONE_ARCHER: boneArcher,
@@ -1542,6 +1831,9 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		DREAD_ACOLYTE: dreadAcolyte,
 		IRON_BRUTE: ironBrute,
 		BOSS_MALAKOR: bossMalakor,
+		CLOCKWORK_SENTRY: clockworkSentry,
+		VOLCANO_SALAMANDER: volcanoSalamander,
+		VOID_HERALD: voidHerald,
 	});
 
 	const EXPLICIT_ALIASES = Object.freeze({
@@ -1549,20 +1841,30 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		BLIGHT_SPIDER: "CAVE_SPIDER",
 		MALAKOR: "BOSS_MALAKOR",
 		CINDER_REVENANT: "BOSS_MALAKOR",
+		SENTRY_GOLEM: "CLOCKWORK_SENTRY",
+		AUTOMATON: "CLOCKWORK_SENTRY",
+		SALAMANDER: "VOLCANO_SALAMANDER",
+		MAGMA_SALAMANDER: "VOLCANO_SALAMANDER",
+		HERALD: "VOID_HERALD",
+		VOID_SPECTER: "VOID_HERALD",
 	});
 
 	const SEMANTIC_RULES = Object.freeze([
-		["WOLF", "SHADE_WOLF"],
-		["ARCHER", "BONE_ARCHER"],
-		["SKELETON", "CATACOMB_SKELETON"],
-		["SPIDER", "CAVE_SPIDER"],
-		["ACOLYTE", "DREAD_ACOLYTE"],
-		["CULTIST", "DREAD_ACOLYTE"],
-		["BRUTE", "IRON_BRUTE"],
-		["GOLEM", "IRON_BRUTE"],
-		["MALAKOR", "BOSS_MALAKOR"],
-		["REVENANT", "BOSS_MALAKOR"],
-		["BOSS", "BOSS_MALAKOR"],
+		[ "WOLF", "SHADE_WOLF" ],
+		[ "ARCHER", "BONE_ARCHER" ],
+		[ "SKELETON", "CATACOMB_SKELETON" ],
+		[ "SPIDER", "CAVE_SPIDER" ],
+		[ "ACOLYTE", "DREAD_ACOLYTE" ],
+		[ "CULTIST", "DREAD_ACOLYTE" ],
+		[ "BRUTE", "IRON_BRUTE" ],
+		[ "GOLEM", "CLOCKWORK_SENTRY" ],
+		[ "SENTRY", "CLOCKWORK_SENTRY" ],
+		[ "AUTOMATON", "CLOCKWORK_SENTRY" ],
+		[ "SALAMANDER", "VOLCANO_SALAMANDER" ],
+		[ "HERALD", "VOID_HERALD" ],
+		[ "MALAKOR", "BOSS_MALAKOR" ],
+		[ "REVENANT", "BOSS_MALAKOR" ],
+		[ "BOSS", "BOSS_MALAKOR" ],
 	]);
 	//#endregion
 
@@ -1574,6 +1876,9 @@ if (typeof window !== 'undefined') window._BattlerBakerInternal = window._Battle
 		dreadAcolyte,
 		ironBrute,
 		bossMalakor,
+		clockworkSentry,
+		volcanoSalamander,
+		voidHerald,
 		ENEMY_BAKERS,
 		EXPLICIT_ALIASES,
 		SEMANTIC_RULES,

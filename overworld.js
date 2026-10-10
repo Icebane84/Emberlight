@@ -279,14 +279,15 @@ const EmberlightOverworld = (() => {
 	 * @returns {string} Target encounter table identifier.
 	 */
 	function resolveEncounterKey(depth, targetTile, roll) {
-		if (depth >= 3) return "CATACOMBS_DEEP";
+		if (depth >= 4) return roll < 0.5 ? "VOID_VAULT" : "CATACOMBS_DEEP";
+		if (depth >= 2) return roll < 0.5 ? "STEAM_FOUNDRY" : "CRYPT_SANCTUM";
 		if (depth > 0) {
-			return roll < 0.5 ? "CRYPT_SANCTUM" : "SPIDER_NEST";
+			return roll < 0.33 ? "STEAM_FOUNDRY" : (roll < 0.66 ? "CRYPT_SANCTUM" : "SPIDER_NEST");
 		}
 		if (targetTile === '"') {
-			return roll < 0.5 ? "WOLF_PACK" : "DEFAULT";
+			return roll < 0.4 ? "STEAM_FOUNDRY" : (roll < 0.7 ? "WOLF_PACK" : "DEFAULT");
 		}
-		return "DEFAULT";
+		return roll < 0.35 ? "STEAM_FOUNDRY" : "DEFAULT";
 	}
 
 	/**

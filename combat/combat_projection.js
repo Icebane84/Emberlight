@@ -84,20 +84,34 @@ function createProjection(snapshot) {
 	}
 
 	// Generate intent vectors linking enemies to party targets
+	const turnQueue = snapshot.turnQueue || snapshot.forecastQueue || [];
 	const threatVectors = (snapshot.enemies || [])
 		.filter((/** @type {{ alive: any; }} */ e) => e.alive)
-		.map((/** @type {{ id: any; name: any; isBoss: any; phaseTwoActive: any; }} */ e, /** @type {any} */ eIdx) => {
+		.map((/** @type {{ id: any; name: any; isBoss: any; phaseTwoActive: any; targeting?: string; }} */ e, /** @type {any} */ eIdx) => {
 			const livingHeroes = (snapshot.party || []).filter((/** @type {{ alive: any; }} */ p) => p.alive);
+			const frontHeroes = livingHeroes.filter(
+				(/** @type {{ row: string; }} */ p) => p.row === "FRONT" || p.row === "BOTH",
+			);
+			const eligibleCandidates =
+				frontHeroes.length > 0 && e.targeting !== "RANGED_SNIPER"
+					? frontHeroes
+					: livingHeroes;
 			const targetIdx =
-				(eIdx + (snapshot.roundCount || 0)) % Math.max(1, livingHeroes.length);
-			const targetHero = livingHeroes[targetIdx] || snapshot.party?.[0] || null;
+				(eIdx + (snapshot.roundCount || 0)) % Math.max(1, eligibleCandidates.length);
+			const targetHero = eligibleCandidates[targetIdx] || snapshot.party?.[0] || null;
+			const heroIndex = snapshot.party ? snapshot.party.indexOf(targetHero) : targetIdx;
+			const queueIdx = Array.isArray(turnQueue)
+				? turnQueue.findIndex((/** @type {{ id: any; }} */ t) => t?.id === e.id)
+				: -1;
+			const turnEta = queueIdx !== -1 ? queueIdx : null;
 			return {
 				enemyId: e.id,
 				enemyName: e.name,
 				targetHeroId: targetHero?.id || null,
 				targetHeroName: targetHero?.name || "Hero",
-				heroIndex: targetIdx,
+				heroIndex: Math.max(0, heroIndex),
 				isCharged: Boolean(e.isBoss && e.phaseTwoActive),
+				turnEta,
 			};
 		});
 

@@ -135,13 +135,146 @@ const EmberlightArmoryRendererInstance = (() => {
 	 */
 	function renderLoadoutComparatorAction(highlightedItem, pChar, manifest) {
 		if (!highlightedItem) {
-			return '<div style="font-size:6px; color:var(--text-dim);">No item selected</div>';
+			return '<div style="font-size:9px; color:var(--text-dim); font-family:monospace;">No item selected</div>';
 		}
 		const req = checkRequirements(pChar, highlightedItem, manifest);
 		if (req.isEligible) {
-			return `<button type="button" class="cmd-btn action equip-for-char-btn" data-char="${pChar.id}" data-item="${highlightedItem.id}" style="font-size:6px; padding:2px 4px; margin-top:4px;">⚡ EQUIP ON ${pChar.name.toUpperCase()}</button>`;
+			return `<button type="button" class="cmd-btn action equip-for-char-btn" data-char="${pChar.id}" data-item="${highlightedItem.id}" style="font-size:9px; padding:3px 6px; margin-top:4px; letter-spacing:0.5px;">⚡ EQUIP ON ${pChar.name.toUpperCase()}</button>`;
 		}
-		return `<div class="deficit-warning" style="margin-top:4px;">INSUFFICIENT (${req.deficits[0] || 'LOCKED'})</div>`;
+		return `<div class="deficit-warning" style="margin-top:4px; font-size:9px; letter-spacing:0.5px;">INSUFFICIENT (${req.deficits[0] || 'LOCKED'})</div>`;
+	}
+
+	/**
+	 * Computes stat deltas between equipped gear and a candidate inventory item.
+	 * @param {any} character Character snapshot.
+	 * @param {string} selectedSlot Active gear slot.
+	 * @param {any} highlightedItem Candidate item definition.
+	 * @param {any} manifest Active manifest.
+	 * @returns {{ deltaAtk: number, deltaDef: number, deltaAgi: number, projectedAtk: number, projectedDef: number, projectedAgi: number } | null}
+	 */
+	function computeEquipDeltas(character, selectedSlot, highlightedItem, manifest) {
+		if (!highlightedItem) return null;
+		const curItemId = character.equipment?.[selectedSlot];
+		const curItem = curItemId ? manifest.Items?.[curItemId] : null;
+
+		const curAtk = curItem?.stats?.atk || 0;
+		const curDef = curItem?.stats?.def || 0;
+		const curAgi = curItem?.stats?.agi || 0;
+
+		const nextAtk = highlightedItem.stats?.atk || 0;
+		const nextDef = highlightedItem.stats?.def || 0;
+		const nextAgi = highlightedItem.stats?.agi || 0;
+
+		const deltaAtk = nextAtk - curAtk;
+		const deltaDef = nextDef - curDef;
+		const deltaAgi = nextAgi - curAgi;
+
+		const baseStats = typeof manifest.computeCharacterStats === 'function'
+			? manifest.computeCharacterStats(character)
+			: character;
+
+		return {
+			deltaAtk,
+			deltaDef,
+			deltaAgi,
+			projectedAtk: (baseStats.atk || 10) + deltaAtk,
+			projectedDef: (baseStats.def || 5) + deltaDef,
+			projectedAgi: (baseStats.agi || 7) + deltaAgi,
+		};
+	}
+
+	/**
+	 * Builds live stat deltas strip markup.
+	 * @param {any} character
+	 * @param {string} selectedSlot
+	 * @param {any} highlightedItem
+	 * @param {any} manifest
+	 * @returns {string}
+	 */
+	function buildLiveStatDeltasMarkup(character, selectedSlot, highlightedItem, manifest) {
+		const deltas = computeEquipDeltas(character, selectedSlot, highlightedItem, manifest);
+		if (!deltas) {
+			return '<div class="live-stat-delta-empty">Select an item in stock to view stat deltas</div>';
+		}
+
+		/**
+		 * @param {string} label
+		 * @param {number} diff
+		 * @param {number} proj
+		 */
+		const formatBadge = (label, diff, proj) => {
+			const sign = diff > 0 ? `+${diff}` : `${diff}`;
+			let cls = 'zero';
+			if (diff > 0) {
+				cls = 'pos';
+			} else if (diff < 0) {
+				cls = 'neg';
+			}
+			return `
+				<div class="delta-chip ${cls}">
+					<span class="delta-label">${label}:</span>
+					<span class="delta-proj">${proj}</span>
+					<span class="delta-diff">(${sign})</span>
+				</div>
+			`;
+		};
+
+		return `
+			<div class="live-stat-delta-strip">
+				<div class="delta-strip-header">⚡ LOADOUT DELTAS (${highlightedItem.label}):</div>
+				<div class="delta-chips-row">
+					${formatBadge('ATK', deltas.deltaAtk, deltas.projectedAtk)}
+					${formatBadge('DEF', deltas.deltaDef, deltas.projectedDef)}
+					${formatBadge('AGI', deltas.deltaAgi, deltas.projectedAgi)}
+				</div>
+			</div>
+		`;
+	}
+
+	/**
+	 * Builds centered circular equipment socket interface markup around character rig.
+	 * @param {any} character
+	 * @param {string} selectedSlot
+	 * @param {any} manifest
+	 * @param {string} spriteDataUrl
+	 * @returns {string}
+	 */
+	function buildCrucibleSocketsMarkup(character, selectedSlot, manifest, spriteDataUrl) {
+		const slots = [
+			{ key: 'weapon', label: 'WEAPON', icon: '⚔️' },
+			{ key: 'armor', label: 'ARMOR', icon: '🛡️' },
+			{ key: 'accessory', label: 'ACCESSORY', icon: '💍' },
+		];
+
+		const socketButtons = slots.map((s) => {
+			const isSelected = selectedSlot === s.key;
+			const eqItem = character.equipment?.[s.key];
+			const itemLabel = resolveEquippedItemLabel(eqItem, manifest);
+			return `
+				<button type="button" class="crucible-socket-pod ${s.key}-pod ${isSelected ? 'active' : ''} slot-select-btn" data-slot="${s.key}">
+					<div class="socket-pod-icon">${s.icon}</div>
+					<div class="socket-pod-info">
+						<div class="socket-pod-slot">${s.label}</div>
+						<div class="socket-pod-item ${eqItem ? 'equipped' : 'empty'}">${itemLabel}</div>
+					</div>
+				</button>
+			`;
+		}).join('');
+
+		return `
+			<div class="crucible-rig-wrapper">
+				<div class="crucible-paper-doll-core">
+					<div class="crucible-arcane-ring"></div>
+					<div class="battler-paper-doll-frame">
+						${spriteDataUrl ? `<img src="${spriteDataUrl}" class="battler-paper-doll-img" alt="${character.name}" />` : '<div style="font-size:32px;">🧙‍♂️</div>'}
+					</div>
+					<div class="crucible-pedestal-glow"></div>
+				</div>
+				<div class="crucible-sockets-orbit">
+					${socketButtons}
+				</div>
+			</div>
+		`;
 	}
 
 	/**
@@ -195,6 +328,8 @@ const EmberlightArmoryRendererInstance = (() => {
 		}
 
 		const highlightedItem = selectedInventoryItemId ? manifest.Items?.[selectedInventoryItemId] : null;
+		const crucibleSocketsHtml = buildCrucibleSocketsMarkup(character, selectedSlot, manifest, spriteDataUrl);
+		const liveStatDeltasHtml = buildLiveStatDeltasMarkup(character, selectedSlot, highlightedItem, manifest);
 
 		panel.innerHTML = `
       <div class="deep-analysis-deck">
@@ -203,39 +338,25 @@ const EmberlightArmoryRendererInstance = (() => {
 
         <!-- 2. PRIMARY 3-COLUMN OPERATIONAL STAGE -->
         <div class="deep-analysis-stage-3col">
-          <!-- PANE 1: FULL-BODY PAPER DOLL & EQUIPPED SLOTS -->
-          <div class="deep-analysis-pane" style="align-items:center;">
+          <!-- PANE 1: CIRCULAR PAPER-DOLL CRUCIBLE RIG -->
+          <div class="deep-analysis-pane crucible-pane" style="align-items:center;">
             <div class="deep-pane-title" style="width:100%;">
-              <span>RIG: ${character.name.toUpperCase()}</span>
-              <span style="color:var(--ember); font-size:6px;">2X BAKER</span>
+              <span>CRUCIBLE RIG: ${character.name.toUpperCase()}</span>
+              <span style="color:var(--ember); font-size:9px; letter-spacing:0.5px;">2X COMPOSITE</span>
             </div>
-            <div class="battler-paper-doll-frame">
-              ${spriteDataUrl ? `<img src="${spriteDataUrl}" class="battler-paper-doll-img" alt="${character.name}" />` : '<div style="font-size:32px;">🧙‍♂️</div>'}
-            </div>
-            <div style="width:100%; display:flex; flex-direction:column; gap:4px; font-size:7px; margin-top:4px;">
-              ${['weapon', 'armor', 'accessory'].map((slot) => {
-			const isSelected = selectedSlot === slot;
-			const eqItem = character.equipment?.[slot];
-			const itemLabel = resolveEquippedItemLabel(eqItem, manifest);
-			return `
-                  <button type="button" class="cmd-btn ${isSelected ? 'run' : ''} slot-select-btn" data-slot="${slot}" style="font-size:7px; padding:3px 6px; text-align:left; display:flex; justify-content:space-between;">
-                    <span>${slot.toUpperCase()}:</span>
-                    <span style="font-weight:bold; color:${eqItem ? 'var(--ember)' : 'var(--text-dim)'};">${itemLabel}</span>
-                  </button>
-                `;
-		}).join('')}
-            </div>
+            ${crucibleSocketsHtml}
           </div>
 
           <!-- PANE 2: ARMORY MATRIX & INVENTORY -->
           <div class="deep-analysis-pane">
             <div class="deep-pane-title">
               <span>ARMORY MATRIX: ${selectedSlot.toUpperCase()}S (${slotItems.length})</span>
-              <span style="color:var(--text-dim); font-size:6px;">Select to compare</span>
+              <span style="color:var(--text-dim); font-size:9px; letter-spacing:0.5px;">Click to compare</span>
             </div>
-            <div id="armory-items-list" style="display:flex; flex-direction:column; gap:5px; overflow-y:auto; max-height:260px;">
+            ${liveStatDeltasHtml}
+            <div id="armory-items-list" style="display:flex; flex-direction:column; gap:6px; overflow-y:auto; max-height:270px; margin-top:4px;">
               ${slotItems.length === 0
-				? '<div style="color:var(--text-dim); font-size:7px; padding:12px; text-align:center;">No items found in stock for this slot.</div>'
+				? '<div style="color:var(--text-dim); font-size:9.5px; padding:16px; text-align:center; font-family:monospace;">No items found in stock for this slot.</div>'
 				: slotItems.map((entry) => {
 					const item = entry.def;
 					const reqCheck = checkRequirements(character, item, manifest);
@@ -247,20 +368,20 @@ const EmberlightArmoryRendererInstance = (() => {
 					return `
                     <div class="compare-card ${isHighlight ? 'selected' : ''} inventory-item-card" data-item="${entry.id}" style="cursor:pointer;">
                       <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-weight:bold; color:var(--ember);">${item.label || entry.id} <span style="color:var(--text-dim);">x${entry.count}</span></span>
-                        <button type="button" class="cmd-btn action equip-action-btn" data-item="${entry.id}" style="font-size:6px; padding:1px 6px;" ${reqCheck.isEligible ? '' : 'disabled'}>
+                        <span style="font-weight:bold; color:var(--ember); font-size:9.5px; letter-spacing:0.5px;">${item.label || entry.id} <span style="color:var(--text-dim); font-size:9px;">x${entry.count}</span></span>
+                        <button type="button" class="cmd-btn action equip-action-btn" data-item="${entry.id}" style="font-size:9px; padding:2px 8px; letter-spacing:0.5px;" ${reqCheck.isEligible ? '' : 'disabled'}>
                           ${reqCheck.isEligible ? '⚡ EQUIP' : '🔒 LOCKED'}
                         </button>
                       </div>
-                      <div style="color:var(--text-dim); font-size:6px;">${statBonusText || 'Special artifact'}</div>
+                      <div style="color:#94a3b8; font-size:9px; font-family:monospace; margin-top:2px;">${statBonusText || 'Special artifact'}</div>
                       ${!reqCheck.isEligible ? `<div class="deficit-warning">DEFICIT: ${reqCheck.deficits.join(', ')}</div>` : ''}
                     </div>
                   `;
 				}).join('')}
             </div>
             ${character.equipment?.[selectedSlot] ? `
-              <div style="margin-top:auto; text-align:right;">
-                <button type="button" class="cmd-btn" id="unequip-current-btn" style="font-size:7px; padding:2px 8px; color:var(--danger);">✕ UNEQUIP CURRENT</button>
+              <div style="margin-top:auto; text-align:right; padding-top:6px;">
+                <button type="button" class="cmd-btn" id="unequip-current-btn" style="font-size:9px; padding:3px 10px; color:var(--danger); letter-spacing:0.5px;">✕ UNEQUIP CURRENT</button>
               </div>
             ` : ''}
           </div>
@@ -269,7 +390,7 @@ const EmberlightArmoryRendererInstance = (() => {
           <div class="deep-analysis-pane">
             <div class="deep-pane-title">
               <span>COMBAT TELEMETRY PREVIEW</span>
-              <span style="color:var(--ok);">LIVE</span>
+              <span style="color:var(--ok); font-size:9px; letter-spacing:0.5px;">LIVE</span>
             </div>
             <div class="combat-telemetry-box">
               <div class="telemetry-row">
@@ -294,8 +415,8 @@ const EmberlightArmoryRendererInstance = (() => {
               </div>
             </div>
 
-            <div style="margin-top:auto; background:rgba(0,0,0,0.4); padding:6px; border:1px solid var(--border-dim); border-radius:3px; font-size:7px;">
-              <div style="color:var(--ember); font-weight:bold; margin-bottom:2px;">TACTICAL LOADOUT TIP:</div>
+            <div style="margin-top:auto; background:rgba(0,0,0,0.5); padding:8px; border:1px solid rgba(255,157,77,0.3); border-radius:3px; font-size:9px; font-family:monospace; line-height:1.4;">
+              <div style="color:var(--ember); font-weight:bold; margin-bottom:3px; letter-spacing:0.5px;">TACTICAL LOADOUT TIP:</div>
               <div>Balancing Vanguard DEF with Arcanist MP ensures clean turn pacing in subterranean crypts.</div>
             </div>
           </div>
@@ -305,7 +426,7 @@ const EmberlightArmoryRendererInstance = (() => {
         <div class="deep-analysis-bench">
           <div class="deep-pane-title">
             <span>PARTY-WIDE LOADOUT COMPARATOR ${highlightedItem ? `(${highlightedItem.label})` : ''}</span>
-            <button type="button" class="cmd-btn action" id="close-armory-btn" style="font-size:7px; padding:2px 8px;">✔ DONE / RETURN</button>
+            <button type="button" class="cmd-btn action" id="close-armory-btn" style="font-size:9px; padding:3px 10px; letter-spacing:0.5px;">✔ DONE / RETURN</button>
           </div>
 
           <div class="party-loadout-comparator">
@@ -316,11 +437,11 @@ const EmberlightArmoryRendererInstance = (() => {
 
 					return `
                 <div class="compare-card ${isCurrent ? 'selected' : ''}">
-                  <div style="display:flex; justify-content:space-between; font-weight:bold;">
+                  <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:9.5px; letter-spacing:0.5px;">
                     <span>${pChar.name}</span>
-                    <span style="color:var(--text-dim); font-size:6px;">${pChar.phenotype}</span>
+                    <span style="color:var(--text-dim); font-size:9px;">${pChar.phenotype}</span>
                   </div>
-                  <div style="font-size:6px; color:var(--text-dim);">Equipped: <b>${resolveEquippedItemLabel(currentEq, manifest)}</b></div>
+                  <div style="font-size:9px; color:var(--text-dim); margin:3px 0;">Equipped: <b style="color:#e2e8f0;">${resolveEquippedItemLabel(currentEq, manifest)}</b></div>
                   ${actionHtml}
                 </div>
               `;
@@ -337,7 +458,7 @@ const EmberlightArmoryRendererInstance = (() => {
 				const btn = document.createElement('button');
 				btn.type = 'button';
 				btn.className = `deep-roster-btn ${idx === selectedIdx ? 'active' : ''}`;
-				btn.innerHTML = `<span>${pChar.name}</span> <span style="font-size:6px; opacity:0.8;">(${pChar.phenotype})</span>`;
+				btn.innerHTML = `<span>${pChar.name}</span> <span style="font-size:9px; opacity:0.8;">(${pChar.phenotype})</span>`;
 				btn.onclick = () => emit(dispatch, { type: 'SELECT_CHAR', index: idx });
 				rosterRibbon.appendChild(btn);
 			});
@@ -419,12 +540,13 @@ const EmberlightArmoryRendererInstance = (() => {
 
 		const characterRow = document.createElement('div');
 		characterRow.style.display = 'flex';
-		characterRow.style.gap = '4px';
+		characterRow.style.gap = '6px';
 		(state.party || []).forEach((/** @type {any} */ entry, /** @type {number} */ index) => {
 			const button = document.createElement('button');
 			button.type = 'button';
 			button.className = `cmd-btn${index === state.selectedCharIndex ? ' run' : ''}`;
-			button.style.fontSize = '7px';
+			button.style.fontSize = '9px';
+			button.style.letterSpacing = '0.5px';
 			button.textContent = `${entry.name}`;
 			button.onclick = () => emit(dispatch, { type: 'SELECT_CHAR', index });
 			characterRow.appendChild(button);
@@ -438,7 +560,8 @@ const EmberlightArmoryRendererInstance = (() => {
 			const button = document.createElement('button');
 			button.type = 'button';
 			button.className = `cmd-btn${state.selectedSlot === slot ? ' run' : ''}`;
-			button.style.fontSize = '7px';
+			button.style.fontSize = '9px';
+			button.style.letterSpacing = '0.5px';
 			button.textContent = `${slot.toUpperCase()}: ${itemId || '[EMPTY]'}`;
 			button.onclick = () => emit(dispatch, { type: 'SELECT_SLOT', slot });
 			slotRow.appendChild(button);
@@ -457,7 +580,8 @@ const EmberlightArmoryRendererInstance = (() => {
 			const button = document.createElement('button');
 			button.type = 'button';
 			button.className = 'cmd-btn action';
-			button.style.fontSize = '7px';
+			button.style.fontSize = '9px';
+			button.style.letterSpacing = '0.5px';
 			button.textContent = `${item.label || itemId} x${count}`;
 			button.onclick = () => emit(dispatch, {
 				type: 'EQUIP',
@@ -472,7 +596,7 @@ const EmberlightArmoryRendererInstance = (() => {
 		const done = document.createElement('button');
 		done.type = 'button';
 		done.className = 'cmd-btn action';
-		done.style.cssText = 'margin-top:10px; font-size:7px;';
+		done.style.cssText = 'margin-top:10px; font-size:9.5px; letter-spacing:0.5px;';
 		done.textContent = '✔ DONE / RETURN';
 		done.onclick = () => emit(dispatch, { type: 'EXIT' });
 		panel.appendChild(done);

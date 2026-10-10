@@ -19,6 +19,8 @@
  * @property {number} atk - Attack power rating.
  * @property {number} def - Defense rating.
  * @property {boolean} alive - Life state flag.
+ * @property {number} [agi] - Agility rating.
+ * @property {number} [accumulatedDelay] - Current CTB turn delay accumulator.
  * @property {'FRONT'|'BACK'|'BOTH'} [row] - Combat positioning row.
  * @property {boolean} [isBoss] - Boss entity flag.
  * @property {boolean} [isGuarding] - Tactical guard stance flag.
@@ -68,8 +70,8 @@
  */
 function playerExecuteAttack(sim, targetEnemyIndex, helpers) {
 	if (!sim) return;
-	const activeChar = sim.turnQueue[sim.activeTurnIndex]?.entity;
-	const target = sim.enemies[targetEnemyIndex];
+	const activeChar = sim.turnQueue[ sim.activeTurnIndex ]?.entity;
+	const target = sim.enemies[ targetEnemyIndex ];
 	if (!activeChar || !target?.alive) return;
 
 	const heroIdx = sim.party.findIndex((c) => c.id === activeChar.id);
@@ -115,6 +117,8 @@ function playerExecuteAttack(sim, targetEnemyIndex, helpers) {
 		targetIndex: actualIndex,
 		isCrit: isWeakness || variance > 0,
 		isHeal: false,
+		element: "PHYSICAL",
+		isSlash: true,
 	});
 
 	AI.checkBossPhase(
@@ -126,6 +130,10 @@ function playerExecuteAttack(sim, targetEnemyIndex, helpers) {
 
 	if (helpers.checkUnitDefeat(actualTarget) && helpers.checkBattleEnd()) {
 		return;
+	}
+
+	if (activeChar) {
+		activeChar.accumulatedDelay = (activeChar.accumulatedDelay || 0) + 120;
 	}
 
 	helpers.renderPresentation();
@@ -141,7 +149,7 @@ function playerExecuteAttack(sim, targetEnemyIndex, helpers) {
  */
 function playerExecuteGuard(sim, helpers) {
 	if (!sim) return;
-	const activeChar = sim.turnQueue[sim.activeTurnIndex]?.entity;
+	const activeChar = sim.turnQueue[ sim.activeTurnIndex ]?.entity;
 	if (!activeChar?.alive) return;
 
 	activeChar.isGuarding = true;
@@ -161,6 +169,11 @@ function playerExecuteGuard(sim, helpers) {
 		isLarge: true,
 	});
 
+	activeChar.accumulatedDelay = Math.max(
+		20,
+		Math.floor((activeChar.accumulatedDelay || 0) * 0.5),
+	);
+
 	helpers.renderPresentation();
 	helpers.schedule(helpers.stepTurn, 400);
 }
@@ -176,7 +189,7 @@ function playerExecuteGuard(sim, helpers) {
  */
 function playerExecuteItem(sim, itemId, targetIdx, helpers) {
 	if (!sim) return;
-	const target = sim.party[targetIdx];
+	const target = sim.party[ targetIdx ];
 	if (!target) return;
 
 	if (itemId === "POTION") {
@@ -229,8 +242,8 @@ function playerExecuteItem(sim, itemId, targetIdx, helpers) {
 		});
 	}
 
-	if ((sim.inventory[itemId] || 0) > 0) {
-		sim.inventory[itemId] -= 1;
+	if ((sim.inventory[ itemId ] || 0) > 0) {
+		sim.inventory[ itemId ] -= 1;
 	}
 
 	sim.phase = "PLAYER_INPUT";
@@ -259,7 +272,7 @@ function executeAllySkill(
 	helpers,
 ) {
 	if (!sim) return;
-	const ally = sim.party[targetIndex];
+	const ally = sim.party[ targetIndex ];
 	if (!ally?.alive) return;
 	const power = typeof node?.power === "number" ? node.power : 20;
 	const missingHp = Math.max(0, (ally.maxHp || 30) - (ally.hp || 0));
@@ -300,7 +313,7 @@ function executeEnemySkill(
 	helpers,
 ) {
 	if (!sim) return;
-	const enemy = sim.enemies[targetIndex];
+	const enemy = sim.enemies[ targetIndex ];
 	if (!enemy?.alive) return;
 
 	const Displacement = helpers.Displacement;
@@ -359,6 +372,9 @@ function executeEnemySkill(
 		isCrit:
 			isGuaranteedCrit || isWeakness || Boolean(node.mult && node.mult > 1.5),
 		isHeal: false,
+		element: node.element || "PHYSICAL",
+		skillName: node.label || "Skill",
+		subType: node.subType || "bolt",
 	});
 
 	AI.checkBossPhase(
@@ -369,6 +385,14 @@ function executeEnemySkill(
 	);
 	if (node.id === "mag_des_1" && helpers.getRandomFloat() < 0.4) {
 		Queue.applyAilment(actualTarget, "BURN", 3, helpers.appendLog);
+	}
+	if ((node.id === "mag_fro_1" || node.targetDelay) && actualTarget.alive) {
+		const delayAmt = node.targetDelay || node.delayCost || 600;
+		actualTarget.accumulatedDelay = (actualTarget.accumulatedDelay || 0) + delayAmt;
+		helpers.appendLog(
+			`❄️ CHILLED! ${actualTarget.name}'s turn clock was pushed back (+${delayAmt}ms delay)!`,
+			"ember",
+		);
 	}
 	if (node.displacement && actualTarget.alive) {
 		Displacement.executeDisplacement(
@@ -404,7 +428,7 @@ function finalizeSkillExecution(
 	helpers,
 ) {
 	if (!sim) return;
-	const activeChar = sim.turnQueue[sim.activeTurnIndex]?.entity;
+	const activeChar = sim.turnQueue[ sim.activeTurnIndex ]?.entity;
 	if (!activeChar) return;
 
 	const heroIdx = sim.party.findIndex((c) => c.id === activeChar.id);
@@ -438,6 +462,11 @@ function finalizeSkillExecution(
 		return;
 	}
 
+	if (activeChar) {
+		activeChar.accumulatedDelay =
+			(activeChar.accumulatedDelay || 0) + (node?.delayCost || 160);
+	}
+
 	helpers.renderPresentation();
 	helpers.schedule(helpers.stepTurn, 500);
 }
@@ -454,7 +483,7 @@ function finalizeSkillExecution(
  */
 function playerExecuteSkill(sim, node, targetIndex, isAllyTarget, helpers) {
 	if (!sim) return;
-	const activeChar = sim.turnQueue[sim.activeTurnIndex]?.entity;
+	const activeChar = sim.turnQueue[ sim.activeTurnIndex ]?.entity;
 	if (!activeChar || activeChar.mp < node.mpCost) return;
 
 	if (node.tier === 3 || node.id?.endsWith("_3")) {
@@ -554,7 +583,7 @@ function handleConfirmTargetingEnemy(sim, helpers) {
  */
 function handleConfirmTabSelection(sim, helpers) {
 	if (sim.selectedTab === "SKILLS") {
-		const activeChar = sim.turnQueue[sim.activeTurnIndex]?.entity;
+		const activeChar = sim.turnQueue[ sim.activeTurnIndex ]?.entity;
 		const skills = helpers.Calc.getAvailableSkills(
 			activeChar,
 			helpers.getActiveManifest(),
@@ -562,14 +591,14 @@ function handleConfirmTabSelection(sim, helpers) {
 		if (skills.length > 0) {
 			handleViewAction(
 				sim,
-				{ type: "SELECT_SKILL", skill: skills[0] },
+				{ type: "SELECT_SKILL", skill: skills[ 0 ] },
 				helpers,
 			);
 		}
 	} else if (sim.selectedTab === "POUCH") {
 		const inv = sim.inventory || {};
-		const availableItem = ["POTION", "ETHER", "PHOENIX_EMBER"].find(
-			(id) => (inv[id] || 0) > 0,
+		const availableItem = [ "POTION", "ETHER", "PHOENIX_EMBER" ].find(
+			(id) => (inv[ id ] || 0) > 0,
 		);
 		if (availableItem) {
 			handleViewAction(
@@ -629,8 +658,9 @@ function handleCancelChoice(sim, helpers) {
 		handleViewAction(sim, { type: "CANCEL_ITEM" }, helpers);
 	} else if (sim.selectedTab !== "ATTACK") {
 		handleViewAction(sim, { type: "SELECT_TAB", tab: "ATTACK" }, helpers);
-	} else if (sim.phase === "PLAYER_INPUT") {
-		handleViewAction(sim, { type: "FLEE" }, helpers);
+	} else if (sim.phase !== "PLAYER_INPUT") {
+		sim.phase = "PLAYER_INPUT";
+		helpers.renderPresentation();
 	}
 }
 
@@ -644,15 +674,15 @@ function handleCancelChoice(sim, helpers) {
  */
 function handleDirectionalNav(sim, direction, helpers) {
 	if (!sim) return;
-	const tabs = ["ATTACK", "SKILLS", "GUARD", "POUCH"];
+	const tabs = [ "ATTACK", "SKILLS", "GUARD", "POUCH" ];
 	const curTabIdx = tabs.indexOf(sim.selectedTab || "ATTACK");
 
 	if (direction === "LEFT" || direction === "UP") {
 		const nextIdx = (curTabIdx - 1 + tabs.length) % tabs.length;
-		handleViewAction(sim, { type: "SELECT_TAB", tab: tabs[nextIdx] }, helpers);
+		handleViewAction(sim, { type: "SELECT_TAB", tab: tabs[ nextIdx ] }, helpers);
 	} else if (direction === "RIGHT" || direction === "DOWN") {
 		const nextIdx = (curTabIdx + 1) % tabs.length;
-		handleViewAction(sim, { type: "SELECT_TAB", tab: tabs[nextIdx] }, helpers);
+		handleViewAction(sim, { type: "SELECT_TAB", tab: tabs[ nextIdx ] }, helpers);
 	}
 }
 
@@ -664,7 +694,7 @@ function handleDirectionalNav(sim, direction, helpers) {
  * @returns {void}
  */
 function handleChoiceEnemyTarget(sim, idx, helpers) {
-	if (!sim.enemies[idx]?.alive) return;
+	if (!sim.enemies[ idx ]?.alive) return;
 	if (sim.pendingSkill) {
 		handleViewAction(
 			sim,
@@ -689,7 +719,7 @@ function handleChoiceEnemyTarget(sim, idx, helpers) {
  * @returns {void}
  */
 function handleChoiceAllyTarget(sim, idx, helpers) {
-	const targetAlly = sim.party[idx];
+	const targetAlly = sim.party[ idx ];
 	if (!targetAlly) return;
 	const isEmber = sim.pendingItem === "PHOENIX_EMBER";
 	const isValid = isEmber ? !targetAlly.alive : targetAlly.alive;
@@ -736,6 +766,35 @@ function handleChoiceIndex(sim, choiceNum, helpers) {
 		return;
 	}
 
+	if (sim.selectedTab === "SKILLS") {
+		const activeChar = sim.turnQueue[ sim.activeTurnIndex ]?.entity;
+		const skills = helpers.Calc.getAvailableSkills(
+			activeChar,
+			helpers.getActiveManifest(),
+		);
+		if (skills[ idx ]) {
+			handleViewAction(
+				sim,
+				{ type: "SELECT_SKILL", skill: skills[ idx ] },
+				helpers,
+			);
+			return;
+		}
+	} else if (sim.selectedTab === "POUCH") {
+		const inv = sim.inventory || {};
+		const availableItems = [ "POTION", "ETHER", "PHOENIX_EMBER" ].filter(
+			(id) => (inv[ id ] || 0) > 0,
+		);
+		if (availableItems[ idx ]) {
+			handleViewAction(
+				sim,
+				{ type: "SELECT_ITEM", itemId: availableItems[ idx ] },
+				helpers,
+			);
+			return;
+		}
+	}
+
 	/** @type {Record<number, string>} */
 	const choiceMap = {
 		1: "ATTACK",
@@ -743,7 +802,7 @@ function handleChoiceIndex(sim, choiceNum, helpers) {
 		3: "GUARD",
 		4: "POUCH",
 	};
-	const mappedTab = choiceMap[choiceNum];
+	const mappedTab = choiceMap[ choiceNum ];
 	if (mappedTab) {
 		handleViewAction(sim, { type: "SELECT_TAB", tab: mappedTab }, helpers);
 	}
@@ -759,7 +818,7 @@ function handleChoiceIndex(sim, choiceNum, helpers) {
 function resolveTargetIndex(actObj, sim) {
 	if (typeof actObj.targetIndex === "number") {
 		const list = actObj.isAlly ? (sim.party || []) : (sim.enemies || []);
-		if (list[actObj.targetIndex]?.alive) return actObj.targetIndex;
+		if (list[ actObj.targetIndex ]?.alive) return actObj.targetIndex;
 		const fallbackIdx = list.findIndex((e) => e.alive);
 		return fallbackIdx !== -1 ? fallbackIdx : actObj.targetIndex;
 	}
@@ -769,6 +828,107 @@ function resolveTargetIndex(actObj, sim) {
 	const candidateList = actObj.isAlly ? (sim.party || []) : (sim.enemies || []);
 	const idx = candidateList.findIndex((e) => e.alive);
 	return idx !== -1 ? idx : 0;
+}
+
+/**
+ * Executes a targeted kinetic knockback maneuver from spatial radial.
+ * @param {CombatSimulationState} sim
+ * @param {any} actObj
+ * @param {any} helpers
+ */
+function handleSteerKnockback(sim, actObj, helpers) {
+	if (!sim) return;
+	const activeChar = sim.turnQueue[ sim.activeTurnIndex ]?.entity || sim.party.find((c) => c.alive);
+	let target = null;
+	if (actObj?.targetId) {
+		target = sim.enemies.find((e) => e.id === actObj.targetId && e.alive);
+	}
+	if (!target && actObj?.targetTile) {
+		target = sim.enemies.find((e) => (/** @type {any} */ (e)).gridX === actObj.targetTile.x && (/** @type {any} */ (e)).gridY === actObj.targetTile.y && e.alive);
+	}
+	if (!target && typeof actObj?.targetIndex === "number") {
+		target = sim.enemies[ actObj.targetIndex ];
+	}
+	if (!target?.alive) {
+		target = sim.enemies.find((e) => e.alive);
+	}
+	if (!activeChar || !target?.alive) return;
+
+	helpers.appendLog(`💥 STEER KNOCKBACK! ${activeChar.name} unleashes a directional kinetic bash!`, "ember");
+	const rawDmg = Math.max(1, Math.round(activeChar.atk * 1.3 - target.def));
+	target.hp = Math.max(0, target.hp - rawDmg);
+	helpers.dispatchSFX("ATTACK_HIT");
+	helpers.Displacement.executeDisplacement(
+		sim,
+		target,
+		"KNOCKBACK",
+		false,
+		helpers.appendLog,
+		helpers.dispatchSFX,
+		helpers.triggerDisplacementVisual,
+	);
+	helpers.checkUnitDefeat(target);
+	helpers.renderPresentation();
+	helpers.schedule(helpers.stepTurn, 400);
+}
+
+/**
+ * Executes field tactical maneuvers (barricade deploy / hazard detonation).
+ * @param {CombatSimulationState} sim
+ * @param {any} actObj
+ * @param {any} helpers
+ */
+function handleFieldAction(sim, actObj, helpers) {
+	if (!sim) return;
+	const activeChar = sim.turnQueue[ sim.activeTurnIndex ]?.entity || sim.party.find((c) => c.alive);
+	if (actObj.action === "PLACE_BARRICADE") {
+		helpers.appendLog(`🧱 BARRICADE DEPLOYED! Party vanguard fortified behind heavy stone cover!`, "ok");
+		helpers.dispatchSFX("DEFEND");
+		if (activeChar) {
+			activeChar.def = Math.round((activeChar.def || 10) * 1.5);
+		}
+		helpers.renderPresentation();
+		helpers.schedule(helpers.stepTurn, 400);
+	} else if (actObj.action === "TRIGGER_HAZARD") {
+		helpers.appendLog(`🔥 DETONATE! Catacomb hazard crystals erupt across the chamber!`, "danger");
+		helpers.dispatchSFX("SPELL_BOLT");
+		sim.enemies.forEach((foe) => {
+			if (foe.alive) {
+				const blastDmg = Math.max(5, Math.floor(helpers.getRandomFloat() * 8) + 12);
+				foe.hp = Math.max(0, foe.hp - blastDmg);
+				helpers.checkUnitDefeat(foe);
+			}
+		});
+		helpers.renderPresentation();
+		helpers.schedule(helpers.stepTurn, 400);
+	} else {
+		helpers.appendLog(`Field tactical maneuver executed: ${actObj.action || "TACTICAL"}.`, "system");
+		helpers.renderPresentation();
+	}
+}
+
+/**
+ * Prepares and executes turn timeline interception / delay strike.
+ * @param {CombatSimulationState} sim
+ * @param {any} actObj
+ * @param {any} helpers
+ */
+function handlePrepareDelayStrike(sim, actObj, helpers) {
+	if (!sim) return;
+	const activeChar = sim.turnQueue[ sim.activeTurnIndex ]?.entity || sim.party.find((c) => c.alive);
+	const target = actObj.targetEntityId
+		? sim.enemies.find((e) => e.id === actObj.targetEntityId && e.alive)
+		: sim.enemies.find((e) => e.alive);
+	if (!activeChar || !target) return;
+
+	helpers.appendLog(`⏳ DELAY STRIKE! ${activeChar.name} strikes ${target.name}, pushing their CTB turn clock back!`, "ember");
+	helpers.dispatchSFX("ATTACK_HIT");
+	target.accumulatedDelay = (target.accumulatedDelay || 0) + 1200;
+	const rawDmg = Math.max(2, Math.round(activeChar.atk * 1.1 - target.def));
+	target.hp = Math.max(0, target.hp - rawDmg);
+	helpers.checkUnitDefeat(target);
+	helpers.renderPresentation();
+	helpers.schedule(helpers.stepTurn, 400);
 }
 
 /**
@@ -945,7 +1105,7 @@ function handleViewAction(sim, action, helpers) {
 		SET_ROW: () => {
 			if (sim) {
 				const activeChar =
-					sim.turnQueue[sim.activeTurnIndex]?.entity || sim.party[0];
+					sim.turnQueue[ sim.activeTurnIndex ]?.entity || sim.party[ 0 ];
 				if (activeChar) {
 					activeChar.row =
 						actObj.row || (activeChar.row === "FRONT" ? "BACK" : "FRONT");
@@ -979,29 +1139,13 @@ function handleViewAction(sim, action, helpers) {
 			}
 		},
 		SET_DISPLACEMENT_VECTOR: () => {
-			if (sim && actObj.targetTile) {
-				helpers.appendLog(
-					`Knockback trajectory targeted at tile (${actObj.targetTile.x}, ${actObj.targetTile.y}).`,
-					"system",
-				);
-				helpers.renderPresentation();
-			}
+			handleSteerKnockback(sim, actObj, helpers);
 		},
 		FIELD_ACTION: () => {
-			if (sim) {
-				helpers.appendLog(
-					`Field tactical maneuver executed: ${actObj.action || "TACTICAL"}.`,
-					"system",
-				);
-				helpers.renderPresentation();
-			}
+			handleFieldAction(sim, actObj, helpers);
 		},
 		PREPARE_DELAY_STRIKE: () => {
-			if (sim) {
-				helpers.appendLog("Tactical action delay strike staged.", "system");
-				sim.selectedTab = "SKILLS";
-				helpers.renderPresentation();
-			}
+			handlePrepareDelayStrike(sim, actObj, helpers);
 		},
 		TUNE_HARMONICS: () => {
 			if (sim) {
@@ -1036,7 +1180,7 @@ function handleViewAction(sim, action, helpers) {
 		},
 	};
 
-	const handler = actionHandlers[type];
+	const handler = actionHandlers[ type ];
 	if (handler) {
 		handler();
 	}

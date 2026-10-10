@@ -8,8 +8,11 @@
  */
 (() => {
 
+/** @type {any} */
+let stagedCalc = null;
 if (typeof window !== 'undefined') {
 	window._CombatInternal = window._CombatInternal || {};
+	stagedCalc = window._CombatInternal.Calc || null;
 }
 
 /** @enum {string} */
@@ -123,9 +126,10 @@ function checkUnitDefeat(target, appendLog) {
  * @param {any} sim - Active simulation state.
  * @param {any} manifest - Manifest SSOT reference.
  * @param {(msg: string, type?: string) => void} [appendLog] - Log helper.
+ * @param {any} [injectedCalc] - Optional injected calculation subsystem.
  * @returns {void}
  */
-function distributeVictoryRewards(sim, manifest, appendLog) {
+function distributeVictoryRewards(sim, manifest, appendLog, injectedCalc) {
 	if (!sim) return;
 	let totExp = 0;
 	let totGold = 0;
@@ -138,19 +142,24 @@ function distributeVictoryRewards(sim, manifest, appendLog) {
 		if (e.rewards?.item) itemsAwarded.push(e.rewards.item);
 	});
 
+	const internal = typeof window !== 'undefined' ? window._CombatInternal : undefined;
+	const calc = /** @type {any} */ (injectedCalc || stagedCalc || internal?.Calc);
+	const getNextReq =
+		calc?.getExpForNextLevel ||
+		manifest?.Curves?.expForNextLevel ||
+		((/** @type {number} */ lv) => Math.max(20, Math.floor(25 * (lv ** 1.5) + 10 * lv)));
+
 	sim.party
 		.filter((/** @type {any} */ c) => c.alive)
 		.forEach((/** @type {any} */ c) => {
 			c.exp = (c.exp || 0) + totExp;
-			const curveFn =
-				manifest?.Curves?.expForNextLevel ||
-				((/** @type {number} */ lv) => Math.round(20 * lv ** 1.4));
-			if (c.exp >= curveFn(c.level || 1)) {
-				const internal = typeof window !== 'undefined' ? window._CombatInternal : undefined;
-				const calc = /** @type {any} */ (internal?.Calc);
+			let req = getNextReq(c.level || 1);
+			while (c.exp >= req) {
+				c.exp -= req;
 				if (calc?.applyHeroLevelUp) {
 					calc.applyHeroLevelUp(c, manifest, appendLog);
 				}
+				req = getNextReq(c.level || 1);
 			}
 		});
 
@@ -226,7 +235,7 @@ function resolveVictory(sim, helpers) {
 		duration: 2.2,
 	});
 
-	distributeVictoryRewards(sim, getActiveManifest(), appendLog);
+	distributeVictoryRewards(sim, getActiveManifest(), appendLog, helpers?.Calc);
 	renderPresentation();
 
 	if (isHeadless || autoRun) {

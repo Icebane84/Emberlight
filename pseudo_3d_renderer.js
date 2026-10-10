@@ -342,8 +342,12 @@ const EmberlightPseudo3D = (() => {
 
 			camera.targetX = playerPos.x + 0.5;
 			camera.targetY = playerPos.y + 0.5;
-			if (facing && Object.hasOwn(RaycastMath.FACING_ANGLES, facing))
+			if (facing && Object.hasOwn(RaycastMath.FACING_ANGLES, facing)) {
 				camera.targetAngle = RaycastMath.FACING_ANGLES[facing];
+			}
+			camera.x = camera.targetX;
+			camera.y = camera.targetY;
+			camera.angle = camera.targetAngle;
 
 			const env = Pipeline.resolveEnvironment(state, map, playerPos);
 			const torchFlicker = Pipeline.computeTorchFlicker(camera.t);
@@ -381,7 +385,7 @@ const EmberlightPseudo3D = (() => {
 				camera,
 				isExpandedMode,
 			});
-			return { skipped: false, events };
+			return { skipped: false, events, camera: { ...camera } };
 		}
 
 		function pause() {

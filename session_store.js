@@ -109,6 +109,7 @@ const EmberlightSessionStore = (() => {
 	let canonicalTownId = null; // null = Macro Wilderness, 'OAKHAVEN' = Inside town
 	let canonicalMacroPos = { x: 1, y: 1 }; // Cached wilderness coords before town entry
 	let canonicalStepCounter = 0;
+	let canonicalDangerSteps = 0;
 	/** @type {{ x: number, y: number }|null} */
 	let lastInteractedChestPos = null;
 	/** @type {string} */
@@ -240,6 +241,13 @@ const EmberlightSessionStore = (() => {
 	 * @returns {PartyMemberRecord} Hydrated character record.
 	 */
 	function hydrateExistingCharacter(existing, tmpl, pKey, base) {
+		let resolvedHp = base.hp;
+		if (existing.alive === false || existing.hp === 0) {
+			resolvedHp = 0;
+		} else if (existing.hp !== undefined && existing.hp > 0) {
+			resolvedHp = existing.hp;
+		}
+
 		return {
 			...existing,
 			id: existing.id || tmpl.id,
@@ -263,7 +271,7 @@ const EmberlightSessionStore = (() => {
 			alive:
 				existing.alive !== false &&
 				(existing.hp === undefined || existing.hp > 0),
-			hp: existing.hp !== undefined && existing.hp > 0 ? existing.hp : base.hp,
+			hp: resolvedHp,
 			maxHp: existing.maxHp || base.hp,
 			mp: existing.mp !== undefined && existing.mp >= 0 ? existing.mp : base.mp,
 			maxMp: existing.maxMp || base.mp,
@@ -490,6 +498,7 @@ const EmberlightSessionStore = (() => {
 		canonicalTownId = null;
 		canonicalMacroPos = { x: 1, y: 1 };
 		canonicalStepCounter = 0;
+		canonicalDangerSteps = 0;
 		lastInteractedChestPos = null;
 
 		if (win.EmberlightSaveManager) {
@@ -690,6 +699,13 @@ const EmberlightSessionStore = (() => {
 				typeof payload.canonicalStepCounter === "number"
 					? payload.canonicalStepCounter
 					: 0;
+			let restoredDanger = 0;
+			if (typeof payload.canonicalDangerSteps === "number") {
+				restoredDanger = payload.canonicalDangerSteps;
+			} else if (typeof payload.dangerSteps === "number") {
+				restoredDanger = payload.dangerSteps;
+			}
+			canonicalDangerSteps = restoredDanger;
 
 			if (typeof notifyFn === "function") {
 				notifyFn(
@@ -766,6 +782,7 @@ const EmberlightSessionStore = (() => {
 				townId: canonicalTownId,
 				macroPos: canonicalMacroPos,
 				stepCounter: canonicalStepCounter,
+				dangerSteps: canonicalDangerSteps,
 				lastInteractedChestPos,
 			});
 		},
@@ -806,6 +823,8 @@ const EmberlightSessionStore = (() => {
 		getMacroPos: () => canonicalMacroPos,
 		/** @returns {number} */
 		getStepCounter: () => canonicalStepCounter,
+		/** @returns {number} */
+		getDangerSteps: () => canonicalDangerSteps,
 		/** @returns {{ x: number, y: number }|null} */
 		getLastInteractedChestPos: () => lastInteractedChestPos,
 
@@ -948,6 +967,22 @@ const EmberlightSessionStore = (() => {
 		incrementStepCounter() {
 			canonicalStepCounter++;
 			return canonicalStepCounter;
+		},
+		/**
+		 * @param {number} steps
+		 * @returns {void}
+		 */
+		setDangerSteps(steps) {
+			canonicalDangerSteps = Math.max(0, Math.min(5, Number(steps) || 0));
+		},
+		/** @returns {number} */
+		incrementDangerSteps() {
+			canonicalDangerSteps = Math.min(5, canonicalDangerSteps + 1);
+			return canonicalDangerSteps;
+		},
+		/** @returns {void} */
+		resetDangerSteps() {
+			canonicalDangerSteps = 0;
 		},
 		/**
 		 * @param {{ x: number, y: number }|null} pos
