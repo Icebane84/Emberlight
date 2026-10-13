@@ -25,6 +25,7 @@ const EMBERLIGHT_SCRIPT_LOAD_ORDER = Object.freeze([
   'manifest/manifest_world.js',
   'manifest/manifest_narrative.js',
   'manifest/manifest_calculators.js',
+  'manifest/manifest_lexicon.js',
   // Manifest facade (seals membrane → deepFreeze → export EmberlightManifest)
   'manifest.js',
   'prng.js',

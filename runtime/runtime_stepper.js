@@ -75,19 +75,26 @@ if (typeof window !== "undefined") {
 					deps.notifyStatus?.("Shopping is only available at the Merchant Caravan in town.", "warning");
 				}
 			},
-			MENU_CHRONICLE: () => deps.switchDistrict?.("CHRONICLE"),
+			MENU_CHRONICLE: () => {
+				deps.publishSfx?.("RATCHET_CLICK");
+				deps.switchDistrict?.("CHRONICLE");
+			},
 			FIELD_SCORCH: () => deps.executeCapability?.("cap:elemental.scorch"),
 			FIELD_FREEZE: () => deps.executeCapability?.("cap:elemental.freeze"),
 			FIELD_CONSECRATE: () => deps.executeCapability?.("cap:sanctuary.consecrate"),
 			FIELD_DISPEL: () => deps.executeCapability?.("cap:elemental.gale_dispel"),
 			REST: () => {
-				const rested = (deps.getParty ? deps.getParty() : []).map((/** @type {any} */ c) => ({
-					...c,
-					alive: true,
-					hp: c.maxHp || c.hp,
-					mp: c.maxMp || c.mp,
-					ailments: [],
-				}));
+				const rested = (deps.getParty ? deps.getParty() : []).map((/** @type {any} */ c) => {
+					// Sortie Incapacitation: cannot be revived at camp if galvanic tether dissolved
+					if (c.tetherDissolved) return c;
+					return {
+						...c,
+						alive: true,
+						hp: c.maxHp || c.hp,
+						mp: c.maxMp || c.mp,
+						ailments: [],
+					};
+				});
 				deps.setParty?.(rested);
 				deps.notifyStatus?.("The squad rested at camp. Vitality and essence fully restored.", "success");
 				deps.publishSfx?.("sfx_heal");
@@ -496,6 +503,7 @@ if (typeof window !== "undefined") {
 			if (deps.activeDistrict === "COMBAT") {
 				deps.notifyStatus?.("Cannot open Chronicle during combat! Disengage first.", "warning");
 			} else {
+				deps.publishSfx?.("RATCHET_CLICK");
 				deps.switchDistrict?.("CHRONICLE");
 			}
 		});
@@ -535,6 +543,82 @@ if (typeof window !== "undefined") {
 		});
 	}
 
+	/** @type {Record<string, string>} */
+	const TITLE_SHORTCUT_BUTTONS = {
+		" ": "menu-continue-btn",
+		Enter: "menu-continue-btn",
+		n: "menu-new-game-btn",
+		N: "menu-new-game-btn",
+		l: "menu-load-btn",
+		L: "menu-load-btn",
+		c: "title-settings-btn",
+		C: "title-settings-btn",
+		m: "title-mute-btn",
+		M: "title-mute-btn",
+	};
+
+	/**
+	 * @param {KeyboardEvent} e
+	 */
+	function handleTitleKeydownShortcut(e) {
+		const btnId = TITLE_SHORTCUT_BUTTONS[e.key];
+		if (!btnId) return;
+		const btn = document.getElementById(btnId);
+		if (btn) {
+			e.preventDefault();
+			btn.click();
+		}
+	}
+
+	/**
+	 * Resolves the chronicle action token for a given keyboard event key.
+	 * @param {string} key
+	 * @param {string} curTab
+	 * @returns {any}
+	 */
+	function resolveChronicleKeyAction(key, curTab) {
+		switch (key) {
+			case "j":
+			case "J":
+			case "ArrowDown":
+			case "Enter":
+				return "INDEX_NEXT";
+			case "ArrowUp":
+				return "INDEX_PREV";
+			case "1":
+				return { type: "SELECT_TAB", tab: "DISPATCHES" };
+			case "2":
+				return { type: "SELECT_TAB", tab: "DOSSIERS" };
+			case "Tab":
+				return { type: "SELECT_TAB", tab: curTab === "DOSSIERS" ? "DISPATCHES" : "DOSSIERS" };
+			default:
+				return null;
+		}
+	}
+
+	/**
+	 * Dispatches keyboard shortcuts for the High Command Punched-Slate Archive (Subsystem E).
+	 * @param {KeyboardEvent} e
+	 * @param {any} _deps
+	 */
+	function handleChronicleKeydownShortcut(e, _deps) {
+		const Chronicle = typeof EmberlightChronicle !== "undefined" ? EmberlightChronicle : null;
+		if (!Chronicle || typeof Chronicle.handleHostAction !== "function") return;
+
+		const state = typeof Chronicle.getState === "function" ? Chronicle.getState() : null;
+		const curTab = state?.activeTab || "DISPATCHES";
+		const action = resolveChronicleKeyAction(e.key, curTab);
+		if (!action) return;
+
+		e.preventDefault();
+		Chronicle.handleHostAction(action);
+
+		const ChronicleRenderer = typeof EmberlightChronicleRenderer !== "undefined" ? EmberlightChronicleRenderer : null;
+		if (ChronicleRenderer && typeof Chronicle.render === "function") {
+			Chronicle.render(ChronicleRenderer, {});
+		}
+	}
+
 	/**
 	 * @param {(id: string, fn: () => void) => void} bind
 	 * @param {any} deps
@@ -552,37 +636,9 @@ if (typeof window !== "undefined") {
 				if (e.key === "Escape") {
 					deps.handleCancelAction?.();
 				} else if (deps.activeDistrict === "TITLE") {
-					if (e.key === " " || e.key === "Enter") {
-						const contBtn = document.getElementById("menu-continue-btn");
-						if (contBtn) {
-							e.preventDefault();
-							contBtn.click();
-						}
-					} else if (e.key === "n" || e.key === "N") {
-						const newBtn = document.getElementById("menu-new-game-btn");
-						if (newBtn) {
-							e.preventDefault();
-							newBtn.click();
-						}
-					} else if (e.key === "l" || e.key === "L") {
-						const loadBtn = document.getElementById("menu-load-btn");
-						if (loadBtn) {
-							e.preventDefault();
-							loadBtn.click();
-						}
-					} else if (e.key === "c" || e.key === "C") {
-						const cfgBtn = document.getElementById("title-settings-btn");
-						if (cfgBtn) {
-							e.preventDefault();
-							cfgBtn.click();
-						}
-					} else if (e.key === "m" || e.key === "M") {
-						const muteBtn = document.getElementById("title-mute-btn");
-						if (muteBtn) {
-							e.preventDefault();
-							muteBtn.click();
-						}
-					}
+					handleTitleKeydownShortcut(e);
+				} else if (deps.activeDistrict === "CHRONICLE") {
+					handleChronicleKeydownShortcut(e, deps);
 				}
 			});
 		}

@@ -29,6 +29,7 @@ declare interface VSRPTenantModule<TState = Record<string, unknown>> {
   getState(): TState | null;
   update(dt: number, context?: Record<string, unknown> | unknown): void;
   render(target?: unknown, ...args: unknown[]): void;
+  handleHostAction?(action?: unknown): unknown;
   getDiagnostics(): Record<string, unknown>;
   getModuleInfo(): {
     moduleId: string;
@@ -56,6 +57,9 @@ declare interface VSRPPeripheralRenderer {
   getDiagnostics(): Record<string, unknown>;
   destroy(): void;
   createInstance?(options?: Record<string, unknown>): VSRPPeripheralRenderer;
+  getLastEnemyBounds?(): Array<{ index?: number; enemy?: { id?: string | number }; x?: number; y?: number; w?: number; h?: number; [key: string]: unknown }> | null;
+  getLastCombatState?(): any;
+  triggerEnemyHitFlash?(targetIndex: number): void;
   [customMethodOrProperty: string]: unknown;
 }
 
@@ -183,6 +187,12 @@ declare interface EmberlightManifestFacade {
   WorldMutations: Record<string, unknown>;
   Shops: Record<string, unknown>;
   Dialogues: Record<string, unknown>;
+  Lexicon?: {
+    term: (key: string, fallback?: string) => string;
+    element: (key: string) => string;
+    format: (key: string, vars?: Record<string, string | number>, fallback?: string) => string;
+    [key: string]: unknown;
+  };
   calculateGearStats: (equipment: unknown) => unknown;
   computeCharacterStats: (
     character?: unknown,
@@ -423,9 +433,24 @@ declare var EmberlightArmory: VSRPTenantModule;
 declare var EmberlightArmoryRenderer: VSRPPeripheralRenderer;
 declare var EmberlightProgression: VSRPTenantModule;
 declare var EmberlightProgressionRenderer: VSRPPeripheralRenderer;
+declare interface ChronicleState {
+  flags: Record<string, unknown>;
+  quests: Record<string, unknown>;
+  selectedQuestId: string | null;
+  selectedDossierId?: string | null;
+  activeTab?: "DISPATCHES" | "DOSSIERS";
+  genevaIndex?: number;
+  deltas?: unknown;
+}
+
+declare interface ChronicleTenantModule extends VSRPTenantModule<ChronicleState> {
+  handleHostAction(action: unknown): unknown;
+  getState(): ChronicleState;
+}
+
 declare var EmberlightMarket: VSRPTenantModule;
 declare var EmberlightMarketRenderer: VSRPPeripheralRenderer;
-declare var EmberlightChronicle: VSRPTenantModule;
+declare var EmberlightChronicle: ChronicleTenantModule;
 declare var EmberlightChronicleRenderer: VSRPPeripheralRenderer;
 declare var EmberlightRelicForge: VSRPTenantModule;
 declare var EmberlightRelicForgeRenderer: VSRPPeripheralRenderer;
@@ -552,7 +577,7 @@ declare interface Window {
   EmberlightProgressionRenderer?: VSRPPeripheralRenderer;
   EmberlightMarket?: VSRPTenantModule;
   EmberlightMarketRenderer?: VSRPPeripheralRenderer;
-  EmberlightChronicle?: VSRPTenantModule;
+  EmberlightChronicle?: ChronicleTenantModule;
   EmberlightChronicleRenderer?: VSRPPeripheralRenderer;
   EmberlightRelicForge?: VSRPTenantModule;
   EmberlightRelicForgeRenderer?: VSRPPeripheralRenderer;
@@ -771,6 +796,10 @@ declare interface CombatWarTableProjection {
 declare interface ItemRecord {
   id: string;
   name: string;
+  label?: string;
+  shortLabel?: string;
+  desc?: string;
+  targetType?: string;
   type: "WEAPON" | "ARMOR" | "ACCESSORY" | "CONSUMABLE" | "MATERIAL" | string;
   tier?: number;
   cost?: number;

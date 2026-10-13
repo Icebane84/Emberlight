@@ -60,6 +60,7 @@ const EmberlightShaderCompositor = (() => {
 
 	// Kinetic Uniform State
 	let trauma = 0.0; // Dynamic hit-flash and chromatic surge
+	let bossDistortionActive = false; // Phase 2 reality distortion surge
 	let isEnabled = true;
 	let lastTime = 0;
 
@@ -205,10 +206,10 @@ const EmberlightShaderCompositor = (() => {
     uniform float u_scanlines;
     uniform float u_aberration;
 
-    // Barrel Distortion UV Warp
+    // Barrel Distortion UV Warp for Convex Soul-Glass (CANON-MAGITEK-AETHERPUNK-001 §8.2)
     vec2 curveUV(vec2 uv, float bend) {
       uv = (uv - 0.5) * 2.0;
-      uv *= 1.0 + pow((abs(uv.yx) / bend), vec2(2.0));
+      uv *= 1.0 + pow(max(abs(uv.yx) / bend, 0.0), vec2(2.0));
       uv = (uv / 2.0) + 0.5;
       return uv;
     }
@@ -216,56 +217,111 @@ const EmberlightShaderCompositor = (() => {
     void main() {
       vec2 uv = v_uv;
 
-      // 1. Apply Glass Face Curvature
+      // 1. High-frequency Aetheric Back-EMF horizontal raster shudder on hits
+      if (u_trauma > 0.01) {
+        float rasterSeed = sin(floor(uv.y * 130.0) * 45.32 + u_time * 65.0);
+        if (fract(rasterSeed * 31.7) > 0.70) {
+          uv.x += (fract(rasterSeed * 19.3) - 0.5) * u_trauma * 0.015;
+        }
+      }
+
+      // 2. Apply Convex Lens Glass Face Curvature
       if (u_curvature > 0.01) {
         uv = curveUV(uv, 3.8 / u_curvature);
       }
 
-      // Hard screen boundary clip for curved frame
+      // Hard screen boundary clip for curved bezel frame
       if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
-        gl_FragColor = vec4(0.0, 0.0, 0.0, 0.95);
+        gl_FragColor = vec4(0.04, 0.03, 0.06, 0.96);
         return;
       }
 
-      // 2. Scanline Intensity & Horizontal Raster Beam
-      float scanline = sin(uv.y * u_resolution.y * 1.5707) * 0.5 + 0.5;
-      scanline = pow(scanline, 1.35);
-      float scanlineAlpha = (1.0 - scanline) * 0.28 * u_scanlines;
+      // 3. CRT Scanline Intensity & Horizontal Raster Beam
+      float scanline = sin(uv.y * u_resolution.y * 1.570796) * 0.5 + 0.5;
+      scanline = pow(max(scanline, 0.0), 1.4);
+      float scanlineAlpha = (1.0 - scanline) * 0.26 * u_scanlines;
 
-      // 3. Dynamic Chromatic Aberration & Radial Edge Spread
+      // Cathode refresh sweep roll
+      float roll = sin((uv.y - u_time * 0.08) * 6.28318) * 0.03;
+      scanlineAlpha = clamp(scanlineAlpha + roll * u_scanlines, 0.0, 0.45);
+
+      // 4. Dynamic Chromatic Aberration & Radial Prism Dispersion
       vec2 centerOffset = uv - vec2(0.5);
       float radialDist = length(centerOffset);
-      float totalAberration = (0.003 * u_aberration) + (u_trauma * 0.015 * (1.0 + radialDist * 2.0));
+      float totalAberration = (0.0035 * u_aberration) + (u_trauma * 0.022 * (1.0 + radialDist * 2.5));
 
-      // RGB Phosphor Mask Simulation (Sub-pixel triad stripe)
+      // RGB Phosphor Aperture Mask Simulation with Soul-Glass Warmth
       float colIndex = mod(floor(gl_FragCoord.x), 3.0);
-      vec3 phosphor = vec3(0.9, 0.9, 0.9);
+      vec3 phosphor = vec3(1.0);
       if (colIndex < 1.0) {
-        phosphor = vec3(1.08, 0.92, 0.92);
+        phosphor = vec3(1.08, 0.92, 0.88);
       } else if (colIndex < 2.0) {
-        phosphor = vec3(0.92, 1.08, 0.92);
+        phosphor = vec3(0.92, 1.05, 0.92);
       } else {
-        phosphor = vec3(0.92, 0.92, 1.12);
+        phosphor = vec3(0.88, 0.94, 1.12);
       }
 
-      // 4. Corner Vignette Attenuation
-      float vignette = uv.x * uv.y * (1.0 - uv.x) * (1.0 - uv.y);
-      vignette = clamp(pow(16.0 * vignette, 0.35), 0.0, 1.0);
-      float vignetteDarkness = (1.0 - vignette) * 0.65;
+      // Radial chromatic fringing (red shifted outwards, cyan shifted inwards)
+      float rFringe = length(centerOffset * totalAberration) * 22.0;
+      float bFringe = length(-centerOffset * totalAberration) * 22.0;
+      vec3 chromaticFringe = vec3(rFringe, (rFringe + bFringe) * 0.22, bFringe);
 
-      // 5. Trauma Red-Out / Gold Flash Overlay
-      vec4 traumaOverlay = vec4(1.0, 0.2, 0.1, u_trauma * 0.35);
+      // 5. Convex Lens Vignette Attenuation (Curved Sapphire Oculus Bezel)
+      vec2 vigUV = uv * (1.0 - uv);
+      float vignette = vigUV.x * vigUV.y * 16.0;
+      vignette = clamp(pow(max(vignette, 0.0), 0.38), 0.0, 1.0);
+      float vignetteDarkness = (1.0 - vignette) * 0.68;
 
-      // Composite final glass overlay
-      vec3 finalShade = mix(phosphor, vec3(0.0), scanlineAlpha);
+      // Polished brass inner bezel specular highlight right at the curved lens rim
+      float edgeDist = max(abs(uv.x - 0.5), abs(uv.y - 0.5)) * 2.0;
+      float rimHighlight = smoothstep(0.965, 0.998, edgeDist) * (1.0 - step(1.0, edgeDist));
+      vec3 brassRim = vec3(0.83, 0.64, 0.35) * rimHighlight * 0.75;
+
+      // 6. Aetheric Back-EMF Trauma Overlay (Amber Arc Flash & Critical Shudder)
+      float arcFlicker = 1.0 + 0.18 * sin(u_time * 80.0);
+      vec3 aethericArc = vec3(1.0, 0.62, 0.24) * (u_trauma * 0.45 * arcFlicker);
+
+      // Composite final soul-glass optical overlay
+      vec3 finalShade = mix(phosphor, vec3(0.01, 0.01, 0.02), scanlineAlpha);
       finalShade = mix(finalShade, vec3(0.0), vignetteDarkness);
-      finalShade = mix(finalShade, traumaOverlay.rgb, traumaOverlay.a);
+      finalShade += chromaticFringe * (0.12 + u_trauma * 0.70);
+      finalShade += aethericArc;
+      finalShade += brassRim;
 
       // Render as semi-transparent optical layer over DOM cockpit
-      float alpha = max(scanlineAlpha, vignetteDarkness * 0.85) + (u_trauma * 0.3);
-      gl_FragColor = vec4(finalShade * alpha, alpha * 0.72);
+      float alpha = clamp(
+        max(scanlineAlpha, vignetteDarkness * 0.88) +
+        (u_trauma * 0.38) +
+        (length(chromaticFringe) * 0.14) +
+        (rimHighlight * 0.70),
+        0.0, 0.96
+      );
+
+      gl_FragColor = vec4(finalShade, alpha);
     }
   `;
+
+	/**
+	 * Applies kinetic physical screen shudder to the cockpit during trauma.
+	 * (State-mutating DOM kinetic translation procedure)
+	 * @param {number} currentTrauma
+	 * @returns {void}
+	 */
+	function applyScreenShudder(currentTrauma) {
+		if (typeof document === 'undefined') return;
+		const cockpit = document.getElementById('game-cockpit');
+		if (!cockpit) return;
+
+		if (currentTrauma > 0.002) {
+			const shakeMag = currentTrauma * currentTrauma;
+			const dx = (Math.random() * 2 - 1) * 12.0 * shakeMag;
+			const dy = (Math.random() * 2 - 1) * 9.0 * shakeMag;
+			const rot = (Math.random() * 2 - 1) * 0.65 * shakeMag;
+			cockpit.style.transform = `translate3d(${dx.toFixed(2)}px, ${dy.toFixed(2)}px, 0) rotate(${rot.toFixed(3)}deg)`;
+		} else if (cockpit.style.transform) {
+			cockpit.style.transform = '';
+		}
+	}
 
 	/**
 	 * Renders a shader frame in the kinetic animation loop.
@@ -286,13 +342,16 @@ const EmberlightShaderCompositor = (() => {
 			trauma = 0.0;
 		}
 
+		// Apply physical screen shudder
+		applyScreenShudder(trauma);
+
 		gl.useProgram(program);
 		if (uResolution) gl.uniform2f(uResolution, canvas.width, canvas.height);
 		if (uTime) gl.uniform1f(uTime, time * 0.001);
 		if (uTrauma) gl.uniform1f(uTrauma, trauma);
-		if (uCurvature) gl.uniform1f(uCurvature, 1.0); // 1.0 = Normal CRT curve
+		if (uCurvature) gl.uniform1f(uCurvature, bossDistortionActive ? 1.25 : 1.0); // 1.0 = Normal CRT curve
 		if (uScanlines) gl.uniform1f(uScanlines, 1.0);
-		if (uAberration) gl.uniform1f(uAberration, 1.0);
+		if (uAberration) gl.uniform1f(uAberration, bossDistortionActive ? 2.5 : 1.0);
 
 		gl.drawArrays(gl.TRIANGLES, 0, 6);
 
@@ -309,6 +368,72 @@ const EmberlightShaderCompositor = (() => {
 	 */
 	function triggerTraumaSpike(amount = 0.6) {
 		trauma = Math.min(1.0, trauma + amount);
+		applyScreenShudder(trauma);
+	}
+
+	/**
+	 * Binds event bus listeners for kinetic trauma triggers.
+	 * (State-mutating event binding procedure)
+	 * @param {ShaderEventBus|null} bus
+	 * @returns {void}
+	 */
+	function bindEvents(bus) {
+		if (!bus || typeof bus.subscribe !== 'function') return;
+
+		// Trauma surge on damage received or inflicted
+		bus.subscribe('combat:damage', (/** @type {{targetType?: string, isCrit?: boolean}} */ payload) => {
+			if (!payload) return;
+			if (payload.targetType === 'party') {
+				// Vanguard taking direct damage
+				triggerTraumaSpike(payload.isCrit ? 0.85 : 0.48);
+			} else if (payload.targetType === 'enemy') {
+				// Player strike on enemy / critical strike back-EMF
+				triggerTraumaSpike(payload.isCrit ? 0.65 : 0.22);
+			} else {
+				triggerTraumaSpike(0.35);
+			}
+		});
+
+		// Resonance Collapse kinetic shockwave
+		bus.subscribe('combat:collapse', () => {
+			triggerTraumaSpike(0.80);
+		});
+
+		// Heavy acoustic impacts and encounter alerts
+		bus.subscribe('combat:sfx', (/** @type {{sfx?: string}} */ payload) => {
+			const sfx = payload?.sfx;
+			if (sfx === 'HYDRAULIC_HAMMER') {
+				triggerTraumaSpike(0.70);
+			} else if (sfx === 'RESONANCE_COLLAPSE') {
+				triggerTraumaSpike(0.80);
+			} else if (sfx === 'CRITICAL_HIT') {
+				triggerTraumaSpike(0.85);
+			} else if (sfx === 'ENCOUNTER_TRIGGER' || sfx === 'DEFEAT') {
+				triggerTraumaSpike(0.75);
+			}
+		});
+
+		// Reality-distorting chromatic surge on boss Phase 2 enrage (CANON-MAGITEK-AETHERPUNK-001 §11.3)
+		bus.subscribe('combat:boss_phase_change', (/** @type {any} */ payload) => {
+			if (payload?.phase === 2) {
+				bossDistortionActive = true;
+				triggerTraumaSpike(0.95);
+			}
+		});
+
+		bus.subscribe('combat:end', () => {
+			bossDistortionActive = false;
+		});
+
+		// Toggle scanlines via Settings
+		bus.subscribe('system:command', (/** @type {{command?: string, enabled?: boolean}} */ payload) => {
+			if (payload?.command === 'TOGGLE_SCANLINES') {
+				isEnabled = Boolean(payload.enabled);
+				if (!isEnabled && gl?.clear) {
+					gl.clear(gl.COLOR_BUFFER_BIT);
+				}
+			}
+		});
 	}
 	//#endregion
 
@@ -316,44 +441,20 @@ const EmberlightShaderCompositor = (() => {
 	return {
 		/**
 		 * Initializes the shader compositor and binds event subscriptions.
+		 * Supports both direct EventBus and SDCP-001 scopedContext.
 		 * (State-mutating lifecycle gateway)
-		 * @param {ShaderEventBus} [bus] Event bus handle reference.
+		 * @param {any} [contextOrBus] Event bus or attenuated host context.
 		 * @returns {void}
 		 */
-		init(bus) {
-			eventBus = bus || null;
+		init(contextOrBus) {
+			eventBus = contextOrBus?.eventBus || contextOrBus || null;
 			ensureCanvas();
 
 			if (typeof window !== 'undefined') {
 				window.addEventListener('resize', resize);
 			}
 
-			// Event Subscriptions for Dynamic Shading Responses
-			if (eventBus && typeof eventBus.subscribe === 'function') {
-				// Trauma surge on damage received
-				eventBus.subscribe('combat:damage', (/** @type {{targetType: string, isCrit?: boolean}} */ payload) => {
-					if (payload?.targetType === 'party') {
-						triggerTraumaSpike(payload.isCrit ? 0.8 : 0.45);
-					}
-				});
-
-				// Flash burst on boss enrage & heavy SFX
-				eventBus.subscribe('combat:sfx', (/** @type {{sfx?: string}} */ payload) => {
-					if (payload?.sfx === 'ENCOUNTER_TRIGGER' || payload?.sfx === 'DEFEAT') {
-						triggerTraumaSpike(0.7);
-					}
-				});
-
-				// Toggle via Settings
-				eventBus.subscribe('system:command', (/** @type {{command?: string, enabled?: boolean}} */ payload) => {
-					if (payload?.command === 'TOGGLE_SCANLINES') {
-						isEnabled = Boolean(payload.enabled);
-						if (!isEnabled && gl?.clear) {
-							gl.clear(gl.COLOR_BUFFER_BIT);
-						}
-					}
-				});
-			}
+			bindEvents(eventBus);
 
 			if (gl && typeof requestAnimationFrame !== 'undefined') {
 				animFrameId = requestAnimationFrame(render);
@@ -371,9 +472,36 @@ const EmberlightShaderCompositor = (() => {
 		},
 
 		/**
+		 * Enables or disables reality-distorting boss phase distortion.
+		 * (CANON-MAGITEK-AETHERPUNK-001 §11.3)
+		 * @param {boolean} active
+		 * @returns {void}
+		 */
+		setBossDistortion(active) {
+			bossDistortionActive = Boolean(active);
+			if (active) triggerTraumaSpike(0.8);
+		},
+
+		/**
+		 * Checks whether boss phase distortion is currently active.
+		 * @returns {boolean}
+		 */
+		isBossDistortionActive() {
+			return bossDistortionActive;
+		},
+
+		/**
+		 * Returns the current trauma level.
+		 * @returns {number}
+		 */
+		getCurrentTrauma() {
+			return trauma;
+		},
+
+		/**
 		 * Returns real-time diagnostic telemetry for the shader compositor.
 		 * (Pure telemetry collector)
-		 * @returns {ShaderDiagnostics} Diagnostic report dictionary.
+		 * @returns {ShaderDiagnostics & {bossDistortionActive: boolean}} Diagnostic report dictionary.
 		 */
 		getDiagnostics() {
 			return {
@@ -381,6 +509,7 @@ const EmberlightShaderCompositor = (() => {
 				webglActive: Boolean(gl),
 				currentTrauma: trauma,
 				isEnabled,
+				bossDistortionActive,
 			};
 		},
 
@@ -400,6 +529,7 @@ const EmberlightShaderCompositor = (() => {
 			if (canvas?.parentElement) {
 				canvas.remove();
 			}
+			applyScreenShudder(0);
 			canvas = null;
 			gl = null;
 			program = null;

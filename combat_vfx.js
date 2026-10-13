@@ -80,6 +80,7 @@
  * @property {string} text - Floating status notification string.
  * @property {'party'|'enemy'} targetType - Affiliation of target entity.
  * @property {number} [targetIndex] - Roster index within target formation wing.
+ * @property {string} [targetId] - Target entity identifier.
  * @property {string} [color] - Optional custom accent color string.
  * @property {boolean} [isLarge] - Typographic scaling flag.
  */
@@ -97,6 +98,7 @@
  * @property {'LUNGE'|'DEFLECT'|'KNOCKBACK'|'PULL'} animation - Animation trigger token.
  * @property {'party'|'enemy'} targetType - Target formation side.
  * @property {number} [targetIndex] - Target slot position index.
+ * @property {string} [targetId] - Target entity identifier.
  * @property {number} [duration] - Declared animation duration in milliseconds.
  */
 
@@ -276,16 +278,19 @@ const EmberlightCombatVFX = (() => {
 	function resolveSlotElement(isAllyTarget, targetIndex) {
 		if (typeof document === "undefined") return null;
 		if (isAllyTarget) {
-			const cards = document.querySelectorAll(".character");
+			const cards = document.querySelectorAll(
+				".hero-pedestal-stage, .hero-chassis-card, .character"
+			);
 			return (
-				cards[targetIndex] ||
+				cards[ targetIndex ] ||
+				document.getElementById(`hero-chassis-${targetIndex}`) ||
 				document.querySelector(".character.active-turn") ||
 				document.querySelector(".character:not(.fainted)")
 			);
 		}
 		const enemies = document.querySelectorAll(".enemy");
 		return (
-			enemies[targetIndex] ||
+			enemies[ targetIndex ] ||
 			document.querySelector(".enemy.targetable") ||
 			document.querySelector(".enemy:not(.dead)")
 		);
@@ -296,46 +301,150 @@ const EmberlightCombatVFX = (() => {
 	 * [Pure Query / DOM Inspection]
 	 * @param {boolean} isAllyTarget - Whether targeting party formation or hostile wing.
 	 * @param {number} [targetIndex=0] - Numerical roster index.
+	 * @param {string|null} [targetId=null] - Optional entity identifier.
 	 * @returns {Point2D} 2D pixel coordinate relative to canvas top-left.
 	 */
-	function getTargetCoords(isAllyTarget, targetIndex = 0) {
+	/**
+	 * Computes canvas-to-backdrop projection scale factors.
+	 * [Pure Query]
+	 * @param {{ width?: number; height?: number }} rect - Target canvas bounding rect.
+	 * @returns {{ scaleX: number; scaleY: number }}
+	 */
+	function calculateBackdropScale(rect) {
+		const backdropEl = typeof document !== "undefined"
+			? document.getElementById("combat-backdrop-canvas")
+			: null;
+		if (!backdropEl || !canvas) return { scaleX: 1, scaleY: 1 };
+
+		/** @type {any} */
+		const bdCanvas = backdropEl;
+		const backdropRect = bdCanvas.getBoundingClientRect?.() || rect;
+		const dpr = (typeof window !== "undefined" && window.devicePixelRatio) || 1;
+		const logicalBackdropW = bdCanvas.width ? bdCanvas.width / dpr : (backdropRect.width || 600);
+		const logicalBackdropH = bdCanvas.height ? bdCanvas.height / dpr : (backdropRect.height || 300);
+
+		const targetW = rect.width || 600;
+		const targetH = rect.height || 300;
+		const scaleX = logicalBackdropW > 0 && targetW > 0 ? targetW / logicalBackdropW : 1;
+		const scaleY = logicalBackdropH > 0 && targetH > 0 ? targetH / logicalBackdropH : 1;
+		return { scaleX, scaleY };
+	}
+
+	/**
+	 * Computes mathematical fallback coordinates for an enemy slot.
+	 * [Pure Query]
+	 * @param {{ width?: number; height?: number }} rect - Target canvas bounding rect.
+	 * @param {number} targetIndex - Target slot index.
+	 * @returns {Point2D}
+	 */
+	function resolveEnemyFallbackCoords(rect, targetIndex) {
+		const renderer = typeof window !== "undefined" ? /** @type {any} */ (window.EmberlightCombatRenderer) : null;
+		const activeState = renderer && typeof renderer.getLastCombatState === "function"
+			? renderer.getLastCombatState()
+			: null;
+		const enemies = activeState?.enemies || [];
+		const enemyCount = enemies.length > 0 ? enemies.length : 1;
+		const targetEnemy = enemies[ targetIndex ];
+		const isBack = targetEnemy?.row === "BACK";
+		const sameRowEnemies = enemies.filter((/** @type {any} */ e) =>
+			isBack ? e.row === "BACK" : e.row !== "BACK",
+		);
+		const rowCount = sameRowEnemies.length > 0 ? sameRowEnemies.length : enemyCount;
+		const slotInRow = sameRowEnemies.indexOf(targetEnemy);
+		const slotIdx = slotInRow !== -1 ? slotInRow : Math.min(targetIndex, rowCount - 1);
+		const w = rect.width || 600;
+		const h = rect.height || 300;
+		const spacing = w / (rowCount + 1);
+		const slotX = spacing * (slotIdx + 1);
+		const slotY = isBack ? h * 0.4 : h * 0.65;
+		return { x: slotX, y: slotY };
+	}
+
+	/**
+	 * Computes enemy coordinates from renderer bounds or geometric fallback.
+	 * [Pure Query]
+	 * @param {{ width?: number; height?: number }} rect
+	 * @param {number} targetIndex
+	 * @param {string|null} targetId
+	 * @returns {Point2D}
+	 */
+	function resolveEnemyCoords(rect, targetIndex, targetId) {
+		const renderer = typeof window !== "undefined" ? /** @type {any} */ (window.EmberlightCombatRenderer) : null;
+		const enemyBounds = renderer && typeof renderer.getLastEnemyBounds === "function"
+			? renderer.getLastEnemyBounds()
+			: null;
+
+		if (Array.isArray(enemyBounds) && enemyBounds.length > 0) {
+			const b =
+				enemyBounds.find((entry) => entry.index === targetIndex) ||
+				(targetId ? enemyBounds.find((entry) => entry.enemy?.id === targetId) : null) ||
+				enemyBounds.find((entry) => entry.enemy?.id === targetIndex) ||
+				enemyBounds[ targetIndex ] ||
+				enemyBounds[ 0 ];
+
+			if (b && typeof b.x === "number") {
+				const { scaleX, scaleY } = calculateBackdropScale(rect);
+				return {
+					x: (b.x + (b.w || 96) / 2) * scaleX,
+					y: (b.y + (b.h || 96) / 2) * scaleY,
+				};
+			}
+		}
+
+		return resolveEnemyFallbackCoords(rect, targetIndex);
+	}
+
+	/**
+	 * Computes ally coordinates from HUD slot element or first-person projection.
+	 * [Pure Query]
+	 * @param {{ left?: number; top?: number; width?: number; height?: number }} rect
+	 * @param {number} targetIndex
+	 * @returns {Point2D}
+	 */
+	function resolveAllyCoords(rect, targetIndex) {
+		const targetEl = resolveSlotElement(true, targetIndex);
+		if (targetEl?.getBoundingClientRect) {
+			const elRect = targetEl.getBoundingClientRect();
+			const baseTop = rect.top || 0;
+			const baseLeft = rect.left || 0;
+			const relativeY = elRect.top - baseTop + elRect.height / 2;
+			if (relativeY >= 0 && relativeY <= (rect.height || 300)) {
+				return {
+					x: elRect.left - baseLeft + elRect.width / 2,
+					y: relativeY,
+				};
+			}
+		}
+
+		const w = rect.width || 600;
+		const h = rect.height || 300;
+		const renderer = typeof window !== "undefined" ? /** @type {any} */ (window.EmberlightCombatRenderer) : null;
+		const activeState = renderer && typeof renderer.getLastCombatState === "function"
+			? renderer.getLastCombatState()
+			: null;
+		const partyCount = activeState?.party?.length || 4;
+		const slotX = (w / (partyCount + 1)) * (targetIndex + 1);
+		return { x: slotX, y: h * 0.5 };
+	}
+
+	/**
+	 * Computes viewport coordinate vector for a targeted unit.
+	 * [Pure Query]
+	 * @param {boolean} isAllyTarget - Whether targeting party formation or hostile wing.
+	 * @param {number} [targetIndex=0] - Numerical roster index.
+	 * @param {string|null} [targetId=null] - Optional entity identifier.
+	 * @returns {Point2D} 2D pixel coordinate relative to canvas top-left.
+	 */
+	function getTargetCoords(isAllyTarget, targetIndex = 0, targetId = null) {
 		ensureCanvas();
 		if (!canvas) return { x: 200, y: 150 };
 		const rect = canvas.getBoundingClientRect
 			? canvas.getBoundingClientRect()
 			: { left: 0, top: 0, width: 600, height: 300 };
 
-		if (!isAllyTarget) {
-			const enemyBounds =
-				typeof window !== "undefined" &&
-				window.EmberlightCombatRenderer?.getLastEnemyBounds?.();
-			if (Array.isArray(enemyBounds) && enemyBounds.length > 0) {
-				const b = enemyBounds[targetIndex] || enemyBounds[0];
-				if (b && typeof b.x === "number") {
-					return {
-						x: b.x + (b.w || 96) / 2,
-						y: b.y + (b.h || 96) / 2,
-					};
-				}
-			}
-			const w = rect.width || 600;
-			const h = rect.height || 300;
-			const slotX = (w / 4) * (targetIndex + 1);
-			return { x: slotX, y: h * 0.65 };
-		}
-
-		const targetEl = resolveSlotElement(isAllyTarget, targetIndex);
-		if (targetEl?.getBoundingClientRect) {
-			const elRect = targetEl.getBoundingClientRect();
-			return {
-				x: elRect.left - rect.left + elRect.width / 2,
-				y: elRect.top - rect.top + elRect.height / 2,
-			};
-		}
-
-		const w = rect.width || 600;
-		const h = rect.height || 300;
-		return { x: w * 0.25, y: h * 0.5 };
+		return isAllyTarget
+			? resolveAllyCoords(rect, targetIndex)
+			: resolveEnemyCoords(rect, targetIndex, targetId);
 	}
 	//#endregion
 
@@ -355,14 +464,14 @@ const EmberlightCombatVFX = (() => {
 	function spawnParticle(x, y, vx, vy, life, hue, size) {
 		if (activeParticleCount >= MAX_PARTICLES) return;
 		const idx = activeParticleCount++;
-		pX[idx] = x;
-		pY[idx] = y;
-		pVx[idx] = vx;
-		pVy[idx] = vy;
-		pLife[idx] = life;
-		pMaxLife[idx] = life;
-		pHue[idx] = hue;
-		pSize[idx] = size;
+		pX[ idx ] = x;
+		pY[ idx ] = y;
+		pVx[ idx ] = vx;
+		pVy[ idx ] = vy;
+		pLife[ idx ] = life;
+		pMaxLife[ idx ] = life;
+		pHue[ idx ] = hue;
+		pSize[ idx ] = size;
 	}
 
 	/**
@@ -402,7 +511,9 @@ const EmberlightCombatVFX = (() => {
 				document.getElementById("pane-sensor");
 			if (arena) {
 				arena.classList.remove("arena-screen-shake");
-				void arena.offsetWidth;
+				if (arena.offsetWidth) {
+					// Layout reflow flush
+				}
 				arena.classList.add("arena-screen-shake");
 				setTimeout(() => arena.classList.remove("arena-screen-shake"), 350);
 			}
@@ -469,6 +580,9 @@ const EmberlightCombatVFX = (() => {
 	 * [State Mutating]
 	 * @param {boolean} [isAllyTarget=false] - Target side orientation.
 	 * @param {number} [targetIndex=0] - Target slot index.
+	 * @param {number|null} [explicitX=null] - Optional override X coordinate.
+	 * @param {number|null} [explicitY=null] - Optional override Y coordinate.
+	 * @param {boolean} [isCrit=false] - Whether this attack is a critical strike.
 	 * @returns {void}
 	 */
 	function playSlashVFX(
@@ -485,6 +599,12 @@ const EmberlightCombatVFX = (() => {
 		const { x, y } = coords;
 		triggerScreenShake(isCrit ? 12 : 8);
 		const dir = isAllyTarget ? 1 : -1;
+		let slashColor = "#ffedd5";
+		if (isAllyTarget) {
+			slashColor = "#ef4444";
+		} else if (isCrit) {
+			slashColor = "#fbbf24";
+		}
 		slashes.push({
 			startX: x + dir * 45,
 			startY: y - 40,
@@ -492,7 +612,7 @@ const EmberlightCombatVFX = (() => {
 			endY: y + 40,
 			ctrlX: x + dir * 15,
 			ctrlY: y,
-			color: isAllyTarget ? "#ef4444" : isCrit ? "#fbbf24" : "#ffedd5",
+			color: slashColor,
 			alpha: 1.0,
 			life: 0.28,
 			maxLife: 0.28,
@@ -511,7 +631,13 @@ const EmberlightCombatVFX = (() => {
 				maxLife: 0.28,
 			});
 		}
-		spawnBurst(x, y, isCrit ? 22 : 14, isAllyTarget ? 0 : isCrit ? 45 : 30, 4.2);
+		let burstHue = 30;
+		if (isAllyTarget) {
+			burstHue = 0;
+		} else if (isCrit) {
+			burstHue = 45;
+		}
+		spawnBurst(x, y, isCrit ? 22 : 14, burstHue, 4.2);
 		startLoop();
 	}
 
@@ -529,7 +655,7 @@ const EmberlightCombatVFX = (() => {
 			return;
 		}
 		const el = String(element || "PHYSICAL").toUpperCase();
-		if (el === "FIRE") {
+		if (el === "FIRE" || el === "EMBER") {
 			spawnBurst(x, y, isCrit ? 24 : 16, 25, 5.0);
 			slashes.push({
 				startX: x - 40,
@@ -543,7 +669,7 @@ const EmberlightCombatVFX = (() => {
 				life: 0.35,
 				maxLife: 0.35,
 			});
-		} else if (el === "ICE") {
+		} else if (el === "ICE" || el === "TIDE") {
 			spawnBurst(x, y, isCrit ? 22 : 14, 195, 4.2);
 			slashes.push({
 				startX: x - 30,
@@ -557,7 +683,7 @@ const EmberlightCombatVFX = (() => {
 				life: 0.3,
 				maxLife: 0.3,
 			});
-		} else if (el === "ARCANE") {
+		} else if (el === "ARCANE" || el === "LUMEN" || el === "UMBRA") {
 			spawnBurst(x, y, isCrit ? 24 : 16, 275, 4.6);
 			slashes.push({
 				startX: x + 35,
@@ -630,6 +756,39 @@ const EmberlightCombatVFX = (() => {
 		spawnBurst(coords.x, coords.y, 14, isAllyTarget ? 0 : 280, 4.5);
 		startLoop();
 	}
+
+	/**
+	 * Renders a procedural Magitek shield coil fracture & grounding out visual effect.
+	 * (CANON-MAGITEK-AETHERPUNK-001 §10.3)
+	 * @param {number} x Terminus X coordinate.
+	 * @param {number} y Terminus Y coordinate.
+	 * @returns {void}
+	 */
+	function playShieldBreakVFX(x, y) {
+		triggerScreenShake(16);
+		// Expanding cyan/amber shatter arcs
+		for (let i = 0; i < 4; i++) {
+			const angle = (Math.PI * 0.5) * i + 0.25;
+			const cos = Math.cos(angle);
+			const sin = Math.sin(angle);
+			slashes.push({
+				startX: x - cos * 20,
+				startY: y - sin * 20,
+				endX: x + cos * 55,
+				endY: y + sin * 55,
+				ctrlX: x + cos * 30 + (i % 2 === 0 ? 15 : -15),
+				ctrlY: y + sin * 30 + (i % 2 === 0 ? -15 : 15),
+				color: i % 2 === 0 ? "#38bdf8" : "#fbbf24",
+				alpha: 1.0,
+				life: 0.42,
+				maxLife: 0.42,
+			});
+		}
+		// Electric grounding spark bursts downwards
+		spawnBurst(x, y - 10, 28, 195, 5.5);
+		spawnBurst(x, y + 25, 20, 45, 4.0);
+		startLoop();
+	}
 	//#endregion
 
 	//#region [SEC-07] Simulation Tick & Particle Life State Propagation
@@ -641,23 +800,23 @@ const EmberlightCombatVFX = (() => {
 	 */
 	function updateParticleBuffers(dt) {
 		for (let i = activeParticleCount - 1; i >= 0; i--) {
-			pLife[i] -= dt;
-			if (pLife[i] <= 0) {
+			pLife[ i ] -= dt;
+			if (pLife[ i ] <= 0) {
 				const last = --activeParticleCount;
-				pX[i] = pX[last];
-				pY[i] = pY[last];
-				pVx[i] = pVx[last];
-				pVy[i] = pVy[last];
-				pLife[i] = pLife[last];
-				pMaxLife[i] = pMaxLife[last];
-				pHue[i] = pHue[last];
-				pSize[i] = pSize[last];
+				pX[ i ] = pX[ last ];
+				pY[ i ] = pY[ last ];
+				pVx[ i ] = pVx[ last ];
+				pVy[ i ] = pVy[ last ];
+				pLife[ i ] = pLife[ last ];
+				pMaxLife[ i ] = pMaxLife[ last ];
+				pHue[ i ] = pHue[ last ];
+				pSize[ i ] = pSize[ last ];
 				continue;
 			}
-			pX[i] += pVx[i];
-			pY[i] += pVy[i];
-			pVx[i] *= 0.96;
-			pVy[i] += 0.08;
+			pX[ i ] += pVx[ i ];
+			pY[ i ] += pVy[ i ];
+			pVx[ i ] *= 0.96;
+			pVy[ i ] += 0.08;
 		}
 	}
 
@@ -669,7 +828,7 @@ const EmberlightCombatVFX = (() => {
 	 */
 	function updateSlashCurves(dt) {
 		for (let i = slashes.length - 1; i >= 0; i--) {
-			const s = slashes[i];
+			const s = slashes[ i ];
 			s.life -= dt;
 			s.alpha = Math.max(0, s.life / s.maxLife);
 			if (s.life <= 0) {
@@ -686,7 +845,7 @@ const EmberlightCombatVFX = (() => {
 	 */
 	function updateFloatingTexts(dt) {
 		for (let i = floatingTexts.length - 1; i >= 0; i--) {
-			const ft = floatingTexts[i];
+			const ft = floatingTexts[ i ];
 			ft.life -= dt;
 			ft.y += ft.vy;
 			ft.vy *= 0.94;
@@ -705,7 +864,7 @@ const EmberlightCombatVFX = (() => {
 	 */
 	function updateTendrils(dt) {
 		for (let i = tendrils.length - 1; i >= 0; i--) {
-			const t = tendrils[i];
+			const t = tendrils[ i ];
 			t.life -= dt;
 			t.alpha = Math.max(0, t.life / t.maxLife);
 			if (t.life <= 0) {
@@ -773,12 +932,12 @@ const EmberlightCombatVFX = (() => {
 	function renderParticles() {
 		if (!ctx) return;
 		for (let i = 0; i < activeParticleCount; i++) {
-			const alpha = Math.max(0, pLife[i] / pMaxLife[i]);
+			const alpha = Math.max(0, pLife[ i ] / pMaxLife[ i ]);
 			ctx.save();
 			ctx.globalAlpha = alpha;
-			ctx.fillStyle = `hsl(${pHue[i]}, 100%, 65%)`;
+			ctx.fillStyle = `hsl(${pHue[ i ]}, 100%, 65%)`;
 			ctx.beginPath();
-			ctx.arc(pX[i], pY[i], pSize[i], 0, Math.PI * 2);
+			ctx.arc(pX[ i ], pY[ i ], pSize[ i ], 0, Math.PI * 2);
 			ctx.fill();
 			ctx.restore();
 		}
@@ -1034,18 +1193,6 @@ const EmberlightCombatVFX = (() => {
 		return `${prefix}${amount}${suffix}`;
 	}
 
-	/**
-	 * Resolves emission burst hue angle based on semantic action type.
-	 * [Pure Query]
-	 * @param {boolean} isHeal
-	 * @param {boolean} isCrit
-	 * @returns {number}
-	 */
-	function resolveBurstHue(isHeal, isCrit) {
-		if (isHeal) return 140;
-		if (isCrit) return 45;
-		return 0;
-	}
 
 	return {
 		/**
@@ -1072,6 +1219,7 @@ const EmberlightCombatVFX = (() => {
 							const { x, y } = getTargetCoords(
 								isAlly,
 								payload.targetIndex || 0,
+								payload.targetId || null,
 							);
 							const isHeal = Boolean(payload.isHeal);
 							const isCrit = Boolean(payload.isCrit);
@@ -1080,9 +1228,18 @@ const EmberlightCombatVFX = (() => {
 							const text = formatDamageText(payload.amount, isHeal, isCrit, element);
 							spawnFloatingText(x, y, text, color, isCrit);
 							playElementalVFX(element, x, y, isCrit, isHeal);
-							triggerScreenShake(isCrit ? 14 : isHeal ? 2 : 8);
-							if (!isAlly && typeof window !== "undefined" && window.EmberlightCombatRenderer?.triggerEnemyHitFlash) {
-								window.EmberlightCombatRenderer.triggerEnemyHitFlash(payload.targetIndex || 0);
+							let shakeIntensity = 8;
+							if (isCrit) {
+								shakeIntensity = 14;
+							} else if (isHeal) {
+								shakeIntensity = 2;
+							}
+							triggerScreenShake(shakeIntensity);
+							if (!isAlly && typeof window !== "undefined") {
+								const renderer = /** @type {any} */ (window.EmberlightCombatRenderer);
+								if (renderer && typeof renderer.triggerEnemyHitFlash === "function") {
+									renderer.triggerEnemyHitFlash(payload.targetIndex || 0);
+								}
 							}
 						},
 					),
@@ -1092,6 +1249,7 @@ const EmberlightCombatVFX = (() => {
 							const { x, y } = getTargetCoords(
 								payload.targetType === "party",
 								payload.targetIndex || 0,
+								payload.targetId || null,
 							);
 							spawnFloatingText(
 								x,
@@ -1118,7 +1276,14 @@ const EmberlightCombatVFX = (() => {
 						(/** @type {CombatAnimationPayload} */ payload) => {
 							const isAlly = payload.targetType === "party";
 							if (payload.animation === "LUNGE") {
-								playSlashVFX(isAlly, payload.targetIndex || 0);
+								const el = resolveSlotElement(isAlly, payload.targetIndex || 0);
+								if (el) {
+									el.classList.add("unit-lunging");
+									setTimeout(
+										() => el.classList.remove("unit-lunging"),
+										payload.duration || 350,
+									);
+								}
 							} else if (payload.animation === "DEFLECT") {
 								playDeflectVFX(payload.targetIndex || 0, isAlly);
 							} else if (
@@ -1128,9 +1293,21 @@ const EmberlightCombatVFX = (() => {
 								const { x, y } = getTargetCoords(
 									isAlly,
 									payload.targetIndex || 0,
+									payload.targetId || null,
 								);
 								spawnBurst(x, y, 14, 210, 4.0);
 							}
+						},
+					),
+					eventBus.subscribe(
+						"combat:collapse",
+						(/** @type {any} */ payload) => {
+							const { x, y } = getTargetCoords(
+								payload.targetType === "party",
+								payload.targetIndex || 0,
+								payload.targetId || null,
+							);
+							playShieldBreakVFX(x, y);
 						},
 					),
 				);
@@ -1141,6 +1318,7 @@ const EmberlightCombatVFX = (() => {
 		playSlashVFX,
 		playElementalVFX,
 		playTendrilStrike,
+		playShieldBreakVFX,
 		triggerScreenShake,
 		showBanner,
 

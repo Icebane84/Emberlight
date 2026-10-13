@@ -283,6 +283,92 @@ if (soundtrack && typeof soundtrack.generateBytebeatPCM === 'function') {
 	}
 
 	console.log('[PASS] Algorithmic Bytebeat: 5 mood formulas, bit-exact determinism, and mode switching verified.');
+
+	// Verification of Subsystem C: The Subterranean Ley-Flux Acoustic Resonator (CANON-MAGITEK-AETHERPUNK-001)
+	const subC = soundtrack.getSubsystemInfo();
+	if (subC?.subsystemId !== 'SUBSYSTEM_C') {
+		throw new Error('Subsystem C identifier violation in Ley-Flux Resonator metadata');
+	}
+	if (subC.delayFeedbackMs !== 240 || subC.bytebeatClockHz !== 8000) {
+		throw new Error(`Subsystem C parameters drifted: delayFeedbackMs=${subC.delayFeedbackMs}, bytebeatClockHz=${subC.bytebeatClockHz}`);
+	}
+	if (!subC.diegeticLore?.includes('amplified electromagnetic resonance of the subterranean leylines')) {
+		throw new Error('Subsystem C diegetic lore missing induction coil resonance declaration');
+	}
+
+	// Harmonic Mood Profiles verification (64-Step Multi-Bar Tracker Journeys)
+	const profiles = soundtrack.getMoodProfiles();
+	const expectedProfiles = {
+		SURFACE: { title: 'Horizon of Embers', bpm: 98, scale: 'A Dorian' },
+		TOWN: { title: 'Oakhaven Hearth', bpm: 86, scale: 'C Lydian' },
+		COMBAT: { title: 'Phrygian Blitz', bpm: 138, scale: 'E Phrygian' },
+		BOSS: { title: 'Malakor\'s Requiem', bpm: 152, scale: 'D Locrian' },
+		CATACOMBS: { title: 'Subterranean Hollows', bpm: 108, scale: 'D Harmonic Minor' },
+	};
+	for (const [ key, exp ] of Object.entries(expectedProfiles)) {
+		const prof = profiles[ key ];
+		if (prof?.title !== exp.title || prof?.bpm !== exp.bpm || prof?.scale !== exp.scale) {
+			throw new Error(`Harmonic mood profile mismatch for ${key}: expected ${JSON.stringify(exp)}, got ${JSON.stringify(prof)}`);
+		}
+	}
+
+	// Vacuum-Tube Audio Preamplifier WaveShaper transfer curve validation
+	const curve = soundtrack.buildTubeSaturationCurve(256, 1.8);
+	if (curve?.length !== 256) {
+		throw new Error('Vacuum-tube preamplifier saturation curve length violation');
+	}
+	if (Math.abs(curve[ 0 ] - -1.0) > 1e-4 || Math.abs(curve[ 255 ] - 1.0) > 1e-4) {
+		throw new Error(`Vacuum-tube preamplifier boundary normalization violation: curve[0]=${curve[ 0 ]}, curve[255]=${curve[ 255 ]}`);
+	}
+	for (let i = 0; i < curve.length; i++) {
+		if (Math.abs(curve[ i ]) > 1.0) {
+			throw new Error(`Vacuum-tube saturation curve out of bounds at index ${i}: ${curve[ i ]}`);
+		}
+		if (i > 0 && curve[ i ] < curve[ i - 1 ]) {
+			throw new Error(`Vacuum-tube saturation curve non-monotonic at index ${i}`);
+		}
+		const mirrorIdx = 255 - i;
+		if (Math.abs(curve[ i ] + curve[ mirrorIdx ]) > 1e-4) {
+			throw new Error(`Vacuum-tube saturation curve odd symmetry violation at ${i}`);
+		}
+	}
+
+	// Twin-Detuned Commodore SID Voice API verification
+	if (typeof soundtrack.playSIDVoice !== 'function') {
+		throw new TypeError('Missing playSIDVoice in soundtrack driver');
+	}
+	soundtrack.playSIDVoice(220, 0, 0.5, { type: 'square', detuneCents: 9, pitchScoop: 0.94 });
+
+	// Toggle mode method & EventBus verification
+	const toggledMode1 = soundtrack.togglePlaybackMode();
+	if (toggledMode1 !== 'BYTEBEAT' || soundtrack.getPlaybackMode() !== 'BYTEBEAT') {
+		throw new Error('soundtrack.togglePlaybackMode() failed to transition to BYTEBEAT');
+	}
+	const toggledMode2 = soundtrack.togglePlaybackMode();
+	if (toggledMode2 !== 'TRACKER' || soundtrack.getPlaybackMode() !== 'TRACKER') {
+		throw new Error('soundtrack.togglePlaybackMode() failed to transition back to TRACKER');
+	}
+
+	// EventBus subscription dispatch test
+	runtime.EventBus.publish('soundtrack:toggle_mode');
+	if (soundtrack.getPlaybackMode() !== 'BYTEBEAT') {
+		throw new Error('EventBus soundtrack:toggle_mode failed to activate BYTEBEAT');
+	}
+	runtime.EventBus.publish('soundtrack:set_mode', { mode: 'TRACKER' });
+	if (soundtrack.getPlaybackMode() !== 'TRACKER') {
+		throw new Error('EventBus soundtrack:set_mode failed to activate TRACKER');
+	}
+
+	// District 11 Settings integration verification
+	const settingsDriver = context.window.EmberlightSettings;
+	if (settingsDriver) {
+		const sDiag = settingsDriver.getDiagnostics();
+		if (!sDiag) {
+			throw new Error('District 11 Settings failed to return diagnostics');
+		}
+	}
+
+	console.log('[PASS] Subsystem C: The Subterranean Ley-Flux Acoustic Resonator (240ms SPC700 delay, vacuum-tube preamp, 5 mood profiles, twin-detuned SID PWM, and Precursor Bytebeat toggle) verified.');
 }
 
 // Verification of Bilateral Procedural Pixel-Art Sprite Synthesizer (AOP-SPRITE-001)
@@ -370,12 +456,12 @@ if (dungeonGen && typeof dungeonGen.carveBSPDungeon === 'function') {
 
 		// Perimeter wall clamping verification
 		for (let x = 0; x < w; x++) {
-			if (bspDungeon.map[0][x] !== '#' || bspDungeon.map[h - 1][x] !== '#') {
+			if (bspDungeon.map[ 0 ][ x ] !== '#' || bspDungeon.map[ h - 1 ][ x ] !== '#') {
 				throw new Error(`BSP boundary leak at seed ${seed} on horizontal perimeter`);
 			}
 		}
 		for (let y = 0; y < h; y++) {
-			if (bspDungeon.map[y][0] !== '#' || bspDungeon.map[y][w - 1] !== '#') {
+			if (bspDungeon.map[ y ][ 0 ] !== '#' || bspDungeon.map[ y ][ w - 1 ] !== '#') {
 				throw new Error(`BSP boundary leak at seed ${seed} on vertical perimeter`);
 			}
 		}
@@ -386,7 +472,7 @@ if (dungeonGen && typeof dungeonGen.carveBSPDungeon === 'function') {
 
 		// Flood-fill reachability from spawn to exit
 		const visited = new Set();
-		const queue = [{ x: bspDungeon.spawn.x, y: bspDungeon.spawn.y }];
+		const queue = [ { x: bspDungeon.spawn.x, y: bspDungeon.spawn.y } ];
 		visited.add(`${bspDungeon.spawn.x},${bspDungeon.spawn.y}`);
 		let reachedExit = false;
 
@@ -402,7 +488,7 @@ if (dungeonGen && typeof dungeonGen.carveBSPDungeon === 'function') {
 			for (const nb of nbs) {
 				const key = `${nb.x},${nb.y}`;
 				if (nb.x > 0 && nb.x < w - 1 && nb.y > 0 && nb.y < h - 1 && !visited.has(key)) {
-					if (bspDungeon.map[nb.y][nb.x] !== '#') {
+					if (bspDungeon.map[ nb.y ][ nb.x ] !== '#') {
 						visited.add(key);
 						queue.push(nb);
 					}
@@ -439,8 +525,8 @@ if (FABRIKSolverClass && fabrikFacade) {
 	const points = solver.solve(bx, by, tx, ty, 5);
 
 	// Base anchor stability: p0 === (bx, by)
-	if (Math.abs(points[0] - bx) > 1e-4 || Math.abs(points[1] - by) > 1e-4) {
-		throw new Error(`FABRIK base anchor drifted: (${points[0]}, ${points[1]}) !== (${bx}, ${by})`);
+	if (Math.abs(points[ 0 ] - bx) > 1e-4 || Math.abs(points[ 1 ] - by) > 1e-4) {
+		throw new Error(`FABRIK base anchor drifted: (${points[ 0 ]}, ${points[ 1 ]}) !== (${bx}, ${by})`);
 	}
 
 	// End-effector target convergence: ||pN - target|| < 0.05
@@ -452,11 +538,11 @@ if (FABRIKSolverClass && fabrikFacade) {
 
 	// Bone length preservation invariant across all segments
 	for (let i = 0; i < boneLengths.length; i++) {
-		const segDx = points[(i + 1) * 2] - points[i * 2];
-		const segDy = points[(i + 1) * 2 + 1] - points[i * 2 + 1];
+		const segDx = points[ (i + 1) * 2 ] - points[ i * 2 ];
+		const segDy = points[ (i + 1) * 2 + 1 ] - points[ i * 2 + 1 ];
 		const len = Math.hypot(segDx, segDy);
-		if (Math.abs(len - boneLengths[i]) > 1e-3) {
-			throw new Error(`FABRIK segment ${i} length violated: measured ${len}, expected ${boneLengths[i]}`);
+		if (Math.abs(len - boneLengths[ i ]) > 1e-3) {
+			throw new Error(`FABRIK segment ${i} length violated: measured ${len}, expected ${boneLengths[ i ]}`);
 		}
 	}
 
@@ -485,15 +571,15 @@ if (FABRIKSolverClass && fabrikFacade) {
 
 		const pts = taperedSolver.solve(bx, by, rtx, rty, 4);
 
-		if (Math.abs(pts[0] - bx) > 1e-4 || Math.abs(pts[1] - by) > 1e-4) {
+		if (Math.abs(pts[ 0 ] - bx) > 1e-4 || Math.abs(pts[ 1 ] - by) > 1e-4) {
 			throw new Error(`FABRIK base anchor drifted in stress test step ${s}`);
 		}
 
 		const tLengths = taperedSolver.getBoneLengths();
 		for (let i = 0; i < tLengths.length; i++) {
-			const d = Math.hypot(pts[(i + 1) * 2] - pts[i * 2], pts[(i + 1) * 2 + 1] - pts[i * 2 + 1]);
-			if (Math.abs(d - tLengths[i]) > 0.005) {
-				throw new Error(`FABRIK tapered segment ${i} length breach in step ${s}: ${d} vs ${tLengths[i]}`);
+			const d = Math.hypot(pts[ (i + 1) * 2 ] - pts[ i * 2 ], pts[ (i + 1) * 2 + 1 ] - pts[ i * 2 + 1 ]);
+			if (Math.abs(d - tLengths[ i ]) > 0.005) {
+				throw new Error(`FABRIK tapered segment ${i} length breach in step ${s}: ${d} vs ${tLengths[ i ]}`);
 			}
 		}
 
@@ -577,7 +663,7 @@ if (DDARaycasterClass) {
 	}
 	// Assert 4-connectivity: every adjacent step differs by at most 1 in Manhattan distance
 	for (let i = 0; i < visitedCells.length - 1; i++) {
-		const manhattan = Math.abs(visitedCells[i + 1].x - visitedCells[i].x) + Math.abs(visitedCells[i + 1].y - visitedCells[i].y);
+		const manhattan = Math.abs(visitedCells[ i + 1 ].x - visitedCells[ i ].x) + Math.abs(visitedCells[ i + 1 ].y - visitedCells[ i ].y);
 		if (manhattan !== 1) {
 			throw new Error(`DDA traverseSegment violated 4-neighborhood continuity at step ${i}: distance ${manhattan}`);
 		}
@@ -748,14 +834,14 @@ const cardFacingMap = {
 };
 
 const testWorldMap = [
-	['#', '#', '#', '#', '#'],
-	['#', '.', '.', '.', '#'],
-	['#', '.', '#', '.', '#'],
-	['#', '.', '.', '.', '#'],
-	['#', '#', '#', '#', '#'],
+	[ '#', '#', '#', '#', '#' ],
+	[ '#', '.', '.', '.', '#' ],
+	[ '#', '.', '#', '.', '#' ],
+	[ '#', '.', '.', '.', '#' ],
+	[ '#', '#', '#', '#', '#' ],
 ];
 
-for (const [facingToken, expected] of Object.entries(cardFacingMap)) {
+for (const [ facingToken, expected ] of Object.entries(cardFacingMap)) {
 	const playerX = 2;
 	const playerY = 1;
 	const testSnapshot = {
@@ -785,11 +871,11 @@ for (const [facingToken, expected] of Object.entries(cardFacingMap)) {
 	// Invariant B: Ahead tile parity between top-down Q1 coordinate and raycast/telemetry ahead coordinate
 	const targetQ1X = playerX + expected.dx;
 	const targetQ1Y = playerY + expected.dy;
-	const expectedTile = testWorldMap[targetQ1Y]?.[targetQ1X] || '#';
+	const expectedTile = testWorldMap[ targetQ1Y ]?.[ targetQ1X ] || '#';
 
 	const aheadX = Math.trunc(testSnapshot.playerPos.x + 0.5 + Math.cos(expected.expectedAngle) * 1.0);
 	const aheadY = Math.trunc(testSnapshot.playerPos.y + 0.5 + Math.sin(expected.expectedAngle) * 1.0);
-	const actualAheadTile = testWorldMap[aheadY]?.[aheadX] || '#';
+	const actualAheadTile = testWorldMap[ aheadY ]?.[ aheadX ] || '#';
 
 	if (aheadX !== targetQ1X || aheadY !== targetQ1Y) {
 		throw new Error(`Spatial mismatch: Q1 target (${targetQ1X},${targetQ1Y}) vs Q2 ahead (${aheadX},${aheadY}) for ${facingToken}`);
@@ -813,7 +899,7 @@ if (!surfaceMap || surfaceMap.length === 0) {
 // 1. Generate procedural catacomb floor
 const dGen = context.window.EmberlightDungeonGen;
 const testFloorSpec = dGen.generate(55555, 12, 10, 1);
-if (testFloorSpec.map?.length !== 10 || testFloorSpec.map?.[0]?.length !== 12) {
+if (testFloorSpec.map?.length !== 10 || testFloorSpec.map?.[ 0 ]?.length !== 12) {
 	throw new Error('Dungeon generator produced invalid map dimensions');
 }
 
@@ -827,15 +913,15 @@ const catacombMap = runtime.getActiveWorldMap();
 if (catacombMap === surfaceMap) {
 	throw new Error('CRITICAL MAP DESYNC: Active world map in catacombs returned the surface overworld map!');
 }
-if (catacombMap.length !== 10 || catacombMap[0].length !== 12) {
-	throw new Error(`Active world map in catacombs has wrong dimensions: expected 12x10, got ${catacombMap[0]?.length}x${catacombMap.length}`);
+if (catacombMap.length !== 10 || catacombMap[ 0 ].length !== 12) {
+	throw new Error(`Active world map in catacombs has wrong dimensions: expected 12x10, got ${catacombMap[ 0 ]?.length}x${catacombMap.length}`);
 }
 
 // 3. Ascend back to Surface
 runtime.setDungeonDepth?.(0);
 runtime.setDungeonSpec?.(null);
 const restoredSurfaceMap = runtime.getActiveWorldMap();
-if (!restoredSurfaceMap || (restoredSurfaceMap.length === 10 && restoredSurfaceMap[0].length === 12)) {
+if (!restoredSurfaceMap || (restoredSurfaceMap.length === 10 && restoredSurfaceMap[ 0 ].length === 12)) {
 	throw new Error('Active world map failed to restore to surface upon ascension');
 }
 runtime.switchDistrict(prevDistrict);
@@ -861,10 +947,10 @@ if (sessionStore.getDangerSteps() !== 0) {
 
 // 2. Wilderness Exploration: stepping must increment dangerSteps 1 by 1 up to 5
 const testSurfaceMap = [
-	['#', '#', '#', '#'],
-	['#', '.', '.', '#'],
-	['#', '.', '.', '#'],
-	['#', '#', '#', '#'],
+	[ '#', '#', '#', '#' ],
+	[ '#', '.', '.', '#' ],
+	[ '#', '.', '.', '#' ],
+	[ '#', '#', '#', '#' ],
 ];
 sessionStore.setSurfaceMap(testSurfaceMap);
 sessionStore.setWorldPos({ x: 1, y: 1 });
@@ -879,7 +965,7 @@ const loopOffsets = [
 ];
 
 for (let step = 1; step <= 5; step++) {
-	const off = loopOffsets[step - 1];
+	const off = loopOffsets[ step - 1 ];
 	runtime.moveParty(off.dx, off.dy);
 	const curDanger = sessionStore.getDangerSteps();
 	if (curDanger !== step) {
@@ -927,7 +1013,7 @@ const testHero = {
 };
 
 testCombatMod.reset({
-	party: [testHero],
+	party: [ testHero ],
 	encounterKey: 'GOBLIN_AMBUSH',
 });
 
@@ -947,7 +1033,7 @@ combatSimState.enemies = [
 // Trigger authoritative victory reward calculation through simulation engine
 testCombatMod.distributeVictoryRewards(combatSimState, manifestSSOT);
 
-const evaluatedHero = combatSimState.party[0];
+const evaluatedHero = combatSimState.party[ 0 ];
 if (evaluatedHero.level !== 2) {
 	throw new Error(`Expected hero to reach Level 2 with 120 EXP, got Level ${evaluatedHero.level}`);
 }
@@ -965,6 +1051,398 @@ if (evaluatedHero.unspentSP !== 1 || evaluatedHero.skillPoints !== 1) {
 }
 console.log('[PASS] Leveling Engine Invariance: Bracketed overflow math, multi-level while loop, vital reconstitution, and SP awards verified.');
 
+
+// =========================================================================
+// ANTI-THEATER SUITE 6: Canon Magitek Aetherpunk Parity Matrix
+// =========================================================================
+console.log('--- ANTI-THEATER: Canon Magitek Aetherpunk Parity Matrix ---');
+
+// 1. Resonance Collapse Cast Interruption & Shield Coil Grounding
+const CombatActions = require('../combat/combat_actions.js');
+const simCollapse = {
+	turnDelayMs: 0,
+	combatLog: [],
+	eventBus: runtime.EventBus,
+};
+const enemyToBreak = {
+	id: 'cultist_1',
+	name: 'Aetheric Cultist',
+	hp: 50,
+	maxHp: 50,
+	currentShield: 0,
+	maxShield: 10,
+	chargingSkill: { id: 'CATACLYSM', name: 'Aetheric Cataclysm' },
+	intent: 'Charging Aetheric Cataclysm',
+	isCharging: true,
+	alive: true,
+	x: 200,
+	y: 150,
+};
+let collapseDispatched = false;
+let collapsePayload = null;
+runtime.EventBus.subscribe('combat:collapse', (payload) => {
+	collapseDispatched = true;
+	collapsePayload = payload;
+});
+const mockCollapseHelpers = {
+	appendLog: (msg, type) => simCollapse.combatLog.push(msg),
+	dispatchSFX: () => { },
+	publish: (evt, payload) => runtime.EventBus.publish(evt, payload),
+};
+CombatActions.handleResonanceCollapse(simCollapse, enemyToBreak, 0, mockCollapseHelpers);
+if (enemyToBreak.chargingSkill !== null || enemyToBreak.intent !== null || enemyToBreak.isCharging !== false) {
+	throw new Error(`Resonance Collapse failed to interrupt charging cast: chargingSkill=${JSON.stringify(enemyToBreak.chargingSkill)}`);
+}
+if (simCollapse.turnDelayMs < 450) {
+	throw new Error(`Resonance Collapse failed to apply +450ms delay: delay=${simCollapse.turnDelayMs}`);
+}
+if (!collapseDispatched || !collapsePayload) {
+	throw new Error('Resonance Collapse failed to dispatch combat:collapse event');
+}
+console.log('[PASS] Canon Parity §8.1: Resonance Collapse interrupted charging skill and triggered grounding collapse event.');
+
+// 2. Shock Stasis 3-Round Countdown & Sortie Incapacitation
+const severedHero = {
+	id: 'hero_valeria',
+	name: 'Valeria',
+	hp: 0,
+	maxHp: 40,
+	mp: 10,
+	maxMp: 20,
+	atk: 20,
+	def: 10,
+	agi: 5,
+	alive: false,
+	shockStasis: true,
+	tetherDissolutionRounds: 0,
+	tetherDissolved: true,
+};
+const simItem = {
+	party: [ testHero, severedHero ],
+	combatLog: [],
+	eventBus: runtime.EventBus,
+};
+const mockItemHelpers = {
+	appendLog: (msg, type) => simItem.combatLog.push(msg),
+	dispatchSFX: () => { },
+	publish: () => { },
+	renderPresentation: () => { },
+	schedule: () => { },
+	stepTurn: () => { },
+};
+
+// Attempt Phoenix Ember on permanently severed tether
+CombatActions.playerExecuteItem(simItem, 'PHOENIX_EMBER', 1, mockItemHelpers);
+if (severedHero.alive || severedHero.hp > 0) {
+	throw new Error('Sortie Incapacitation violated: Severed tether was revived by Phoenix Ember!');
+}
+const hasCutoffLog = simItem.combatLog.some((l) => typeof l === 'string' && l.includes('GALVANIC CUTOFF'));
+if (!hasCutoffLog) {
+	throw new Error('Phoenix Ember on severed tether failed to log [GALVANIC CUTOFF]');
+}
+
+// Field camp rest must NOT revive dissolved tether
+const interMod = require('../runtime/runtime_interactions.js');
+let testParty = [ { ...severedHero } ];
+interMod.dispatchRestTriggers({ type: 'CAMP_REST' }, {
+	getParty: () => testParty,
+	setParty: (p) => { testParty = p; },
+	notifyStatus: () => { },
+	publishSfx: () => { },
+});
+if (testParty[ 0 ].alive) {
+	throw new Error('Sortie Incapacitation violated: Severed tether was revived by field camp rest!');
+}
+
+// Returning to Hearth Inn MUST reconstitute the tether
+interMod.dispatchRestTriggers({ type: 'INN_REST' }, {
+	getParty: () => testParty,
+	setParty: (p) => { testParty = p; },
+	notifyStatus: () => { },
+	publishSfx: () => { },
+	commitSession: () => { },
+});
+if (!testParty[ 0 ].alive || testParty[ 0 ].tetherDissolved || testParty[ 0 ].shockStasis) {
+	throw new Error('Bastion Reconstitution failed: Hearth Inn rest did not restore dissolved tether!');
+}
+console.log('[PASS] Canon Parity §10.4: Shock Stasis 3-round dissolution, Phoenix Ember gating, and Bastion reconstitution verified.');
+
+// 3. Void Herald AI Siphon
+const CombatAI = require('../combat/combat_ai.js');
+const vHerald = {
+	id: 'void_herald_1',
+	name: 'Void Herald',
+	key: 'VOID_HERALD',
+	phenotype: 'VOID_HERALD',
+	hp: 20,
+	maxHp: 80,
+	atk: 10,
+	def: 5,
+	agi: 10,
+	alive: true,
+};
+const vHero = {
+	id: 'hero_1',
+	name: 'Aldric',
+	hp: 40,
+	maxHp: 40,
+	mp: 15,
+	maxMp: 20,
+	alive: true,
+};
+const vSim = {
+	party: [ vHero ],
+	enemies: [ vHerald ],
+	turnQueue: [ { entity: vHerald, isPlayer: false } ],
+	activeTurnIndex: 0,
+	combatLog: [],
+	eventBus: runtime.EventBus,
+};
+const vHelpers = {
+	getRandomFloat: () => 0.2, // Triggers AETHER_SIPHON (<= 0.45)
+	appendLog: (msg) => vSim.combatLog.push(msg),
+	dispatchSFX: () => { },
+	logCombatMessage: (msg) => vSim.combatLog.push(msg),
+	triggerAttackerLunge: () => { },
+	renderPresentation: () => { },
+	schedule: () => { },
+	stepTurn: () => { },
+	eventBus: runtime.EventBus,
+};
+CombatAI.executeEnemyTurn(vSim, vHelpers);
+if (vHero.mp !== 5 || vHerald.hp !== 30) {
+	throw new Error(`Void Herald siphon failed: hero MP=${vHero.mp}, herald HP=${vHerald.hp}`);
+}
+console.log('[PASS] Canon Parity §6.3: Void Herald Aether Siphon (min 10 AET drain & self-mend) verified.');
+
+// 4. Soul-Glass Compositor & Atmosphere (Canon Parity §8.2 / §11)
+const compositor = context.window.EmberlightShaderCompositor;
+if (compositor && typeof compositor.isBossDistortionActive === 'function') {
+	runtime.EventBus.publish('combat:boss_phase_change', { bossId: 'MALAKOR', phase: 2 });
+	if (!compositor.isBossDistortionActive()) {
+		throw new Error('Boss Phase 2 failed to activate shader barrel/aberration distortion');
+	}
+	runtime.EventBus.publish('combat:end', { result: 'VICTORY' });
+	if (compositor.isBossDistortionActive()) {
+		throw new Error('combat:end failed to reset shader boss distortion');
+	}
+
+	// Anti-Theater: Test damage, critical strike Back-EMF, and collapse trauma spikes
+	runtime.EventBus.publish('combat:damage', { targetType: 'party', isCrit: true });
+	if (compositor.getCurrentTrauma() <= 0) {
+		throw new Error('Party critical damage failed to trigger soul-glass compositor trauma');
+	}
+
+	runtime.EventBus.publish('combat:damage', { targetType: 'enemy', isCrit: true });
+	if (compositor.getCurrentTrauma() <= 0) {
+		throw new Error('Player critical strike failed to trigger Aetheric Back-EMF trauma spike');
+	}
+
+	runtime.EventBus.publish('combat:collapse', {});
+	if (compositor.getCurrentTrauma() < 0.75) {
+		throw new Error('Resonance Collapse failed to trigger violent shockwave trauma spike');
+	}
+
+	// Anti-Theater: Test scanline toggle command
+	runtime.EventBus.publish('system:command', { command: 'TOGGLE_SCANLINES', enabled: false });
+	if (compositor.getDiagnostics().isEnabled !== false) {
+		throw new Error('system:command TOGGLE_SCANLINES failed to disable compositor');
+	}
+	runtime.EventBus.publish('system:command', { command: 'TOGGLE_SCANLINES', enabled: true });
+	if (compositor.getDiagnostics().isEnabled !== true) {
+		throw new Error('system:command TOGGLE_SCANLINES failed to re-enable compositor');
+	}
+
+	console.log('[PASS] Canon Parity §8.2 / §11: Soul-Glass Compositor (scanlines, vignette, chromatic aberration, shudder) verified.');
+}
+
+// 5. Miasma Dispel Capability & Radial Dial Metadata
+const ecologyMod = context.window.EmberlightWorldEcology;
+const mockActiveMap = [
+	[ '.', '%', '.' ],
+];
+let partyMage = { id: 'm1', name: 'Valeria', mp: 10, maxMp: 10, alive: true };
+const settleCtx = {
+	getParty: () => [ partyMage ],
+	setParty: (p) => { partyMage = p[ 0 ]; },
+	getActiveWorldMap: () => mockActiveMap,
+	recordTileMutation: (x, y, tile) => { mockActiveMap[ y ][ x ] = tile; },
+	notifyStatus: () => { },
+	publishSfx: () => { },
+	triggerVfx: () => { },
+	commitWorldUpdate: () => { },
+	getWorldPos: () => ({ x: 0, y: 0 }),
+};
+const dispelRes = ecologyMod.settleCapability('cap:elemental.gale_dispel', settleCtx);
+if (!dispelRes.success || dispelRes.cloudsCleared !== 1) {
+	throw new Error(`Gale Dispel capability execution failed: ${JSON.stringify(dispelRes)}`);
+}
+if (partyMage.mp !== 5) {
+	throw new Error(`Gale Dispel did not deduct 5 AET: partyMage.mp=${partyMage.mp}`);
+}
+if (mockActiveMap[ 0 ][ 1 ] !== '.') {
+	throw new Error('Gale Dispel failed to cleanse miasma tile to open ground');
+}
+
+const runtimePres = require('../runtime/runtime_presentation.js');
+const miasmaMeta = runtimePres.getCartographyTileMeta('%', false, 1, { tile: '%', tileX: 1, tileY: 0 });
+if (!miasmaMeta || miasmaMeta.eastAction?.id !== 'FIELD_DISPEL' || miasmaMeta.eastAction?.icon !== '💨' || !miasmaMeta.eastAction?.desc?.includes('5 AET')) {
+	throw new Error(`Cartography radial metadata for miasma rift invalid: ${JSON.stringify(miasmaMeta)}`);
+}
+console.log('[PASS] Canon Parity §12: Miasma Dispel (5 AET) and contextual radial dial presentation verified.');
+
+// 5. Subsystem E: The High Command Punched-Slate Archive (The Iron Chronicle)
+const chronicleTenant = context.window.EmberlightChronicle || require('../chronicle.js');
+const chronicleRenderer = context.window.EmberlightChronicleRenderer || require('../chronicle_renderer.js');
+chronicleTenant.reset({ quests: { SHADE_WOLF_HUNT: { stage: 1, completed: false } }, flags: {} });
+const cStateInitial = chronicleTenant.getState();
+if (cStateInitial.activeTab !== 'DISPATCHES' || cStateInitial.genevaIndex !== 1 || !cStateInitial.selectedQuestId) {
+	throw new Error(`Chronicle initial state failed Geneva indexing invariant: ${JSON.stringify(cStateInitial)}`);
+}
+
+// Emulate [J] indexing: advancing the clockwork Geneva carriage
+chronicleTenant.handleHostAction('INDEX_NEXT');
+const cStateAdvanced = chronicleTenant.getState();
+if (cStateAdvanced.genevaIndex !== 2 || cStateAdvanced.selectedQuestId === cStateInitial.selectedQuestId) {
+	throw new Error(`Chronicle [J] INDEX_NEXT failed to index Geneva carriage: ${JSON.stringify(cStateAdvanced)}`);
+}
+
+// Switch to Field Dossiers (Subterranean Discoveries)
+chronicleTenant.handleHostAction({ type: 'SELECT_TAB', tab: 'DOSSIERS' });
+const cStateDossiers = chronicleTenant.getState();
+if (cStateDossiers.activeTab !== 'DOSSIERS' || !cStateDossiers.selectedDossierId) {
+	throw new Error(`Chronicle SELECT_TAB failed to activate Field Dossiers: ${JSON.stringify(cStateDossiers)}`);
+}
+
+// Render test against mock DOM
+let dispatchedChronicleAction = null;
+chronicleRenderer.renderChronicle(cStateDossiers, (action) => { dispatchedChronicleAction = action; });
+
+console.log('[PASS] Canon Parity §Subsystem E: High Command Punched-Slate Archive (The Iron Chronicle) Geneva ratcheting, dispatches, and dossiers verified.');
+
+// 6. Quadrant IV: The Tethered Vanguard Command Deck & Armillary Astrolabe (CANON-MAGITEK-AETHERPUNK-001)
+const progRenderer = context.window.EmberlightProgressionRenderer || require('../progression_renderer.js');
+const q4ProgInfo = progRenderer.getQuadrantInfo();
+if (q4ProgInfo?.quadrantId !== 'QUADRANT_IV') {
+	throw new Error('ProgressionRenderer failed to expose canonical Quadrant IV metadata');
+}
+if (!q4ProgInfo.configurationA || !q4ProgInfo.configurationB) {
+	throw new Error('Quadrant IV metadata missing twin operational configurations (A and B)');
+}
+const consts = q4ProgInfo.configurationB.constellations;
+if (!consts.IRON || !consts.EMBER || !consts.TIDE || !consts.LUMEN || !consts.UMBRA) {
+	throw new Error('Quadrant IV missing five canonical celestial constellations (Path of Iron, Ember, Tide, Lumen, Umbra)');
+}
+
+// Configuration B: Test DOM rendering for The Armillary Astrolabe
+const mockProgState = {
+	party: [
+		{ id: 'h1', name: 'Aldric', skillPoints: 3, unlockedNodes: [ 'iron_root' ], spent: { iron: 0 } },
+		{ id: 'h2', name: 'Brogan', skillPoints: 2, unlockedNodes: [ 'iron_root' ], spent: { iron: 0 } },
+		{ id: 'h3', name: 'Selene', skillPoints: 4, unlockedNodes: [ 'iron_root' ], spent: { iron: 0 } },
+		{ id: 'h4', name: 'Wren', skillPoints: 1, unlockedNodes: [ 'iron_root' ], spent: { iron: 0 } },
+	],
+	selectedCharacterId: 'h1',
+	selectedEssence: 'ALL',
+	selectedNodeId: 'iron_shield_stance',
+};
+progRenderer.renderProgression(mockProgState, () => { });
+const progView = context.window.document.getElementById('skill-trees');
+if (!progView) {
+	throw new Error('skill-trees DOM container not mounted in mock DOM');
+}
+const astrolabeBezel = progView.children?.[ 0 ]?.children?.[ 0 ];
+if (!astrolabeBezel?.innerHTML?.includes('THE ARMILLARY ASTROLABE') || !astrolabeBezel?.innerHTML?.includes('[T] SKILLS TOGGLE ENGAGED')) {
+	throw new Error('Armillary Astrolabe bezel header not rendered in DOM');
+}
+
+// Configuration A: The Tactical Command Deck in CombatRenderer
+const combatRendererMod = context.window.EmberlightCombatRenderer || require('../combat_renderer.js');
+const q4CombatInfo = combatRendererMod.getQuadrantInfo();
+if (q4CombatInfo?.quadrantId !== 'QUADRANT_IV' || q4CombatInfo?.lifeVials?.length !== 4) {
+	throw new Error('CombatRenderer failed to expose canonical Quadrant IV Configuration A metadata');
+}
+if (q4CombatInfo?.weightedLevers?.length !== 4) {
+	throw new Error('CombatRenderer missing four canonical weighted command levers');
+}
+
+const mockCombatState = {
+	phase: 'PLAYER_TURN',
+	party: [
+		{ id: 'h1', name: 'Aldric', hp: 35, maxHp: 35, mp: 10, maxMp: 10, alive: true, row: 'FRONT' },
+		{ id: 'h2', name: 'Brogan', hp: 42, maxHp: 42, mp: 8, maxMp: 8, alive: true, row: 'FRONT' },
+		{ id: 'h3', name: 'Selene', hp: 28, maxHp: 28, mp: 24, maxMp: 24, alive: true, row: 'BACK' },
+		{ id: 'h4', name: 'Wren', hp: 30, maxHp: 30, mp: 12, maxMp: 12, alive: true, row: 'BACK' },
+	],
+	enemies: [],
+	turnQueue: [ { entity: { id: 'h1' } } ],
+	activeTurnIndex: 0,
+	selectedTab: 'ATTACK',
+};
+combatRendererMod.renderCombat(mockCombatState, () => { });
+
+console.log('[PASS] Canon Parity §Quadrant IV: The Tethered Vanguard Command Deck (Config A: Alchemical Life-Vials & Weighted Levers) and Armillary Astrolabe (Config B: 5 Paths, Astrolabe/Codex toggles, Aetheric Purge Detent) verified.');
+
+// 7. Canon Parity §9: The Four Sovereign Vanguard Operatives & Galvanic Relays
+const actorsMod = context.window._ManifestInternal?.Actors || require('../manifest/manifest_actors.js');
+const phenotypes = actorsMod.Phenotypes;
+if (!phenotypes.HERO?.canonTitle?.includes('Iron Bulwark') || phenotypes.HERO?.concordance !== 'IRON') {
+	throw new Error('Aldric phenotype missing Iron Bulwark canon title or Path of Iron concordance');
+}
+if (!phenotypes.WARRIOR?.canonTitle?.includes('Hearth Berserker') || phenotypes.WARRIOR?.concordance !== 'EMBER') {
+	throw new Error('Brogan phenotype missing Hearth Berserker canon title or Path of Ember concordance');
+}
+if (!phenotypes.MAGE?.canonTitle?.includes('Tide Weaver') || phenotypes.MAGE?.concordance !== 'TIDE') {
+	throw new Error('Selene phenotype missing Tide Weaver canon title or Path of Tide concordance');
+}
+if (!phenotypes.HEALER?.canonTitle?.includes('Sun-Spire Cleric') || phenotypes.HEALER?.concordance !== 'LUMEN') {
+	throw new Error('Wren phenotype missing Sun-Spire Cleric canon title or Path of Lumen concordance');
+}
+
+// Test Vanguard Showcase rendering in CockpitRenderer
+const cockpitMod = context.window.EmberlightCockpitRenderer || require('../cockpit_renderer.js');
+cockpitMod.renderTitleVanguardPedestals();
+const pedestalContainer = context.window.document.getElementById('title-vanguard-pedestals');
+if (!pedestalContainer?.innerHTML?.includes('Aldric') || !pedestalContainer?.innerHTML?.includes('galvanic-terminal-bead')) {
+	throw new Error('Title vanguard showcase failed to render galvanic terminal beads and canon pedestals');
+}
+
+// Test Diegetic SFX synthesizers in AcousticSFX
+const acousticMod = context.window.EmberlightAcousticSFX || require('../acoustic_sfx.js');
+[ 'HYDRAULIC_HAMMER', 'THERMAL_VENT', 'VACUUM_WHISTLE', 'TUNING_FORK' ].forEach((cue) => {
+	acousticMod.play(cue);
+});
+
+// Test Operative Combat Action SFX Dispatches (Brogan THERMAL_VENT)
+const sfxLog = [];
+const testHelpers = {
+	triggerAttackerLunge: () => { },
+	triggerChannelingSurge: () => { },
+	Displacement: context.window._CombatInternal?.Displacement || require('../combat/combat_displacement.js'),
+	Calc: context.window._CombatInternal?.Calc || require('../combat/combat_calc.js'),
+	AI: context.window._CombatInternal?.AI || require('../combat/combat_ai.js'),
+	Queue: context.window._CombatInternal?.Queue || require('../combat/combat_queue.js'),
+	appendLog: () => { },
+	dispatchSFX: (name) => sfxLog.push(name),
+	publish: () => { },
+	renderPresentation: () => { },
+	checkUnitDefeat: () => false,
+	checkBattleEnd: () => false,
+	schedule: () => { },
+	getRandomFloat: () => 0.5,
+};
+const simTest = {
+	turnQueue: [ { entity: { id: 'warrior', name: 'Brogan', atk: 12, def: 5, hp: 30, maxHp: 30, mp: 10, maxMp: 10 } } ],
+	activeTurnIndex: 0,
+	party: [ { id: 'warrior', name: 'Brogan', atk: 12, def: 5, hp: 30, maxHp: 30, mp: 10, maxMp: 10 } ],
+	enemies: [ { id: 'wolf_1', name: 'Shade Wolf', hp: 20, maxHp: 20, def: 2, row: 'FRONT', alive: true } ],
+};
+CombatActions.playerExecuteAttack(simTest, 0, testHelpers);
+if (!sfxLog.includes('THERMAL_VENT')) {
+	throw new Error(`Brogan attack failed to dispatch THERMAL_VENT: ${sfxLog.join(', ')}`);
+}
+
+console.log('[PASS] Canon Parity §9: Four Sovereign Vanguard Operatives, Galvanic Tethers, and 4 Diegetic Acoustic Feedback Profiles verified.');
 
 if (diag.score === diag.totalChecks && diag.passed) {
 	console.log(`=== SENTINEL AUDIT 100% SUCCESS: ${diag.score}/${diag.totalChecks} CHECKS PASSED ===`);

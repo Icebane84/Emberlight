@@ -271,7 +271,7 @@ const EmberlightVoice = (() => {
 		const dur = profile.duration;
 
 		// NOSONAR: Non-cryptographic Math.random is used intentionally here for procedural audio pitch jitter variance.
-		const jitter = 1.0 + (Math.random() * 2 - 1) // NOSONAR * profile.pitchJitter;
+		const jitter = 1.0 + (Math.random() * 2 - 1) * profile.pitchJitter; // NOSONAR
 		let basePitch = profile.f0 * jitter;
 
 		// Pitch inflection on punctuation

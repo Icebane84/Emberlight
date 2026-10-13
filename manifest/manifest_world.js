@@ -121,7 +121,7 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 			char: '⚙',
 			cls: 'town',
 			walkable: false,
-			desc: 'Synthesize resonant equipment.',
+			desc: 'The Pneumatic Arc-Crucible for smelting precursor relics.',
 		},
 		O: {
 			id: 'GATE',
@@ -161,7 +161,7 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 			char: '🏨',
 			cls: 'town',
 			walkable: false,
-			desc: 'Rest at the Inn to fully recover party HP, MP, and cleanse all afflictions.',
+			desc: 'Rest at the Inn to fully recover Vitality Mercury, Lapis Aether, and flush galvanic strain.',
 		},
 		N: {
 			id: 'NOTICE_BOARD',
@@ -177,7 +177,7 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 			char: '⛩',
 			cls: 'shrine',
 			walkable: false,
-			desc: 'Sacred celestial monolith. Restores party MP and bestows Aether Focus.',
+			desc: 'Sacred celestial monolith. Restores party Aether and aligns leyline harmonic focus.',
 		},
 		'*': {
 			id: 'FORAGE_SPOT',
@@ -197,19 +197,19 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 		},
 		'>': {
 			id: 'CRYPT',
-			label: 'Crypt Descent',
+			label: 'Catacomb Descent',
 			char: '⛩️',
 			cls: 'crypt',
 			walkable: true,
-			desc: 'Descent into the underground crypt dungeon.',
+			desc: 'Descent into Strata I: The Iron-Moss Catacombs & Sunken Cisterns.',
 		},
 		'<': {
 			id: 'SURFACE',
-			label: 'Ascent Ladder',
+			label: 'Ascent Gantry',
 			char: '🪜',
 			cls: 'town',
 			walkable: true,
-			desc: 'Stairs back up to the surface world.',
+			desc: 'Gantry stairs back up to the surface perimeter.',
 		},
 	};
 

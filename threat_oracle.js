@@ -526,8 +526,11 @@ const EmberlightThreatOracle = (() => {
             <div class="affinity-pips">
               ${enemies.map((e, eIdx) => {
 				if (e.isDead || (e.hp !== undefined && e.hp <= 0)) return '';
-				const weak = e.weakness ? `<span class="pip weak">⚡ ${e.weakness} (1.5x)</span>` : '';
-				const resist = e.resistance ? `<span class="pip resist">🛡️ ${e.resistance} (0.5x)</span>` : '';
+				const lex = typeof EmberlightManifest !== 'undefined' ? EmberlightManifest?.Lexicon : null;
+				const weakLabel = lex && e.weakness ? lex.element(e.weakness) : e.weakness;
+				const resistLabel = lex && e.resistance ? lex.element(e.resistance) : e.resistance;
+				const weak = e.weakness ? `<span class="pip weak">⚡ ${weakLabel} (1.5x)</span>` : '';
+				const resist = e.resistance ? `<span class="pip resist">🛡️ ${resistLabel} (0.5x)</span>` : '';
 				return `
                   <div class="enemy-affinity-row" data-enemy-id="${e.id}" data-enemy-index="${eIdx}">
                     <span class="enemy-label">${e.name}:</span>

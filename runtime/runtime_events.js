@@ -39,6 +39,7 @@ if (typeof window !== "undefined") {
 		"EmberlightAcousticSFX",
 		"EmberlightSoundtrack",
 		"EmberlightVoice",
+		"EmberlightShaderCompositor",
 	];
 
 	/**

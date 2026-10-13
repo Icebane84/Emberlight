@@ -169,6 +169,10 @@ const EmberlightCombat = (() => {
 			if (isHeadless) {
 				headlessEventQueue.push(fn);
 			} else {
+				const existingIdx = scheduledTasks.findIndex((t) => t.fn === fn);
+				if (existingIdx !== -1) {
+					scheduledTasks.splice(existingIdx, 1);
+				}
 				scheduledTasks.push({ fn, remainingMs: delayMs });
 			}
 		}

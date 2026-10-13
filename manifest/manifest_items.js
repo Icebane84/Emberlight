@@ -13,8 +13,9 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 		// Consumables
 		POTION: {
 			id: 'POTION',
-			label: 'Health Potion',
-			desc: 'Restores 25 HP',
+			label: 'Distilled Vitality Quicksilver',
+			shortLabel: 'Quicksilver',
+			desc: 'Restores 25 VIT',
 			cost: 15,
 			targetType: 'ally_alive',
 			/**
@@ -28,13 +29,14 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 				const maxHp = target.maxHp || 30;
 				const healed = Math.min(25, maxHp - curHp);
 				target.hp = curHp + healed;
-				return `restoring ${healed} HP!`;
+				return `restoring ${healed} VIT!`;
 			},
 		},
 		ETHER: {
 			id: 'ETHER',
-			label: 'Ether Vial',
-			desc: 'Restores 15 MP',
+			label: 'Lapis Aether Drop',
+			shortLabel: 'Lapis Drop',
+			desc: 'Restores 15 AET',
 			cost: 20,
 			targetType: 'ally_alive',
 			/**
@@ -48,13 +50,14 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 				const maxMp = target.maxMp || 10;
 				const restored = Math.min(15, maxMp - curMp);
 				target.mp = curMp + restored;
-				return `restoring ${restored} MP!`;
+				return `restoring ${restored} AET!`;
 			},
 		},
 		PHOENIX_EMBER: {
 			id: 'PHOENIX_EMBER',
-			label: 'Phoenix Ember',
-			desc: 'Revives with 50% HP',
+			label: 'Hearth-Spire Phoenix Ember',
+			shortLabel: 'Phoenix Ember',
+			desc: 'Re-tethers fallen with 50% VIT',
 			cost: 45,
 			targetType: 'ally_dead',
 			/**
@@ -67,14 +70,14 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 				target.alive = true;
 				const maxHp = target.maxHp || 30;
 				target.hp = Math.max(1, Math.round(maxHp * 0.5));
-				return `reviving them with ${target.hp} HP!`;
+				return `arc-welding their tether back with ${target.hp} VIT!`;
 			},
 		},
 
 		// Weapons
 		IRON_SWORD: {
 			id: 'IRON_SWORD',
-			label: 'Iron Sword',
+			label: 'Cold-Rolled Iron Blade',
 			desc: '+5 ATK',
 			slot: 'weapon',
 			requirements: { atk: 6 },
@@ -84,8 +87,8 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 		},
 		OAK_STAFF: {
 			id: 'OAK_STAFF',
-			label: 'Oak Staff',
-			desc: '+2 ATK, +6 MP',
+			label: 'Quartz-Focus Staff',
+			desc: '+2 ATK, +6 AET',
 			slot: 'weapon',
 			requirements: { mp: 12 },
 			allowedPhenotypes: [ 'MAGE', 'HEALER' ],
@@ -96,8 +99,8 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 		// Armor
 		CHAIN_VEST: {
 			id: 'CHAIN_VEST',
-			label: 'Chain Vest',
-			desc: '+4 DEF, +8 HP',
+			label: 'Copper-Mesh Vest',
+			desc: '+4 DEF, +8 VIT',
 			slot: 'armor',
 			requirements: { def: 4, hp: 25 },
 			allowedPhenotypes: [ 'HERO', 'WARRIOR' ],
@@ -106,8 +109,8 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 		},
 		CHAINMAIL: {
 			id: 'CHAINMAIL',
-			label: 'Reinforced Mail',
-			desc: '+5 DEF, +12 HP',
+			label: 'Grounded Chain Harness',
+			desc: '+5 DEF, +12 VIT',
 			slot: 'armor',
 			requirements: { def: 6, hp: 35 },
 			allowedPhenotypes: [ 'HERO', 'WARRIOR' ],
@@ -116,8 +119,8 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 		},
 		MAGE_ROBE: {
 			id: 'MAGE_ROBE',
-			label: 'Mage Robe',
-			desc: '+2 DEF, +10 MP',
+			label: 'Filigree Spellweave Robe',
+			desc: '+2 DEF, +10 AET',
 			slot: 'armor',
 			requirements: { mp: 14 },
 			allowedPhenotypes: [ 'MAGE', 'HEALER' ],
@@ -128,7 +131,7 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 		// Accessories
 		SWIFT_RING: {
 			id: 'SWIFT_RING',
-			label: 'Swift Ring',
+			label: 'Galvanic Capacitor Ring',
 			desc: '+3 AGI',
 			slot: 'accessory',
 			requirements: { agi: 4 },
@@ -140,7 +143,7 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 		CINDER_CORE: {
 			id: 'CINDER_CORE',
 			label: 'Cinder Core',
-			desc: '+8 ATK, +6 DEF, +10 Max HP',
+			desc: '+8 ATK, +6 DEF, +10 Max VIT',
 			slot: 'accessory',
 			requirements: { level: 2 },
 			allowedPhenotypes: [ 'HERO', 'WARRIOR', 'MAGE', 'HEALER' ],

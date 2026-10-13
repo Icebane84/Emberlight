@@ -21,6 +21,7 @@ const EmberlightManifest = (() => {
 				World: require("./manifest/manifest_world.js"),
 				Narrative: require("./manifest/manifest_narrative.js"),
 				Calculators: require("./manifest/manifest_calculators.js"),
+				Lexicon: require("./manifest/manifest_lexicon.js"),
 			};
 		} catch (_) { }
 	}
@@ -33,10 +34,11 @@ const EmberlightManifest = (() => {
 	const { AetherEssences, AetherNodes, SkillTrees } =
 		internal.Progression || {};
 	const { TileLegend, OverworldMap, TownMaps } = internal.World || {};
-	const { Ailments, Quests, WorldMutations, Shops, Dialogues } =
+	const { Ailments, Quests, FieldDossiers, WorldMutations, Shops, Dialogues } =
 		internal.Narrative || {};
 	const { calculateGearStats, computeCharacterStats, getResolvedMap } =
 		internal.Calculators || {};
+	const { Lexicon } = internal.Lexicon || {};
 
 	const manifest = {
 		schemaVersion: "1.2.0",
@@ -59,12 +61,15 @@ const EmberlightManifest = (() => {
 		TownMaps,
 		Ailments,
 		Quests,
+		FieldDossiers,
+		Dossiers: FieldDossiers,
 		WorldMutations,
 		Shops,
 		Dialogues,
 		calculateGearStats,
 		computeCharacterStats,
 		getResolvedMap,
+		Lexicon,
 	};
 
 	/**

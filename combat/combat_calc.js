@@ -17,11 +17,20 @@
 	 */
 	function resolveAffinity(attackElement, target) {
 		if (!attackElement || !target) return { label: 'NORMAL', multiplier: 1.0 };
-		const elem = attackElement.toUpperCase();
-		if (target.weakness?.toUpperCase() === elem) {
+		const elem = String(attackElement).toUpperCase();
+		const lex = typeof EmberlightManifest !== 'undefined' ? EmberlightManifest?.Lexicon : null;
+		const canonElem = lex?.element(elem) || elem;
+
+		const targetWeakness = target.weakness ? String(target.weakness).toUpperCase() : '';
+		const targetCanonWeakness = lex?.element(targetWeakness) || targetWeakness;
+
+		const targetResistance = target.resistance ? String(target.resistance).toUpperCase() : '';
+		const targetCanonResistance = lex?.element(targetResistance) || targetResistance;
+
+		if (targetWeakness === elem || (targetCanonWeakness && targetCanonWeakness === canonElem)) {
 			return { label: 'WEAK', multiplier: 1.5 };
 		}
-		if (target.resistance?.toUpperCase() === elem) {
+		if (targetResistance === elem || (targetCanonResistance && targetCanonResistance === canonElem)) {
 			return { label: 'RESIST', multiplier: 0.5 };
 		}
 		return { label: 'NORMAL', multiplier: 1.0 };
@@ -56,8 +65,8 @@
 	 * @returns {string}
 	 */
 	function resolveAffinityTag(isWeakness, isResisted) {
-		if (isWeakness) return ' 💥 [WEAKNESS!]';
-		if (isResisted) return ' 🛡️ [RESISTED]';
+		if (isWeakness) return ' 💥 [FRACTURE // RESONANCE COLLAPSE]';
+		if (isResisted) return ' 🛡️ [GROUNDED]';
 		return '';
 	}
 
@@ -70,9 +79,10 @@
 	 * @returns {string}
 	 */
 	function resolveSkillHitTag(isGuaranteedCrit, isWeakness, isResisted) {
+		if (isGuaranteedCrit && isWeakness) return ' 🌟💥 [CRITICAL HARMONIC RESONANCE COLLAPSE!]';
 		if (isGuaranteedCrit) return ' 🌟 [CRITICAL HARMONIC STRIKE!]';
-		if (isWeakness) return ' 💥 [WEAKNESS!]';
-		if (isResisted) return ' 🛡️ [RESISTED]';
+		if (isWeakness) return ' 💥 [FRACTURE // RESONANCE COLLAPSE]';
+		if (isResisted) return ' 🛡️ [GROUNDED]';
 		return '';
 	}
 
@@ -427,7 +437,9 @@
 		c.def = (c.def || 5) + g.def;
 		c.agi = (c.agi || 5) + g.agi;
 		if (appendLog) {
-			appendLog(`🎉 ${c.name} ascended to Level ${c.level}! Vitals restored (+1 SP, +${g.hp} Max HP).`, 'ember');
+			const legacy = `🎉 ${c.name} ascended to Level ${c.level}! Vitals restored (+1 SP, +${g.hp} Max HP).`;
+			const lex = typeof EmberlightManifest !== 'undefined' ? EmberlightManifest?.Lexicon : null;
+			appendLog(lex ? lex.format('log.levelUp', { name: c.name, level: c.level, hp: g.hp }, legacy) : legacy, 'ember');
 		}
 	}
 

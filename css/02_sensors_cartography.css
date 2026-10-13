@@ -19,15 +19,47 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #020208;
+  background: radial-gradient(circle at 50% 50%, #080c14 0%, #020206 85%, #000002 100%);
   position: relative;
   overflow: hidden;
-  border-radius: 2px;
-  border: 1px solid var(--border-dim);
-  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.85);
+  border-radius: 6px;
+  border: 2px solid #7a462b;
+  outline: 1px solid rgba(200, 125, 85, 0.4);
+  box-shadow:
+    inset 0 0 45px rgba(0, 0, 0, 0.95),
+    inset 0 0 15px rgba(200, 125, 85, 0.18),
+    0 4px 16px rgba(0, 0, 0, 0.8);
   min-height: 0;
   height: 100%;
   width: 100%;
+}
+
+/* Arcane Lens Vignette Overlay */
+.sensor-content::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 50%, transparent 55%, rgba(3, 4, 10, 0.55) 80%, rgba(0, 0, 0, 0.88) 100%);
+  border-radius: 4px;
+  z-index: 10;
+}
+
+/* Brass Cold-Rolled Corner Studs */
+.sensor-content::after {
+  content: "✦";
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  font-size: 8px;
+  color: #c87d55;
+  text-shadow:
+    calc(100% - 16px) 0 0 #c87d55,
+    0 calc(100% - 12px) 0 #c87d55,
+    calc(100% - 16px) calc(100% - 12px) 0 #c87d55;
+  opacity: 0.65;
+  pointer-events: none;
+  z-index: 12;
 }
 
 #corridor-canvas {
@@ -958,8 +990,11 @@
 .quadrant-pane {
   position: relative;
   background: var(--panel-bg);
-  border: 2px solid var(--border-dim);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03), 0 4px 14px rgba(0, 0, 0, 0.65);
+  border: 2px solid var(--brass-dim);
+  box-shadow:
+    inset 0 0 0 1px rgba(245, 200, 121, 0.12),
+    inset 0 1px 0 0 rgba(245, 200, 121, 0.2),
+    0 4px 16px rgba(0, 0, 0, 0.85);
   padding: 6px 10px;
   display: flex;
   flex-direction: column;
@@ -968,25 +1003,41 @@
   overflow: hidden;
 }
 
+.quadrant-pane::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  right: 3px;
+  bottom: 3px;
+  border: 1px solid rgba(212, 163, 89, 0.15);
+  pointer-events: none;
+  border-radius: 1px;
+}
+
 .pane-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   font-size: 11px;
-  color: #38bdf8;
+  color: var(--brass-bright);
   margin-bottom: 4px;
   border-bottom: 1px solid var(--border-dim);
   padding-bottom: 3px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
 .pane-title {
+  font-family: var(--font-display);
   font-weight: bold;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
+  color: var(--brass-bright);
 }
 
 .pane-tag {
-  color: var(--text-dim);
+  color: var(--copper-bright);
   font-size: 10px;
+  letter-spacing: 0.5px;
 }
 
 .pane-content {
@@ -1004,16 +1055,52 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  background: #020205;
+  background:
+    radial-gradient(circle at 75% 45%, rgba(200, 150, 80, 0.04) 0%, transparent 60%),
+    radial-gradient(circle at 25% 70%, rgba(200, 150, 80, 0.03) 0%, transparent 50%),
+    linear-gradient(rgba(200, 150, 80, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(200, 150, 80, 0.04) 1px, transparent 1px),
+    #05050a;
+  background-size: 100% 100%, 100% 100%, 38px 30px, 38px 30px, 100% 100%;
   padding: 4px;
   border: 1px solid var(--border-dim);
-  box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.85);
+  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.95);
   flex: 1;
   min-height: 0;
   height: 100%;
   width: 100%;
   overflow: hidden;
   position: relative;
+}
+
+#overworld-grid-wrapper::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 65%;
+  transform: translate(-50%, -50%);
+  width: 240px;
+  height: 240px;
+  border-radius: 50%;
+  border: 1px dashed rgba(200, 150, 80, 0.08);
+  box-shadow:
+    0 0 0 30px rgba(200, 150, 80, 0.02),
+    inset 0 0 0 20px rgba(200, 150, 80, 0.02);
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+#overworld-grid-wrapper::after {
+  content: "LAT 42°16'N // LEY-GRID PRIME";
+  position: absolute;
+  bottom: 8px;
+  right: 12px;
+  font-family: var(--font-mono, monospace);
+  font-size: 7.5px;
+  letter-spacing: 1.5px;
+  color: rgba(200, 150, 80, 0.22);
+  pointer-events: none;
+  user-select: none;
 }
 
 #overworld-grid {

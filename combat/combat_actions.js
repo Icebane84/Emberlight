@@ -28,6 +28,12 @@
  * @property {string[]} [weaknesses] - Elemental weakness array.
  * @property {string} [resistance] - Elemental resistance descriptor.
  * @property {string[]} [resistances] - Elemental resistance array.
+ * @property {any} [chargingSkill] - Currently charging skill descriptor.
+ * @property {string|null} [intent] - Telegraph intent string.
+ * @property {boolean} [isCharging] - Flag indicating active cast channeling.
+ * @property {boolean} [shockStasis] - Operative shock stasis flag.
+ * @property {number} [tetherDissolutionRounds] - Rounds remaining before galvanic tether severing.
+ * @property {boolean} [tetherDissolved] - Permanent sortie tether dissolution flag.
  */
 
 /**
@@ -57,6 +63,7 @@
  * @property {string|null} [pendingItem] - Pending item waiting for target selection.
  * @property {string} [selectedTab] - Active UI selection tab.
  * @property {Record<string, number>} [inventory] - Consumables inventory dictionary.
+ * @property {number} [turnDelayMs] - Turn delay accumulator in milliseconds.
  */
 //#endregion
 
@@ -70,10 +77,12 @@
  */
 function playerExecuteAttack(sim, targetEnemyIndex, helpers) {
 	if (!sim) return;
+	if (sim.phase === "RESOLVING_ACTION" || sim.phase === "ENEMY_ACTION") return;
 	const activeChar = sim.turnQueue[ sim.activeTurnIndex ]?.entity;
 	const target = sim.enemies[ targetEnemyIndex ];
 	if (!activeChar || !target?.alive) return;
 
+	sim.phase = "RESOLVING_ACTION";
 	const heroIdx = sim.party.findIndex((c) => c.id === activeChar.id);
 	helpers.triggerAttackerLunge(true, heroIdx !== -1 ? heroIdx : 0);
 
@@ -102,7 +111,11 @@ function playerExecuteAttack(sim, targetEnemyIndex, helpers) {
 	);
 
 	actualTarget.hp = Math.max(0, actualTarget.hp - finalDmg);
-	helpers.dispatchSFX("ATTACK_HIT");
+	if (activeChar.name === "Brogan" || activeChar.id === "warrior") {
+		helpers.dispatchSFX("THERMAL_VENT");
+	} else {
+		helpers.dispatchSFX("ATTACK_HIT");
+	}
 
 	const tag = Calc.resolveAffinityTag(isWeakness, isResisted);
 	const interceptTag = wasIntercepted ? " [INTERCEPTED]" : "";
@@ -115,11 +128,16 @@ function playerExecuteAttack(sim, targetEnemyIndex, helpers) {
 		amount: finalDmg,
 		targetType: "enemy",
 		targetIndex: actualIndex,
+		targetId: actualTarget.id,
 		isCrit: isWeakness || variance > 0,
 		isHeal: false,
 		element: "PHYSICAL",
 		isSlash: true,
 	});
+
+	if (isWeakness && actualTarget.alive) {
+		handleResonanceCollapse(sim, actualTarget, actualIndex, helpers);
+	}
 
 	AI.checkBossPhase(
 		actualTarget,
@@ -149,9 +167,11 @@ function playerExecuteAttack(sim, targetEnemyIndex, helpers) {
  */
 function playerExecuteGuard(sim, helpers) {
 	if (!sim) return;
+	if (sim.phase === "RESOLVING_ACTION" || sim.phase === "ENEMY_ACTION") return;
 	const activeChar = sim.turnQueue[ sim.activeTurnIndex ]?.entity;
 	if (!activeChar?.alive) return;
 
+	sim.phase = "RESOLVING_ACTION";
 	activeChar.isGuarding = true;
 	activeChar.mp = Math.min(activeChar.maxMp, activeChar.mp + 2);
 	helpers.appendLog(
@@ -179,6 +199,71 @@ function playerExecuteGuard(sim, helpers) {
 }
 
 /**
+ * Formats a telegraph line via the manifest lexicon, falling back when absent.
+ * [Pure Query]
+ * @param {string} key - Lexicon template key.
+ * @param {Record<string, string | number>} vars - Placeholder values.
+ * @param {string} fallback - Legacy text used when the lexicon is unavailable.
+ * @returns {string} Display line.
+ */
+function combatActionsLexFormat(key, vars, fallback) {
+	const lex = typeof EmberlightManifest !== "undefined" ? EmberlightManifest?.Lexicon : null;
+	return (lex && typeof lex.format === "function") ? lex.format(key, vars, fallback) : fallback;
+}
+
+/**
+ * Applies full Resonance Collapse break mechanics upon striking elemental weakness.
+ * Cancels active enemy casts, applies CTB rail pushback, logs telegraph alert, and publishes collapse VFX.
+ * [Authoritative State Mutation]
+ * @param {CombatSimulationState} sim - Active simulation state.
+ * @param {CombatEntity} actualTarget - Fractured enemy entity.
+ * @param {number} actualIndex - Target enemy index.
+ * @param {any} helpers - Simulation kernel helpers.
+ * @returns {void}
+ */
+function handleResonanceCollapse(sim, actualTarget, actualIndex, helpers) {
+	if (!actualTarget?.alive) return;
+	actualTarget.accumulatedDelay = (actualTarget.accumulatedDelay || 0) + 450;
+	if (sim) {
+		sim.turnDelayMs = (sim.turnDelayMs || 0) + 450;
+	}
+
+	// Check if target was preparing or charging an action
+	const hadPendingAction = Boolean(actualTarget.chargingSkill || actualTarget.intent || actualTarget.isCharging);
+	actualTarget.chargingSkill = null;
+	actualTarget.isCharging = false;
+	if (actualTarget.intent) {
+		actualTarget.intent = null;
+	}
+
+	const cancelNotice = hadPendingAction ? " — [CAST INTERRUPTED]" : "";
+	helpers.appendLog(
+		`⚡ [ALERT // RESONANCE SPIKE] ${actualTarget.name}'s aetheric matrix fractured! Resonance Collapse (+450ms Delay${cancelNotice})!`,
+		"ember",
+	);
+
+	helpers.dispatchSFX("RESONANCE_COLLAPSE");
+
+	helpers.publish("combat:collapse", {
+		targetType: "enemy",
+		targetIndex: actualIndex,
+		targetId: actualTarget.id,
+	});
+}
+
+/**
+ * Resolves an item's canon display label from the manifest catalog.
+ * [Pure Query]
+ * @param {string} itemId - Item identifier.
+ * @returns {string} Display label (falls back to the raw ID).
+ */
+function combatActionsItemName(itemId) {
+	const items = typeof EmberlightManifest !== "undefined" ? EmberlightManifest?.Items : null;
+	const item = items?.[ itemId ];
+	return item?.label || item?.name || itemId;
+}
+
+/**
  * Resolves item consumption from squad pouch inventory onto target ally.
  * [Authoritative State Mutation]
  * @param {any} sim - Active simulation state.
@@ -189,19 +274,25 @@ function playerExecuteGuard(sim, helpers) {
  */
 function playerExecuteItem(sim, itemId, targetIdx, helpers) {
 	if (!sim) return;
+	if (sim.phase === "RESOLVING_ACTION" || sim.phase === "ENEMY_ACTION") return;
 	const target = sim.party[ targetIdx ];
 	if (!target) return;
+	sim.phase = "RESOLVING_ACTION";
+	const itemName = combatActionsItemName(itemId);
 
 	if (itemId === "POTION") {
 		if (!target.alive) {
 			helpers.appendLog(
-				`${target.name} is collapsed and cannot drink a potion!`,
+				combatActionsLexFormat("log.item.fallen", { name: target.name, item: itemName }, `${target.name} is collapsed and cannot drink a potion!`),
 				"damage",
 			);
 			return;
 		}
 		target.hp = Math.min(target.maxHp, target.hp + 30);
-		helpers.appendLog(`${target.name} drank Potion (+30 HP)!`, "heal");
+		helpers.appendLog(
+			combatActionsLexFormat("log.item.heal", { name: target.name, item: itemName, amount: 30 }, `${target.name} drank Potion (+30 HP)!`),
+			"heal",
+		);
 		helpers.dispatchSFX("HEAL");
 		helpers.publish("combat:damage", {
 			amount: 30,
@@ -212,11 +303,17 @@ function playerExecuteItem(sim, itemId, targetIdx, helpers) {
 		});
 	} else if (itemId === "ETHER") {
 		if (!target.alive) {
-			helpers.appendLog(`${target.name} is collapsed!`, "damage");
+			helpers.appendLog(
+				combatActionsLexFormat("log.item.fallen", { name: target.name, item: itemName }, `${target.name} is collapsed!`),
+				"damage",
+			);
 			return;
 		}
 		target.mp = Math.min(target.maxMp, target.mp + 15);
-		helpers.appendLog(`${target.name} drank Ether (+15 MP)!`, "ember");
+		helpers.appendLog(
+			combatActionsLexFormat("log.item.mana", { name: target.name, item: itemName, amount: 15 }, `${target.name} drank Ether (+15 MP)!`),
+			"ember",
+		);
 		helpers.dispatchSFX("HEAL");
 		helpers.publish("combat:damage", {
 			amount: 15,
@@ -226,10 +323,20 @@ function playerExecuteItem(sim, itemId, targetIdx, helpers) {
 			isCrit: false,
 		});
 	} else if (itemId === "PHOENIX_EMBER") {
+		if (target.tetherDissolved) {
+			helpers.appendLog(
+				`[GALVANIC CUTOFF] ${target.name}'s tether is completely dissolved! Cannot be reconstituted during this sortie.`,
+				"damage",
+			);
+			helpers.dispatchSFX("DEFLECT");
+			return;
+		}
 		target.alive = true;
+		target.shockStasis = false;
+		target.tetherDissolutionRounds = 3;
 		target.hp = Math.max(1, Math.round(target.maxHp * 0.5));
 		helpers.appendLog(
-			`${target.name} revived by Phoenix Ember (+${target.hp} HP)!`,
+			combatActionsLexFormat("log.item.revive", { name: target.name, item: itemName, amount: target.hp }, `${target.name} revived by Phoenix Ember (+${target.hp} HP)!`),
 			"heal",
 		);
 		helpers.dispatchSFX("HEAL");
@@ -246,7 +353,6 @@ function playerExecuteItem(sim, itemId, targetIdx, helpers) {
 		sim.inventory[ itemId ] -= 1;
 	}
 
-	sim.phase = "PLAYER_INPUT";
 	sim.selectedTab = "ATTACK";
 	helpers.renderPresentation();
 	helpers.schedule(helpers.stepTurn, 400);
@@ -278,7 +384,7 @@ function executeAllySkill(
 	const missingHp = Math.max(0, (ally.maxHp || 30) - (ally.hp || 0));
 	const healed = power === 999 ? missingHp : Math.min(power, missingHp);
 	ally.hp = Math.min(ally.maxHp || 30, (ally.hp || 0) + healed);
-	helpers.dispatchSFX("HEAL");
+	helpers.dispatchSFX("TUNING_FORK");
 	helpers.appendLog(
 		`${activeChar.name} casts ${node.label || "Heal"} on ${ally.name}, restoring ${healed} HP!`,
 		"heal",
@@ -295,6 +401,68 @@ function executeAllySkill(
 
 /**
  * Resolves offensive skills targeted against hostile enemies.
+ * [Authoritative State Mutation]
+/**
+ * Dispatches audio signatures for an offensive skill impact.
+ * @param {any} activeChar - Attacking unit.
+ * @param {any} node - Skill descriptor.
+ * @param {any} helpers - Kernel helper bundle.
+ * @returns {void}
+ */
+function _dispatchSkillHitSfx(activeChar, node, helpers) {
+	if (activeChar.name === "Selene" || activeChar.id === "mage") {
+		helpers.dispatchSFX("VACUUM_WHISTLE");
+	} else {
+		helpers.dispatchSFX(node.subType === "bolt" ? "SPELL_BOLT" : "ATTACK_HIT");
+	}
+}
+
+/**
+ * Evaluates and applies post-hit triggers, ailments, and displacement for offensive skills.
+ * @param {any} sim - Active simulation state.
+ * @param {any} node - Skill descriptor.
+ * @param {any} actualTarget - Targeted enemy.
+ * @param {number} actualIndex - Target index.
+ * @param {boolean} isWeakness - Weakness strike flag.
+ * @param {any} helpers - Kernel helper bundle.
+ * @returns {void}
+ */
+function _applySkillPostHitRiders(sim, node, actualTarget, actualIndex, isWeakness, helpers) {
+	helpers.AI.checkBossPhase(
+		actualTarget,
+		helpers.appendLog,
+		helpers.dispatchSFX,
+		helpers.hostContext,
+	);
+	if (isWeakness && actualTarget.alive) {
+		handleResonanceCollapse(sim, actualTarget, actualIndex, helpers);
+	}
+	if (node.id === "mag_des_1" && helpers.getRandomFloat() < 0.4) {
+		helpers.Queue.applyAilment(actualTarget, "BURN", 3, helpers.appendLog);
+	}
+	if ((node.id === "mag_fro_1" || node.targetDelay) && actualTarget.alive) {
+		const delayAmt = node.targetDelay || node.delayCost || 600;
+		actualTarget.accumulatedDelay = (actualTarget.accumulatedDelay || 0) + delayAmt;
+		helpers.appendLog(
+			`❄️ CHILLED! ${actualTarget.name}'s turn clock was pushed back (+${delayAmt}ms delay)!`,
+			"ember",
+		);
+	}
+	if (node.displacement && actualTarget.alive) {
+		helpers.Displacement.executeDisplacement(
+			sim,
+			actualTarget,
+			node.displacement,
+			false,
+			helpers.appendLog,
+			helpers.dispatchSFX,
+			helpers.triggerDisplacementVisual,
+		);
+	}
+}
+
+/**
+ * Resolves offensive skill execution against single hostile target.
  * [Authoritative State Mutation]
  * @param {any} sim - Active simulation state.
  * @param {any} node - Offensive skill descriptor.
@@ -316,14 +484,9 @@ function executeEnemySkill(
 	const enemy = sim.enemies[ targetIndex ];
 	if (!enemy?.alive) return;
 
-	const Displacement = helpers.Displacement;
-	const Calc = helpers.Calc;
-	const AI = helpers.AI;
-	const Queue = helpers.Queue;
-
 	const isMelee = node.subType === "strike";
 	const { actualTarget, actualIndex, wasIntercepted } =
-		Displacement.applyInterception(
+		helpers.Displacement.applyInterception(
 			sim,
 			enemy,
 			targetIndex,
@@ -334,7 +497,7 @@ function executeEnemySkill(
 		);
 
 	if (
-		Calc.checkArcaneEvasion(
+		helpers.Calc.checkArcaneEvasion(
 			actualTarget,
 			node,
 			helpers.getRandomFloat,
@@ -346,7 +509,7 @@ function executeEnemySkill(
 		return;
 	}
 
-	const { finalDmg, isWeakness, isResisted } = Calc.computeSkillDamage(
+	const { finalDmg, isWeakness, isResisted } = helpers.Calc.computeSkillDamage(
 		node,
 		activeChar,
 		actualTarget,
@@ -355,9 +518,9 @@ function executeEnemySkill(
 		helpers.appendLog,
 	);
 	actualTarget.hp = Math.max(0, actualTarget.hp - finalDmg);
-	helpers.dispatchSFX(node.subType === "bolt" ? "SPELL_BOLT" : "ATTACK_HIT");
+	_dispatchSkillHitSfx(activeChar, node, helpers);
 
-	const tag = Calc.resolveSkillHitTag(isGuaranteedCrit, isWeakness, isResisted);
+	const tag = helpers.Calc.resolveSkillHitTag(isGuaranteedCrit, isWeakness, isResisted);
 	const interceptTag = wasIntercepted ? " [INTERCEPTED]" : "";
 	const logTone = isWeakness || isGuaranteedCrit ? "ember" : "damage";
 	helpers.appendLog(
@@ -369,6 +532,7 @@ function executeEnemySkill(
 		amount: finalDmg,
 		targetType: "enemy",
 		targetIndex: actualIndex,
+		targetId: actualTarget.id,
 		isCrit:
 			isGuaranteedCrit || isWeakness || Boolean(node.mult && node.mult > 1.5),
 		isHeal: false,
@@ -377,34 +541,7 @@ function executeEnemySkill(
 		subType: node.subType || "bolt",
 	});
 
-	AI.checkBossPhase(
-		actualTarget,
-		helpers.appendLog,
-		helpers.dispatchSFX,
-		helpers.hostContext,
-	);
-	if (node.id === "mag_des_1" && helpers.getRandomFloat() < 0.4) {
-		Queue.applyAilment(actualTarget, "BURN", 3, helpers.appendLog);
-	}
-	if ((node.id === "mag_fro_1" || node.targetDelay) && actualTarget.alive) {
-		const delayAmt = node.targetDelay || node.delayCost || 600;
-		actualTarget.accumulatedDelay = (actualTarget.accumulatedDelay || 0) + delayAmt;
-		helpers.appendLog(
-			`❄️ CHILLED! ${actualTarget.name}'s turn clock was pushed back (+${delayAmt}ms delay)!`,
-			"ember",
-		);
-	}
-	if (node.displacement && actualTarget.alive) {
-		Displacement.executeDisplacement(
-			sim,
-			actualTarget,
-			node.displacement,
-			false,
-			helpers.appendLog,
-			helpers.dispatchSFX,
-			helpers.triggerDisplacementVisual,
-		);
-	}
+	_applySkillPostHitRiders(sim, node, actualTarget, actualIndex, isWeakness, helpers);
 	helpers.checkUnitDefeat(actualTarget);
 }
 
@@ -428,6 +565,7 @@ function finalizeSkillExecution(
 	helpers,
 ) {
 	if (!sim) return;
+	sim.phase = "RESOLVING_ACTION";
 	const activeChar = sim.turnQueue[ sim.activeTurnIndex ]?.entity;
 	if (!activeChar) return;
 
@@ -946,6 +1084,27 @@ function handleViewAction(sim, action, helpers) {
 	const type = actObj.type || actObj.actionType;
 	if (!type) return;
 
+	// Action Execution Phase Guard: drop action inputs during busy / enemy / resolution phases
+	const ACTION_COMMANDS = new Set([
+		"ATTACK",
+		"SKILL",
+		"ITEM",
+		"GUARD",
+		"FLEE",
+		"SELECT_TARGET",
+		"TARGET_ALLY",
+		"CONFIRM",
+	]);
+	if (ACTION_COMMANDS.has(type) && sim.phase) {
+		const isPermitted =
+			sim.phase === "PLAYER_INPUT" ||
+			sim.phase === "TARGETING_ENEMY" ||
+			sim.phase === "TARGETING_ALLY";
+		if (!isPermitted) {
+			return;
+		}
+	}
+
 	// Transient Idempotency Guard for Dual Dispatch:
 	if (actObj.intentId) {
 		if (actObj.intentId === helpers.getLastProcessedIntentId()) {
@@ -1196,6 +1355,7 @@ const CombatActions = Object.freeze({
 	handleDirectionalNav,
 	handleChoiceIndex,
 	handleViewAction,
+	handleResonanceCollapse,
 });
 
 /** @type {any} */

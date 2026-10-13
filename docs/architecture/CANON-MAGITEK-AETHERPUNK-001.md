@@ -313,4 +313,3 @@ All communication between the High Command Sanctum and the vanguard's field rela
 * `[HAZARD // MIASMA SURGE]`: Environmental toxicity detected on adjacent grid tiles (requires `[V] DISPEL`).
 * `[ENGAGEMENT // CLASH ENGAGED]`: Geneva gears locking into combat formation matrix.
 * `[RESOLVED // EXPEDITION SECURE]`: Hostiles eliminated; vital reconstitution conduits opened.
-

@@ -173,21 +173,76 @@ const EmberlightProgressionRenderer = (() => {
 	//#endregion
 
 	//#region [SEC-03] UI Component Builders (Roster, Filters, Cards & Grids)
+	/**
+	 * Canonical Quadrant IV Specification & Diegetic Lore (CANON-MAGITEK-AETHERPUNK-001)
+	 */
+	const QUADRANT_IV_METADATA = Object.freeze({
+		quadrantId: 'QUADRANT_IV',
+		name: 'The Tethered Vanguard Command Deck & Armillary Astrolabe',
+		diegeticLore:
+			'The logistical and metaphysical heart of the expedition, cast from heavy riveted cold-rolled iron with vulcanite switchgear and twin operational configurations.',
+		configurationA: Object.freeze({
+			id: 'CONFIG_A_TACTICAL_COMMAND_DECK',
+			name: 'The Tactical Command Deck (Live Field Deployment)',
+			vials: 'Alchemical Life-Vials: Four monitoring bays set into polished brass bezels with illuminated miniature portraits of vanguard operatives (Aldric, Brogan, Selene, Wren), connected to glass graduated cylinders filled with glowing vitality mercury (HP) and luminescent lapis aether (MP).',
+			weightedLevers: Object.freeze([
+				'[1] ATTACK / VOLLEY: Engages standard physical weapons.',
+				'[2] INCANTATIONS: Directs mana-draining spells (SCORCH, CONSECRATE, FREEZE, DISPEL).',
+				'[3] BULWARK / GUARD: Locks heroes into defensive phalanxes.',
+				'[4] SATCHEL: Releases alchemical tinctures, ethers, or blasting charges.',
+			]),
+		}),
+		configurationB: Object.freeze({
+			id: 'CONFIG_B_ARMILLARY_ASTROLABE',
+			name: 'The Armillary Astrolabe (Aether Matrix Progression & Skill Attunement)',
+			toggleKey: '[T] SKILLS',
+			lore: 'Pulling the [T] SKILLS brass toggle lowers the live telemetry rack into the chassis, revealing a nested brass armillary sphere and celestial quartz prism.',
+			constellations: Object.freeze({
+				IRON: 'PATH OF IRON (Vanguard / Bulwark) — Metallic defensive stances, kinetic shields, and earth-cracking smites.',
+				EMBER: 'PATH OF EMBER (Pyromancy / Combustion) — High-heat volatile bursts, flame bolts, and thermal overload.',
+				TIDE: 'PATH OF TIDE (Cryomancy / Arcane Flux) — Glacial stasis, chilling frost, and mana conservation.',
+				LUMEN: 'PATH OF LUMEN (Sanctuary / Restoration) — Divine harmonic attunement, healing wards, and smiting rays.',
+				UMBRA: 'PATH OF UMBRA (Shadow / Affliction) — Skirmish precision, miasma dispersion, and lethal death marks.',
+			}),
+			modes: Object.freeze({
+				STAR_MAP: 'THE SPATIAL ASTROLABE (Star Map Mode): Projects an interactive sky chart onto the darkened soul-glass with astronomical coordinates (RA 22h • DEC -18°).',
+				CODEX_LIST: 'THE INSCRIPTION CODEX (Codex List Mode): Linear punched-vellum lineage index for swift inspection of skill point economy, mana costs, and capability tags.',
+			}),
+			attunement: 'Expending harvested Aetheric Quanta (Skill Points / SP) solders permanent glowing copper-cyan leylines between stars.',
+			respecDetent: 'Aetheric Purge Detent (+ RESPEC): Flushes operative conduits and repolarizes star paths.',
+		}),
+	});
+
 	const DEFAULT_ESSENCES = {
-		IRON: { label: 'Iron', role: 'Vanguard, Defense & Blade Prowess' },
-		EMBER: { label: 'Ember', role: 'Destruction, Fire Magic & Scorch' },
-		TIDE: { label: 'Tide', role: 'Flow, Frost Magic & Water Freezing' },
-		LUMEN: { label: 'Lumen', role: 'Sanctuary, Holy Recovery & Wards' },
-		UMBRA: { label: 'Umbra', role: 'Shadow, Precision & Critical Strikes' },
+		IRON: {
+			label: 'Path of Iron',
+			role: 'Vanguard / Bulwark — Metallic defensive stances, kinetic shields, and earth-cracking smites',
+		},
+		EMBER: {
+			label: 'Path of Ember',
+			role: 'Pyromancy / Combustion — High-heat volatile bursts, flame bolts, and thermal overload',
+		},
+		TIDE: {
+			label: 'Path of Tide',
+			role: 'Cryomancy / Arcane Flux — Glacial stasis, chilling frost, and mana conservation',
+		},
+		LUMEN: {
+			label: 'Path of Lumen',
+			role: 'Sanctuary / Restoration — Divine harmonic attunement, healing wards, and smiting rays',
+		},
+		UMBRA: {
+			label: 'Path of Umbra',
+			role: 'Shadow / Affliction — Skirmish precision, miasma dispersion, and lethal death marks',
+		},
 	};
 
 	const ESSENCE_TABS = [
 		{ key: 'ALL', label: 'ALL CONSTELLATIONS', icon: '🌌' },
-		{ key: 'IRON', label: 'IRON (Vanguard)', icon: '🛡️' },
-		{ key: 'EMBER', label: 'EMBER (Fire)', icon: '🔥' },
-		{ key: 'TIDE', label: 'TIDE (Frost)', icon: '❄️' },
-		{ key: 'LUMEN', label: 'LUMEN (Sanctuary)', icon: '✨' },
-		{ key: 'UMBRA', label: 'UMBRA (Shadow)', icon: '🌑' },
+		{ key: 'IRON', label: 'PATH OF IRON (Vanguard)', icon: '🛡️' },
+		{ key: 'EMBER', label: 'PATH OF EMBER (Combustion)', icon: '🔥' },
+		{ key: 'TIDE', label: 'PATH OF TIDE (Cryomancy)', icon: '❄️' },
+		{ key: 'LUMEN', label: 'PATH OF LUMEN (Sanctuary)', icon: '✨' },
+		{ key: 'UMBRA', label: 'PATH OF UMBRA (Shadow)', icon: '🌑' },
 	];
 
 	/** @type {Record<string, string>} */
@@ -538,14 +593,16 @@ const EmberlightProgressionRenderer = (() => {
 
 	/**
 	 * Computes celestial astronomical coordinate string for a node.
+	 * Plotted with astronomical right-ascension and declination coordinates (RA 22h • DEC -18°).
 	 * @param {ProgressionNode} node
 	 * @returns {string} Coordinate label.
 	 */
 	function buildNodeCoordTag(node) {
+		const decSign = node.id.length % 2 === 0 ? '+' : '-';
 		const decVal = Math.abs(((node.id.length * 17 + 11) % 75));
 		const code = node.id.codePointAt(0) || 0;
 		const raVal = ((code * 7 + node.id.length * 5) % 24);
-		return `RA ${raVal.toString().padStart(2, '0')}h · DEC +${decVal}°`;
+		return `RA ${raVal.toString().padStart(2, '0')}h • DEC ${decSign}${decVal}°`;
 	}
 
 	/**
@@ -757,13 +814,14 @@ const EmberlightProgressionRenderer = (() => {
         <ellipse cx="700" cy="750" rx="260" ry="200" fill="url(#nebula-umbra)" />
         <ellipse cx="340" cy="640" rx="280" ry="220" fill="url(#nebula-lumen)" />
 
-        <!-- Astrolabe Harmonic Geometry & Coordinate Rings -->
-        <g class="astrolabe-coordinate-rings">
-          <circle cx="700" cy="450" r="180" stroke="rgba(56, 189, 248, 0.12)" stroke-width="1" stroke-dasharray="4 6" fill="none" />
-          <circle cx="700" cy="450" r="370" stroke="rgba(56, 189, 248, 0.09)" stroke-width="1" stroke-dasharray="3 7" fill="none" />
-          <circle cx="700" cy="450" r="540" stroke="rgba(56, 189, 248, 0.06)" stroke-width="1" stroke-dasharray="2 8" fill="none" />
-          <line x1="700" y1="50" x2="700" y2="850" stroke="rgba(56, 189, 248, 0.07)" stroke-width="1" stroke-dasharray="2 6" />
-          <line x1="80" y1="450" x2="1320" y2="450" stroke="rgba(56, 189, 248, 0.07)" stroke-width="1" stroke-dasharray="2 6" />
+        <!-- Astrolabe Harmonic Geometry, Nested Armillary Gear Rings & Celestial Prism Graticule -->
+        <g class="astrolabe-coordinate-rings armillary-gear-rings">
+          <circle cx="700" cy="450" r="180" stroke="rgba(56, 189, 248, 0.16)" stroke-width="1.5" stroke-dasharray="4 6" fill="none" />
+          <circle cx="700" cy="450" r="370" stroke="rgba(255, 157, 77, 0.14)" stroke-width="1.5" stroke-dasharray="3 7" fill="none" />
+          <circle cx="700" cy="450" r="540" stroke="rgba(56, 189, 248, 0.10)" stroke-width="1.2" stroke-dasharray="2 8" fill="none" />
+          <circle cx="700" cy="450" r="630" stroke="rgba(217, 119, 6, 0.08)" stroke-width="2" stroke-dasharray="8 12" fill="none" />
+          <line x1="700" y1="50" x2="700" y2="850" stroke="rgba(56, 189, 248, 0.09)" stroke-width="1" stroke-dasharray="2 6" />
+          <line x1="80" y1="450" x2="1320" y2="450" stroke="rgba(56, 189, 248, 0.09)" stroke-width="1" stroke-dasharray="2 6" />
         </g>
 
         <!-- Background Stardust -->
@@ -992,19 +1050,19 @@ const EmberlightProgressionRenderer = (() => {
 		gridHeader.className = 'aether-grid-header';
 		gridHeader.innerHTML = `
       <div class="grid-header-title">
-        <span class="grid-glow-title">🌌 CELESTIAL CONSTELLATION ASTROLABE</span>
+        <span class="grid-glow-title">🌌 THE SPATIAL ASTROLABE</span>
         <span class="grid-count-badge">(${filteredNodes.length} STARS)</span>
       </div>
       <div class="grid-header-telemetry">
         <div class="aether-view-toggle-group">
-          <button type="button" class="aether-view-toggle-btn ${isAstrolabe ? 'active' : ''}" id="toggle-astrolabe-view" title="Interactive Star Map">
-            🌟 STAR MAP
+          <button type="button" class="aether-view-toggle-btn ${isAstrolabe ? 'active' : ''}" id="toggle-astrolabe-view" title="The Spatial Astrolabe (Interactive Sky Chart on Darkened Soul-Glass)">
+            🌌 STAR MAP
           </button>
-          <button type="button" class="aether-view-toggle-btn ${!isAstrolabe ? 'active' : ''}" id="toggle-codex-view" title="Classic Card Codex">
-            📜 CODEX LIST
+          <button type="button" class="aether-view-toggle-btn ${!isAstrolabe ? 'active' : ''}" id="toggle-codex-view" title="The Inscription Codex (Linear Punched-Vellum Lineage Index)">
+            📜 INSCRIPTION CODEX
           </button>
         </div>
-        <span class="hero-sp-counter ${spPool > 0 ? 'glowing' : ''}">POOL: ${spPool} SP</span>
+        <span class="hero-sp-counter ${spPool > 0 ? 'glowing' : ''}">HARVESTED AETHERIC QUANTA: ${spPool} SP</span>
       </div>
     `;
 
@@ -1180,15 +1238,15 @@ const EmberlightProgressionRenderer = (() => {
 	function buildInspectorAttuneButton(isAvailable, isUnlocked, reqSP) {
 		if (isAvailable) {
 			return `
-        <button type="button" class="aether-attune-btn eligible" id="aether-attune-action">
-          ✨ ATTUNE STAR CONSTELLATION (-${reqSP} SP)
+        <button type="button" class="aether-attune-btn eligible" id="aether-attune-action" title="Solder permanent glowing copper-cyan leylines using harvested Aetheric Quanta">
+          ✨ SOLDER RESONANT LEYLINE (-${reqSP} AETHERIC QUANTA / SP)
         </button>
       `;
 		}
 		if (isUnlocked) {
 			return `
         <button type="button" class="aether-attune-btn already-attuned" disabled>
-          ✅ STAR ALREADY ATTUNED
+          ✅ RESONANT LEYLINE PERMANENTLY SOLDERED
         </button>
       `;
 		}
@@ -1277,8 +1335,8 @@ const EmberlightProgressionRenderer = (() => {
 
       <div class="inspector-actions">
         ${attuneBtnHtml}
-        <button type="button" class="aether-respec-btn" id="aether-respec-action" title="Refund all spent skill points on this character">
-          ⚡ RESPEC ${activeChar.name.toUpperCase()} (REFUND SP)
+        <button type="button" class="aether-respec-btn purge-detent" id="aether-respec-action" title="Flush operative conduits & repolarize star paths (+ RESPEC)">
+          🔴 AETHERIC PURGE DETENT (+ RESPEC ${activeChar.name.toUpperCase()})
         </button>
       </div>
     `;
@@ -1385,6 +1443,19 @@ const EmberlightProgressionRenderer = (() => {
 			const wrapper = document.createElement('div');
 			wrapper.className = 'aether-matrix-container';
 
+			const bezelHeader = document.createElement('div');
+			bezelHeader.className = 'aether-astrolabe-bezel-header';
+			bezelHeader.innerHTML = `
+				<div class="bezel-header-left">
+					<span class="bezel-led"></span>
+					<span class="bezel-title">[ Q4: CONFIGURATION B ] THE ARMILLARY ASTROLABE • AETHER MATRIX PROGRESSION & CELESTIAL PRISM</span>
+				</div>
+				<div class="bezel-header-right">
+					<span class="bezel-hotkey">[T] SKILLS TOGGLE ENGAGED</span>
+				</div>
+			`;
+			wrapper.appendChild(bezelHeader);
+
 			wrapper.appendChild(renderRosterBar(targetParty, activeChar, dispatch));
 			wrapper.appendChild(renderFilterBar(state.selectedEssence, dispatch));
 
@@ -1411,6 +1482,15 @@ const EmberlightProgressionRenderer = (() => {
 		 */
 		getDiagnostics() {
 			return { driverId: 'progression_renderer' };
+		},
+
+		/**
+		 * Exposes canonical Quadrant IV: The Armillary Astrolabe metadata.
+		 * (Pure metadata reflection gateway)
+		 * @returns {typeof QUADRANT_IV_METADATA}
+		 */
+		getQuadrantInfo() {
+			return QUADRANT_IV_METADATA;
 		},
 
 		/**

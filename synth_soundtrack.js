@@ -64,7 +64,26 @@ const EmberlightSoundtrack = (() => {
 	let nextStepTime = 0;
 	const LOOKAHEAD_SEC = 0.12; // 120ms forward scheduling window
 
-	// Stereo Feedback Echo Bus (SPC700 Emulation)
+	// Vacuum-Tube Audio Preamplifier WaveShaper (Subsystem C)
+	/** @type {WaveShaperNode|null} */
+	let tubePreampNode = null;
+
+	/**
+	 * Canonical Subsystem C Specification & Resonance Metadata (CANON-MAGITEK-AETHERPUNK-001)
+	 */
+	const RESONATOR_METADATA = Object.freeze({
+		subsystemId: "SUBSYSTEM_C",
+		name: "The Subterranean Ley-Flux Acoustic Resonator",
+		diegeticLore:
+			"The soundtrack is not an arbitrary musical accompaniment; it is the amplified electromagnetic resonance of the subterranean leylines flowing through deep rock strata, captured by wire-wound copper induction coils mounted on the table's foundation pylons.",
+		consoleInterface:
+			"Vacuum-tube audio preamplifiers, twin-detuned Commodore SID-style pulse-width modulators, and an internal SPC700-style acoustic echo delay line (240ms feedback loop).",
+		delayFeedbackMs: 240,
+		bytebeatClockHz: 8000,
+		supportedModes: Object.freeze(["TRACKER", "BYTEBEAT"]),
+	});
+
+	// Stereo Feedback Echo Bus (SPC700 Emulation - 240ms feedback loop)
 	/** @type {DelayNode|null} */
 	let delayNode = null;
 	/** @type {GainNode|null} */
@@ -96,25 +115,55 @@ const EmberlightSoundtrack = (() => {
 	/** @type {Record<string, MoodConfig>} */
 	const MOOD_CONFIG = {
 		SURFACE: {
+			title: "Horizon of Embers",
 			bpm: 98,
+			scale: "A Dorian",
 			rootFreq: 110.0,
 			filterCutoff: 650,
 			bassType: "triangle",
+			description: "Windswept nomadic flute leads bathed in stereo delay",
+			progression: "Am7 -> Fmaj7 -> Cmaj7 -> Em7/D",
 		},
-		TOWN: { bpm: 86, rootFreq: 130.8, filterCutoff: 900, bassType: "triangle" },
+		TOWN: {
+			title: "Oakhaven Hearth",
+			bpm: 86,
+			scale: "C Lydian",
+			rootFreq: 130.8,
+			filterCutoff: 900,
+			bassType: "triangle",
+			description: "Warm acoustic lute and harp fingerpicking dancing across cobblestones and magma boilers",
+			progression: "Cmaj7 -> D/C -> Fmaj7 -> G7",
+		},
 		CATACOMBS: {
+			title: "Subterranean Hollows",
 			bpm: 108,
+			scale: "D Harmonic Minor",
 			rootFreq: 73.4,
 			filterCutoff: 420,
 			bassType: "sawtooth",
+			description: "Echoing subterranean drip delay, augmented-fourth mystery, and haunting low-pass filter sweeps",
+			progression: "Dm -> Bbmaj7 -> Gm6 -> A7b9",
 		},
 		COMBAT: {
+			title: "Phrygian Blitz",
 			bpm: 138,
+			scale: "E Phrygian",
 			rootFreq: 82.4,
 			filterCutoff: 1200,
 			bassType: "sawtooth",
+			description: "Driving 16th-note galloping square basslines, searing pitch-scooped lead synths, and explosive Bar-4 cadence drum fills",
+			progression: "Em -> F/E -> Dm/E -> Bdim7",
 		},
-		BOSS: { bpm: 152, rootFreq: 73.4, filterCutoff: 1600, bassType: "square" },
+		BOSS: {
+			title: "Malakor's Requiem",
+			bpm: 152,
+			scale: "D Locrian",
+			rootFreq: 73.4,
+			filterCutoff: 1600,
+			bassType: "square",
+			description: "Heavy distorted square-wave overdrive, apocalyptic chromatic descents, and industrial polyrhythms",
+			progression: "Ddim -> Eb/D -> Cm/D -> Ab5/Bbdim",
+		},
 	};
 
 	/**
@@ -366,6 +415,25 @@ const EmberlightSoundtrack = (() => {
 	}
 
 	/**
+	 * Builds a soft-saturation transfer curve emulating vacuum-tube triode preamplifiers.
+	 * Pure DSP mathematical array generator for Subsystem C induction coil preamplification.
+	 * @param {number} [samples=256] Number of points in lookup table.
+	 * @param {number} [k=1.8] Saturation curvature parameter.
+	 * @returns {Float32Array} Transfer lookup curve bounded in [-1.0, 1.0].
+	 */
+	function buildTubeSaturationCurve(samples = 256, k = 1.8) {
+		const count = Math.max(16, Math.floor(samples));
+		const curve = new Float32Array(count);
+		for (let i = 0; i < count; i++) {
+			const x = (i * 2) / (count - 1) - 1;
+			// Soft-clipping hyperbolic/rational curve modeling vacuum-tube compression:
+			// f(x) = (1 + k) * x / (1 + k * |x|)
+			curve[i] = ((1 + k) * x) / (1 + k * Math.abs(x));
+		}
+		return curve;
+	}
+
+	/**
 	 * Ensures the WebAudio context is initialized and active.
 	 * (State-mutating audio context builder)
 	 * @returns {void}
@@ -382,7 +450,21 @@ const EmberlightSoundtrack = (() => {
 				masterGain.gain.setValueAtTime(isMuted ? 0.0 : 0.45, ctx.currentTime);
 				masterGain.connect(ctx.destination);
 
-				// Initialize Stereo Feedback Echo Bus (SPC700 Emulation)
+				// Initialize Vacuum-Tube Audio Preamplifier WaveShaper (Subsystem C)
+				if (typeof ctx.createWaveShaper === "function") {
+					try {
+						tubePreampNode = ctx.createWaveShaper();
+						tubePreampNode.curve = buildTubeSaturationCurve(256, 1.8);
+						tubePreampNode.oversample = "2x";
+						tubePreampNode.connect(masterGain);
+					} catch {
+						tubePreampNode = null;
+					}
+				}
+
+				const voiceBus = tubePreampNode || masterGain;
+
+				// Initialize Stereo Feedback Echo Bus (SPC700 Emulation - 240ms feedback loop)
 				if (typeof ctx.createDelay === "function") {
 					try {
 						delayNode = ctx.createDelay();
@@ -402,7 +484,7 @@ const EmberlightSoundtrack = (() => {
 						delayNode.connect(delayFilter);
 						delayFilter.connect(delayFeedbackGain);
 						delayFeedbackGain.connect(delayNode);
-						delayFilter.connect(masterGain);
+						delayFilter.connect(voiceBus);
 					} catch {
 						delayNode = null;
 						delayFeedbackGain = null;
@@ -485,9 +567,94 @@ const EmberlightSoundtrack = (() => {
 	//#endregion
 
 	//#region [SEC-03] Synthesis Channels (Bassline, Arpeggiator, Melody & Percussion)
+	/**
+	 * Synthesizes a twin-detuned Commodore SID-style pulse-width modulated voice.
+	 * Detunes twin oscillators (±cents) with optional pitch scoop, envelope shaping,
+	 * and vacuum-tube saturation routing.
+	 * (State-mutating audio scheduling procedure)
+	 * @param {number} freq Note frequency in Hz.
+	 * @param {number} time AudioContext schedule time.
+	 * @param {number} duration Note duration in seconds.
+	 * @param {Object} [opts] Voice synthesis options.
+	 * @param {OscillatorType} [opts.type='square'] Oscillator waveform.
+	 * @param {number} [opts.detuneCents=8] Detune spread in cents.
+	 * @param {number} [opts.cutoff=1400] Filter cutoff frequency in Hz.
+	 * @param {number} [opts.peakGain=0.22] Peak voice amplitude.
+	 * @param {number} [opts.pitchScoop] Exponential pitch scoop multiplier.
+	 * @param {number} [opts.slideFreq] Expressive slide destination frequency in Hz.
+	 * @param {boolean} [opts.sendEcho=false] Route into 240ms SPC700 delay bus.
+	 * @returns {void}
+	 */
+	function playSIDVoice(freq, time, duration, opts = {}) {
+		if (!ctx || isMuted || !masterGain) return;
+		try {
+			const osc1 = ctx.createOscillator();
+			const osc2 = ctx.createOscillator();
+			const filter = ctx.createBiquadFilter();
+			const gain = ctx.createGain();
+
+			const oscType = opts.type || "square";
+			osc1.type = oscType;
+			osc2.type = oscType;
+
+			const cents = opts.detuneCents || 8;
+			if (osc1.detune) osc1.detune.setValueAtTime(-cents, time);
+			if (osc2.detune) osc2.detune.setValueAtTime(cents, time);
+
+			if (opts.pitchScoop) {
+				osc1.frequency.setValueAtTime(freq * opts.pitchScoop, time);
+				osc1.frequency.exponentialRampToValueAtTime(freq, time + 0.025);
+				osc2.frequency.setValueAtTime(freq * opts.pitchScoop, time);
+				osc2.frequency.exponentialRampToValueAtTime(freq, time + 0.025);
+			} else {
+				osc1.frequency.setValueAtTime(freq, time);
+				osc2.frequency.setValueAtTime(freq, time);
+			}
+
+			if (opts.slideFreq) {
+				osc1.frequency.setValueAtTime(freq, time + duration * 0.3);
+				osc1.frequency.linearRampToValueAtTime(opts.slideFreq, time + duration * 0.85);
+				osc2.frequency.setValueAtTime(freq, time + duration * 0.3);
+				osc2.frequency.linearRampToValueAtTime(opts.slideFreq, time + duration * 0.85);
+			}
+
+			const cutoff = opts.cutoff || 1400;
+			filter.type = "lowpass";
+			filter.frequency.setValueAtTime(cutoff, time);
+			filter.frequency.exponentialRampToValueAtTime(
+				Math.max(40, cutoff * 0.4),
+				time + duration,
+			);
+
+			const peak = opts.peakGain || 0.22;
+			gain.gain.setValueAtTime(0.001, time);
+			gain.gain.linearRampToValueAtTime(peak, time + 0.015);
+			gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+
+			osc1.connect(filter);
+			osc2.connect(filter);
+			filter.connect(gain);
+
+			const voiceBus = tubePreampNode || masterGain;
+			gain.connect(voiceBus);
+
+			if (opts.sendEcho && delaySendGain) {
+				gain.connect(delaySendGain);
+			}
+
+			osc1.start(time);
+			osc2.start(time);
+			osc1.stop(time + duration);
+			osc2.stop(time + duration);
+		} catch {
+			// Ignore scheduling errors on inactive Web Audio nodes
+		}
+	}
+
 	// --- SYNTHESIS CHANNEL 1: BASSLINE ---
 	/**
 	 * Plays a synthesized bass note.
+	 * Employs twin-detuned Commodore SID PWM in combat/boss profiles, or filtered waves in ambient profiles.
 	 * (State-mutating audio scheduling procedure)
 	 * @param {number} freq Note frequency in Hz.
 	 * @param {number} time AudioContext schedule time.
@@ -498,6 +665,24 @@ const EmberlightSoundtrack = (() => {
 	 */
 	function playBassNote(freq, time, duration, type, cutoff) {
 		if (!ctx || isMuted || !masterGain) return;
+		if (currentMood === "COMBAT") {
+			playSIDVoice(freq, time, duration, {
+				type: "square",
+				detuneCents: 9,
+				cutoff,
+				peakGain: 0.28,
+			});
+			return;
+		}
+		if (currentMood === "BOSS") {
+			playSIDVoice(freq, time, duration, {
+				type: "square",
+				detuneCents: 12,
+				cutoff: cutoff * 1.25,
+				peakGain: 0.32,
+			});
+			return;
+		}
 		try {
 			const osc = ctx.createOscillator();
 			const filter = ctx.createBiquadFilter();
@@ -518,7 +703,8 @@ const EmberlightSoundtrack = (() => {
 
 			osc.connect(filter);
 			filter.connect(gain);
-			gain.connect(masterGain);
+			const voiceBus = tubePreampNode || masterGain;
+			gain.connect(voiceBus);
 
 			osc.start(time);
 			osc.stop(time + duration);
@@ -529,7 +715,7 @@ const EmberlightSoundtrack = (() => {
 
 	// --- SYNTHESIS CHANNEL 2: 16TH-NOTE ARPEGGIATOR ---
 	/**
-	 * Plays an arpeggiated sequencer note.
+	 * Plays an arpeggiated sequencer note routed through the vacuum-tube preamplifier.
 	 * (State-mutating audio scheduling procedure)
 	 * @param {number} freq Note frequency in Hz.
 	 * @param {number} time AudioContext schedule time.
@@ -553,9 +739,10 @@ const EmberlightSoundtrack = (() => {
 			gain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
 
 			osc.connect(gain);
-			gain.connect(masterGain);
+			const voiceBus = tubePreampNode || masterGain;
+			gain.connect(voiceBus);
 
-			// Send gentle arpeggios to delay bus in TOWN and SURFACE
+			// Send gentle arpeggios to delay bus in TOWN and SURFACE (240ms SPC700 feedback loop)
 			if (delaySendGain && (currentMood === "TOWN" || currentMood === "SURFACE")) {
 				gain.connect(delaySendGain);
 			}
@@ -569,7 +756,7 @@ const EmberlightSoundtrack = (() => {
 
 	// --- SYNTHESIS CHANNEL 3: MELODY / MOTIF ---
 	/**
-	 * Plays a lead melody note with optional expressive pitch slide.
+	 * Plays a lead melody note with optional expressive pitch slide and twin-detuned SID PWM.
 	 * (State-mutating audio scheduling procedure)
 	 * @param {number} freq Note frequency in Hz.
 	 * @param {number} time AudioContext schedule time.
@@ -579,23 +766,38 @@ const EmberlightSoundtrack = (() => {
 	 */
 	function playLeadNote(freq, time, duration, slideFreq) {
 		if (!ctx || isMuted || !masterGain) return;
+		if (currentMood === "COMBAT") {
+			playSIDVoice(freq, time, duration, {
+				type: "square",
+				detuneCents: 8,
+				pitchScoop: 0.94,
+				slideFreq,
+				cutoff: 2400,
+				peakGain: 0.22,
+				sendEcho: true,
+			});
+			return;
+		}
+		if (currentMood === "BOSS") {
+			playSIDVoice(freq, time, duration, {
+				type: "sawtooth",
+				detuneCents: 11,
+				slideFreq,
+				cutoff: 3200,
+				peakGain: 0.24,
+				sendEcho: true,
+			});
+			return;
+		}
 		try {
 			const osc = ctx.createOscillator();
 			const gain = ctx.createGain();
 
-			if (currentMood === "COMBAT") {
-				// Fast aggressive square wave with pitch scoop
-				osc.type = "square";
-				osc.frequency.setValueAtTime(freq * 0.94, time);
-				osc.frequency.exponentialRampToValueAtTime(freq, time + 0.025);
-			} else if (currentMood === "BOSS") {
-				osc.type = "sawtooth";
-				osc.frequency.setValueAtTime(freq, time);
-			} else if (currentMood === "TOWN") {
+			if (currentMood === "TOWN") {
 				osc.type = "triangle";
 				osc.frequency.setValueAtTime(freq, time);
 			} else {
-				// SURFACE & CATACOMBS: Ethereal flute with vibrato
+				// SURFACE & CATACOMBS: Ethereal flute or hollow reverberation with vibrato
 				osc.type = "sine";
 				osc.frequency.setValueAtTime(freq, time);
 				if (duration > 0.15) {
@@ -612,15 +814,16 @@ const EmberlightSoundtrack = (() => {
 			}
 
 			gain.gain.setValueAtTime(0.001, time);
-			const attackTime = currentMood === "COMBAT" ? 0.015 : 0.03;
-			const peakVol = currentMood === "COMBAT" ? 0.22 : 0.18;
+			const attackTime = 0.03;
+			const peakVol = 0.18;
 			gain.gain.linearRampToValueAtTime(peakVol, time + attackTime);
 			gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
 
 			osc.connect(gain);
-			gain.connect(masterGain);
+			const voiceBus = tubePreampNode || masterGain;
+			gain.connect(voiceBus);
 
-			// Send to SPC700 Delay Echo bus for spatial depth
+			// Send to SPC700 Delay Echo bus (240ms feedback loop) for spatial depth
 			if (delaySendGain && (currentMood === "SURFACE" || currentMood === "TOWN" || currentMood === "CATACOMBS")) {
 				gain.connect(delaySendGain);
 			}
@@ -634,7 +837,7 @@ const EmberlightSoundtrack = (() => {
 
 	// --- SYNTHESIS CHANNEL 4: CHIPTUNE PERCUSSION ---
 	/**
-	 * Plays a chiptune percussion sound (kick, snare, hi-hat).
+	 * Plays a chiptune percussion sound (kick, snare, hi-hat) through the vacuum-tube preamplifier.
 	 * (State-mutating audio scheduling procedure)
 	 * @param {string} type Percussion type ('KICK' | 'SNARE' | 'HAT').
 	 * @param {number} time AudioContext schedule time.
@@ -642,6 +845,7 @@ const EmberlightSoundtrack = (() => {
 	 */
 	function playPercussion(type, time) {
 		if (!ctx || !noiseBuffer || isMuted || !masterGain) return;
+		const voiceBus = tubePreampNode || masterGain;
 		try {
 			if (type === "KICK") {
 				const osc = ctx.createOscillator();
@@ -654,7 +858,7 @@ const EmberlightSoundtrack = (() => {
 				gain.gain.exponentialRampToValueAtTime(0.001, time + 0.09);
 
 				osc.connect(gain);
-				gain.connect(masterGain);
+				gain.connect(voiceBus);
 				osc.start(time);
 				osc.stop(time + 0.09);
 			} else if (type === "SNARE" || type === "HAT") {
@@ -674,7 +878,7 @@ const EmberlightSoundtrack = (() => {
 
 				node.connect(filter);
 				filter.connect(gain);
-				gain.connect(masterGain);
+				gain.connect(voiceBus);
 
 				node.start(time);
 				node.stop(time + dur);
@@ -980,6 +1184,7 @@ const EmberlightSoundtrack = (() => {
 
 	/**
 	 * Activates continuous loop streaming for the active bytebeat formula.
+	 * Routes through the vacuum-tube preamplifier to impart warm analog resonance.
 	 * (State-mutating Web Audio routine)
 	 * @returns {void}
 	 */
@@ -992,7 +1197,8 @@ const EmberlightSoundtrack = (() => {
 				const src = ctx.createBufferSource();
 				src.buffer = buf;
 				src.loop = true;
-				src.connect(masterGain);
+				const voiceBus = tubePreampNode || masterGain;
+				src.connect(voiceBus);
 				src.start(0);
 				bytebeatSource = src;
 			}
@@ -1097,11 +1303,21 @@ const EmberlightSoundtrack = (() => {
 					eventBus.subscribe("combat:resolved", () => {
 						this.setMood(lastAmbientMood || "SURFACE");
 					}),
+					eventBus.subscribe("soundtrack:toggle_mode", () => {
+						this.togglePlaybackMode();
+					}),
+					eventBus.subscribe("soundtrack:set_mode", (evt = {}) => {
+						if (evt?.mode) {
+							this.setPlaybackMode(evt.mode);
+						}
+					}),
 					eventBus.subscribe("system:command", (evt = {}) => {
 						if (evt?.command === "TOGGLE_MUTE") {
 							this.toggleMute();
 						} else if (evt?.command === "SET_PLAYBACK_MODE" && evt?.value) {
 							this.setPlaybackMode(evt.value);
+						} else if (evt?.command === "TOGGLE_PLAYBACK_MODE") {
+							this.togglePlaybackMode();
 						}
 					}),
 				);
@@ -1126,6 +1342,7 @@ const EmberlightSoundtrack = (() => {
 
 		/**
 		 * Sets the soundtrack playback engine mode ('TRACKER' or 'BYTEBEAT').
+		 * Switches seamlessly between 64-step FM tracker synthesis and raw Precursor Bytebeat equations.
 		 * (State-mutating action gateway)
 		 * @param {'TRACKER' | 'BYTEBEAT'} mode
 		 * @returns {'TRACKER' | 'BYTEBEAT'}
@@ -1143,8 +1360,19 @@ const EmberlightSoundtrack = (() => {
 						nextStepTime = ctx.currentTime + 0.05;
 					}
 				}
+				eventBus?.publish?.("soundtrack:mode_changed", { playbackMode });
 			}
 			return playbackMode;
+		},
+
+		/**
+		 * Toggles the playback engine mode between TRACKER and BYTEBEAT.
+		 * (State-mutating action gateway)
+		 * @returns {'TRACKER' | 'BYTEBEAT'}
+		 */
+		togglePlaybackMode() {
+			const next = playbackMode === "TRACKER" ? "BYTEBEAT" : "TRACKER";
+			return this.setPlaybackMode(next);
 		},
 
 		/**
@@ -1153,6 +1381,48 @@ const EmberlightSoundtrack = (() => {
 		 */
 		getPlaybackMode() {
 			return playbackMode;
+		},
+
+		/**
+		 * Exposes canonical Subsystem C Ley-Flux Resonator metadata.
+		 * (Pure metadata inspector)
+		 * @returns {typeof RESONATOR_METADATA}
+		 */
+		getSubsystemInfo() {
+			return RESONATOR_METADATA;
+		},
+
+		/**
+		 * Exposes canonical 64-step harmonic mood profile configurations.
+		 * (Pure metadata inspector)
+		 * @returns {typeof MOOD_CONFIG}
+		 */
+		getMoodProfiles() {
+			return MOOD_CONFIG;
+		},
+
+		/**
+		 * Exposes the vacuum-tube preamplifier transfer curve generator.
+		 * (Pure DSP utility)
+		 * @param {number} [samples=256]
+		 * @param {number} [k=1.8]
+		 * @returns {Float32Array}
+		 */
+		buildTubeSaturationCurve(samples = 256, k = 1.8) {
+			return buildTubeSaturationCurve(samples, k);
+		},
+
+		/**
+		 * Synthesizes a twin-detuned Commodore SID-style pulse-width modulated voice.
+		 * (State-mutating audio scheduling procedure)
+		 * @param {number} freq
+		 * @param {number} time
+		 * @param {number} duration
+		 * @param {Object} [opts]
+		 * @returns {void}
+		 */
+		playSIDVoice(freq, time, duration, opts = {}) {
+			return playSIDVoice(freq, time, duration, opts);
 		},
 
 		/**
@@ -1264,12 +1534,18 @@ const EmberlightSoundtrack = (() => {
 		getDiagnostics() {
 			return {
 				driverId: "synth_soundtrack_driver",
+				subsystemId: "SUBSYSTEM_C",
+				subsystemName: "The Subterranean Ley-Flux Acoustic Resonator",
 				playbackMode,
 				activeMood: currentMood,
+				activeMoodTitle: MOOD_CONFIG[currentMood]?.title || currentMood,
+				activeScale: MOOD_CONFIG[currentMood]?.scale || "A Dorian",
 				currentBPM,
 				currentStep,
 				currentBar: Math.floor(currentStep / 16) % 4,
 				isMuted,
+				delayFeedbackMs: 240,
+				vacuumTubePreampActive: Boolean(tubePreampNode),
 				contextState: ctx ? ctx.state : "uninitialized",
 			};
 		},
@@ -1304,6 +1580,15 @@ const EmberlightSoundtrack = (() => {
 				delayFeedbackGain = null;
 				delayFilter = null;
 				delaySendGain = null;
+			}
+
+			if (tubePreampNode) {
+				try {
+					tubePreampNode.disconnect();
+				} catch {
+					// Ignore node disconnect errors
+				}
+				tubePreampNode = null;
 			}
 
 			if (ctx) {

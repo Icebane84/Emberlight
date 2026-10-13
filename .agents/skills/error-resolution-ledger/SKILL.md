@@ -3,7 +3,7 @@ name: error-resolution-ledger
 description: Governs the Error Resolution Ledger (ERL-001) catalog of canonical diagnostic fingerprints, pre-commit lint filters, and verified deterministic self-repair patterns across Emberlight and Phoenix engines.
 globs: "**/*.js, **/*.html, **/*.ts, testing/**/*.js, phoenix/**/*.js"
 alwaysApply: false
-version: 2.3.0-PRO
+version: 2.4.0-PRO
 ---
 
 # AGENT OPERATIONAL SPECIFICATION: Error Resolution Ledger (ERL-001)
@@ -1032,6 +1032,29 @@ Before presenting or applying any code changes, all AI agents must enforce these
 
 ---
 
+### [ERL-37] `LINT/ARRAY_AT_PREFERENCE` — Relative Indexing via Array.prototype.at(-index)
+
+- **Trigger:** SonarLint rule `javascript:S7755` ("Prefer `.at(…)` over `[….length - index]`").
+- **Hazard:** Using `arr[arr.length - index]` is verbose, syntactically repetitive, and introduces human indexing errors when evaluating array tail elements or chained array expressions.
+- **Rule:** Modern ECMAScript (ES2022+) provides `Array.prototype.at(-index)` for relative indexing from the end. When accessing the last element, prefer `arr.at(-1)`. Pair with optional chaining (`curr.type === prev?.type`) or explicit non-null guards.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION:
+  const prev = out[ out.length - 1 ];
+  if (curr.type === prev.type) {
+      prev.text += curr.text;
+  }
+
+  // ✅ CANONICAL REPAIR:
+  const prev = out.at(-1);
+  if (curr.type === prev?.type) {
+      prev.text += curr.text;
+  }
+  ```
+
+---
+
 ### [ERL-38] `TS/GENERIC_TOKEN_NARROWING` — Generic Token Transformation Preservation
 
 - **Trigger:** TypeScript error `TS2322` ("Type '...' is not assignable to type '...'") when passing arrays with narrow union tags (`'add' | 'eq'`) through utility aggregators.
@@ -1287,6 +1310,111 @@ Before presenting or applying any code changes, all AI agents must enforce these
   // ✅ CANONICAL REPAIR:
   for (const element of node) {
       SynarcheParser._walkAST(element, visitor);
+  }
+  ```
+
+---
+
+### [ERL-51] `COMBAT/ACTION_DEBOUNCE_PHASE_LOCK` — Asynchronous Turn Cascades via Action Input Flooding
+
+- **Trigger:** Rapid un-debounced player input clicks during resolution turn delays (400–600ms), triggering duplicate action dispatches, stacked damage, overlapping `stepTurn` scheduler callbacks, and main thread freezing.
+- **Hazard:** Corrupts the CTB timeline, triggers cascading `renderPresentation()` DOM repaints, breaks round progression, and creates severe input bottlenecks.
+- **Rule:** Authoritative simulation kernels must immediately transition to `sim.phase = "RESOLVING_ACTION"` on the first input, drop subsequent commands in `handleViewAction` during non-input phases, deduplicate pending `scheduledTasks` callbacks, and lock UI command levers (`pointer-events: none; opacity: 0.5`).
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION (Unprotected rapid click executions stack turn timers):
+  function playerExecuteAttack(sim, targetIdx, helpers) {
+      // Missing phase lock
+      actualTarget.hp -= dmg;
+      helpers.schedule(helpers.stepTurn, 600); // Multiple timeouts cascade!
+  }
+
+  // ✅ CANONICAL REPAIR (Authoritative Phase Lock + Deduplication):
+  function playerExecuteAttack(sim, targetIdx, helpers) {
+      if (sim.phase === "RESOLVING_ACTION" || sim.phase === "ENEMY_ACTION") return;
+      sim.phase = "RESOLVING_ACTION";
+      actualTarget.hp -= dmg;
+      helpers.schedule(helpers.stepTurn, 600);
+  }
+  // In schedule():
+  const existingIdx = scheduledTasks.findIndex((t) => t.fn === fn);
+  if (existingIdx !== -1) scheduledTasks.splice(existingIdx, 1);
+  scheduledTasks.push({ fn, remainingMs: delayMs });
+  ```
+
+---
+
+### [ERL-52] `TYPE/DISPATCH_ACTION_TYPE_PARITY` — Action Descriptor Union Properties under JSDoc checkJs
+
+- **Trigger:** Accessing `.actionType` or dual-dispatch alias properties on typed action tokens (`actObj.type || actObj.actionType`) emitting TypeScript warning `Property 'actionType' does not exist on type 'CombatActionToken'`.
+- **Hazard:** Breaks static type analysis under `"checkJs": true` and obscures action contract interfaces between EventBus payloads and local dispatchers.
+- **Rule:** Declare all recognized alias tokens explicitly as optional properties on the `@typedef {Object} ActionDescriptor` / `CombatActionToken` contract.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION:
+  /**
+   * @typedef {Object} CombatActionToken
+   * @property {string} type
+   */
+  const actType = act.type || act.actionType; // Error: actionType does not exist!
+
+  // ✅ CANONICAL REPAIR:
+  /**
+   * @typedef {Object} CombatActionToken
+   * @property {string} type
+   * @property {string} [actionType] Action token type alias.
+   */
+  const actType = act.type || act.actionType;
+  ```
+
+---
+
+### [ERL-53] `A11Y/CSS_MAGITEK_CONTRAST_RATIO` — Preserving Diegetic Dark Themes with WCAG AA Contrast
+
+- **Trigger:** IDE CSS linter warnings `Text does not meet the minimal contrast requirement with its background` on retro terminal badges, muted HUD footnotes, or semi-transparent button overlays.
+- **Hazard:** Low readability for human users in ambient light; failure of automated accessibility audits; ungrounded transparency evaluated against white default fallbacks.
+- **Rule:** Avoid pairing low-alpha tint backgrounds (`rgba(..., 0.12)`) directly with pale text without an opaque dark base. Use calibrated opaque dark undertones (`#1f1b0d`, `#261309`, `#0c1a24`, `#0a2438`) and elevated text luminance (`#94a3b8`, `#fef08a`) to achieve $\ge 4.5:1$ contrast while strictly preserving the retro magitek aesthetic.
+- **Remediation Pattern:**
+
+  ```css
+  /* ❌ VIOLATION (Transparent tint on pale text fails contrast check): */
+  .badge { color: #fef08a; background: rgba(246, 224, 94, 0.12); }
+  .hud-btn:hover { color: #fff; background: rgba(56, 189, 248, 0.18); }
+
+  /* ✅ CANONICAL REPAIR (Opaque dark tinted base ensures WCAG AA compliance): */
+  .badge { color: #fef08a; background: #1f1b0d; border: 1px solid rgba(246, 224, 94, 0.45); }
+  .hud-btn:hover { color: #fff; background: #0a2438; }
+  ```
+
+---
+
+### [ERL-54] `PERIPHERAL/COMPOSITOR_SUBSYSTEM_ATTENUATION_BINDING` — Peripheral Subsystem Discovery & Context Attenuation
+
+- **Trigger:** Peripheral presentation drivers (e.g., `shader_compositor.js`) not initializing during boot or failing to subscribe to events because `init(bus)` receives an SDCP-001 `scopedContext` (`{ eventBus, tenantId }`) rather than a raw `EventBus` instance, and missing registration in `KNOWN_SUBSYSTEM_NAMES`.
+- **Hazard:** Peripheral shaders, acoustic resonators, or compositor overlays remain dead/silent at runtime despite being loaded in `index.html` and `load_order.js`.
+- **Rule:**
+  1. All sovereign peripheral engines must be registered in `KNOWN_SUBSYSTEM_NAMES` in `runtime/runtime_events.js`.
+  2. Subsystem `init(contextOrBus)` gateways must resolve event bus handles polymorphically via `const bus = contextOrBus?.eventBus || contextOrBus || null;`.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION:
+  // Missing in KNOWN_SUBSYSTEM_NAMES, assumes raw EventBus:
+  init(bus) {
+    eventBus = bus;
+    if (eventBus && typeof eventBus.subscribe === 'function') { ... } // Fails if scopedContext passed!
+  }
+
+  // ✅ CANONICAL REPAIR:
+  // Added to KNOWN_SUBSYSTEM_NAMES:
+  const KNOWN_SUBSYSTEM_NAMES = [ ..., "EmberlightShaderCompositor" ];
+
+  // Polymorphic context resolution:
+  init(contextOrBus) {
+    eventBus = contextOrBus?.eventBus || contextOrBus || null;
+    bindEvents(eventBus);
   }
   ```
 

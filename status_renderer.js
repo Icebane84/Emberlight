@@ -227,13 +227,14 @@ const EmberlightStatusRenderer = (() => {
 			mp: 40,
 		};
 
+		const lex = getManifest()?.Lexicon;
 		/** @type {RadarMetric[]} */
 		const metrics = [
 			{ key: "atk", label: "ATK", val: stats.atk || 10, cap: caps.atk },
 			{ key: "def", label: "DEF", val: stats.def || 5, cap: caps.def },
 			{ key: "agi", label: "AGI", val: stats.agi || 7, cap: caps.agi },
-			{ key: "hp", label: "HP", val: stats.maxHp || 30, cap: caps.hp },
-			{ key: "mp", label: "MP", val: stats.maxMp || 10, cap: caps.mp },
+			{ key: "hp", label: lex ? lex.term("stat.hp", "VIT") : "VIT", val: stats.maxHp || 30, cap: caps.hp },
+			{ key: "mp", label: lex ? lex.term("stat.mp", "AET") : "AET", val: stats.maxMp || 10, cap: caps.mp },
 		];
 
 		const numAxes = metrics.length;

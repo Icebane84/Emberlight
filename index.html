@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Emberlight — Tactical War Table (ARCH-SPEC-WAR-TABLE-001)</title>
+    <title>Emberlight — The Magitek War Table</title>
     <!-- Master Aesthetic Style Partitions (Parallel Load Pipeline) -->
     <link rel="stylesheet" href="css/01_core_cockpit.css" />
     <link rel="stylesheet" href="css/02_sensors_cartography.css" />
@@ -61,7 +61,7 @@
 
           <!-- 4-HERO VANGUARD SHOWCASE RIG -->
           <section class="title-vanguard-showcase" aria-label="Active Vanguard Roster">
-            <div class="vanguard-showcase-tag">⚔ ACTIVE VANGUARD CADRE ⚔</div>
+            <div class="vanguard-showcase-tag">⚔ ACTIVE VANGUARD CADRE &bull; GALVANIC RELAY TETHERS ⚔</div>
             <div id="title-vanguard-pedestals" class="vanguard-pedestals-row">
               <!-- Dynamically populated by Cockpit.renderTitleVanguardPedestals() -->
             </div>
@@ -223,7 +223,7 @@
               <div id="combat-stage-wrapper" class="hidden">
                 <!-- Left: Hostile Formation Wing (Front/Back Staggered) -->
                 <div class="combat-wing-container enemy-wing-container">
-                  <div class="formation-wing-header">HOSTILE FORMATION</div>
+                  <div class="formation-wing-header">HOSTILE RESONANCE</div>
                   <div id="enemy-row" class="combat-wing enemy-wing"></div>
                 </div>
 
@@ -237,7 +237,7 @@
 
                 <!-- Right: Allied Vanguard Wing (Front/Back Staggered) -->
                 <div class="combat-wing-container party-wing-container">
-                  <div class="formation-wing-header">ALLIED SQUAD</div>
+                  <div class="formation-wing-header">TETHERED VANGUARD</div>
                   <div id="party-grid" class="combat-wing party-wing"></div>
                 </div>
               </div>
@@ -349,7 +349,7 @@
                   title="Burn adjacent tall grass or mist"
                 >
                   <span class="keycap">[F]</span> 🔥 SCORCH
-                  <span class="cost">(3 MP)</span>
+                  <span class="cost">(3 AET)</span>
                 </button>
                 <button
                   type="button"
@@ -358,7 +358,7 @@
                   title="Freeze water chasms into ice bridges"
                 >
                   <span class="keycap">[G]</span> ❄️ FREEZE
-                  <span class="cost">(4 MP)</span>
+                  <span class="cost">(4 AET)</span>
                 </button>
                 <button
                   type="button"
@@ -367,7 +367,7 @@
                   title="Consecrate a sanctuary campsite"
                 >
                   <span class="keycap">[H]</span> ✨ CONSECRATE
-                  <span class="cost">(6 MP)</span>
+                  <span class="cost">(6 AET)</span>
                 </button>
                 <button
                   type="button"
@@ -376,7 +376,7 @@
                   title="Dispel noxious miasma clouds"
                 >
                   <span class="keycap">[V]</span> 💨 DISPEL
-                  <span class="cost">(3 MP)</span>
+                  <span class="cost">(3 AET)</span>
                 </button>
               </div>
             </div>
@@ -385,22 +385,22 @@
             <div id="combat-oracle-view" class="pane-content oracle-content">
               <!-- Tier 1: Interactive CTB Timeline Bar (12 Slots) -->
               <div class="oracle-tier oracle-ctb-tier">
-                <div class="oracle-tier-header">⏱️ INITIATIVE TIMELINE (CTB)</div>
+                <div class="oracle-tier-header">⏱️ RUNIC INITIATIVE RAIL</div>
                 <div id="combat-ctb-ribbon-bar" class="ctb-master-ribbon"></div>
               </div>
 
               <!-- Tier 2: Active Threat Vectors & Intent Telegraphs -->
               <div class="oracle-tier oracle-intent-tier" id="oracle-intent-tier">
-                <div class="oracle-tier-header">🎯 HOSTILE INTENT & THREAT VECTORS</div>
+                <div class="oracle-tier-header">🎯 HOSTILE INTENT // NEEDLE READOUT</div>
                 <div id="oracle-intent-feed" class="oracle-intent-feed"></div>
                 <div id="oracle-affinity-badges" class="oracle-affinity-badges"></div>
               </div>
 
               <!-- Tier 3: Live Combat Chronicle Stream (Eliminating the Void) -->
               <div class="oracle-tier oracle-chronicle-tier">
-                <div class="oracle-tier-header">📜 LIVE COMBAT CHRONICLE</div>
+                <div class="oracle-tier-header">📜 PUNCHED-SLATE COMBAT CHRONICLE</div>
                 <div id="combat-chronicle-stream" class="combat-chronicle-stream">
-                  <div class="chronicle-empty-hint">⚔️ Battle commenced. Awaiting tactical execution...</div>
+                  <div class="chronicle-empty-hint">[ENGAGEMENT // CLASH ENGAGED] Geneva gears locked. Awaiting directive...</div>
                 </div>
                 <div id="log-box" class="hidden"></div>
               </div>
@@ -768,6 +768,7 @@
     <script src="manifest/manifest_world.js"></script>
     <script src="manifest/manifest_narrative.js"></script>
     <script src="manifest/manifest_calculators.js"></script>
+    <script src="manifest/manifest_lexicon.js"></script>
     <!-- Root Manifest Facade (Seals & Exports EmberlightManifest SSOT) -->
     <script src="manifest.js"></script>
     <script src="prng.js"></script>

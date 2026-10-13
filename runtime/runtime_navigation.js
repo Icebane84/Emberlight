@@ -537,6 +537,80 @@ if (typeof window !== "undefined") {
 	}
 
 	/**
+	 * @param {boolean} inTown
+	 * @param {number} depth
+	 * @returns {string}
+	 */
+	function resolveSectorBadge(inTown, depth) {
+		if (inTown) return "SETTLEMENT";
+		if (depth > 0) return `CATACOMBS F${depth}`;
+		return "WILDERNESS";
+	}
+
+	/**
+	 * @param {boolean} isExpanded
+	 * @returns {any}
+	 */
+	function resolveSensorExpandAction(isExpanded) {
+		if (isExpanded) {
+			return {
+				id: "3D_TOGGLE_EXPAND",
+				label: "Collapse [Z]",
+				icon: "🔲",
+				title: "Collapse Viewport",
+				desc: "Collapse back to standard War Table matrix layout.",
+			};
+		}
+		return {
+			id: "3D_TOGGLE_EXPAND",
+			label: "Expand 3D",
+			icon: "🔳",
+			title: "Expand 3D Immersion",
+			desc: "Expand 3D viewport across top quadrant matrix.",
+		};
+	}
+
+	/**
+	 * @param {boolean} isMiasmaAhead
+	 * @param {string} facing
+	 * @param {string} sectorBadge
+	 * @returns {{ accent: string, glow: string, badge1: string, badge2: string }}
+	 */
+	function resolveSensorVisualTheme(isMiasmaAhead, facing, sectorBadge) {
+		if (isMiasmaAhead) {
+			return {
+				accent: "#c084fc",
+				glow: "rgba(192, 132, 252, 0.45)",
+				badge1: "HAZARD // MIASMA",
+				badge2: "DISPEL [V]",
+			};
+		}
+		return {
+			accent: "#38bdf8",
+			glow: "rgba(56, 189, 248, 0.45)",
+			badge1: `FACING ${facing}`,
+			badge2: sectorBadge,
+		};
+	}
+
+	/**
+	 * @param {any} map
+	 * @param {{ x: number, y: number }|null} pos
+	 * @returns {boolean}
+	 */
+	function isAdjacentToMiasma(map, pos) {
+		if (!map || !pos) return false;
+		const offsets = [
+			[0, 0],
+			[-1, 0],
+			[1, 0],
+			[0, -1],
+			[0, 1],
+		];
+		return offsets.some(([dy, dx]) => map[pos.y + dy]?.[pos.x + dx] === "%");
+	}
+
+	/**
 	 * Resolves sensor target metadata for 3D view.
 	 * @param {EventTarget|HTMLElement|null|any} target
 	 * @param {number} clientX
@@ -570,21 +644,34 @@ if (typeof window !== "undefined") {
 		const info = getTileSensorDescription(aheadTile, inTown, depth);
 		const northLabel = info.isAdvance ? "Advance" : "Inspect";
 		const northIcon = info.isAdvance ? "👣" : "🔍";
-		let badge2 = "WILDERNESS";
-		if (inTown) {
-			badge2 = "SETTLEMENT";
-		} else if (depth > 0) {
-			badge2 = `CATACOMBS F${depth}`;
-		}
+		const sectorBadge = resolveSectorBadge(inTown, depth);
+
+		const isMiasmaAhead = aheadTile === "%";
+		const theme = resolveSensorVisualTheme(isMiasmaAhead, facing, sectorBadge);
+		const eastAction = isMiasmaAhead
+			? {
+					id: "FIELD_DISPEL",
+					label: "Dispel [V]",
+					icon: "💨",
+					title: "Purifying Aether Dispel",
+					desc: "Disperse noxious necrotic miasma fumes ahead (5 AET).",
+				}
+			: {
+					id: "3D_DEEP_SCAN",
+					label: "Deep Scan",
+					icon: "📡",
+					title: "Acoustic / Optical Scan",
+					desc: info.desc,
+				};
 
 		return {
 			category: "3D_SENSOR",
 			title: `3D View: ${info.title}`,
 			hpPct: 100,
-			accent: "#38bdf8",
-			glow: "rgba(56, 189, 248, 0.45)",
-			badge1: `FACING ${facing}`,
-			badge2,
+			accent: theme.accent,
+			glow: theme.glow,
+			badge1: theme.badge1,
+			badge2: theme.badge2,
 			northAction: {
 				id: "3D_ADVANCE",
 				label: northLabel,
@@ -592,13 +679,7 @@ if (typeof window !== "undefined") {
 				title: `${northLabel} Forward`,
 				desc: info.isAdvance ? `Step forward into (${aheadPos.x}, ${aheadPos.y}).` : `Inspect ${info.title} ahead.`,
 			},
-			eastAction: {
-				id: "3D_DEEP_SCAN",
-				label: "Deep Scan",
-				icon: "📡",
-				title: "Acoustic / Optical Scan",
-				desc: info.desc,
-			},
+			eastAction,
 			southAction: {
 				id: "3D_ABOUT_FACE",
 				label: "Turn 180°",
@@ -606,13 +687,7 @@ if (typeof window !== "undefined") {
 				title: "Tactical Turnabout",
 				desc: "Turn around 180 degrees to face the opposite direction.",
 			},
-			westAction: {
-				id: "3D_TOGGLE_EXPAND",
-				label: is3DViewExpanded ? "Collapse [Z]" : "Expand 3D",
-				icon: is3DViewExpanded ? "🔲" : "🔳",
-				title: is3DViewExpanded ? "Collapse Viewport" : "Expand 3D Immersion",
-				desc: is3DViewExpanded ? "Collapse back to standard War Table matrix layout." : "Expand 3D viewport across top quadrant matrix.",
-			},
+			westAction: resolveSensorExpandAction(is3DViewExpanded),
 			bbox: resolveSensorBoundingBox(clientX, clientY),
 		};
 	}
@@ -630,21 +705,31 @@ if (typeof window !== "undefined") {
 		const tileInfo = EmberlightMapRenderer.resolveTileFromScreen(clientX, clientY);
 		if (!tileInfo) return null;
 
+		const RuntimePres = (typeof window !== "undefined" && window._RuntimeInternal?.Presentation) || {};
+		const getCartographyTileMeta = (/** @type {any} */ (RuntimePres)).getCartographyTileMeta;
+		if (!getCartographyTileMeta) return null;
+
 		const currentTownId = deps?.getTownId ? deps.getTownId() : null;
 		const inTown = Boolean(currentTownId);
 		const depth = deps?.getDungeonDepth ? deps.getDungeonDepth() : 0;
-		const RuntimePres = (typeof window !== "undefined" && window._RuntimeInternal?.Presentation) || {};
-		const getCartographyTileMeta = (/** @type {any} */ (RuntimePres)).getCartographyTileMeta;
+		const tileMeta = getCartographyTileMeta(tileInfo.tile, inTown, depth, tileInfo);
+		if (!tileMeta) return null;
 
-		if (getCartographyTileMeta) {
-			const tileMeta = getCartographyTileMeta(tileInfo.tile, inTown, depth, tileInfo);
-			if (tileMeta) {
-				tileMeta.tileX = tileInfo.tileX;
-				tileMeta.tileY = tileInfo.tileY;
-				return tileMeta;
-			}
+		tileMeta.tileX = tileInfo.tileX;
+		tileMeta.tileY = tileInfo.tileY;
+		const map = deps?.getActiveWorldMap ? deps.getActiveWorldMap() : null;
+		const pos = deps?.getWorldPos ? deps.getWorldPos() : null;
+		if (isAdjacentToMiasma(map, pos) && (!tileMeta.eastAction || tileMeta.eastAction.id === "INSPECT")) {
+			tileMeta.eastAction = {
+				id: "FIELD_DISPEL",
+				label: "Dispel [V]",
+				icon: "💨",
+				title: "Purifying Aether Dispel",
+				desc: "Disperse nearby noxious miasma fumes (5 AET).",
+			};
+			tileMeta.badge2 = "DISPEL [V]";
 		}
-		return null;
+		return tileMeta;
 	}
 
 	/**

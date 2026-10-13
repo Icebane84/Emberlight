@@ -15,6 +15,19 @@ if (typeof window !== 'undefined') {
 	stagedCalc = window._CombatInternal.Calc || null;
 }
 
+/**
+ * Formats a telegraph line via the manifest lexicon, falling back when absent.
+ * [Pure Query]
+ * @param {string} key - Lexicon template key.
+ * @param {Record<string, string | number>} vars - Placeholder values.
+ * @param {string} fallback - Legacy text used when the lexicon is unavailable.
+ * @returns {string} Display line.
+ */
+function lexFormat(key, vars, fallback) {
+	const lex = typeof EmberlightManifest !== 'undefined' ? EmberlightManifest?.Lexicon : null;
+	return lex ? lex.format(key, vars, fallback) : fallback;
+}
+
 /** @enum {string} */
 const State = Object.freeze({
 	UNCONFIGURED: 'UNCONFIGURED',
@@ -87,6 +100,7 @@ function hydratePartySnapshot(partySnapshot = []) {
 			phenotype: c.phenotype || 'HERO',
 			level: c.level || 1,
 			alive: isAlive,
+			shockStasis: !isAlive,
 			hp: isAlive ? Math.max(1, c.hp || 30) : 0,
 			maxHp: c.maxHp || c.hp || 30,
 			mp: c.mp !== undefined ? c.mp : c.maxMp || 10,
@@ -112,8 +126,12 @@ function checkUnitDefeat(target, appendLog) {
 	if (target.hp <= 0) {
 		target.hp = 0;
 		target.alive = false;
+		target.shockStasis = true;
+		if (target.tetherDissolutionRounds === undefined) {
+			target.tetherDissolutionRounds = 3;
+		}
 		if (appendLog) {
-			appendLog(`${target.name} collapsed!`, 'damage');
+			appendLog(lexFormat('log.defeat', { name: target.name }, `${target.name} collapsed!`), 'damage');
 		}
 		return true;
 	}
@@ -172,12 +190,13 @@ function distributeVictoryRewards(sim, manifest, appendLog, injectedCalc) {
 			sim.inventory[itemId] = (sim.inventory[itemId] || 0) + 1;
 		}
 		if (appendLog) {
-			appendLog(`Claimed relic item: ${itemId}!`, 'ember');
+			const itemLabel = manifest?.Items?.[ itemId ]?.label || itemId;
+			appendLog(lexFormat('log.spoilsItem', { item: itemLabel }, `Claimed relic item: ${itemId}!`), 'ember');
 		}
 	});
 
 	if (appendLog) {
-		appendLog(`Acquired ${totGold} gold and ${totExp} EXP.`, 'ember');
+		appendLog(lexFormat('log.spoils', { gold: totGold, exp: totExp }, `Acquired ${totGold} gold and ${totExp} EXP.`), 'ember');
 	}
 }
 

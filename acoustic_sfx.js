@@ -1098,6 +1098,124 @@ const EmberlightAcousticSFX = (() => {
 			scheduleSpatialTone(340, "square", t + 0.02, 0.12, pan, 0.14);
 			scheduleFMTone(1100, 550, 3.0, t, 0.18, pan, 0.16);
 		},
+
+		/**
+		 * Geneva gear tick: sharp mechanical escapement micro-click.
+		 * @param {number} [pan=0.0]
+		 */
+		GEAR_TICK(pan = 0.0) {
+			ensureContext();
+			if (!ctx || isMuted) return;
+			const t = ctx.currentTime;
+			scheduleSpatialTone(1800, "square", t, 0.015, pan, 0.08);
+			scheduleNoiseBurst(0.02, "highpass", 3500, 7000, 2.5, pan, 0.06);
+		},
+
+		/**
+		 * Clockwork Geneva mechanism carriage advance: dual mechanical ratcheting click.
+		 * @param {number} [pan=0.0]
+		 */
+		RATCHET_CLICK(pan = 0.0) {
+			ensureContext();
+			if (!ctx || isMuted) return;
+			const t = ctx.currentTime;
+			// First escapement tooth click
+			scheduleSpatialTone(1800, "square", t, 0.018, pan - 0.05, 0.12);
+			scheduleNoiseBurst(0.025, "highpass", 3200, 6500, 2.8, pan - 0.05, 0.08);
+			// Second ratcheting tooth click (35ms delay)
+			scheduleSpatialTone(2400, "square", t + 0.035, 0.022, pan + 0.05, 0.14);
+			scheduleNoiseBurst(0.03, "highpass", 4000, 7500, 3.2, pan + 0.05, 0.09);
+		},
+
+		/**
+		 * Weighted iron detent lever: heavy mechanical latch and spring clunk.
+		 * @param {number} [pan=0.0]
+		 */
+		LEVER_PULL(pan = 0.0) {
+			ensureContext();
+			if (!ctx || isMuted) return;
+			const t = ctx.currentTime;
+			scheduleFMTone(180, 90, 2.8, t, 0.12, pan, 0.18);
+			scheduleNoiseBurst(0.06, "bandpass", 1200, 400, 2.2, pan, 0.12);
+			scheduleSpatialTone(90, "triangle", t + 0.04, 0.14, pan, 0.22);
+		},
+
+		/**
+		 * Pneumatic vent: pressurized steam purge exhale.
+		 * @param {number} [pan=0.0]
+		 */
+		PNEUMATIC_VENT(pan = 0.0) {
+			ensureContext();
+			if (!ctx || isMuted) return;
+			scheduleNoiseBurst(0.18, "bandpass", 1800, 600, 2.0, pan, 0.16);
+		},
+
+		/**
+		 * Hydraulic hammer in Q4 fluid lines (Aldric - Path of Iron):
+		 * Deep low-pass fluid compression shockwave with metallic pipe shudder.
+		 * @param {number} [pan=0.0]
+		 */
+		HYDRAULIC_HAMMER(pan = 0.0) {
+			ensureContext();
+			if (!ctx || isMuted) return;
+			const t = ctx.currentTime;
+			scheduleSpatialTone(65, "triangle", t, 0.22, pan - 0.08, 0.28);
+			scheduleSpatialTone(110, "sine", t + 0.03, 0.18, pan, 0.16);
+			scheduleNoiseBurst(0.08, "lowpass", 280, 80, 2.5, pan, 0.14);
+		},
+
+		/**
+		 * Thermal kinetic vent & greatsword heat hiss (Brogan - Path of Ember):
+		 * Steam-vented bracers and volatile amber thermal buildup.
+		 * @param {number} [pan=0.0]
+		 */
+		THERMAL_VENT(pan = 0.0) {
+			ensureContext();
+			if (!ctx || isMuted) return;
+			const t = ctx.currentTime;
+			scheduleNoiseBurst(0.24, "bandpass", 1600, 320, 2.8, pan + 0.06, 0.18);
+			scheduleSpatialTone(140, "sawtooth", t, 0.15, pan, 0.12);
+		},
+
+		/**
+		 * Vacuum-tube preamplifier whistle (Selene - Path of Tide):
+		 * High-pitched analog RF resonance and lapis quartz glass harmonic.
+		 * @param {number} [pan=0.0]
+		 */
+		VACUUM_WHISTLE(pan = 0.0) {
+			ensureContext();
+			if (!ctx || isMuted) return;
+			const t = ctx.currentTime;
+			scheduleSpatialTone(6800, "sine", t, 0.35, pan - 0.05, 0.07);
+			scheduleSpatialTone(7200, "sine", t, 0.32, pan + 0.05, 0.05);
+			scheduleSpatialTone(2400, "sine", t + 0.02, 0.28, pan, 0.08);
+		},
+
+		/**
+		 * Resonant brass tuning fork: pure dual harmonic ring.
+		 * @param {number} [pan=0.0]
+		 */
+		TUNING_FORK(pan = 0.0) {
+			ensureContext();
+			if (!ctx || isMuted) return;
+			const t = ctx.currentTime;
+			scheduleSpatialTone(440, "sine", t, 0.5, pan - 0.1, 0.14);
+			scheduleSpatialTone(880, "sine", t, 0.4, pan + 0.1, 0.1);
+			scheduleSpatialTone(1320, "sine", t, 0.25, pan, 0.05);
+		},
+
+		/**
+		 * Resonance Collapse: electrical back-EMF discharge and glass shudder.
+		 * @param {number} [pan=0.0]
+		 */
+		RESONANCE_COLLAPSE(pan = 0.0) {
+			ensureContext();
+			if (!ctx || isMuted) return;
+			const t = ctx.currentTime;
+			scheduleSpatialTone(75, "triangle", t, 0.32, pan, 0.3);
+			scheduleNoiseBurst(0.28, "highpass", 2800, 1200, 3.5, pan, 0.24);
+			scheduleFMTone(960, 480, 3.2, t + 0.02, 0.38, pan, 0.2);
+		},
 	};
 	//#endregion
 
@@ -1164,6 +1282,24 @@ const EmberlightAcousticSFX = (() => {
 		GOLD: "COIN_LOOT",
 		DOOR: "DOOR_OPEN",
 		SHIELD_PARRY: "SHIELD_DEFLECT",
+		LEVER: "LEVER_PULL",
+		LEVER_PULL: "LEVER_PULL",
+		TICK: "GEAR_TICK",
+		GEAR_TICK: "GEAR_TICK",
+		PNEUMATIC: "PNEUMATIC_VENT",
+		PNEUMATIC_VENT: "PNEUMATIC_VENT",
+		STEAM: "PNEUMATIC_VENT",
+		TUNING_FORK: "TUNING_FORK",
+		CHIME: "TUNING_FORK",
+		HYDRAULIC_HAMMER: "HYDRAULIC_HAMMER",
+		THERMAL_VENT: "THERMAL_VENT",
+		VACUUM_WHISTLE: "VACUUM_WHISTLE",
+		RESONANCE: "RESONANCE_COLLAPSE",
+		RESONANCE_COLLAPSE: "RESONANCE_COLLAPSE",
+		FRACTURE: "RESONANCE_COLLAPSE",
+		RATCHET_CLICK: "RATCHET_CLICK",
+		GENEVA_ADVANCE: "RATCHET_CLICK",
+		CHRONICLE_INDEX: "RATCHET_CLICK",
 	});
 
 	/** @type {Array<() => void>} */
@@ -1225,6 +1361,7 @@ const EmberlightAcousticSFX = (() => {
 					bus.subscribe("armory:sfx", handleGenericSfx),
 					bus.subscribe("relic_forge:sfx", handleGenericSfx),
 					bus.subscribe("lockpick:sfx", handleGenericSfx),
+					bus.subscribe("chronicle:sfx", handleGenericSfx),
 					bus.subscribe(
 						"combat:sfx",
 						(/** @type {CombatSfxPayload} */ evt = {}) => {

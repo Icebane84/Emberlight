@@ -234,13 +234,23 @@ if (typeof window !== "undefined") {
 	 */
 	function dispatchRestTriggers(res, deps) {
 		if (res.type === "CAMP_REST" || res.type === "INN_REST") {
-			const rested = (deps.getParty ? deps.getParty() : []).map((/** @type {any} */ c) => ({
-				...c,
-				alive: true,
-				hp: c.maxHp || c.hp,
-				mp: c.maxMp || c.mp,
-				ailments: [],
-			}));
+			const isInn = res.type === "INN_REST";
+			const rested = (deps.getParty ? deps.getParty() : []).map((/** @type {any} */ c) => {
+				// Sortie Incapacitation: cannot be revived at camp if galvanic tether dissolved
+				if (!isInn && c.tetherDissolved) {
+					return c;
+				}
+				return {
+					...c,
+					alive: true,
+					hp: c.maxHp || c.hp,
+					mp: c.maxMp || c.mp,
+					ailments: [],
+					shockStasis: false,
+					tetherDissolved: false,
+					tetherDissolutionRounds: 3,
+				};
+			});
 			deps.setParty?.(rested);
 			if (res.type === "INN_REST") deps.commitSession?.("InnRestAutosave");
 			if (res.message) deps.notifyStatus?.(res.message, "success");
@@ -290,7 +300,7 @@ if (typeof window !== "undefined") {
 			return { ...c, hp: Math.max(1, c.hp - dmg) };
 		});
 		deps.setParty?.(party);
-		deps.notifyStatus?.("The squad suffered miasma corruption (-HP)!", "warning");
+		deps.notifyStatus?.("The squad suffered miasma corruption (-HP)! Press [V] or Right-Click Radial to DISPEL (5 AET).", "warning");
 		deps.publishSfx?.("sfx_damage");
 	}
 
@@ -418,6 +428,7 @@ if (typeof window !== "undefined") {
 		getFacingInteractablePrompt,
 		executeCapability,
 		dispatchTileTriggerResult,
+		dispatchRestTriggers,
 		evaluateTileTrigger,
 	};
 

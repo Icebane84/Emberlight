@@ -114,7 +114,16 @@ function createMockElement(id = '', tag = 'div') {
       removeProperty: () => {},
       getPropertyValue: () => '',
     },
-    innerHTML: '',
+    _innerHTML: '',
+    get innerHTML() {
+      return this._innerHTML;
+    },
+    set innerHTML(val) {
+      this._innerHTML = String(val);
+      if (val === '') {
+        this.children = [];
+      }
+    },
     textContent: '',
     /** @type {any[]} */
     children: [],
@@ -258,9 +267,17 @@ function createMockDom(overrides = {}) {
   docElement.outerHTML = '<html></html>';
 
   /** @type {Record<string, any>} */
+  const elementsById = {};
+
+  /** @type {Record<string, any>} */
   const mockDom = {
     document: {
-      getElementById: (/** @type {string} */ id) => createMockElement(id),
+      getElementById: (/** @type {string} */ id) => {
+        if (!elementsById[id]) {
+          elementsById[id] = createMockElement(id);
+        }
+        return elementsById[id];
+      },
       createElement: (/** @type {string} */ tag) => createMockElement('', tag),
       querySelector: () => createMockElement(),
       querySelectorAll: () => [createMockElement()],

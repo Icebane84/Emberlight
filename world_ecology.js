@@ -380,20 +380,25 @@ const EmberlightWorldEcology = (() => {
 	 */
 	function evaluateForageTrigger(tile, targetPos, prng) {
 		if (tile !== '*' || !targetPos) return null;
+		const manifestItems = typeof EmberlightManifest !== 'undefined' ? EmberlightManifest?.Items : null;
 		const pool = [
-			{ item: 'POTION', name: 'Healing Potion', gold: 15 },
-			{ item: 'ETHER', name: 'Celestial Ether', gold: 20 },
-			{ item: 'PHOENIX_EMBER', name: 'Phoenix Ash', gold: 30 },
-			{ item: 'SWIFT_RING', name: 'Resonant Crystal', gold: 25 },
+			{ item: 'POTION', name: manifestItems?.POTION?.label || 'Distilled Vitality Quicksilver', gold: 15 },
+			{ item: 'ETHER', name: manifestItems?.ETHER?.label || 'Lapis Aether Drop', gold: 20 },
+			{ item: 'PHOENIX_EMBER', name: manifestItems?.PHOENIX_EMBER?.label || 'Hearth-Spire Phoenix Ember', gold: 30 },
+			{ item: 'SWIFT_RING', name: manifestItems?.SWIFT_RING?.label || 'Galvanic Capacitor Ring', gold: 25 },
 		];
 		const idx = prng ? prng.nextInt(0, pool.length - 1) : 0;
 		const reward = pool[idx];
+		const lex = typeof EmberlightManifest !== 'undefined' ? EmberlightManifest?.Lexicon : null;
+		const message = lex
+			? lex.format('log.forage', { item: reward.name, gold: reward.gold }, `✨ Foraged ${reward.name} and found ${reward.gold}G!`)
+			: `✨ Foraged ${reward.name} and found ${reward.gold}G!`;
 		return {
 			type: 'FORAGE_RESOURCE',
 			targetPos: { ...targetPos },
 			rewardItem: reward.item,
 			bonusGold: reward.gold,
-			message: `✨ Foraged ${reward.name} and found ${reward.gold}G!`,
+			message,
 		};
 	}
 
@@ -805,7 +810,7 @@ const EmberlightWorldEcology = (() => {
 			} else if (token === 'cap:elemental.freeze') {
 				costSpec = { type: 'MP', amount: 4, entityId: mage?.id };
 			} else if (token === 'cap:elemental.gale_dispel') {
-				costSpec = { type: 'MP', amount: 3, entityId: healer?.id || mage?.id };
+				costSpec = { type: 'MP', amount: 5, entityId: healer?.id || mage?.id };
 			} else {
 				costSpec = { type: 'MP', amount: 3, entityId: mage?.id || healer?.id };
 			}

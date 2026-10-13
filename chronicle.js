@@ -56,6 +56,9 @@
  * @property {Object.<string, *>} flags Active world state flags.
  * @property {Object.<string, QuestStateEntry>} quests Active quest states keyed by ID.
  * @property {string|null} selectedQuestId Currently focused quest identifier.
+ * @property {string|null} [selectedDossierId] Currently focused field dossier identifier.
+ * @property {'DISPATCHES'|'DOSSIERS'} [activeTab] Currently active archive tab.
+ * @property {number} [genevaIndex] Clockwork Geneva mechanism carriage index position.
  * @property {ChronicleStateDeltas} deltas Sealed working delta records.
  */
 
@@ -65,6 +68,8 @@
  * @property {string} lifecycleState Current lifecycle state.
  * @property {number} activeQuestCount Total active quests in simulation memory.
  * @property {number} flagCount Total tracked world flags.
+ * @property {number} [genevaIndex] Active Geneva carriage index.
+ * @property {string} [activeTab] Active archive tab.
  */
 
 /**
@@ -97,12 +102,34 @@
  */
 
 /**
+ * @typedef {Object} SelectDossierAction
+ * @property {'SELECT_DOSSIER'} type Action token type.
+ * @property {string|null} dossierId Field dossier identifier to select.
+ */
+
+/**
+ * @typedef {Object} SelectTabAction
+ * @property {'SELECT_TAB'} type Action token type.
+ * @property {'DISPATCHES'|'DOSSIERS'} tab Target archive tab.
+ */
+
+/**
+ * @typedef {Object} IndexNextAction
+ * @property {'INDEX_NEXT'} type Action token type.
+ */
+
+/**
+ * @typedef {Object} IndexPrevAction
+ * @property {'INDEX_PREV'} type Action token type.
+ */
+
+/**
  * @typedef {Object} ExitAction
  * @property {'EXIT'} type Action token type.
  */
 
 /**
- * @typedef {SetFlagAction|AdvanceQuestAction|SelectQuestAction|ExitAction} ChronicleAction
+ * @typedef {SetFlagAction|AdvanceQuestAction|SelectQuestAction|SelectDossierAction|SelectTabAction|IndexNextAction|IndexPrevAction|ExitAction} ChronicleAction
  */
 
 const ChronicleModule = (() => {
@@ -191,6 +218,9 @@ const ChronicleModule = (() => {
 			flags: {},
 			quests: {},
 			selectedQuestId: null,
+			selectedDossierId: null,
+			activeTab: 'DISPATCHES',
+			genevaIndex: 1,
 			deltas: {
 				flagsDelta: {},
 				questsDelta: {},
@@ -261,6 +291,97 @@ const ChronicleModule = (() => {
 	}
 
 	/**
+	 * Selects a high command dispatch slate and calibrates Geneva carriage index.
+	 * @param {string|null} questId
+	 * @returns {void}
+	 */
+	function selectQuest(questId) {
+		if (!sim) return;
+		sim.selectedQuestId = questId || null;
+		const manifest = /** @type {any} */ (getActiveManifest());
+		const keys = Object.keys(manifest?.Quests || {});
+		const idx = questId ? keys.indexOf(questId) : -1;
+		sim.genevaIndex = idx >= 0 ? idx + 1 : 1;
+		dispatchSFX('GEAR_TICK');
+	}
+
+	/**
+	 * Selects a field discovery dossier slate and calibrates Geneva carriage index.
+	 * @param {string|null} dossierId
+	 * @returns {void}
+	 */
+	function selectDossier(dossierId) {
+		if (!sim) return;
+		sim.selectedDossierId = dossierId || null;
+		const manifest = /** @type {any} */ (getActiveManifest());
+		const keys = Object.keys(manifest?.FieldDossiers || {});
+		const idx = dossierId ? keys.indexOf(dossierId) : -1;
+		sim.genevaIndex = idx >= 0 ? idx + 1 : 1;
+		dispatchSFX('GEAR_TICK');
+	}
+
+	/**
+	 * Switches between High Command Dispatches and Field Dossiers.
+	 * @param {'DISPATCHES'|'DOSSIERS'} tab
+	 * @returns {void}
+	 */
+	function selectArchiveTab(tab) {
+		if (!sim) return;
+		sim.activeTab = tab === 'DOSSIERS' ? 'DOSSIERS' : 'DISPATCHES';
+		const manifest = /** @type {any} */ (getActiveManifest());
+		if (sim.activeTab === 'DISPATCHES') {
+			const keys = Object.keys(manifest?.Quests || {});
+			const idx = sim.selectedQuestId ? keys.indexOf(sim.selectedQuestId) : 0;
+			sim.genevaIndex = idx >= 0 ? idx + 1 : 1;
+		} else {
+			const keys = Object.keys(manifest?.FieldDossiers || {});
+			const idx = sim.selectedDossierId ? keys.indexOf(sim.selectedDossierId) : 0;
+			sim.genevaIndex = idx >= 0 ? idx + 1 : 1;
+		}
+		dispatchSFX('GEAR_TICK');
+		hostContext?.eventBus?.publish?.('chronicle:tab_selected', { tab: sim.activeTab });
+	}
+
+	/**
+	 * Indexes the clockwork Geneva carriage forward or backward.
+	 * Tapping [J] causes internal brass carriage to index forward with a sharp ratcheting click.
+	 * (CANON-MAGITEK-AETHERPUNK-001 §Subsystem E)
+	 * @param {number} dir - Direction delta (+1 for forward, -1 for reverse).
+	 * @returns {void}
+	 */
+	function indexGenevaCarriage(dir = 1) {
+		if (!sim) return;
+		const manifest = /** @type {any} */ (getActiveManifest());
+		if (sim.activeTab === 'DOSSIERS') {
+			const keys = Object.keys(manifest?.FieldDossiers || {});
+			if (keys.length === 0) return;
+			const curIdx = sim.selectedDossierId ? keys.indexOf(sim.selectedDossierId) : 0;
+			const nextIdx = (curIdx + dir + keys.length) % keys.length;
+			sim.selectedDossierId = keys[nextIdx];
+			sim.genevaIndex = nextIdx + 1;
+			dispatchSFX('RATCHET_CLICK');
+			hostContext?.eventBus?.publish?.('chronicle:carriage_indexed', {
+				tab: 'DOSSIERS',
+				dossierId: sim.selectedDossierId,
+				genevaIndex: sim.genevaIndex,
+			});
+		} else {
+			const keys = Object.keys(manifest?.Quests || {});
+			if (keys.length === 0) return;
+			const curIdx = sim.selectedQuestId ? keys.indexOf(sim.selectedQuestId) : 0;
+			const nextIdx = (curIdx + dir + keys.length) % keys.length;
+			sim.selectedQuestId = keys[nextIdx];
+			sim.genevaIndex = nextIdx + 1;
+			dispatchSFX('RATCHET_CLICK');
+			hostContext?.eventBus?.publish?.('chronicle:carriage_indexed', {
+				tab: 'DISPATCHES',
+				questId: sim.selectedQuestId,
+				genevaIndex: sim.genevaIndex,
+			});
+		}
+	}
+
+	/**
 	 * Finalizes the chronicle working session and publishes sealed deltas[cite: 3].
 	 * (State-mutating completion gateway)
 	 * @returns {void}
@@ -320,8 +441,11 @@ const ChronicleModule = (() => {
 
 			const baseline = createDefaultState();
 			const incoming = snapshot ? structuredClone(snapshot) : /** @type {any} */ ({});
-			const questKeys = Object.keys((/** @type {any} */ (getActiveManifest()))?.Quests || {});
+			const manifest = /** @type {any} */ (getActiveManifest());
+			const questKeys = Object.keys(manifest?.Quests || {});
+			const dossierKeys = Object.keys(manifest?.FieldDossiers || {});
 			const selectedQuestId = incoming.selectedQuestId || (questKeys.length > 0 ? questKeys[0] : null);
+			const selectedDossierId = incoming.selectedDossierId || (dossierKeys.length > 0 ? dossierKeys[0] : null);
 
 			sim = {
 				...baseline,
@@ -329,6 +453,9 @@ const ChronicleModule = (() => {
 				flags: incoming.flags || {},
 				quests: incoming.quests || {},
 				selectedQuestId,
+				selectedDossierId,
+				activeTab: incoming.activeTab || 'DISPATCHES',
+				genevaIndex: incoming.genevaIndex || 1,
 				deltas: {
 					flagsDelta: {},
 					questsDelta: {},
@@ -398,6 +525,8 @@ const ChronicleModule = (() => {
 				lifecycleState,
 				activeQuestCount: Object.keys(sim?.quests || {}).length,
 				flagCount: Object.keys(sim?.flags || {}).length,
+				genevaIndex: sim?.genevaIndex || 1,
+				activeTab: sim?.activeTab || 'DISPATCHES',
 			};
 		},
 
@@ -409,12 +538,14 @@ const ChronicleModule = (() => {
 		getModuleInfo() {
 			return {
 				moduleId: 'chronicle_core',
-				version: '1.2.0',
+				version: '1.3.0',
 				protocolVersion: 'VSRP-001',
 				dependencies: ['manifest'],
 				capabilities: [
 					'world_state',
 					'quest_tracking',
+					'field_dossiers',
+					'geneva_carriage',
 					'map_mutations',
 					'events.chronicle_sfx',
 					'events.chronicle_resolved',
@@ -445,20 +576,27 @@ const ChronicleModule = (() => {
 			if (!action || !sim) return;
 
 			if (typeof action === 'string') {
-				if (action === 'EXIT') {
-					finalizeChronicle();
-				}
+				if (action === 'EXIT') finalizeChronicle();
+				else if (action === 'INDEX_NEXT') indexGenevaCarriage(1);
+				else if (action === 'INDEX_PREV') indexGenevaCarriage(-1);
 				return;
 			}
 
 			const type = action.type;
-
 			if (type === 'SET_FLAG') {
 				setFlag(action.flag, action.value);
 			} else if (type === 'ADVANCE_QUEST') {
 				advanceQuest(action.questId, action.stage);
 			} else if (type === 'SELECT_QUEST') {
-				sim.selectedQuestId = action.questId || null;
+				selectQuest(action.questId);
+			} else if (type === 'SELECT_DOSSIER') {
+				selectDossier(action.dossierId);
+			} else if (type === 'SELECT_TAB') {
+				selectArchiveTab(action.tab);
+			} else if (type === 'INDEX_NEXT') {
+				indexGenevaCarriage(1);
+			} else if (type === 'INDEX_PREV') {
+				indexGenevaCarriage(-1);
 			} else if (type === 'EXIT') {
 				finalizeChronicle();
 			}

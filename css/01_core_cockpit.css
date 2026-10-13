@@ -17,35 +17,66 @@
 
 /* #region [SEC-01] Design Tokens, Reset & Body Typography */
 :root {
-	--bg: #04040c;
-	--panel-bg: #0c0c1c;
-	--panel-bg-trans: rgba(12, 12, 28, 0.96);
-	--border: #e8a33d;
-	--border-dim: #25253d;
-	--border-focus: #ff9d4d;
-	--text: #f8fafc;
-	--text-dim: #94a3b8;
-	--text-bright: #ffffff;
-	--hp: #10b981;
-	--mp: #38bdf8;
-	--ember: #ff9d4d;
+	/* Substrate: Cold-Rolled Iron & Vulcanite */
+	--bg: #07070b;
+	--panel-bg: #100f17;
+	--panel-bg-trans: rgba(16, 15, 23, 0.96);
+	--iron-substrate: #07070b;
+	--iron-panel: #100f17;
+	--iron-border: #23202e;
+
+	/* Metals: Antique Brass & Orichalcum (CANON-MAGITEK-AETHERPUNK-001) */
+	--brass: #d4a359;
+	--brass-bright: #f5c879;
+	--brass-dim: #7d592a;
+	--brass-bevel: #473215;
+	--border: var(--brass-dim);
+	--border-dim: #262233;
+	--border-focus: var(--brass-bright);
+
+	/* Metals: Burnished Copper & Verdigris Patina */
+	--copper: #c87d55;
+	--copper-bright: #e29f6b;
+	--copper-dim: #7a462b;
+	--verdigris: #429988;
+	--verdigris-glow: rgba(66, 153, 136, 0.35);
+
+	/* Typography: Warm Antique Vellum & Patinated Gold */
+	--text: #ede4d3;
+	--text-dim: #a39988;
+	--text-bright: #fffefb;
+
+	/* Alchemical Life-Vials & Energy Conduits (CANON §3 / §5) */
+	--hp: #e63946;               /* Vitality Mercury fluid */
+	--hp-bright: #ff6b6b;
+	--hp-glow: rgba(230, 57, 70, 0.45);
+	--mp: #22d3ee;               /* Lapis Aether fluid */
+	--mp-bright: #67e8f9;
+	--mp-glow: rgba(34, 211, 238, 0.45);
+	--ember: #e89547;            /* Soul-glass & Hearth-ember */
+	--ember-bright: #ffbe76;
+	--shadow-ember: rgba(232, 149, 71, 0.35);
+
+	/* Operational Telemetry Accents */
 	--danger: #ef4444;
 	--ok: #34d399;
-	--cyan: #38bdf8;
-	--gold: #fbbf24;
-	--shadow-ember: rgba(255, 157, 77, 0.35);
+	--cyan: #22d3ee;
+	--gold: #f59e0b;
+
+	/* Console Typography Fonts */
+	--font-engraved: "Cinzel", "Palatino", "Georgia", "Times New Roman", serif;
 	--font-display:
-		"JetBrains Mono", "Cascadia Code", "Inter", -apple-system,
-		BlinkMacSystemFont, "Segoe UI", sans-serif;
+		"JetBrains Mono", "Cascadia Code", "Consolas", "Courier New", ui-monospace,
+		monospace;
 	--font-mono:
 		"JetBrains Mono", "Cascadia Code", "Consolas", "Courier New", ui-monospace,
 		monospace;
 	--font-ui:
 		"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
-	/* Tactical Reticle Attunement Tokens (ARCH-SPEC-RMB-INTEGRATION-001) */
-	--reticle-accent: #ff9d4d;
-	--reticle-glow: rgba(255, 157, 77, 0.45);
+	/* Tactical Reticle Attunement Tokens */
+	--reticle-accent: var(--ember);
+	--reticle-glow: rgba(232, 149, 71, 0.45);
 
 	/* Viewport Hierarchy & Layout Token Controls */
 	--nav-row-ratio: 1.6fr;
@@ -90,10 +121,10 @@ body {
 	text-rendering: geometricPrecision;
 	background-image:
 		radial-gradient(ellipse at 50% 10%,
-			rgba(232, 163, 61, 0.09),
+			rgba(212, 163, 89, 0.14),
 			transparent 70%),
-		linear-gradient(rgba(10, 10, 25, 0.55) 1px, transparent 1px),
-		linear-gradient(90deg, rgba(10, 10, 25, 0.55) 1px, transparent 1px);
+		linear-gradient(rgba(38, 34, 51, 0.5) 1px, transparent 1px),
+		linear-gradient(90deg, rgba(38, 34, 51, 0.5) 1px, transparent 1px);
 	background-size:
 		100% 100%,
 		16px 16px,
@@ -136,10 +167,11 @@ body.crt-enabled::before {
 
 .panel {
 	background: var(--panel-bg);
-	border: 2px solid var(--border-dim);
+	border: 2px solid var(--brass-dim);
 	box-shadow:
-		inset 0 0 0 1px rgba(255, 255, 255, 0.04),
-		0 4px 16px rgba(0, 0, 0, 0.7);
+		inset 0 0 0 1px rgba(245, 200, 121, 0.12),
+		inset 0 1px 0 0 rgba(245, 200, 121, 0.2),
+		0 4px 18px rgba(0, 0, 0, 0.85);
 	padding: 6px 10px;
 	transition:
 		border-color 0.2s ease,
@@ -147,12 +179,14 @@ body.crt-enabled::before {
 }
 
 .panel-title {
-	color: var(--text-dim);
+	color: var(--brass-bright);
+	font-family: var(--font-display);
 	font-size: 10.5px;
 	margin-bottom: 4px;
 	border-bottom: 1px solid var(--border-dim);
 	padding-bottom: 3px;
 	letter-spacing: 1px;
+	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
 /* #endregion */
@@ -273,18 +307,22 @@ body.crt-enabled::before {
 }
 
 .mini-hud-bar-track {
-	height: 4px;
-	background: rgba(255, 255, 255, 0.1);
-	border-radius: 1px;
+	height: 5px;
+	background: rgba(4, 4, 8, 0.95);
+	border: 1px solid var(--brass-bevel);
+	border-radius: 2px;
+	box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.9);
 	overflow: hidden;
 }
 
 .mini-hud-bar-fill.hp {
-	background: var(--ok);
+	background: linear-gradient(180deg, #ff6b6b 0%, #e63946 100%);
+	box-shadow: 0 0 4px rgba(230, 57, 70, 0.5);
 }
 
 .mini-hud-bar-fill.mp {
-	background: #60a5fa;
+	background: linear-gradient(180deg, #67e8f9 0%, #22d3ee 100%);
+	box-shadow: 0 0 4px rgba(34, 211, 238, 0.5);
 }
 
 /* #endregion */
@@ -916,11 +954,18 @@ footer#district-nav {
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	width: 100%;
-	max-width: 980px;
-	padding: 16px 20px;
-	gap: 16px;
+	width: min(94vw, 1140px);
+	max-width: 1140px;
+	padding: 24px 28px;
+	gap: 18px;
 	user-select: none;
+	background: radial-gradient(circle at 50% 25%, rgba(22, 18, 34, 0.75) 0%, rgba(8, 7, 14, 0.92) 100%);
+	border: 1px solid rgba(212, 163, 89, 0.35);
+	box-shadow:
+		0 0 50px rgba(0, 0, 0, 0.9),
+		inset 0 0 35px rgba(0, 0, 0, 0.8),
+		inset 0 1px 0 rgba(245, 200, 121, 0.25);
+	border-radius: 8px;
 }
 
 /* --- AETHERPUNK CREST BANNER --- */
@@ -1014,31 +1059,33 @@ footer#district-nav {
 
 .vanguard-showcase-tag {
 	font-family: var(--font-mono, monospace);
-	font-size: 9.5px;
-	letter-spacing: 2px;
+	font-size: 10px;
+	letter-spacing: 2.5px;
 	color: var(--ember);
-	opacity: 0.9;
+	opacity: 0.95;
 	text-transform: uppercase;
+	font-weight: 700;
+	text-shadow: 0 0 8px rgba(255, 157, 77, 0.4);
 }
 
 .vanguard-pedestals-row {
 	display: flex;
 	justify-content: center;
-	gap: 16px;
+	gap: 18px;
 	width: 100%;
 	flex-wrap: wrap;
 }
 
 .vanguard-pedestal-card {
-	width: 154px;
-	background: rgba(14, 13, 26, 0.82);
+	width: 200px;
+	background: rgba(14, 13, 26, 0.88);
 	border: 1px solid rgba(255, 157, 77, 0.25);
 	box-shadow:
 		0 6px 20px rgba(0, 0, 0, 0.6),
 		inset 0 0 16px rgba(255, 157, 77, 0.04);
 	border-radius: 6px;
 	backdrop-filter: blur(10px);
-	padding: 12px 10px 10px;
+	padding: 16px 12px 14px;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
@@ -1047,13 +1094,99 @@ footer#district-nav {
 	cursor: default;
 }
 
+/* Galvanic Relay Conduit Terminal Bead (Top of card) */
+.galvanic-terminal-bead {
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	position: absolute;
+	top: -5px;
+	left: 50%;
+	transform: translateX(-50%);
+	background: #d4a359;
+	box-shadow: 0 0 8px #d4a359;
+	border: 1px solid #fff;
+	z-index: 5;
+}
+
+/* Braided Copper Conduit Wire (Bottom of card into deck) */
+.galvanic-tether-lead {
+	position: absolute;
+	bottom: -10px;
+	left: 50%;
+	transform: translateX(-50%);
+	width: 2px;
+	height: 10px;
+	background: repeating-linear-gradient(180deg, #c87d55 0, #7a462b 2px, #c87d55 4px);
+	box-shadow: 0 0 6px rgba(200, 125, 85, 0.6);
+}
+
+/* Path-Specific Concordance Shaders */
+.vanguard-pedestal-card.path-iron {
+	border-color: rgba(246, 224, 94, 0.4);
+}
+.vanguard-pedestal-card.path-iron .galvanic-terminal-bead {
+	background: #f6e05e;
+	box-shadow: 0 0 10px #f6e05e;
+}
+.vanguard-pedestal-card.path-iron:hover {
+	border-color: #f6e05e;
+	box-shadow: 0 12px 28px rgba(0, 0, 0, 0.8), 0 0 20px rgba(246, 224, 94, 0.35);
+}
+
+.vanguard-pedestal-card.path-ember {
+	border-color: rgba(249, 115, 22, 0.4);
+}
+.vanguard-pedestal-card.path-ember .galvanic-terminal-bead {
+	background: #f97316;
+	box-shadow: 0 0 10px #f97316;
+}
+.vanguard-pedestal-card.path-ember:hover {
+	border-color: #f97316;
+	box-shadow: 0 12px 28px rgba(0, 0, 0, 0.8), 0 0 20px rgba(249, 115, 22, 0.4);
+}
+
+.vanguard-pedestal-card.path-tide {
+	border-color: rgba(56, 189, 248, 0.4);
+}
+.vanguard-pedestal-card.path-tide .galvanic-terminal-bead {
+	background: #38bdf8;
+	box-shadow: 0 0 10px #38bdf8;
+}
+.vanguard-pedestal-card.path-tide:hover {
+	border-color: #38bdf8;
+	box-shadow: 0 12px 28px rgba(0, 0, 0, 0.8), 0 0 20px rgba(56, 189, 248, 0.4);
+}
+
+.vanguard-pedestal-card.path-lumen {
+	border-color: rgba(254, 240, 138, 0.4);
+}
+.vanguard-pedestal-card.path-lumen .galvanic-terminal-bead {
+	background: #fef08a;
+	box-shadow: 0 0 10px #fef08a;
+}
+.vanguard-pedestal-card.path-lumen:hover {
+	border-color: #fef08a;
+	box-shadow: 0 12px 28px rgba(0, 0, 0, 0.8), 0 0 20px rgba(254, 240, 138, 0.4);
+}
+
+.pedestal-path-badge {
+	font-family: var(--font-mono, monospace);
+	font-size: 8px;
+	font-weight: 800;
+	letter-spacing: 1.2px;
+	padding: 2px 7px;
+	border-radius: 3px;
+	margin-bottom: 6px;
+	text-transform: uppercase;
+}
+.path-iron .pedestal-path-badge { color: #fef08a; background: #1f1b0d; border: 1px solid rgba(246, 224, 94, 0.45); }
+.path-ember .pedestal-path-badge { color: #fed7aa; background: #261309; border: 1px solid rgba(249, 115, 22, 0.45); }
+.path-tide .pedestal-path-badge { color: #bae6fd; background: #0c1a24; border: 1px solid rgba(56, 189, 248, 0.45); }
+.path-lumen .pedestal-path-badge { color: #fef9c3; background: #24220f; border: 1px solid rgba(254, 240, 138, 0.45); }
+
 .vanguard-pedestal-card:hover {
-	border-color: var(--ember);
 	transform: translateY(-4px);
-	box-shadow:
-		0 12px 28px rgba(0, 0, 0, 0.8),
-		0 0 16px rgba(255, 157, 77, 0.3),
-		inset 0 0 20px rgba(255, 157, 77, 0.08);
 }
 
 .pedestal-sprite-container {
@@ -1121,20 +1254,29 @@ footer#district-nav {
 
 .pedestal-name {
 	font-family: var(--font-display, monospace);
-	font-size: 12px;
+	font-size: 13px;
 	font-weight: bold;
 	color: var(--text-bright);
 	letter-spacing: 1px;
 }
 
+.pedestal-canon-title {
+	font-family: var(--font-engraved, serif);
+	font-size: 10px;
+	letter-spacing: 0.8px;
+	color: var(--brass-bright);
+	font-style: italic;
+	margin: 1px 0 2px;
+}
+
 .pedestal-class-badge {
 	font-family: var(--font-mono, monospace);
 	font-size: 9.5px;
-	letter-spacing: 0.5px;
+	letter-spacing: 0.8px;
 	color: var(--ember);
-	font-weight: 600;
+	font-weight: 700;
 	text-transform: uppercase;
-	margin: 2px 0 1px;
+	margin: 1px 0 2px;
 }
 
 .pedestal-spec {
@@ -1142,6 +1284,7 @@ footer#district-nav {
 	font-size: 9px;
 	letter-spacing: 0.5px;
 	color: var(--text-dim);
+	line-height: 1.3;
 }
 
 /* --- LOWER DECK: CONSOLE & DOSSIER --- */
@@ -1149,7 +1292,7 @@ footer#district-nav {
 	display: flex;
 	gap: 16px;
 	width: 100%;
-	max-width: 660px;
+	max-width: 820px;
 	justify-content: center;
 	align-items: stretch;
 }

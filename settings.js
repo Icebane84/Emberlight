@@ -34,6 +34,7 @@ const EmberlightSettings = (() => {
 	 * @typedef {Object} SettingsSimulation
 	 * @property {number} selectedIndex - Currently focused menu item index.
 	 * @property {boolean} isMuted - Audio mute status.
+	 * @property {'TRACKER' | 'BYTEBEAT' | string} [resonatorMode] - Subsystem C Ley-Flux Resonator playback mode.
 	 * @property {boolean} isFullscreen - Viewport fullscreen mode status.
 	 * @property {boolean} crtEnabled - CRT post-processing shader toggle status.
 	 * @property {boolean} canReturnToTitle - Title navigation availability status.
@@ -135,6 +136,7 @@ const EmberlightSettings = (() => {
 		{ id: 'LAYOUT', label: 'VIEWPORT RATIO', type: 'TOGGLE' },
 		{ id: 'FONTSCALE', label: 'FONT SCALING', type: 'TOGGLE' },
 		{ id: 'MUTE', label: 'MASTER AUDIO', type: 'TOGGLE' },
+		{ id: 'RESONATOR_MODE', label: 'LEY-FLUX RESONATOR', type: 'TOGGLE' },
 		{ id: 'FULLSCREEN', label: 'DISPLAY MODE', type: 'TOGGLE' },
 		{ id: 'SCANLINES', label: 'CRT SCANLINES', type: 'TOGGLE' },
 		{ id: 'SAVE', label: 'EXPEDITION ARCHIVES', type: 'ACTION', actionLabel: 'MANAGE ARCHIVES' },
@@ -206,11 +208,19 @@ const EmberlightSettings = (() => {
 		const initialFont = hostConfig?.fontScale || savedFont;
 		applyLayoutSettings(initialLayout, initialFont);
 
+		const initialMode =
+			hostConfig?.resonatorMode ||
+			(typeof EmberlightSoundtrack !== 'undefined' &&
+			typeof EmberlightSoundtrack.getPlaybackMode === 'function'
+				? EmberlightSoundtrack.getPlaybackMode()
+				: 'TRACKER');
+
 		return {
 			selectedIndex: 0,
 			layoutPreset: initialLayout,
 			fontScale: initialFont,
 			isMuted: Boolean(hostConfig?.isMuted ?? false),
+			resonatorMode: initialMode,
 			isFullscreen: Boolean(hostConfig?.isFullscreen ?? false),
 			crtEnabled: hostConfig?.crtEnabled !== undefined ? Boolean(hostConfig.crtEnabled) : true,
 			canReturnToTitle: hostConfig?.canReturnToTitle !== undefined ? Boolean(hostConfig.canReturnToTitle) : true,
@@ -278,6 +288,11 @@ const EmberlightSettings = (() => {
 			sim.isMuted = !sim.isMuted;
 			emitSystemCommand('TOGGLE_MUTE', { isMuted: sim.isMuted });
 			dispatchSFX('SELECT');
+		} else if (current.id === 'RESONATOR_MODE') {
+			sim.resonatorMode = sim.resonatorMode === 'BYTEBEAT' ? 'TRACKER' : 'BYTEBEAT';
+			emitSystemCommand('SET_PLAYBACK_MODE', { value: sim.resonatorMode });
+			hostContext?.eventBus?.publish?.('soundtrack:set_mode', { mode: sim.resonatorMode });
+			dispatchSFX('SELECT');
 		} else if (current.id === 'FULLSCREEN') {
 			sim.isFullscreen = !sim.isFullscreen;
 			emitSystemCommand('TOGGLE_FULLSCREEN', { isFullscreen: sim.isFullscreen });
@@ -329,6 +344,7 @@ const EmberlightSettings = (() => {
 		if (hostContext?.eventBus?.publish) {
 			hostContext.eventBus.publish('settings:resolved', {
 				isMuted: sim.isMuted,
+				resonatorMode: sim.resonatorMode,
 				isFullscreen: sim.isFullscreen,
 				crtEnabled: sim.crtEnabled,
 			});
@@ -394,6 +410,10 @@ const EmberlightSettings = (() => {
 			MUTE: () => ({
 				label: simState.isMuted ? 'MUTED' : 'ACTIVE',
 				color: simState.isMuted ? 'var(--danger)' : 'var(--ok)',
+			}),
+			RESONATOR_MODE: () => ({
+				label: simState.resonatorMode === 'BYTEBEAT' ? 'PRECURSOR BYTEBEAT' : 'LEYLINE TRACKER',
+				color: simState.resonatorMode === 'BYTEBEAT' ? 'var(--cyan, #00e5ff)' : 'var(--ember, #ff9e3b)',
 			}),
 			FULLSCREEN: () => ({
 				label: simState.isFullscreen ? 'FULLSCREEN' : 'WINDOWED',

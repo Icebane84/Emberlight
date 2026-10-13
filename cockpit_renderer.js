@@ -10,6 +10,30 @@
  */
 
 const EmberlightCockpitRenderer = (() => {
+	/**
+	 * Resolves a canon display term from the manifest lexicon (CANON-MAGITEK-AETHERPUNK-001 §5).
+	 * [Pure Query]
+	 * @param {string} key - Lexicon term key.
+	 * @param {string} fallback - Legacy label when the lexicon is unavailable.
+	 * @returns {string} Display label.
+	 */
+	function lexTerm(key, fallback) {
+		const lex = typeof EmberlightManifest !== "undefined" ? EmberlightManifest?.Lexicon : null;
+		return lex ? lex.term(key, fallback) : fallback;
+	}
+
+	/**
+	 * Resolves a consumable's compact canon label from the manifest item catalog.
+	 * [Pure Query]
+	 * @param {string} itemId - Item identifier.
+	 * @param {string} fallback - Legacy label when the catalog is unavailable.
+	 * @returns {string} Display label.
+	 */
+	function itemShortLabel(itemId, fallback) {
+		const item = typeof EmberlightManifest !== "undefined" ? EmberlightManifest?.Items?.[ itemId ] : null;
+		return item?.shortLabel || item?.label || fallback;
+	}
+
 	//#region [SEC-01] Domain Type Contracts & JSDoc Schemas
 	/**
 	 * @typedef {Object} CockpitCharacter
@@ -145,12 +169,12 @@ const EmberlightCockpitRenderer = (() => {
 		let activeTitle = "Investigate Oakhaven Hamlet";
 		let stageDesc = "Explore the surrounding wilderness";
 
-		for (const [qId, qData] of Object.entries(quests)) {
-			const qState = activeQuests?.[qId];
+		for (const [ qId, qData ] of Object.entries(quests)) {
+			const qState = activeQuests?.[ qId ];
 			if (!qState?.completed) {
 				activeTitle = qData.title || qId;
 				const currentStage = qState?.stage || 0;
-				stageDesc = qData.stages?.[currentStage]?.desc || "In Progress";
+				stageDesc = qData.stages?.[ currentStage ]?.desc || "In Progress";
 				break;
 			}
 		}
@@ -263,7 +287,7 @@ const EmberlightCockpitRenderer = (() => {
 					const curExp = c.exp || 0;
 					const expPct = Math.max(0, Math.min(100, Math.round((curExp / expReq) * 100)));
 					const spBadge = (c.unspentSP && c.unspentSP > 0)
-						? `<span class="hud-sp-badge" title="Unspent Skill Points Available! Press [T] for Skill Tree">[+${c.unspentSP} SP]</span>`
+						? `<span class="hud-sp-badge" title="Unattuned ${lexTerm("stat.sp.long", "Skill Points")} available! Press [T] for the Armillary Astrolabe">[+${c.unspentSP} ${lexTerm("stat.sp", "SP")}]</span>`
 						: "";
 					const ailmentTags = (c.ailments || [])
 						.map((a) => `<span style="color:var(--danger)">[${a.id}]</span>`)
@@ -284,17 +308,17 @@ const EmberlightCockpitRenderer = (() => {
                 ${ailmentTags}
               </div>
               <div class="hud-stat-row">
-                <span class="hud-stat-label">HP</span>
+                <span class="hud-stat-label" title="${lexTerm("stat.hp.long", "Hit Points")}">${lexTerm("stat.hp", "HP")}</span>
                 <span class="hud-bar-track"><span class="hud-bar-fill hp" style="width:${hpPct}%"></span></span>
                 <span class="hud-stat-val">${c.hp || 0}/${maxHp}</span>
               </div>
               <div class="hud-stat-row">
-                <span class="hud-stat-label">MP</span>
+                <span class="hud-stat-label" title="${lexTerm("stat.mp.long", "Mana Points")}">${lexTerm("stat.mp", "MP")}</span>
                 <span class="hud-bar-track"><span class="hud-bar-fill mp" style="width:${mpPct}%"></span></span>
                 <span class="hud-stat-val">${c.mp || 0}/${maxMp}</span>
               </div>
               <div class="hud-stat-row">
-                <span class="hud-stat-label" style="color:var(--gold);">XP</span>
+                <span class="hud-stat-label" style="color:var(--gold);" title="${lexTerm("stat.exp.long", "Experience")}">${lexTerm("stat.exp", "XP")}</span>
                 <span class="hud-bar-track"><span class="hud-bar-fill exp" style="width:${expPct}%; background:linear-gradient(90deg, #d97706, #fbbf24);"></span></span>
                 <span class="hud-stat-val" style="color:var(--gold); font-family:var(--font-mono, monospace); font-size:9px; letter-spacing:0.5px;">${curExp}/${expReq}</span>
               </div>
@@ -348,8 +372,8 @@ const EmberlightCockpitRenderer = (() => {
 		/** @type {string[]} */
 		const adjacentTiles = [];
 		adjacentCoords.forEach(({ x, y }) => {
-			if (y >= 0 && y < map.length && x >= 0 && x < map[0]?.length) {
-				adjacentTiles.push(map[y][x]);
+			if (y >= 0 && y < map.length && x >= 0 && x < map[ 0 ]?.length) {
+				adjacentTiles.push(map[ y ][ x ]);
 			}
 		});
 		return adjacentTiles;
@@ -371,7 +395,7 @@ const EmberlightCockpitRenderer = (() => {
 		const btnConsecrate = document.getElementById("btn-field-consecrate");
 		const btnDispel = document.getElementById("btn-field-dispel");
 
-		[btnScorch, btnFreeze, btnConsecrate, btnDispel].forEach((btn) => {
+		[ btnScorch, btnFreeze, btnConsecrate, btnDispel ].forEach((btn) => {
 			if (btn) btn.classList.remove("synergy-active");
 		});
 
@@ -381,7 +405,7 @@ const EmberlightCockpitRenderer = (() => {
 			btnScorch.classList.add("synergy-active");
 		if (adjacentTiles.includes("%") && btnDispel)
 			btnDispel.classList.add("synergy-active");
-		if (map?.[py]?.[px] === "." && btnConsecrate)
+		if (map?.[ py ]?.[ px ] === "." && btnConsecrate)
 			btnConsecrate.classList.add("synergy-active");
 	}
 
@@ -520,20 +544,20 @@ const EmberlightCockpitRenderer = (() => {
 		const items = [
 			{
 				id: "POTION",
-				label: "Potion",
-				effect: "+25 HP",
+				label: itemShortLabel("POTION", "Potion"),
+				effect: `+25 ${lexTerm("stat.hp", "HP")}`,
 				count: inventory.POTION || 0,
 			},
 			{
 				id: "ETHER",
-				label: "Ether",
-				effect: "+15 MP",
+				label: itemShortLabel("ETHER", "Ether"),
+				effect: `+15 ${lexTerm("stat.mp", "MP")}`,
 				count: inventory.ETHER || 0,
 			},
 			{
 				id: "PHOENIX_EMBER",
-				label: "Ember",
-				effect: "Revive 50%",
+				label: itemShortLabel("PHOENIX_EMBER", "Ember"),
+				effect: "Re-tether 50%",
 				count: inventory.PHOENIX_EMBER || 0,
 			},
 		];
@@ -628,14 +652,18 @@ const EmberlightCockpitRenderer = (() => {
 		const container = document.getElementById("title-vanguard-pedestals");
 		if (!container) return;
 
-		// Canonical Vanguard Archetypes
+		// Canonical Vanguard Archetypes (CANON-MAGITEK-AETHERPUNK-001 §9)
 		const defaultVanguard = [
 			{
 				instanceId: "hero",
 				name: "Aldric",
 				phenotype: "HERO",
-				roleBadge: "Vanguard Blade",
-				spec: "Shield & Sword // Retaliation",
+				canonTitle: "The Iron Bulwark",
+				roleBadge: "Vanguard Champion",
+				path: "PATH OF IRON",
+				spec: "Tower Shield & War-Pick // Grounding",
+				feedback: "Hydraulic hammer resonance in fluid lines",
+				concordance: "iron",
 				weapon: "IRON_SWORD",
 				armor: "PLATE",
 			},
@@ -643,8 +671,12 @@ const EmberlightCockpitRenderer = (() => {
 				instanceId: "warrior",
 				name: "Brogan",
 				phenotype: "WARRIOR",
-				roleBadge: "Dreadnought",
-				spec: "Greataxe // Frontline Cleave",
+				canonTitle: "The Hearth Berserker",
+				roleBadge: "Ashen Striker",
+				path: "PATH OF EMBER",
+				spec: "Orichalcum Greatsword // Thermal Cleave",
+				feedback: "Fluctuating amber luminescence at thermal threshold",
+				concordance: "ember",
 				weapon: "GREATAXE",
 				armor: "CHAINMAIL",
 			},
@@ -652,8 +684,12 @@ const EmberlightCockpitRenderer = (() => {
 				instanceId: "mage",
 				name: "Selene",
 				phenotype: "MAGE",
-				roleBadge: "Arcanist",
-				spec: "Oak Staff // Elemental Scorch",
+				canonTitle: "The Tide Weaver",
+				roleBadge: "Lapis Arcanist",
+				path: "PATH OF TIDE",
+				spec: "Dual-Focus Quartz Staff // Lapis Flux",
+				feedback: "High-pitched vacuum tube preamplifier whistling",
+				concordance: "tide",
 				weapon: "OAK_STAFF",
 				armor: "MAGE_ROBE",
 			},
@@ -661,8 +697,12 @@ const EmberlightCockpitRenderer = (() => {
 				instanceId: "healer",
 				name: "Wren",
 				phenotype: "HEALER",
-				roleBadge: "Sanctuary Hierophant",
-				spec: "Sun Mace // Consecration",
+				canonTitle: "The Sun-Spire Cleric",
+				roleBadge: "Field Medic",
+				path: "PATH OF LUMEN",
+				spec: "Radiant Lantern Wand // Consecration",
+				feedback: "Harmonic chimes of internal brass tuning forks",
+				concordance: "lumen",
 				weapon: "SUN_MACE",
 				armor: "CLERIC_VESTMENT",
 			},
@@ -670,7 +710,7 @@ const EmberlightCockpitRenderer = (() => {
 
 		const baker =
 			typeof EmberlightBattlerBaker !== "undefined" &&
-			typeof (/** @type {any} */ (EmberlightBattlerBaker)).get === "function"
+				typeof (/** @type {any} */ (EmberlightBattlerBaker)).get === "function"
 				? /** @type {any} */ (EmberlightBattlerBaker)
 				: null;
 
@@ -678,10 +718,10 @@ const EmberlightCockpitRenderer = (() => {
 			.map((hero) => {
 				const spriteUrl = baker
 					? baker.get({
-							phenotype: hero.phenotype,
-							weapon: hero.weapon,
-							armor: hero.armor,
-					  })
+						phenotype: hero.phenotype,
+						weapon: hero.weapon,
+						armor: hero.armor,
+					})
 					: "";
 
 				const imgMarkup = spriteUrl
@@ -689,7 +729,9 @@ const EmberlightCockpitRenderer = (() => {
 					: `<div class="pedestal-sprite placeholder-sprite" style="font-size:32px; display:flex; align-items:center; justify-content:center;">⚔</div>`;
 
 				return `
-					<div class="vanguard-pedestal-card" data-hero-id="${hero.instanceId}">
+					<div class="vanguard-pedestal-card path-${hero.concordance}" data-hero-id="${hero.instanceId}" data-concordance="${hero.concordance}" title="${hero.name}: ${hero.canonTitle} (${hero.path})&#10;Regalia: ${hero.spec}&#10;Feedback: ${hero.feedback}">
+						<div class="galvanic-terminal-bead"></div>
+						<div class="pedestal-path-badge">${hero.path}</div>
 						<div class="pedestal-sprite-container">
 							${imgMarkup}
 							<div class="pedestal-shadow"></div>
@@ -697,15 +739,35 @@ const EmberlightCockpitRenderer = (() => {
 						</div>
 						<div class="pedestal-meta">
 							<div class="pedestal-name">${hero.name}</div>
+							<div class="pedestal-canon-title">${hero.canonTitle}</div>
 							<div class="pedestal-class-badge">${hero.roleBadge}</div>
 							<div class="pedestal-spec">${hero.spec}</div>
 						</div>
+						<div class="galvanic-tether-lead"></div>
 					</div>
 				`;
 			})
 			.join("");
 
 		container.innerHTML = html;
+
+		// Bind diegetic acoustic sensory feedback on operative hover
+		container.querySelectorAll(".vanguard-pedestal-card").forEach((elem) => {
+			const card = /** @type {HTMLElement} */ (elem);
+			const heroId = card.dataset.heroId;
+			card.addEventListener("mouseenter", () => {
+				const sfxMod = typeof EmberlightAcousticSFX !== "undefined" ? EmberlightAcousticSFX : null;
+				if (sfxMod && typeof sfxMod.play === "function") {
+					const cueMap = /** @type {Record<string, string>} */ ({
+						hero: "HYDRAULIC_HAMMER",
+						warrior: "THERMAL_VENT",
+						mage: "VACUUM_WHISTLE",
+						healer: "TUNING_FORK",
+					});
+					sfxMod.play(cueMap[ heroId || "" ] || "SELECT");
+				}
+			});
+		});
 	}
 
 	/**
@@ -788,9 +850,9 @@ const EmberlightCockpitRenderer = (() => {
 		if (poly.length <= 2) return;
 		ctx.save();
 		ctx.beginPath();
-		ctx.moveTo(poly[0].x, poly[0].y);
+		ctx.moveTo(poly[ 0 ].x, poly[ 0 ].y);
 		for (let i = 1; i < poly.length; i++) {
-			ctx.lineTo(poly[i].x, poly[i].y);
+			ctx.lineTo(poly[ i ].x, poly[ i ].y);
 		}
 		ctx.closePath();
 		ctx.clip();
@@ -841,7 +903,7 @@ const EmberlightCockpitRenderer = (() => {
 		ctx.strokeStyle = "rgba(255, 175, 95, 0.45)";
 		ctx.lineWidth = 2.5;
 		for (let i = 4; i < segments.length; i++) {
-			const seg = segments[i];
+			const seg = segments[ i ];
 			ctx.beginPath();
 			ctx.moveTo(seg.p1.x, seg.p1.y);
 			ctx.lineTo(seg.p2.x, seg.p2.y);
@@ -867,7 +929,7 @@ const EmberlightCockpitRenderer = (() => {
 	 */
 	function updateAndDrawTitleEmbers(ctx, embers, W, H, t) {
 		for (let i = 0; i < embers.length; i++) {
-			const p = embers[i];
+			const p = embers[ i ];
 			p.life++;
 			p.x += p.vx + Math.sin((t + i) * 1.4) * 0.45;
 			p.y += p.vy;
@@ -1713,7 +1775,7 @@ const EmberlightCockpitRenderer = (() => {
 
 			// 5. Bind Click & Hover Handlers
 			bindLeafEventHandlers(
-				[leaves.north, leaves.east, leaves.south, leaves.west],
+				[ leaves.north, leaves.east, leaves.south, leaves.west ],
 				meta,
 				onSelect,
 				(title, desc, x, y) => this.showParchmentTooltip(title, desc, x, y),

@@ -166,6 +166,28 @@ function stepTurn(sim, helpers) {
 		}, 700);
 	} else {
 		sim.phase = 'PLAYER_INPUT';
+		// Progress galvanic tether dissolution on fallen heroes
+		sim.party.forEach((/** @type {any} */ hero) => {
+			if (!hero.alive && hero.shockStasis && !hero.tetherDissolved) {
+				if (typeof hero.tetherDissolutionRounds !== 'number') {
+					hero.tetherDissolutionRounds = 3;
+				}
+				hero.tetherDissolutionRounds -= 1;
+				if (hero.tetherDissolutionRounds > 0) {
+					helpers.appendLog(
+						`⚠️ [TELEMETRY // TETHER WEAKENING] ${hero.name}'s galvanic tether unstable: ${hero.tetherDissolutionRounds} round(s) before permanent dissolution!`,
+						'damage',
+					);
+				} else {
+					hero.tetherDissolved = true;
+					helpers.appendLog(
+						`💀 [FATAL // TETHER DISSOLVED] ${hero.name}'s galvanic tether severed permanently! Incapacitated until return to Hearth-Spire Bastion.`,
+						'damage',
+					);
+					helpers.dispatchSFX('CRIT');
+				}
+			}
+		});
 		helpers.renderPresentation();
 		if (helpers.autoRun) {
 			autoExecutePlayerAction(sim, helpers);

@@ -65,6 +65,10 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 	const Quests = {
 		SHADE_WOLF_HUNT: {
 			id: 'SHADE_WOLF_HUNT',
+			dispatchCode: 'SENESCHAL-DISPATCH-0x8F',
+			priority: 'PRIMARY DIRECTIVE',
+			sender: 'Iron Redoubt High Command // Office of the Seneschal',
+			telegraphStamp: 'ENCODED TELEGRAPH // FREQ 440Hz // PRIORITY-ALPHA',
 			title: 'Trouble in the Tall Grass',
 			stages: {
 				0: {
@@ -88,6 +92,10 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 		},
 		CRYPT_KEY_SEARCH: {
 			id: 'CRYPT_KEY_SEARCH',
+			dispatchCode: 'SENESCHAL-DISPATCH-0x92',
+			priority: 'PRIMARY DIRECTIVE',
+			sender: 'Iron Redoubt High Command // Office of the Seneschal',
+			telegraphStamp: 'ENCODED TELEGRAPH // FREQ 528Hz // PRIORITY-BETA',
 			title: 'The Sealed Pass',
 			stages: {
 				0: {
@@ -111,6 +119,10 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 		},
 		SLAY_MALAKOR: {
 			id: 'SLAY_MALAKOR',
+			dispatchCode: 'SENESCHAL-OMEGA-01',
+			priority: 'URGENT DIRECTIVE',
+			sender: 'Iron Redoubt High Command // Supreme Council',
+			telegraphStamp: 'ENCODED TELEGRAPH // FREQ 880Hz // CLASSIFIED-OMEGA',
 			title: 'The Cinder Cataclysm',
 			stages: {
 				0: {
@@ -130,6 +142,10 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 		},
 		FORGE_SABOTAGE: {
 			id: 'FORGE_SABOTAGE',
+			dispatchCode: 'SENESCHAL-DISPATCH-0x44',
+			priority: 'PRIMARY DIRECTIVE',
+			sender: 'Iron Redoubt High Command // Quartermaster Bay',
+			telegraphStamp: 'ENCODED TELEGRAPH // FREQ 330Hz // LOGISTICS-SEC',
 			title: 'The Missing Crucible Iron',
 			stages: {
 				0: {
@@ -153,6 +169,10 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 		},
 		SANCTUARY_PLAGUE: {
 			id: 'SANCTUARY_PLAGUE',
+			dispatchCode: 'SENESCHAL-DISPATCH-0x12',
+			priority: 'FIELD RELIEF',
+			sender: 'Iron Redoubt High Command // Field Medical Corp',
+			telegraphStamp: 'ENCODED TELEGRAPH // FREQ 220Hz // BIO-CONTAINMENT',
 			title: 'Blight in the Sanctuary',
 			stages: {
 				0: {
@@ -169,6 +189,66 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 				},
 			},
 			rewards: { gold: 40, exp: 45, item: 'SWIFT_RING' },
+		},
+	};
+
+	/**
+	 * Canonical Field Dossiers (Subterranean Discoveries)
+	 * Mechanical rubbings, geological hazard surveys, and architectural schematics.
+	 * (CANON-MAGITEK-AETHERPUNK-001 §Subsystem E)
+	 */
+	const FieldDossiers = {
+		DOSSIER_LEYLINE_TRANSDUCTION: {
+			id: 'DOSSIER_LEYLINE_TRANSDUCTION',
+			codexId: 'CODEX-A01',
+			title: 'Precursor Runic Rubbing: Leyline Transduction & Tether Stasis',
+			category: 'PRECURSOR RUNES',
+			author: 'Chief Aether-Archivist Vane',
+			classification: 'AETHERIC ARCHAEOLOGY // LEVEL-4',
+			stamp: 'ORICHALCUM RUBBING // IMPERIAL REDOUBT',
+			summary: 'Mechanical graphite rubbing of monolithic basalt obelisks discovered at the Strata I threshold.',
+			transcription: 'The vitality of the tethered vanguard flows through the galvanic umbilical cable. Should lethal trauma breach the chassis, the operative does not instantly dissolve; the tether enters Shock Stasis for 3 combat rounds. Only a Hearth-Spire Phoenix Ember or Bastion sanctuary can reconstitute the energetic circuit before permanent dissolution occurs.',
+			runeRubbing: '[ ᚛ ᚠ · ᚢ · ᚦ · ᚬ · ᚱ · ᚴ ᚜  ✦  ☥  ✦  ᚛ ᛏ · ᛒ · ᛖ · ᛗ · ᛚ · ᛜ ᚜ ]',
+			fieldNotes: 'Precursor engravings confirm fallen operatives cannot be field-revived outside the 3-round tether stasis window without Bastion Aether Core reconstitution.',
+		},
+		DOSSIER_STRATA_GEOLOGY: {
+			id: 'DOSSIER_STRATA_GEOLOGY',
+			codexId: 'CODEX-B02',
+			title: 'Geological Hazard Survey: Miasma Flues & Abyssal Water Sinks',
+			category: 'GEOLOGICAL SURVEY',
+			author: 'Geological Surveyor Brandt',
+			classification: 'SUBTERRANEAN HAZARDS // SECTOR-V',
+			stamp: 'ACOUSTIC SURVEY // STRATA I-II',
+			summary: 'Acoustic mapping of active geological dangers across the Shifting Deep.',
+			transcription: 'Subterranean leylines vent noxious necrotic miasma [%] originating from decomposing precursor conduits. Operatives wielding aether can discharge a 5 AET Purifying Dispel [V] to neutralize fumes. Water sinkholes [~] indicate subterranean reservoir breaches, while counter-weighted iron portcullises [/] require detent lever actuation.',
+			runeRubbing: '[ ⚙ % % % HAZARD: MIASMA % % % ⚙ ≋ ≋ SINKHOLE ≋ ≋ ⚙ ]',
+			fieldNotes: 'Miasma dispersal requires exactly 5 Aether Quanta. Never advance into concentrated fumes without prior dispel or full vanguard warding.',
+		},
+		DOSSIER_SHIFTING_DEEP: {
+			id: 'DOSSIER_SHIFTING_DEEP',
+			codexId: 'CODEX-C03',
+			title: 'Architectural Schematics: The Shifting Deep (Strata I–III)',
+			category: 'ARCHITECTURAL SCHEMATICS',
+			author: 'Iron Redoubt Engineering Corps',
+			classification: 'PRECINCT TOPOLOGY // CODEX-C03',
+			stamp: 'DECODED BLUEPRINT // REV-4',
+			summary: 'Topological cross-section of the three catacomb strata descending beneath Oakhaven.',
+			transcription: 'STRATA I (F1-F3): The Iron-Moss Catacombs & Sunken Cisterns. Wet slate, rusting iron sluice gates, luminescent teal lichen.\nSTRATA II (F4-F7): The Forgotten Steam Foundries & Magma Flues. Superheated basalt, bronze clockwork pistons, magma flues.\nSTRATA III (F8+): The Abyssal Void & Crystal-Shatter Vaults. Jagged obsidian monoliths, void leylines, Malakor the Shadow Core.',
+			runeRubbing: '[ ═ STRATA I: F1-F3 ═▶ ══ STRATA II: F4-F7 ══▶ ═══ STRATA III: F8+ ═══ ]',
+			fieldNotes: 'Descent depth directly dictates leyline resonance and enemy aggression patterns. Always maintain minimum supply reserves before passing Strata boundaries.',
+		},
+		DOSSIER_CONDUCTION_ARMORY: {
+			id: 'DOSSIER_CONDUCTION_ARMORY',
+			codexId: 'CODEX-D04',
+			title: 'Vanguard Conduction Harness: Antennae & Kinetic Damping',
+			category: 'VANGUARD SCHEMATICS',
+			author: 'Master Artificer Torvald',
+			classification: 'METALLURGICAL PROTOCOL // CLASS-IV',
+			stamp: 'GROUNDING SPECIFICATION // REVISED',
+			summary: 'Operational analysis of vanguard weaponry as energetic induction antennae.',
+			transcription: 'Cold-rolled chainmail and pauldrons are grounded with woven copper mesh to disperse electric arc shocks. Tempered orichalcum blades are fluted with resonant frequency channels to deliver armor-shattering shockwaves. Galvanic rings store kinetic spillover to advance unit position along the CTB initiative rail.',
+			runeRubbing: '[ ✦ COPPER GROUND ✦ ─── ⚡ ORICHALCUM FLUTES ⚡ ─── ✦ CTB CAPACITOR ✦ ]',
+			fieldNotes: 'Paper-doll inspection [E] reveals conduction continuity across all equipped artifacts.',
 		},
 	};
 
@@ -261,7 +341,7 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 				},
 				{
 					id: 'accept',
-					text: 'Bless you, {leader}! Take this {item:POTION} and 20 gold. The hunt begins!',
+					text: 'Bless you, {leader}! Take this {item:POTION} and 20 gold. The expedition into the shifting deep begins!',
 					giveItem: 'POTION',
 					giveGold: 20,
 					setFlag: 'QUEST_WOLVES_ACCEPTED',
@@ -293,17 +373,17 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 				},
 				{
 					id: 'hunting',
-					text: 'May the ember protect all {partyCount} of you.',
+					text: 'May the hearth-ember protect all {partyCount} of you.',
 					next: null,
 				},
 				{
 					id: 'completed',
-					text: 'The southern road is quiet. Now look to the east—the Crypt Sanctum stirs with primordial fire.',
+					text: 'The southern road is quiet. Now look to the east—the Iron-Moss Catacombs of Strata I stir with precursor resonance.',
 					next: null,
 				},
 				{
 					id: 'boss_dead',
-					text: 'Malakor has fallen! The sky cleared over Oakhaven. You carry the Cinder Core—a true legend of the Ember.',
+					text: 'Malakor the Arch-Core has fallen! The sky clears over Oakhaven. You carry the Cinder Core—a true triumph for the Expedition.',
 					next: null,
 				},
 			],
@@ -314,7 +394,7 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 			nodes: [
 				{
 					id: 'start',
-					text: 'Greetings, travelers. The old iron gate to the east seals the Whispering Crypt. Search the old chest along the southern tree line for the key.',
+					text: 'Greetings, Commander. The old iron blast-gate to the east seals Strata I: The Iron-Moss Catacombs. Search the old chest along the southern tree line for the harmonic key.',
 					choices: [
 						{ text: 'We will find the key.', next: 'accept' },
 						{ text: 'What monsters lurk within?', next: 'warn' },
@@ -356,7 +436,7 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 				},
 				{
 					id: 'lore',
-					text: 'The Oakhaven guard. We hold the perimeter against the catacomb ashes.',
+					text: 'The Oakhaven guard. We hold the perimeter against subterranean incursions from the Shifting Deep.',
 					next: null,
 				},
 				{
@@ -417,22 +497,22 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 			nodes: [
 				{
 					id: 'start',
-					text: 'Welcome to the Hearth Inn, {leader}! A warm fire and clean beds await your party of {partyCount}.',
+					text: 'Welcome to the Hearth Inn, {leader}! A warm magma-heated hearth and clean bunks await your vanguard of {partyCount}.',
 					choices: [
-						{ text: 'Rest at the Inn (Full HP/MP Recovery & Autosave).', next: 'rest' },
+						{ text: 'Rest at the Inn (Full Vitality & Aether Recovery & Autosave).', next: 'rest' },
 						{ text: 'Any rumors or news from travelers?', next: 'rumors' },
 						{ text: 'Just passing by.', next: null },
 					],
 				},
 				{
 					id: 'rest',
-					text: 'Sleep well, brave souls. May the hearth keep your spirits bright against the darkness.',
+					text: 'Sleep well, brave souls. May the hearth-spire keep your spirits bright against the cold dusk.',
 					setFlag: 'inn_rest_pending',
 					next: null,
 				},
 				{
 					id: 'rumors',
-					text: 'Old Torvald at the smithy says rare ore crystals can be scavenged in quiet meadow clearings. And wanderers speak of glowing Aether Shrines in the wild!',
+					text: 'Old Torvald at the smithy says rare aether-slag crystals can be scavenged in quiet meadow clearings. And wanderers speak of glowing Aether Shrines humming in the wild!',
 					next: null,
 				},
 			],
@@ -458,7 +538,7 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 				},
 				{
 					id: 'advisory_crypt',
-					text: '⚠️ ADVISORY: The eastern crypt descent harbors toxic miasma and skeleton guards. Consecrate sanctuary camps to purify resting spots.',
+					text: '⚠️ ADVISORY: The eastern descent into Strata I harbors toxic miasma and clockwork sentinels. Consecrate sanctuary camps to purify resting spots.',
 					next: null,
 				},
 				{
@@ -499,6 +579,7 @@ if (typeof window !== 'undefined') window._ManifestInternal = window._ManifestIn
 	const Narrative = {
 		Ailments,
 		Quests,
+		FieldDossiers,
 		WorldMutations,
 		Shops,
 		Dialogues,

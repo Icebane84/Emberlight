@@ -259,6 +259,44 @@
 	}
 
 	/**
+	 * Dispatches attack SFX based on hit target and damage magnitude.
+	 * @param {any} target Defending party member.
+	 * @param {number} finalDmg Damage dealt.
+	 * @param {(sfx: string) => void} dispatchSFX SFX dispatcher.
+	 * @returns {void}
+	 */
+	function _dispatchEnemyAttackSfx(target, finalDmg, dispatchSFX) {
+		const isAldric = target.name === 'Aldric' || target.id === 'hero';
+		if (isAldric && finalDmg >= 5) {
+			dispatchSFX('HYDRAULIC_HAMMER');
+		} else {
+			dispatchSFX('ATTACK_HIT');
+		}
+	}
+
+	/**
+	 * Checks and resolves tactical displacement riders for an enemy attack.
+	 * @param {any} active Attacking hostile unit.
+	 * @param {any} target Defending party member.
+	 * @param {() => number} getRandomFloat Random number generator.
+	 * @param {(actor: any, target: any, disp: string, isAlly: boolean) => void} executeDisplacement Displacement runner.
+	 * @returns {void}
+	 */
+	function _applyEnemyAttackDisplacement(active, target, getRandomFloat, executeDisplacement) {
+		if (!target.alive) return;
+		const key = String(active.key || '');
+		const isBrute = key === 'IRON_BRUTE' || key.includes('BRUTE') || key === 'CATACOMB_SKELETON';
+		if (isBrute && target.row === 'FRONT' && getRandomFloat() < 0.35) {
+			executeDisplacement(active, target, 'KNOCKBACK', true);
+			return;
+		}
+		const isTether = key === 'CAVE_SPIDER' || key === 'DREAD_ACOLYTE';
+		if (isTether && target.row === 'BACK' && getRandomFloat() < 0.3) {
+			executeDisplacement(active, target, 'PULL', true);
+		}
+	}
+
+	/**
 	 * Resolves basic physical attack logic for regular hostile units.
 	 * [Authoritative State Mutation]
 	 * @param {any} sim - Active simulation state.
@@ -283,7 +321,7 @@
 		const variance = Math.floor(getRandomFloat() * 3) - 1;
 		const finalDmg = Math.max(1, rawDmg + variance);
 		target.hp = Math.max(0, target.hp - finalDmg);
-		dispatchSFX('ATTACK_HIT');
+		_dispatchEnemyAttackSfx(target, finalDmg, dispatchSFX);
 		appendLog(
 			`${active.name} attacks ${target.name} for ${finalDmg} DMG!`,
 			'damage',
@@ -311,25 +349,63 @@
 			);
 		}
 
-		if (target.alive) {
-			const isBrute =
-				active.key === 'IRON_BRUTE' ||
-				(typeof active.key === 'string' && active.key.includes('BRUTE')) ||
-				active.key === 'CATACOMB_SKELETON';
-			const isTether =
-				active.key === 'CAVE_SPIDER' || active.key === 'DREAD_ACOLYTE';
-			if (isBrute && getRandomFloat() < 0.35 && target.row === 'FRONT') {
-				executeDisplacement(active, target, 'KNOCKBACK', true);
-			} else if (
-				isTether &&
-				getRandomFloat() < 0.3 &&
-				target.row === 'BACK'
-			) {
-				executeDisplacement(active, target, 'PULL', true);
-			}
-		}
-
+		_applyEnemyAttackDisplacement(active, target, getRandomFloat, executeDisplacement);
 		checkUnitDefeat(target);
+	}
+
+	/**
+	 * Handles Void Herald special ability execution (Aether Siphon or Death Mark).
+	 * @param {any} sim - Active simulation state.
+	 * @param {any} active - Active enemy entity.
+	 * @param {any[]} livingParty - List of living hero combatants.
+	 * @param {any} helpers - Injected simulation helpers.
+	 * @returns {boolean} True if a special ability was executed.
+	 */
+	function handleVoidHeraldSpecialTurn(sim, active, livingParty, helpers) {
+		if (active.key !== 'VOID_HERALD' && active.phenotype !== 'VOID_HERALD') {
+			return false;
+		}
+		const rng = typeof helpers.getRandomFloat === 'function' ? helpers.getRandomFloat() : 0.5;
+		const heroesWithMp = livingParty.filter((/** @type {any} */ h) => (h.mp || 0) > 0);
+		if (rng < 0.45 && heroesWithMp.length > 0) {
+			heroesWithMp.sort((/** @type {any} */ a, /** @type {any} */ b) => (b.mp || 0) - (a.mp || 0));
+			const siphonTarget = heroesWithMp[0];
+			const drainAmount = Math.min(10, siphonTarget.mp || 0);
+			siphonTarget.mp -= drainAmount;
+			active.hp = Math.min(active.maxHp || 45, (active.hp || 0) + drainAmount);
+			helpers.appendLog(
+				`🌀 [VOID SIPHON] ${active.name} drains ${drainAmount} AET from ${siphonTarget.name}!`,
+				'ember',
+			);
+			helpers.dispatchSFX('SPELL_BOLT');
+			const heroIdx = sim.party.findIndex((/** @type {any} */ c) => c.id === siphonTarget.id);
+			if (helpers.hostContext?.eventBus?.publish) {
+				helpers.hostContext.eventBus.publish('combat:damage', {
+					amount: drainAmount,
+					targetType: 'party',
+					targetIndex: heroIdx !== -1 ? heroIdx : 0,
+					isCrit: false,
+					isHeal: false,
+					element: 'ARCANE',
+				});
+			}
+			helpers.renderPresentation?.();
+			helpers.schedule?.(helpers.stepTurn, 650);
+			return true;
+		}
+		if (rng < 0.75) {
+			const markTarget = selectEnemyTarget(active, livingParty, helpers.getRandomFloat);
+			helpers.applyAilment(markTarget, 'POISON', 3);
+			helpers.appendLog(
+				`💀 [DEATH MARK] ${active.name} casts an Umbral death mark upon ${markTarget.name}!`,
+				'damage',
+			);
+			helpers.dispatchSFX('SPELL_BOLT');
+			helpers.renderPresentation?.();
+			helpers.schedule?.(helpers.stepTurn, 650);
+			return true;
+		}
+		return false;
 	}
 
 	/**
@@ -368,6 +444,10 @@
 			executeBossPatternAction(sim, active, pattern, livingParty, helpers);
 			renderPresentation();
 			schedule(stepTurn, 700);
+			return;
+		}
+
+		if (handleVoidHeraldSpecialTurn(sim, active, livingParty, helpers)) {
 			return;
 		}
 
