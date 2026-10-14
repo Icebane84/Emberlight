@@ -180,7 +180,7 @@ const EmberlightDynamicLights = (() => {
 		);
 
 		const isSubterranean = dungeonDepth > 0 || activeZoneType === "CRYPT";
-		const ambientDarkness = isSubterranean ? 0.94 : 0.0;
+		const ambientDarkness = isSubterranean ? 0.70 : 0.0;
 
 		const emitters = assembleEmitters(
 			pScreenX,

@@ -368,6 +368,16 @@ if (typeof window !== "undefined") {
 		};
 		const getWallTitle = (/** @type {any} */ (RuntimePres)).getWallTitle || defaultWallTitle;
 
+		let floorTitle = "🌲 Ashen Wildway";
+		let floorIcon = "🌲";
+		if (inTown) {
+			floorTitle = "🛤️ Cobblestone Plaza";
+			floorIcon = "🛤️";
+		} else if (depth > 0) {
+			floorTitle = "🏛️ Catacomb Corridor";
+			floorIcon = "🏛️";
+		}
+
 		/** @type {Record<string, { title: string, icon: string, desc: string, isAdvance: boolean }>} */
 		const tileDescriptions = {
 			"#": {
@@ -497,9 +507,9 @@ if (typeof window !== "undefined") {
 				isAdvance: true,
 			},
 			".": {
-				title: inTown ? "🛤️ Cobblestone Plaza" : "🌲 Ashen Wildway",
-				icon: inTown ? "🛤️" : "🌲",
-				desc: "Open navigable terrain. Forward advance clear.",
+				title: floorTitle,
+				icon: floorIcon,
+				desc: depth > 0 ? "Flagstone catacomb floor. Forward advance clear." : "Open navigable terrain. Forward advance clear.",
 				isAdvance: true,
 			},
 		};

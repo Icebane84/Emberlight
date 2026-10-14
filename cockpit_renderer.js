@@ -239,7 +239,161 @@ const EmberlightCockpitRenderer = (() => {
 	}
 	//#endregion
 
-	//#region [SEC-04] Party Roster HUD & Town Marketplace Availability
+	/**
+	 * @typedef {Object} HeroArchetypeInfo
+	 * @property {string} role
+	 * @property {string} concordance
+	 * @property {string} theme
+	 * @property {string} auraColor
+	 */
+
+	/**
+	 * Resolves archetypal metadata and visual concordance for a party member.
+	 * @param {any} c - Character data object.
+	 * @returns {HeroArchetypeInfo}
+	 */
+	function resolveHeroArchetype(c) {
+		const nameKey = String(c?.name || "").toLowerCase();
+		const phenoKey = String(c?.phenotype || "").toUpperCase();
+		if (nameKey === "aldric" || phenoKey === "HERO") {
+			return { role: "BULWARK", concordance: "IRON", theme: "iron", auraColor: "rgba(56, 189, 248, 0.45)" };
+		}
+		if (nameKey === "brogan" || phenoKey === "WARRIOR") {
+			return { role: "BERSERKER", concordance: "EMBER", theme: "ember", auraColor: "rgba(249, 115, 22, 0.45)" };
+		}
+		if (nameKey === "selene" || phenoKey === "MAGE") {
+			return { role: "WEAVER", concordance: "TIDE", theme: "tide", auraColor: "rgba(168, 85, 247, 0.45)" };
+		}
+		if (nameKey === "wren" || phenoKey === "HEALER") {
+			return { role: "CLERIC", concordance: "LUMEN", theme: "lumen", auraColor: "rgba(16, 185, 129, 0.45)" };
+		}
+		return { role: "OPERATIVE", concordance: "AETHER", theme: "iron", auraColor: "rgba(200, 150, 80, 0.35)" };
+	}
+
+	/**
+	 * Resolves the richest available procedural sprite URL for a party member.
+	 * @param {any} c - Character data object.
+	 * @returns {string|null} Data URL or null.
+	 */
+	function resolveHeroSpriteUrl(c) {
+		let Win = /** @type {any} */ ({});
+		if (typeof window !== "undefined") {
+			Win = window;
+		} else if (typeof globalThis !== "undefined") {
+			Win = globalThis;
+		}
+		if (Win.EmberlightBattlerBaker && typeof Win.EmberlightBattlerBaker.get === "function") {
+			const battlerUrl = Win.EmberlightBattlerBaker.get({
+				phenotype: c.phenotype,
+				weapon: c.equipment?.weapon,
+				armor: c.equipment?.armor,
+			});
+			if (battlerUrl) return battlerUrl;
+		}
+		if (Win.EmberlightPartyIcons && typeof Win.EmberlightPartyIcons.get === "function") {
+			return Win.EmberlightPartyIcons.get(c.phenotype);
+		}
+		return null;
+	}
+
+	/**
+	 * Constructs an individual animated Magitek party HUD card element.
+	 * @param {any} c - Party member snapshot object.
+	 * @param {number} idx - Roster index.
+	 * @returns {HTMLDivElement}
+	 */
+	function createPartyHudCard(c, idx) {
+		const card = document.createElement("div");
+		const archetype = resolveHeroArchetype(c);
+		card.className = `hud-char-card concordance-${archetype.theme} ${c.alive ? "" : "fainted"}`;
+		card.dataset.charId = c.id || c.name || String(idx);
+		card.title = `${c.name} — ${archetype.role} (${archetype.concordance})\nClick to inspect Dossier [C]`;
+
+		const maxHp = c.maxHp || 30;
+		const maxMp = c.maxMp || 10;
+		const hpPct = Math.max(0, Math.min(100, ((c.hp || 0) / maxHp) * 100));
+		const mpPct = Math.max(0, Math.min(100, ((c.mp || 0) / maxMp) * 100));
+		const expReq =
+			typeof EmberlightCombat !== "undefined" &&
+			typeof (/** @type {any} */ (EmberlightCombat)).getExpForNextLevel === "function"
+				? (/** @type {any} */ (EmberlightCombat)).getExpForNextLevel(c.level || 1)
+				: Math.max(20, Math.floor(25 * ((c.level || 1) ** 1.5) + 10 * (c.level || 1)));
+		const curExp = c.exp || 0;
+		const expPct = Math.max(0, Math.min(100, Math.round((curExp / expReq) * 100)));
+		const spBadge =
+			c.unspentSP && c.unspentSP > 0
+				? `<span class="hud-sp-badge" title="Unattuned ${lexTerm("stat.sp.long", "Skill Points")} available! Press [T] for Astrolabe">[+${c.unspentSP} ${lexTerm("stat.sp", "SP")}]</span>`
+				: "";
+		const ailmentTags = (c.ailments || [])
+			.map((/** @type {any} */ a) => `<span class="hud-ailment-tag">[${a.id}]</span>`)
+			.join(" ");
+
+		const spriteUrl = resolveHeroSpriteUrl(c);
+		const staggerDelay = (idx * 0.45).toFixed(2);
+		const charInitial = c.name ? c.name.charAt(0) : "?";
+		const avatarHtml = spriteUrl
+			? `<img src="${spriteUrl}" class="hud-char-sprite" style="animation-delay: ${staggerDelay}s" alt="${c.name}" />`
+			: `<div class="hud-char-sprite-placeholder">${charInitial}</div>`;
+
+		card.innerHTML = `
+			<div class="hud-char-alcove">
+				<div class="hud-char-pedestal" style="--hero-glow: ${archetype.auraColor};">
+					${avatarHtml}
+					<div class="hud-pedestal-disc"></div>
+					<div class="hud-tether-status ${c.alive ? "tether-nominal" : "tether-severed"}" title="${c.alive ? "Galvanic Tether Nominal" : "Shock Stasis"}"></div>
+				</div>
+			</div>
+			<div class="hud-char-details">
+				<div class="hud-char-header">
+					<div class="hud-name-group">
+						<span class="hud-char-name-text">${c.name}</span>
+						<span class="hud-archetype-tag ${archetype.theme}">${archetype.role}</span>
+					</div>
+					<div class="hud-badge-group">
+						<span class="hud-level-tag">Lv.${c.level || 1}</span>
+						${spBadge}
+						${ailmentTags}
+					</div>
+				</div>
+				<div class="hud-stat-row vit-row">
+					<span class="hud-stat-label" title="${lexTerm("stat.hp.long", "Hit Points")}">${lexTerm("stat.hp", "HP")}</span>
+					<span class="hud-bar-track vit-track">
+						<span class="hud-bar-fill hp ${hpPct <= 25 ? "critical-pulse" : ""}" style="width:${hpPct}%"></span>
+					</span>
+					<span class="hud-stat-val vit-val">${c.hp || 0}<small>/${maxHp}</small></span>
+				</div>
+				<div class="hud-stat-row aet-row">
+					<span class="hud-stat-label" title="${lexTerm("stat.mp.long", "Mana Points")}">${lexTerm("stat.mp", "MP")}</span>
+					<span class="hud-bar-track aet-track">
+						<span class="hud-bar-fill mp" style="width:${mpPct}%"></span>
+					</span>
+					<span class="hud-stat-val aet-val">${c.mp || 0}<small>/${maxMp}</small></span>
+				</div>
+				<div class="hud-stat-row exp-row">
+					<span class="hud-stat-label" title="${lexTerm("stat.exp.long", "Experience")}">${lexTerm("stat.exp", "XP")}</span>
+					<span class="hud-bar-track exp-track">
+						<span class="hud-bar-fill exp" style="width:${expPct}%"></span>
+					</span>
+					<span class="hud-stat-val exp-val">${curExp}<small>/${expReq}</small></span>
+				</div>
+			</div>
+		`;
+
+		card.addEventListener("click", () => {
+			const Win = /** @type {any} */ (typeof window !== "undefined" ? window : {});
+			if (Win.DistrictRouter && typeof Win.DistrictRouter.navigate === "function") {
+				Win.DistrictRouter.navigate("STATUS");
+			} else {
+				const dossierTab = document.querySelector('.subnav-tab[data-nav="STATUS"]');
+				if (dossierTab && typeof (/** @type {HTMLElement} */ (dossierTab)).click === "function") {
+					(/** @type {HTMLElement} */ (dossierTab)).click();
+				}
+			}
+		});
+
+		return card;
+	}
+
 	/**
 	 * Renders party roster HUD cards and updates town marketplace button states.
 	 * [DOM Presentation Render]
@@ -273,58 +427,8 @@ const EmberlightCockpitRenderer = (() => {
 			partyContainer.innerHTML = "";
 			const party = snapshot?.party || [];
 			if (Array.isArray(party)) {
-				party.forEach((c) => {
-					const card = document.createElement("div");
-					card.className = `hud-char-card ${c.alive ? "" : "fainted"}`;
-
-					const maxHp = c.maxHp || 30;
-					const maxMp = c.maxMp || 10;
-					const hpPct = Math.max(0, Math.min(100, ((c.hp || 0) / maxHp) * 100));
-					const mpPct = Math.max(0, Math.min(100, ((c.mp || 0) / maxMp) * 100));
-					const expReq = typeof EmberlightCombat !== "undefined" && typeof (/** @type {any} */ (EmberlightCombat)).getExpForNextLevel === "function"
-						? (/** @type {any} */ (EmberlightCombat)).getExpForNextLevel(c.level || 1)
-						: Math.max(20, Math.floor(25 * ((c.level || 1) ** 1.5) + 10 * (c.level || 1)));
-					const curExp = c.exp || 0;
-					const expPct = Math.max(0, Math.min(100, Math.round((curExp / expReq) * 100)));
-					const spBadge = (c.unspentSP && c.unspentSP > 0)
-						? `<span class="hud-sp-badge" title="Unattuned ${lexTerm("stat.sp.long", "Skill Points")} available! Press [T] for the Armillary Astrolabe">[+${c.unspentSP} ${lexTerm("stat.sp", "SP")}]</span>`
-						: "";
-					const ailmentTags = (c.ailments || [])
-						.map((a) => `<span style="color:var(--danger)">[${a.id}]</span>`)
-						.join(" ");
-
-					const crestUrl =
-						typeof EmberlightPartyIcons !== "undefined"
-							? EmberlightPartyIcons.get(c.phenotype)
-							: null;
-
-					card.innerHTML = `
-            ${crestUrl ? `<img src="${crestUrl}" class="hud-char-crest" alt="${c.name}" />` : ""}
-            <div class="hud-char-details">
-              <div class="hud-char-name">
-                <span>${c.name}</span>
-                <span style="color:var(--text-dim); font-family:var(--font-mono, monospace); font-size:9px;">Lv${c.level || 1}</span>
-                ${spBadge}
-                ${ailmentTags}
-              </div>
-              <div class="hud-stat-row">
-                <span class="hud-stat-label" title="${lexTerm("stat.hp.long", "Hit Points")}">${lexTerm("stat.hp", "HP")}</span>
-                <span class="hud-bar-track"><span class="hud-bar-fill hp" style="width:${hpPct}%"></span></span>
-                <span class="hud-stat-val">${c.hp || 0}/${maxHp}</span>
-              </div>
-              <div class="hud-stat-row">
-                <span class="hud-stat-label" title="${lexTerm("stat.mp.long", "Mana Points")}">${lexTerm("stat.mp", "MP")}</span>
-                <span class="hud-bar-track"><span class="hud-bar-fill mp" style="width:${mpPct}%"></span></span>
-                <span class="hud-stat-val">${c.mp || 0}/${maxMp}</span>
-              </div>
-              <div class="hud-stat-row">
-                <span class="hud-stat-label" style="color:var(--gold);" title="${lexTerm("stat.exp.long", "Experience")}">${lexTerm("stat.exp", "XP")}</span>
-                <span class="hud-bar-track"><span class="hud-bar-fill exp" style="width:${expPct}%; background:linear-gradient(90deg, #d97706, #fbbf24);"></span></span>
-                <span class="hud-stat-val" style="color:var(--gold); font-family:var(--font-mono, monospace); font-size:9px; letter-spacing:0.5px;">${curExp}/${expReq}</span>
-              </div>
-            </div>
-          `;
-					partyContainer.appendChild(card);
+				party.forEach((c, idx) => {
+					partyContainer.appendChild(createPartyHudCard(c, idx));
 				});
 			}
 		}

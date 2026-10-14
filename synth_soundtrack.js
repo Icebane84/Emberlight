@@ -19,21 +19,31 @@
 /**
  * @typedef {Object} SoundtrackDiagnostics
  * @property {string} driverId Internal driver identifier string.
+ * @property {string} [subsystemId] Subsystem identifier (e.g. SUBSYSTEM_C).
+ * @property {string} [subsystemName] Formal subsystem name.
  * @property {'TRACKER' | 'BYTEBEAT'} [playbackMode] Active audio playback mode.
  * @property {string} activeMood Active musical mood identifier.
+ * @property {string} [activeMoodTitle] Title of active musical mood.
+ * @property {string} [activeScale] Active musical scale name.
  * @property {number} currentBPM Current beats per minute.
  * @property {number} currentStep Current active sequencer step.
  * @property {number} [currentBar] Current active 4-bar phrase index (0-3).
  * @property {boolean} isMuted Mute status flag.
+ * @property {number} [delayFeedbackMs] Feedback delay in ms.
+ * @property {boolean} [vacuumTubePreampActive] Vacuum-tube preamp active flag.
  * @property {string} contextState Web Audio context state string.
  */
 
 /**
  * @typedef {Object} MoodConfig
+ * @property {string} [title] Human-readable title for the musical mood.
  * @property {number} bpm Beats per minute.
+ * @property {string} [scale] Scale name.
  * @property {number} rootFreq Root frequency in Hz.
  * @property {number} filterCutoff Lowpass filter cutoff frequency.
  * @property {OscillatorType} bassType Bass oscillator waveform type.
+ * @property {string} [description] Descriptive lore/texture.
+ * @property {string} [progression] Harmonic progression notation.
  */
 
 /**
@@ -103,14 +113,7 @@ const EmberlightSoundtrack = (() => {
 	/** @type {AudioBuffer|null} */
 	let noiseBuffer = null;
 
-	// --- SCALE DICTIONARIES (MIDI Note Arrays) ---
-	const SCALES = {
-		SURFACE: [57, 60, 62, 64, 67, 69, 72, 74], // A Dorian (A3 to D5)
-		TOWN: [60, 62, 64, 66, 67, 69, 71, 72], // C Lydian (C4 to C5)
-		CATACOMBS: [50, 53, 57, 58, 61, 62, 65, 69], // D Harmonic Minor
-		COMBAT: [52, 53, 55, 57, 59, 60, 62, 64], // E Phrygian
-		BOSS: [50, 51, 54, 56, 57, 60, 62, 63], // D Locrian / Diminished
-	};
+	// --- MOOD CONFIGURATIONS ---
 
 	/** @type {Record<string, MoodConfig>} */
 	const MOOD_CONFIG = {
@@ -438,6 +441,67 @@ const EmberlightSoundtrack = (() => {
 	 * (State-mutating audio context builder)
 	 * @returns {void}
 	 */
+	/**
+	 * Instantiates and wires the vacuum-tube waveshaper preamplifier node.
+	 * Pure setup helper.
+	 * @param {AudioContext} audioCtx
+	 * @param {GainNode} outGain
+	 * @returns {WaveShaperNode|null}
+	 */
+	function _initTubePreamp(audioCtx, outGain) {
+		if (typeof audioCtx.createWaveShaper !== "function") return null;
+		try {
+			const node = audioCtx.createWaveShaper();
+			node.curve = /** @type {any} */ (buildTubeSaturationCurve(256, 1.8));
+			node.oversample = "2x";
+			node.connect(outGain);
+			return node;
+		} catch {
+			return null;
+		}
+	}
+
+	/**
+	 * Configures stereo feedback delay loop for SPC700 acoustic emulation.
+	 * State-mutating setup helper.
+	 * @param {AudioContext} audioCtx
+	 * @param {AudioNode} voiceBus
+	 * @returns {void}
+	 */
+	function _initDelayBus(audioCtx, voiceBus) {
+		if (typeof audioCtx.createDelay !== "function") return;
+		try {
+			delayNode = audioCtx.createDelay();
+			delayNode.delayTime.setValueAtTime(0.24, audioCtx.currentTime);
+
+			delayFeedbackGain = audioCtx.createGain();
+			delayFeedbackGain.gain.setValueAtTime(0.32, audioCtx.currentTime);
+
+			delayFilter = audioCtx.createBiquadFilter();
+			delayFilter.type = "lowpass";
+			delayFilter.frequency.setValueAtTime(1400, audioCtx.currentTime);
+
+			delaySendGain = audioCtx.createGain();
+			delaySendGain.gain.setValueAtTime(0.38, audioCtx.currentTime);
+
+			delaySendGain.connect(delayNode);
+			delayNode.connect(delayFilter);
+			delayFilter.connect(delayFeedbackGain);
+			delayFeedbackGain.connect(delayNode);
+			delayFilter.connect(voiceBus);
+		} catch {
+			delayNode = null;
+			delayFeedbackGain = null;
+			delayFilter = null;
+			delaySendGain = null;
+		}
+	}
+
+	/**
+	 * Ensures the WebAudio context is initialized and active.
+	 * (State-mutating audio context builder)
+	 * @returns {void}
+	 */
 	function ensureContext() {
 		if (!userUnlocked || typeof window === "undefined") return;
 		if (!ctx) {
@@ -450,48 +514,9 @@ const EmberlightSoundtrack = (() => {
 				masterGain.gain.setValueAtTime(isMuted ? 0.0 : 0.45, ctx.currentTime);
 				masterGain.connect(ctx.destination);
 
-				// Initialize Vacuum-Tube Audio Preamplifier WaveShaper (Subsystem C)
-				if (typeof ctx.createWaveShaper === "function") {
-					try {
-						tubePreampNode = ctx.createWaveShaper();
-						tubePreampNode.curve = buildTubeSaturationCurve(256, 1.8);
-						tubePreampNode.oversample = "2x";
-						tubePreampNode.connect(masterGain);
-					} catch {
-						tubePreampNode = null;
-					}
-				}
-
+				tubePreampNode = _initTubePreamp(ctx, masterGain);
 				const voiceBus = tubePreampNode || masterGain;
-
-				// Initialize Stereo Feedback Echo Bus (SPC700 Emulation - 240ms feedback loop)
-				if (typeof ctx.createDelay === "function") {
-					try {
-						delayNode = ctx.createDelay();
-						delayNode.delayTime.setValueAtTime(0.24, ctx.currentTime);
-
-						delayFeedbackGain = ctx.createGain();
-						delayFeedbackGain.gain.setValueAtTime(0.32, ctx.currentTime);
-
-						delayFilter = ctx.createBiquadFilter();
-						delayFilter.type = "lowpass";
-						delayFilter.frequency.setValueAtTime(1400, ctx.currentTime);
-
-						delaySendGain = ctx.createGain();
-						delaySendGain.gain.setValueAtTime(0.38, ctx.currentTime);
-
-						delaySendGain.connect(delayNode);
-						delayNode.connect(delayFilter);
-						delayFilter.connect(delayFeedbackGain);
-						delayFeedbackGain.connect(delayNode);
-						delayFilter.connect(voiceBus);
-					} catch {
-						delayNode = null;
-						delayFeedbackGain = null;
-						delayFilter = null;
-						delaySendGain = null;
-					}
-				}
+				_initDelayBus(ctx, voiceBus);
 
 				bakeNoiseBuffer();
 			} catch {
@@ -901,56 +926,77 @@ const EmberlightSoundtrack = (() => {
 	 * @param {number} _barIdx Active bar index in 4-bar phrase (0-3).
 	 * @returns {void}
 	 */
+	/**
+	 * Bass rhythm and octave modification parameters per musical mood.
+	 * Pure constant lookup matrix.
+	 * @type {Record<string, { durFactor: number, steps: number[], octaveMods: Record<number, number> }>}
+	 */
+	const BASS_MOOD_TABLE = {
+		COMBAT: {
+			durFactor: 1.1,
+			steps: [0, 2, 3, 6, 8, 10, 11, 14],
+			octaveMods: { 6: 1.5, 11: 1.5, 14: 2.0 },
+		},
+		BOSS: {
+			durFactor: 1.2,
+			steps: [0, 2, 4, 6, 8, 10, 12, 14],
+			octaveMods: { 6: 0.5, 14: 0.5 },
+		},
+		TOWN: {
+			durFactor: 3.0,
+			steps: [0, 6, 10],
+			octaveMods: { 6: 1.5 },
+		},
+		CATACOMBS: {
+			durFactor: 3.5,
+			steps: [0, 8],
+			octaveMods: { 8: 1.334 },
+		},
+		SURFACE: {
+			durFactor: 2.0,
+			steps: [0, 3, 6, 8, 10, 12],
+			octaveMods: { 6: 1.5, 12: 1.5 },
+		},
+	};
+
+	/**
+	 * Resolves bass timing and octave parameters based on mood and step index.
+	 * Pure calculation helper with O(1) cognitive complexity.
+	 * @param {string} mood Active mood identifier.
+	 * @param {number} stepInBar Step index in bar (0-15).
+	 * @returns {{ shouldPlay: boolean, octaveMod: number, durFactor: number }}
+	 */
+	function _resolveBassStepPattern(mood, stepInBar) {
+		const pattern = BASS_MOOD_TABLE[mood] || BASS_MOOD_TABLE.SURFACE;
+		if (!pattern.steps.includes(stepInBar)) {
+			return { shouldPlay: false, octaveMod: 1.0, durFactor: pattern.durFactor };
+		}
+		const octaveMod = pattern.octaveMods[stepInBar] ?? 1.0;
+		return { shouldPlay: true, octaveMod, durFactor: pattern.durFactor };
+	}
+
+	/**
+	 * Schedules bassline notes for the active step in the 4-bar phrase.
+	 * (State-mutating sequencer routine)
+	 * @param {number} stepInBar Step index in bar (0-15).
+	 * @param {number} stepTime AudioContext schedule time.
+	 * @param {number} stepDuration Step duration in seconds.
+	 * @param {MoodConfig} cfg Mood configuration object.
+	 * @param {{ rootFreq: number, arpNotes: number[] }} chord Active chord voicing.
+	 * @param {number} _barIdx Active bar index in 4-bar phrase (0-3).
+	 * @returns {void}
+	 */
 	function scheduleBass(stepInBar, stepTime, stepDuration, cfg, chord, _barIdx) {
-		const root = chord.rootFreq;
-		let shouldPlay = false;
-		let octaveMod = 1.0;
-		let durFactor = 2.2;
+		const { shouldPlay, octaveMod, durFactor } = _resolveBassStepPattern(currentMood, stepInBar);
+		if (!shouldPlay) return;
 
-		if (currentMood === "COMBAT") {
-			// Iron Vanguard Galloping 16th bassline: [0, 2, 3, 6, 8, 10, 11, 14]
-			if ([0, 2, 3, 6, 8, 10, 11, 14].includes(stepInBar)) {
-				shouldPlay = true;
-				durFactor = 1.1;
-				if (stepInBar === 6 || stepInBar === 11) octaveMod = 1.5;
-				if (stepInBar === 14) octaveMod = 2.0;
-			}
-		} else if (currentMood === "BOSS") {
-			if ([0, 2, 4, 6, 8, 10, 12, 14].includes(stepInBar)) {
-				shouldPlay = true;
-				durFactor = 1.2;
-				if (stepInBar === 6 || stepInBar === 14) octaveMod = 0.5;
-			}
-		} else if (currentMood === "TOWN") {
-			if ([0, 6, 10].includes(stepInBar)) {
-				shouldPlay = true;
-				durFactor = 3.0;
-				if (stepInBar === 6) octaveMod = 1.5;
-			}
-		} else if (currentMood === "CATACOMBS") {
-			if ([0, 8].includes(stepInBar)) {
-				shouldPlay = true;
-				durFactor = 3.5;
-				if (stepInBar === 8) octaveMod = 1.334;
-			}
-		} else {
-			// SURFACE: Nomad walking bass [0, 3, 6, 8, 10, 12]
-			if ([0, 3, 6, 8, 10, 12].includes(stepInBar)) {
-				shouldPlay = true;
-				durFactor = 2.0;
-				if (stepInBar === 6 || stepInBar === 12) octaveMod = 1.5;
-			}
-		}
-
-		if (shouldPlay) {
-			playBassNote(
-				root * octaveMod,
-				stepTime,
-				stepDuration * durFactor,
-				cfg.bassType,
-				cfg.filterCutoff,
-			);
-		}
+		playBassNote(
+			chord.rootFreq * octaveMod,
+			stepTime,
+			stepDuration * durFactor,
+			cfg.bassType,
+			cfg.filterCutoff,
+		);
 	}
 
 	/**
@@ -1014,65 +1060,90 @@ const EmberlightSoundtrack = (() => {
 	 * @param {number} barIdx Active bar index in 4-bar phrase (0-3).
 	 * @returns {void}
 	 */
+	/**
+	 * Schedules percussion triggers for COMBAT mood.
+	 * @param {number} stepInBar
+	 * @param {number} stepTime
+	 * @param {number} barIdx
+	 */
+	function _scheduleCombatPercussion(stepInBar, stepTime, barIdx) {
+		if (barIdx === 3 && stepInBar >= 12) {
+			if (stepInBar === 12 || stepInBar === 14 || stepInBar === 15) playPercussion("SNARE", stepTime);
+			if (stepInBar === 13) playPercussion("KICK", stepTime);
+			if (stepInBar === 15) playPercussion("HAT", stepTime);
+			return;
+		}
+		if (stepInBar === 0 || stepInBar === 6 || stepInBar === 8 || stepInBar === 14) {
+			playPercussion("KICK", stepTime);
+		}
+		if (stepInBar === 4 || stepInBar === 12) {
+			playPercussion("SNARE", stepTime);
+		}
+		if (stepInBar % 2 === 1) {
+			playPercussion("HAT", stepTime);
+		}
+	}
+
+	/**
+	 * Schedules percussion triggers for BOSS mood.
+	 * @param {number} stepInBar
+	 * @param {number} stepTime
+	 * @param {number} barIdx
+	 */
+	function _scheduleBossPercussion(stepInBar, stepTime, barIdx) {
+		if (barIdx === 3 && stepInBar >= 12) {
+			playPercussion("KICK", stepTime);
+			playPercussion("SNARE", stepTime);
+			return;
+		}
+		if (stepInBar === 0 || stepInBar === 3 || stepInBar === 8 || stepInBar === 11) {
+			playPercussion("KICK", stepTime);
+		}
+		if (stepInBar === 4 || stepInBar === 12 || stepInBar === 14) {
+			playPercussion("SNARE", stepTime);
+		}
+		if (stepInBar % 2 === 1 || stepInBar === 2 || stepInBar === 10) {
+			playPercussion("HAT", stepTime);
+		}
+	}
+
+	/**
+	 * Schedules ambient percussion triggers (SURFACE, TOWN, CATACOMBS).
+	 * @param {string} mood
+	 * @param {number} stepInBar
+	 * @param {number} stepTime
+	 * @param {number} barIdx
+	 */
+	function _scheduleAmbientPercussion(mood, stepInBar, stepTime, barIdx) {
+		if (mood === "SURFACE") {
+			if (stepInBar === 0 || stepInBar === 8) playPercussion("KICK", stepTime);
+			if (stepInBar === 4 || stepInBar === 12) playPercussion("SNARE", stepTime);
+			if (stepInBar === 2 || stepInBar === 6 || stepInBar === 10 || stepInBar === 14) playPercussion("HAT", stepTime);
+			if (barIdx === 3 && (stepInBar === 14 || stepInBar === 15)) playPercussion("HAT", stepTime);
+			return;
+		}
+		if (stepInBar === 0) playPercussion("KICK", stepTime);
+		if (stepInBar === 8) playPercussion("HAT", stepTime);
+		if (mood === "CATACOMBS" && barIdx === 3 && stepInBar === 14) {
+			playPercussion("SNARE", stepTime);
+		}
+	}
+
+	/**
+	 * Schedules procedural percussion sounds for the active step in the 4-bar phrase.
+	 * (State-mutating sequencer routine)
+	 * @param {number} stepInBar Step index in bar (0-15).
+	 * @param {number} stepTime AudioContext schedule time.
+	 * @param {number} barIdx Active bar index in 4-bar phrase (0-3).
+	 * @returns {void}
+	 */
 	function schedulePercussion(stepInBar, stepTime, barIdx) {
 		if (currentMood === "COMBAT") {
-			// Bar 3 cadence drum roll fill
-			if (barIdx === 3 && stepInBar >= 12) {
-				if (stepInBar === 12) playPercussion("SNARE", stepTime);
-				else if (stepInBar === 13) playPercussion("KICK", stepTime);
-				else if (stepInBar === 14) playPercussion("SNARE", stepTime);
-				else if (stepInBar === 15) {
-					playPercussion("SNARE", stepTime);
-					playPercussion("HAT", stepTime);
-				}
-				return;
-			}
-
-			if (stepInBar === 0 || stepInBar === 6 || stepInBar === 8 || stepInBar === 14) {
-				playPercussion("KICK", stepTime);
-			}
-			if (stepInBar === 4 || stepInBar === 12) {
-				playPercussion("SNARE", stepTime);
-			}
-			if (stepInBar % 2 === 1) {
-				playPercussion("HAT", stepTime);
-			}
+			_scheduleCombatPercussion(stepInBar, stepTime, barIdx);
 		} else if (currentMood === "BOSS") {
-			if (barIdx === 3 && stepInBar >= 12) {
-				playPercussion("KICK", stepTime);
-				playPercussion("SNARE", stepTime);
-				return;
-			}
-
-			if (stepInBar === 0 || stepInBar === 3 || stepInBar === 8 || stepInBar === 11) {
-				playPercussion("KICK", stepTime);
-			}
-			if (stepInBar === 4 || stepInBar === 12 || stepInBar === 14) {
-				playPercussion("SNARE", stepTime);
-			}
-			if (stepInBar % 2 === 1 || stepInBar === 2 || stepInBar === 10) {
-				playPercussion("HAT", stepTime);
-			}
-		} else if (currentMood === "SURFACE") {
-			if (stepInBar === 0 || stepInBar === 8) {
-				playPercussion("KICK", stepTime);
-			}
-			if (stepInBar === 4 || stepInBar === 12) {
-				playPercussion("SNARE", stepTime);
-			}
-			if (stepInBar === 2 || stepInBar === 6 || stepInBar === 10 || stepInBar === 14) {
-				playPercussion("HAT", stepTime);
-			}
-			if (barIdx === 3 && (stepInBar === 14 || stepInBar === 15)) {
-				playPercussion("HAT", stepTime);
-			}
-		} else if (currentMood === "TOWN") {
-			if (stepInBar === 0) playPercussion("KICK", stepTime);
-			if (stepInBar === 8) playPercussion("HAT", stepTime);
-		} else if (currentMood === "CATACOMBS") {
-			if (stepInBar === 0) playPercussion("KICK", stepTime);
-			if (stepInBar === 8) playPercussion("HAT", stepTime);
-			if (barIdx === 3 && stepInBar === 14) playPercussion("SNARE", stepTime);
+			_scheduleBossPercussion(stepInBar, stepTime, barIdx);
+		} else {
+			_scheduleAmbientPercussion(currentMood, stepInBar, stepTime, barIdx);
 		}
 	}
 

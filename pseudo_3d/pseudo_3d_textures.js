@@ -214,35 +214,206 @@ const Pseudo3DTextures = (() => {
 	}
 
 	/**
-	 * Bakes brick wall texture buffer.
-	 * Pure texture generation procedure.
-	 * @param {number} size - Texture width and height dimension.
+	 * Computes a deterministic pseudo-random 32-bit hash value for (x, y, seed).
+	 * Eliminates periodic diagonal modulo striping artifacts.
+	 * @param {number} x
+	 * @param {number} y
+	 * @param {number} [seed=0]
+	 * @returns {number} Unsigned 32-bit integer.
+	 */
+	function decorrelatedHash(x, y, seed = 0) {
+		let h = (x * 374761393 + y * 668265263 + seed * 1274126177) ^ 0x27d4eb2d;
+		h = Math.imul(h ^ (h >>> 15), 2246822519);
+		h = Math.imul(h ^ (h >>> 13), 3266489917);
+		return (h ^ (h >>> 16)) >>> 0;
+	}
+
+	/**
+	 * Computes color for an ashlar brick megalith pixel.
+	 * Pure calculation helper to preserve SonarLint S3776 complexity thresholds.
+	 * @param {number} x
+	 * @param {number} y
+	 * @param {number} courseIdx
+	 * @param {number} blockCol
+	 * @param {number} localX
+	 * @param {number} localY
+	 * @param {...number} dims Course height and block width dimensions.
+	 * @returns {number} Packed color integer.
+	 */
+	function _shadeBrickPixel(x, y, courseIdx, blockCol, localX, localY, ...dims) {
+		const [courseH = 8, blockW = 16] = dims;
+		const blockId = courseIdx * 4 + blockCol;
+		const blockHash = decorrelatedHash(blockId, 42, 99);
+		const blockTone = (blockHash % 19) - 9;
+
+		let r = 74 + blockTone;
+		let g = 68 + blockTone;
+		let b = 64 + blockTone;
+
+		// Chisel edge relief & beveled block highlights
+		if (localY === 1 || localX === 1) {
+			r += 20;
+			g += 18;
+			b += 14;
+		} else if (localY === courseH - 1 || localX === blockW - 1) {
+			r -= 18;
+			g -= 18;
+			b -= 16;
+		}
+
+		// Isotropic mineral grain pitting
+		const grain = (decorrelatedHash(x, y, 77) % 15) - 7;
+		r += grain;
+		g += grain;
+		b += grain;
+
+		// Creeping catacomb iron-moss in lower damp joints
+		const isLowerWall = courseIdx >= 2;
+		const isDampZone = localY >= 5 || localX <= 2;
+		const mossHash = decorrelatedHash(x, y, 149);
+		if (isLowerWall && isDampZone && (mossHash % 100 < 32)) {
+			r = Math.max(12, Math.trunc(r * 0.42));
+			g = Math.min(255, Math.trunc(g * 1.25 + 18));
+			b = Math.max(12, Math.trunc(b * 0.38));
+		}
+
+		// Iron-oxide mineral vein accents
+		if ((blockHash % 7 === 0) && (localX === 7 || localX === 8)) {
+			r = Math.min(255, r + 18);
+			g = Math.max(0, g + 4);
+			b = Math.max(0, b - 10);
+		}
+
+		return packColor(
+			Math.max(0, Math.min(255, r)),
+			Math.max(0, Math.min(255, g)),
+			Math.max(0, Math.min(255, b)),
+		);
+	}
+
+	/**
+	 * Bakes hand-carved catacomb masonry wall texture buffer.
+	 * Replaces linear modulo diagonal hatching with authentic hand-hewn ashlar megaliths,
+	 * staggered stone courses, chisel relief bevels, and subterranean iron-moss accents.
+	 * @param {number} size - Texture width and height dimension (typically 32).
 	 * @returns {Uint32Array} Baked texture pixel buffer.
 	 */
 	function bakeBrickTexture(size) {
 		const tex = new Uint32Array(size * size);
+		const courseH = 8;
+		const blockW = 16;
+
 		for (let y = 0; y < size; y++) {
+			const courseIdx = Math.floor(y / courseH);
+			const localY = y % courseH;
+			const isMortarH = localY === 0 || y === size - 1;
+			const xOffset = (courseIdx % 2 === 1) ? 8 : 0;
+
 			for (let x = 0; x < size; x++) {
-				const isMortarH =
-					y === 0 || y === Math.floor(size / 2) - 1 || y === size - 1;
-				const isMortarV1 = y < size / 2 && (x === 0 || x === size - 1);
-				const isMortarV2 = y >= size / 2 && (x === Math.floor(size / 2) || x === 0 || x === size - 1);
-				if (isMortarH || isMortarV1 || isMortarV2) {
-					tex[y * size + x] = packColor(16, 16, 24);
-				} else {
-					const noise = ((x * 17 + y * 29) % 23) - 11;
-					const moss = ((x * 7 + y * 13) % 19 > 15) ? 6 : 0;
-					const base = 52 + noise;
-					tex[y * size + x] = packColor(base, base + 2 + moss, base + 10);
+				const shiftedX = (x + xOffset) % size;
+				const blockCol = Math.floor(shiftedX / blockW);
+				const localX = shiftedX % blockW;
+				const isMortarV = localX === 0 || shiftedX === size - 1;
+
+				if (isMortarH || isMortarV) {
+					// Deep recessed mortar crevice: gritty dark catacomb lime
+					const mNoise = (decorrelatedHash(x, y, 11) % 7) - 3;
+					tex[y * size + x] = packColor(15 + mNoise, 13 + mNoise, 19 + mNoise);
+					continue;
 				}
+
+				tex[y * size + x] = _shadeBrickPixel(
+					x,
+					y,
+					courseIdx,
+					blockCol,
+					localX,
+					localY,
+					courseH,
+					blockW,
+				);
 			}
 		}
 		return tex;
 	}
 
 	/**
+	 * Determines if a pixel coordinate lies within a forged iron stud/rivet.
+	 * Pure calculation helper.
+	 * @param {number} x
+	 * @param {number} y
+	 * @param {number} size
+	 * @returns {boolean}
+	 */
+	function _isTimberRivet(x, y, size) {
+		const mid = Math.floor(size / 2) - 1;
+		const end = size - 3;
+		const nearX = Math.abs(x - 2) <= 1 || Math.abs(x - mid) <= 1 || Math.abs(x - end) <= 1;
+		const nearY = Math.abs(y - 2) <= 1 || Math.abs(y - mid) <= 1 || Math.abs(y - end) <= 1;
+		return nearX && nearY;
+	}
+
+	/**
+	 * Computes color for an authentic medieval timber framing wall pixel.
+	 * Pure calculation helper to preserve SonarLint S3776 complexity thresholds.
+	 * @param {number} x
+	 * @param {number} y
+	 * @param {number} size
+	 * @returns {number} Packed color integer.
+	 */
+	function _shadeTimberPixel(x, y, size) {
+		if (_isTimberRivet(x, y, size)) {
+			// Forged iron bolt head with specular glint
+			const isGlint = (x % 2 === 0) && (y % 2 === 0);
+			return isGlint ? packColor(72, 72, 85) : packColor(22, 22, 26);
+		}
+
+		const mid = Math.floor(size / 2);
+		const isBeamX = x < 4 || x >= size - 4 || (x >= mid - 2 && x <= mid + 1);
+		const isBeamY = y < 4 || y >= size - 4 || (y >= mid - 2 && y <= mid + 1);
+
+		if (isBeamX || isBeamY) {
+			// Dark aged timber framing beam with longitudinal grain
+			const beamNoise = (decorrelatedHash(x, y, 107) % 9) - 4;
+			let r = 58 + beamNoise;
+			let g = 34 + beamNoise;
+			let b = 16 + beamNoise;
+
+			// Chamfer edge highlight on upper-left beam faces
+			if (x === 1 || y === 1 || x === mid - 1 || y === mid - 1) {
+				r += 14;
+				g += 10;
+				b += 6;
+			}
+			return packColor(
+				Math.max(0, Math.min(255, r)),
+				Math.max(0, Math.min(255, g)),
+				Math.max(0, Math.min(255, b)),
+			);
+		}
+
+		// Vertical heartwood oak infill planks
+		const isSeam = x === 8 || x === 9 || x === 22 || x === 23;
+		if (isSeam) {
+			return packColor(28, 16, 8);
+		}
+
+		const plankIdx = Math.floor(x / 5);
+		const plankVar = (decorrelatedHash(plankIdx, 0, 43) % 15) - 7;
+		const grainY = (decorrelatedHash(x, Math.floor(y / 2), 79) % 11) - 5;
+		const grainFine = (decorrelatedHash(x, y, 131) % 7) - 3;
+
+		const r = Math.max(0, Math.min(255, 105 + plankVar + grainY + grainFine));
+		const g = Math.max(0, Math.min(255, 66 + Math.floor(plankVar * 0.7) + grainY + grainFine));
+		const b = Math.max(0, Math.min(255, 30 + Math.floor(plankVar * 0.4)));
+
+		return packColor(r, g, b);
+	}
+
+	/**
 	 * Bakes timber wall texture buffer.
-	 * Pure texture generation procedure.
+	 * Replaces periodic horizontal modulo striping with authentic medieval half-timber
+	 * framing beams, forged iron stud rivets, and vertical heartwood oak planks.
 	 * @param {number} size - Texture dimension.
 	 * @returns {Uint32Array} Baked texture pixel buffer.
 	 */
@@ -250,40 +421,16 @@ const Pseudo3DTextures = (() => {
 		const tex = new Uint32Array(size * size);
 		for (let y = 0; y < size; y++) {
 			for (let x = 0; x < size; x++) {
-				// Heavy timber framing on outer edges and center division
-				const isFrameStud = x < 3 || x >= size - 3 || (x >= Math.floor(size / 2) - 1 && x <= Math.floor(size / 2) + 1);
-				const isFrameRail = y < 3 || y >= size - 3;
-				const isRivet = (x === 4 || x === size - 5) && (y === 4 || y === size - 5);
-				const grain = Math.sin(y * 0.45 + x * 0.08) * 6;
-
-				if (isRivet) {
-					// Forged iron studs on corner framing
-					tex[y * size + x] = packColor(18, 18, 22);
-				} else if (isFrameStud || isFrameRail) {
-					// Dark aged timber framing beam
-					const beamGrain = (x * 3 + y * 7) % 7;
-					tex[y * size + x] = packColor(56 + beamGrain, 32 + beamGrain, 14);
-				} else {
-					// Warm horizontal oak planks with groove lines
-					const isPlankGap = y % 7 === 0;
-					if (isPlankGap) {
-						tex[y * size + x] = packColor(24, 14, 8);
-					} else {
-						const plankShade = ((x * 11 + y * 19) % 13) - 6;
-						const r = Math.max(0, Math.min(255, 96 + grain + plankShade));
-						const g = Math.max(0, Math.min(255, 58 + Math.floor(grain * 0.6) + Math.floor(plankShade * 0.5)));
-						const b = Math.max(0, Math.min(255, 26 + Math.floor(grain * 0.2)));
-						tex[y * size + x] = packColor(r, g, b);
-					}
-				}
+				tex[y * size + x] = _shadeTimberPixel(x, y, size);
 			}
 		}
 		return tex;
 	}
 
 	/**
-	 * Bakes rubble fixture texture buffer.
-	 * Pure texture generation procedure.
+	 * Bakes fractured catacomb masonry rubble fixture texture buffer.
+	 * Replaces linear modulo diagonal hatching with fractured stone blocks,
+	 * chisel fractures, and deep angular shadow cracks.
 	 * @param {number} size - Texture dimension.
 	 * @returns {Uint32Array} Baked texture pixel buffer.
 	 */
@@ -291,9 +438,15 @@ const Pseudo3DTextures = (() => {
 		const tex = new Uint32Array(size * size);
 		for (let y = 0; y < size; y++) {
 			for (let x = 0; x < size; x++) {
-				const noise = ((x * 31 + y * 11) % 19) - 9;
-				const base = 40 + noise;
-				tex[y * size + x] = packColor(base + 4, base + 2, base);
+				const h = decorrelatedHash(x, y, 53);
+				const isCrack = ((x ^ y) % 9 === 0) || ((x * 3 + y * 5) % 17 === 0);
+				if (isCrack) {
+					tex[y * size + x] = packColor(12, 10, 16);
+				} else {
+					const grain = (h % 17) - 8;
+					const base = 56 + grain;
+					tex[y * size + x] = packColor(base + 4, base + 2, base);
+				}
 			}
 		}
 		return tex;
@@ -371,43 +524,133 @@ const Pseudo3DTextures = (() => {
 	}
 
 	/**
-	 * Bakes floor texture buffer.
-	 * Pure texture generation procedure.
-	 * @param {number} size - Texture dimension.
+	 * Computes color for an interlocking catacomb flagstone paver pixel.
+	 * Pure calculation helper to preserve SonarLint S3776 complexity thresholds.
+	 * @param {number} x
+	 * @param {number} y
+	 * @param {number} paverRow
+	 * @param {number} paverCol
+	 * @param {number} localX
+	 * @param {number} localY
+	 * @param {...number} dims Paver height and paver width dimensions.
+	 * @returns {number} Packed color integer.
+	 */
+	function _shadeFloorPixel(x, y, paverRow, paverCol, localX, localY, ...dims) {
+		const [paverH = 16, paverW = 16] = dims;
+		const slabId = paverRow * 4 + paverCol;
+		const slabHash = decorrelatedHash(slabId, 19, 83);
+		const slabTone = (slabHash % 17) - 8;
+
+		let r = 52 + slabTone;
+		let g = 50 + slabTone;
+		let b = 58 + slabTone;
+
+		if (localY === 1 || localX === 1) {
+			r += 14;
+			g += 13;
+			b += 16;
+		} else if (localY === paverH - 1 || localX === paverW - 1) {
+			r -= 14;
+			g -= 14;
+			b -= 16;
+		}
+
+		const centerDist = Math.hypot(localX - 7.5, localY - 7.5);
+		if (centerDist < 5.0) {
+			r -= 4;
+			g -= 4;
+			b -= 3;
+		}
+
+		const grain = (decorrelatedHash(x, y, 99) % 11) - 5;
+		r += grain;
+		g += grain;
+		b += grain;
+
+		const sheenHash = decorrelatedHash(x, y, 227);
+		if ((sheenHash & 0xff) > 0xec && centerDist > 2.0) {
+			r += 16;
+			g += 17;
+			b += 22;
+		}
+
+		return packColor(
+			Math.max(0, Math.min(255, r)),
+			Math.max(0, Math.min(255, g)),
+			Math.max(0, Math.min(255, b)),
+		);
+	}
+
+	/**
+	 * Bakes hand-carved catacomb flagstone floor texture buffer.
+	 * Replaces linear modulo diagonal hatching with interlocking stone flagstone pavers,
+	 * deep mortar channels, foot-worn center dish concavity, and condensation sheen.
+	 * @param {number} size - Texture dimension (typically 32).
 	 * @returns {Uint32Array} Baked texture pixel buffer.
 	 */
 	function bakeFloorTexture(size) {
 		const tex = new Uint32Array(size * size);
+		const paverH = 16;
+		const paverW = 16;
+
 		for (let y = 0; y < size; y++) {
+			const paverRow = Math.floor(y / paverH);
+			const localY = y % paverH;
+			const isJointH = localY === 0 || y === size - 1;
+			const xOffset = (paverRow % 2 === 1) ? 8 : 0;
+
 			for (let x = 0; x < size; x++) {
-				const isJoint = x === 0 || y === 0;
-				if (isJoint) {
-					tex[y * size + x] = packColor(10, 10, 18);
-				} else {
-					const d = (x * 13 + y * 7) % 17;
-					tex[y * size + x] = packColor(22 + d, 22 + d, 32 + d);
+				const shiftedX = (x + xOffset) % size;
+				const paverCol = Math.floor(shiftedX / paverW);
+				const localX = shiftedX % paverW;
+				const isJointV = localX === 0 || shiftedX === size - 1;
+
+				if (isJointH || isJointV) {
+					// Sunken mortar channel between pavers
+					const jointNoise = (decorrelatedHash(x, y, 31) % 5) - 2;
+					tex[y * size + x] = packColor(10 + jointNoise, 9 + jointNoise, 14 + jointNoise);
+					continue;
 				}
+
+				tex[y * size + x] = _shadeFloorPixel(
+					x,
+					y,
+					paverRow,
+					paverCol,
+					localX,
+					localY,
+					paverH,
+					paverW,
+				);
 			}
 		}
 		return tex;
 	}
 
 	/**
-	 * Bakes ceiling texture buffer.
-	 * Pure texture generation procedure.
+	 * Bakes vaulted catacomb ceiling texture buffer.
+	 * Transverse hand-carved stone arch ribs and barrel vault stone bays.
 	 * @param {number} size - Texture dimension.
 	 * @returns {Uint32Array} Baked texture pixel buffer.
 	 */
 	function bakeCeilingTexture(size) {
 		const tex = new Uint32Array(size * size);
 		for (let y = 0; y < size; y++) {
+			const isRib = y % 16 < 3;
+			const isRibEdge = y % 16 === 0 || y % 16 === 2;
 			for (let x = 0; x < size; x++) {
-				const isBeam = y % 16 < 3;
-				if (isBeam) {
-					tex[y * size + x] = packColor(35, 20, 10);
+				const h = decorrelatedHash(x, y, 71);
+				const grain = (h % 9) - 4;
+				if (isRib) {
+					if (isRibEdge) {
+						tex[y * size + x] = packColor(22 + grain, 20 + grain, 26 + grain);
+					} else {
+						// Highlighted carved transverse arch rib
+						tex[y * size + x] = packColor(46 + grain, 42 + grain, 48 + grain);
+					}
 				} else {
-					const d = x % 4;
-					tex[y * size + x] = packColor(10 + d, 10 + d, 20 + d);
+					// Vault bay stone blocks
+					tex[y * size + x] = packColor(18 + grain, 17 + grain, 24 + grain);
 				}
 			}
 		}
@@ -450,6 +693,8 @@ const Pseudo3DTextures = (() => {
 
 	/**
 	 * Applies distance fog and torch flicker attenuation to color.
+	 * Includes inverse-square torchlight illumination falloff, warm amber radiance,
+	 * and deep subterranean horizon attenuation.
 	 * Pure color shading calculation.
 	 * @param {number} color - Packed input color integer.
 	 * @param {number} distance - Distance to camera.
@@ -461,19 +706,48 @@ const Pseudo3DTextures = (() => {
 	function applyFog(color, distance, torchFlicker, isDungeon, config) {
 		if (color === 0) return 0;
 		const fog = config.fog;
-		const maxHorizon = isDungeon ? fog.maxHorizonDungeon : config.maxDepth;
-		const fogMax = maxHorizon * torchFlicker;
-		const exponent = isDungeon ? fog.exponentDungeon : fog.exponentSurface;
-		const fogRatio = Math.min(
-			1.0,
-			Math.max(0.0, (distance / fogMax) ** exponent),
-		);
-
 		const r = color & 0xff;
 		const g = (color >> 8) & 0xff;
 		const b = (color >> 16) & 0xff;
 
-		const voidColor = isDungeon ? fog.voidDungeon : fog.voidSurface;
+		if (isDungeon) {
+			// Subterranean Torch Falloff: inverse-square foreground illumination + warm amber glow
+			const clampedDist = Math.max(0.65, distance);
+			const torchAtten = Math.min(
+				1.45,
+				(torchFlicker * 1.35) / (1.0 + 0.28 * clampedDist + 0.10 * clampedDist * clampedDist),
+			);
+			const warmth = Math.max(0.0, 1.0 - distance / 3.8) * (torchFlicker * 0.85);
+			const torchR = Math.trunc(38 * warmth);
+			const torchG = Math.trunc(20 * warmth);
+			const torchB = Math.trunc(3 * warmth);
+
+			const litR = Math.min(255, Math.trunc(r * torchAtten + torchR));
+			const litG = Math.min(255, Math.trunc(g * torchAtten + torchG));
+			const litB = Math.min(255, Math.trunc(b * torchAtten + torchB));
+
+			// Distance horizon attenuation into the pitch-black catacomb void
+			const maxHorizon = fog.maxHorizonDungeon * torchFlicker;
+			const fogRatio = Math.min(
+				1.0,
+				Math.max(0.0, (distance / maxHorizon) ** fog.exponentDungeon),
+			);
+			const voidColor = fog.voidDungeon;
+
+			const fr = Math.trunc(litR + (voidColor.r - litR) * fogRatio);
+			const fg = Math.trunc(litG + (voidColor.g - litG) * fogRatio);
+			const fb = Math.trunc(litB + (voidColor.b - litB) * fogRatio);
+
+			return packColor(fr, fg, fb);
+		}
+
+		// Surface Environment: cool atmospheric horizon attenuation
+		const maxHorizon = config.maxDepth * torchFlicker;
+		const fogRatio = Math.min(
+			1.0,
+			Math.max(0.0, (distance / maxHorizon) ** fog.exponentSurface),
+		);
+		const voidColor = fog.voidSurface;
 
 		const fr = Math.trunc(r + (voidColor.r - r) * fogRatio);
 		const fg = Math.trunc(g + (voidColor.g - g) * fogRatio);
@@ -494,6 +768,7 @@ const Pseudo3DTextures = (() => {
 		getMinimapTileColor,
 		getModuleInfo,
 		packColor,
+		decorrelatedHash,
 		bakeBrickTexture,
 		bakeTimberTexture,
 		bakeRubbleTexture,

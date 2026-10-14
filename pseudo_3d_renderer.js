@@ -367,7 +367,7 @@ const EmberlightPseudo3D = (() => {
 
 			const pipeState = getPipelineState();
 			Pipeline.renderFloorAndCeiling(torchFlicker, env.isTown, env.isDungeon, pipeState, RaycastMath);
-			Pipeline.renderWalls(map, torchFlicker, env.isTown, pipeState, RaycastMath);
+			Pipeline.renderWalls(map, torchFlicker, env.isTown, env.isDungeon, pipeState, RaycastMath);
 			if (ctx.putImageData && imgData) ctx.putImageData(imgData, 0, 0);
 			Pipeline.renderBillboards(map, torchFlicker, pipeState, RaycastMath);
 

@@ -117,16 +117,19 @@ if (typeof globalThis !== "undefined") globalThis._MapInternal = globalThis._Map
 	) {
 		if (!renderCtx || typeof renderCtx.createRadialGradient !== "function") return;
 
+		const px = playerScreenX + 14;
+		const py = playerScreenY + 14;
 		const lanternGlow = renderCtx.createRadialGradient(
-			playerScreenX + 14,
-			playerScreenY + 14,
-			12,
-			playerScreenX + 14,
-			playerScreenY + 14,
-			140,
+			px,
+			py,
+			16,
+			px,
+			py,
+			190,
 		);
-		lanternGlow.addColorStop(0, "rgba(245, 158, 11, 0.22)");
-		lanternGlow.addColorStop(0.5, "rgba(245, 158, 11, 0.08)");
+		lanternGlow.addColorStop(0, "rgba(251, 191, 36, 0.45)");
+		lanternGlow.addColorStop(0.35, "rgba(245, 158, 11, 0.22)");
+		lanternGlow.addColorStop(0.7, "rgba(180, 83, 9, 0.08)");
 		lanternGlow.addColorStop(1, "rgba(4, 4, 12, 0)");
 
 		renderCtx.fillStyle = lanternGlow;

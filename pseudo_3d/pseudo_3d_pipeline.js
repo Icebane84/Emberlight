@@ -128,13 +128,70 @@ const Pseudo3DPipeline = (() => {
 	 * @param {number} x - Column X coordinate.
 	 * @param {string[][]} map - Map matrix.
 	 * @param {any} plane - Camera plane vectors.
-	 * @param {number} torchFlicker - Torch flicker factor.
-	 * @param {boolean} isTown - Town mode flag.
+	 * @param {{ torchFlicker: number, isTown: boolean, isDungeon?: boolean } | number} lighting - Lighting configuration.
 	 * @param {any} state - Pipeline state container.
 	 * @param {any} math - RaycastMath operations container.
 	 */
-	function renderWallColumn(x, map, plane, torchFlicker, isTown, state, math) {
-		const { camera, config, W, dims, depthBuffer, textures, pixelBuf } = state;
+	/**
+	 * Renders vertical wall column strip pixels onto the buffer.
+	 * Pure calculation helper to preserve SonarLint S3776 complexity thresholds.
+	 * @param {number} x
+	 * @param {any} plan
+	 * @param {any} ray
+	 * @param {Uint32Array} activeTex
+	 * @param {{ torchFlicker: number, isDungeon: boolean }} lighting
+	 * @param {any} state
+	 * @param {any} math
+	 */
+	function _drawWallStrip(x, plan, ray, activeTex, lighting, state, math) {
+		const { config, W, pixelBuf } = state;
+		const size = config.textureSize;
+		let texPos = plan.texPosStart;
+
+		for (let y = plan.drawStart; y <= plan.drawEnd; y++) {
+			const texY = Math.trunc(texPos) & (size - 1);
+			texPos += plan.step;
+			let color = activeTex[texY * size + plan.texX];
+
+			if (color === 0) continue;
+
+			if (ray.side === 1) {
+				const f = config.sideShadeFactor;
+				const r = Math.trunc((color & 0xff) * f);
+				const g = Math.trunc(((color >> 8) & 0xff) * f);
+				const b = Math.trunc(((color >> 16) & 0xff) * f);
+				color = math.packColor(r, g, b);
+			}
+			const shaded = math.applyFog(
+				color,
+				ray.perpDist,
+				lighting.torchFlicker,
+				lighting.isDungeon,
+				config,
+			);
+			for (let k = 0; k < config.columnStride && x + k < W; k++) {
+				pixelBuf[y * W + x + k] = shaded;
+			}
+		}
+	}
+
+	/**
+	 * Renders a single raycasted wall column onto the pixel buffer.
+	 * Pure column rendering procedure.
+	 * @param {number} x - Screen column index (0 to W-1).
+	 * @param {string[][]} map - 2D grid map matrix.
+	 * @param {any} plane - Camera plane vectors.
+	 * @param {{ torchFlicker: number, isTown: boolean, isDungeon?: boolean } | number} lighting - Lighting configuration.
+	 * @param {any} state - Pipeline state container.
+	 * @param {any} math - RaycastMath operations container.
+	 */
+	function renderWallColumn(x, map, plane, lighting, state, math) {
+		const isObj = typeof lighting === "object" && lighting !== null;
+		const torchFlicker = isObj ? lighting.torchFlicker : lighting;
+		const isTown = isObj ? Boolean(lighting.isTown) : false;
+		const isDungeon = isObj ? Boolean(lighting.isDungeon) : false;
+
+		const { camera, config, W, dims, depthBuffer, textures } = state;
 		const cameraX = (2 * x) / W - 1;
 		const ray = math.castDdaRay(
 			camera,
@@ -143,8 +200,9 @@ const Pseudo3DPipeline = (() => {
 			map,
 			config,
 		);
-		for (let k = 0; k < config.columnStride && x + k < W; k++)
+		for (let k = 0; k < config.columnStride && x + k < W; k++) {
 			depthBuffer[x + k] = ray.perpDist;
+		}
 
 		const plan = math.computeWallColumnPlan(
 			ray,
@@ -154,45 +212,26 @@ const Pseudo3DPipeline = (() => {
 		);
 		const texKey = math.resolveWallTextureKey(ray.hitTile, isTown);
 		const activeTex = textures[texKey];
-		let texPos = plan.texPosStart;
-		const size = config.textureSize;
 
-		for (let y = plan.drawStart; y <= plan.drawEnd; y++) {
-			const texY = Math.trunc(texPos) & (size - 1);
-			texPos += plan.step;
-			let color = activeTex[texY * size + plan.texX];
-
-			if (color !== 0) {
-				if (ray.side === 1) {
-					const f = config.sideShadeFactor;
-					const r = Math.trunc((color & 0xff) * f);
-					const g = Math.trunc(((color >> 8) & 0xff) * f);
-					const b = Math.trunc(((color >> 16) & 0xff) * f);
-					color = math.packColor(r, g, b);
-				}
-				const shaded = math.applyFog(
-					color,
-					ray.perpDist,
-					torchFlicker,
-					false,
-					config,
-				);
-				for (let k = 0; k < config.columnStride && x + k < W; k++)
-					pixelBuf[y * W + x + k] = shaded;
-			}
-		}
+		_drawWallStrip(x, plan, ray, activeTex, { torchFlicker, isDungeon }, state, math);
 	}
 
 	/**
 	 * Renders vertical wall columns onto the pixel buffer.
+	 * Supports both 5-arg (map, flicker, isTown, state, math) and 6-arg (map, flicker, isTown, isDungeon, state, math) calls.
 	 * @param {string[][]} map - 2D grid map matrix.
 	 * @param {number} torchFlicker - Torch flicker multiplier.
 	 * @param {boolean} isTown - Town mode activation flag.
-	 * @param {any} state - Pipeline state container.
-	 * @param {any} math - RaycastMath operations container.
+	 * @param {boolean|any} isDungeonOrState - Subterranean flag (6-arg) or state container (5-arg).
+	 * @param {any} stateOrMath - State container (6-arg) or math operations (5-arg).
+	 * @param {any} [maybeMath] - RaycastMath operations container (6-arg).
 	 */
-	function renderWalls(map, torchFlicker, isTown, state, math) {
-		if (!state.pixelBuf) return;
+	function renderWalls(map, torchFlicker, isTown, isDungeonOrState, stateOrMath, maybeMath) {
+		const isDungeon = maybeMath !== undefined ? Boolean(isDungeonOrState) : false;
+		const state = maybeMath !== undefined ? stateOrMath : isDungeonOrState;
+		const math = maybeMath !== undefined ? maybeMath : stateOrMath;
+
+		if (!state?.pixelBuf) return;
 		const { cosA, sinA } = math.computeCameraPlane(state.camera);
 		const { planeX, planeY } = math.computeFov(
 			state.camera,
@@ -202,9 +241,391 @@ const Pseudo3DPipeline = (() => {
 		);
 		const plane = { cosA, sinA, planeX, planeY };
 		const stride = state.config.columnStride;
+		const lighting = { torchFlicker, isTown, isDungeon };
 
 		for (let x = 0; x < state.W; x += stride) {
-			renderWallColumn(x, map, plane, torchFlicker, isTown, state, math);
+			renderWallColumn(x, map, plane, lighting, state, math);
+		}
+	}
+
+	/**
+	 * Renders procedural NPC astral projections in the pseudo-3D viewport.
+	 * Pure canvas vector drawing procedure.
+	 * @param {CanvasRenderingContext2D} ctx
+	 * @param {string} tile
+	 * @param {number} cx
+	 * @param {number} cy
+	 * @param {number} sz
+	 * @returns {boolean} True if tile was procedurally rendered.
+	 */
+	function _drawNpcBillboard(ctx, tile, cx, cy, sz) {
+		if (tile === "E") {
+			// Elder Ronan: Astral Sage Hologram
+			ctx.beginPath();
+			ctx.ellipse(cx, cy + sz * 0.40, sz * 0.40, sz * 0.12, 0, 0, Math.PI * 2);
+			ctx.fillStyle = "rgba(251, 191, 36, 0.25)";
+			ctx.fill();
+			ctx.strokeStyle = "#fbbf24";
+			ctx.lineWidth = Math.max(1, sz * 0.03);
+			ctx.stroke();
+
+			// Astrolabe halo
+			ctx.beginPath();
+			ctx.arc(cx, cy - sz * 0.05, sz * 0.36, 0, Math.PI * 2);
+			ctx.strokeStyle = "rgba(56, 189, 248, 0.65)";
+			ctx.stroke();
+
+			// Hooded mantle
+			ctx.beginPath();
+			ctx.moveTo(cx - sz * 0.30, cy + sz * 0.35);
+			ctx.lineTo(cx - sz * 0.18, cy - sz * 0.12);
+			ctx.quadraticCurveTo(cx, cy - sz * 0.45, cx + sz * 0.18, cy - sz * 0.12);
+			ctx.lineTo(cx + sz * 0.30, cy + sz * 0.35);
+			ctx.closePath();
+			ctx.fillStyle = "rgba(30, 27, 75, 0.90)";
+			ctx.fill();
+			ctx.strokeStyle = "#fbbf24";
+			ctx.lineWidth = Math.max(1, sz * 0.035);
+			ctx.stroke();
+
+			// Glowing Monocle Eye
+			ctx.beginPath();
+			ctx.arc(cx, cy - sz * 0.08, sz * 0.07, 0, Math.PI * 2);
+			ctx.fillStyle = "#38bdf8";
+			ctx.fill();
+			ctx.strokeStyle = "#ffffff";
+			ctx.lineWidth = 1.2;
+			ctx.stroke();
+			ctx.beginPath();
+			ctx.arc(cx, cy - sz * 0.08, sz * 0.02, 0, Math.PI * 2);
+			ctx.fillStyle = "#ffffff";
+			ctx.fill();
+
+			// Silver runic beard line
+			ctx.strokeStyle = "rgba(224, 242, 254, 0.75)";
+			ctx.beginPath();
+			ctx.moveTo(cx, cy + sz * 0.02);
+			ctx.lineTo(cx, cy + sz * 0.26);
+			ctx.stroke();
+			return true;
+		}
+		if (tile === "G") {
+			// Armored Guardian: Steel Heater Shield & Cross Emblem
+			ctx.beginPath();
+			ctx.moveTo(cx - sz * 0.25, cy - sz * 0.28);
+			ctx.lineTo(cx + sz * 0.25, cy - sz * 0.28);
+			ctx.lineTo(cx + sz * 0.22, cy + sz * 0.08);
+			ctx.lineTo(cx, cy + sz * 0.40);
+			ctx.lineTo(cx - sz * 0.22, cy + sz * 0.08);
+			ctx.closePath();
+			ctx.fillStyle = "rgba(15, 23, 42, 0.92)";
+			ctx.fill();
+			ctx.strokeStyle = "#60a5fa";
+			ctx.lineWidth = Math.max(1.5, sz * 0.04);
+			ctx.stroke();
+
+			// Crossed golden cross
+			ctx.strokeStyle = "#fbbf24";
+			ctx.lineWidth = Math.max(1, sz * 0.035);
+			ctx.beginPath();
+			ctx.moveTo(cx, cy - sz * 0.20);
+			ctx.lineTo(cx, cy + sz * 0.26);
+			ctx.stroke();
+			ctx.beginPath();
+			ctx.moveTo(cx - sz * 0.16, cy - sz * 0.08);
+			ctx.lineTo(cx + sz * 0.16, cy - sz * 0.08);
+			ctx.stroke();
+			return true;
+		}
+		if (tile === "V") {
+			// Villager / Traveler: Cloak & Hanging Lantern
+			ctx.beginPath();
+			ctx.arc(cx, cy - sz * 0.12, sz * 0.22, 0, Math.PI * 2);
+			ctx.fillStyle = "rgba(69, 26, 3, 0.88)";
+			ctx.fill();
+			ctx.strokeStyle = "#d97706";
+			ctx.lineWidth = Math.max(1, sz * 0.03);
+			ctx.stroke();
+
+			// Lantern
+			ctx.beginPath();
+			ctx.arc(cx + sz * 0.22, cy + sz * 0.12, sz * 0.08, 0, Math.PI * 2);
+			ctx.fillStyle = "#f59e0b";
+			ctx.fill();
+			ctx.strokeStyle = "#fef08a";
+			ctx.stroke();
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Renders procedural items and hazards in the pseudo-3D viewport.
+	 * @param {CanvasRenderingContext2D} ctx
+	 * @param {string} tile
+	 * @param {number} cx
+	 * @param {number} cy
+	 * @param {number} sz
+	 * @returns {boolean} True if tile was procedurally rendered.
+	 */
+	function _drawObjectBillboard(ctx, tile, cx, cy, sz) {
+		if (tile === "$") {
+			// Treasure Coffer
+			ctx.fillStyle = "rgba(40, 24, 12, 0.92)";
+			ctx.fillRect(cx - sz * 0.32, cy - sz * 0.08, sz * 0.64, sz * 0.40);
+			ctx.beginPath();
+			ctx.ellipse(cx, cy - sz * 0.08, sz * 0.32, sz * 0.16, 0, Math.PI, Math.PI * 2);
+			ctx.fillStyle = "rgba(78, 42, 18, 0.95)";
+			ctx.fill();
+			ctx.strokeStyle = "#d97706";
+			ctx.lineWidth = Math.max(1, sz * 0.03);
+			ctx.stroke();
+
+			// Gold lock
+			ctx.fillStyle = "#f59e0b";
+			ctx.fillRect(cx - sz * 0.06, cy - sz * 0.02, sz * 0.12, sz * 0.12);
+
+			// Upward radiant gold rays
+			ctx.strokeStyle = "rgba(251, 191, 36, 0.50)";
+			ctx.lineWidth = 1.2;
+			ctx.beginPath();
+			ctx.moveTo(cx, cy - sz * 0.12);
+			ctx.lineTo(cx, cy - sz * 0.42);
+			ctx.moveTo(cx, cy - sz * 0.12);
+			ctx.lineTo(cx - sz * 0.22, cy - sz * 0.35);
+			ctx.moveTo(cx, cy - sz * 0.12);
+			ctx.lineTo(cx + sz * 0.22, cy - sz * 0.35);
+			ctx.stroke();
+			return true;
+		}
+		if (tile === "C") {
+			// Campfire / Forged Brazier
+			ctx.strokeStyle = "#334155";
+			ctx.lineWidth = Math.max(1, sz * 0.04);
+			ctx.beginPath();
+			ctx.moveTo(cx - sz * 0.24, cy + sz * 0.38);
+			ctx.lineTo(cx, cy + sz * 0.12);
+			ctx.lineTo(cx + sz * 0.24, cy + sz * 0.38);
+			ctx.stroke();
+
+			// Flame tongues
+			ctx.beginPath();
+			ctx.moveTo(cx - sz * 0.18, cy + sz * 0.10);
+			ctx.quadraticCurveTo(cx - sz * 0.15, cy - sz * 0.20, cx, cy - sz * 0.42);
+			ctx.quadraticCurveTo(cx + sz * 0.15, cy - sz * 0.20, cx + sz * 0.18, cy + sz * 0.10);
+			ctx.fillStyle = "rgba(249, 115, 22, 0.88)";
+			ctx.fill();
+			ctx.beginPath();
+			ctx.moveTo(cx - sz * 0.10, cy + sz * 0.08);
+			ctx.quadraticCurveTo(cx - sz * 0.08, cy - sz * 0.10, cx, cy - sz * 0.26);
+			ctx.quadraticCurveTo(cx + sz * 0.08, cy - sz * 0.10, cx + sz * 0.10, cy + sz * 0.08);
+			ctx.fillStyle = "rgba(254, 240, 138, 0.95)";
+			ctx.fill();
+			return true;
+		}
+		if (tile === "A") {
+			// Ancient Aether Shrine Spire
+			ctx.beginPath();
+			ctx.moveTo(cx, cy - sz * 0.42);
+			ctx.lineTo(cx + sz * 0.20, cy);
+			ctx.lineTo(cx, cy + sz * 0.38);
+			ctx.lineTo(cx - sz * 0.20, cy);
+			ctx.closePath();
+			ctx.fillStyle = "rgba(168, 85, 247, 0.80)";
+			ctx.fill();
+			ctx.strokeStyle = "#38bdf8";
+			ctx.lineWidth = Math.max(1, sz * 0.035);
+			ctx.stroke();
+
+			// Orbital halo
+			ctx.beginPath();
+			ctx.ellipse(cx, cy, sz * 0.34, sz * 0.10, 0, 0, Math.PI * 2);
+			ctx.strokeStyle = "rgba(56, 189, 248, 0.75)";
+			ctx.stroke();
+			return true;
+		}
+		if (tile === "*") {
+			// Mana Diamond Crystal Cache
+			ctx.beginPath();
+			ctx.moveTo(cx - sz * 0.22, cy - sz * 0.10);
+			ctx.lineTo(cx - sz * 0.10, cy - sz * 0.30);
+			ctx.lineTo(cx + sz * 0.10, cy - sz * 0.30);
+			ctx.lineTo(cx + sz * 0.22, cy - sz * 0.10);
+			ctx.lineTo(cx, cy + sz * 0.35);
+			ctx.closePath();
+			ctx.fillStyle = "rgba(6, 182, 212, 0.88)";
+			ctx.fill();
+			ctx.strokeStyle = "#e0f2fe";
+			ctx.lineWidth = Math.max(1, sz * 0.03);
+			ctx.stroke();
+			return true;
+		}
+		if (tile === "H") {
+			// Hearth Inn Tavern Sign
+			ctx.strokeStyle = "#475569";
+			ctx.lineWidth = Math.max(1, sz * 0.035);
+			ctx.beginPath();
+			ctx.moveTo(cx - sz * 0.25, cy - sz * 0.35);
+			ctx.lineTo(cx + sz * 0.25, cy - sz * 0.35);
+			ctx.stroke();
+
+			// Lantern body
+			ctx.fillStyle = "rgba(180, 83, 9, 0.90)";
+			ctx.fillRect(cx - sz * 0.16, cy - sz * 0.20, sz * 0.32, sz * 0.40);
+			ctx.strokeStyle = "#fbbf24";
+			ctx.lineWidth = Math.max(1, sz * 0.03);
+			ctx.strokeRect(cx - sz * 0.16, cy - sz * 0.20, sz * 0.32, sz * 0.40);
+
+			// Warm flame core
+			ctx.fillStyle = "#fef08a";
+			ctx.beginPath();
+			ctx.arc(cx, cy, sz * 0.10, 0, Math.PI * 2);
+			ctx.fill();
+			return true;
+		}
+		if (tile === "N") {
+			// Town Notice Board
+			ctx.fillStyle = "rgba(45, 26, 10, 0.95)";
+			ctx.fillRect(cx - sz * 0.06, cy - sz * 0.05, sz * 0.12, sz * 0.45);
+
+			// Wood board
+			ctx.fillStyle = "rgba(120, 53, 15, 0.92)";
+			ctx.fillRect(cx - sz * 0.28, cy - sz * 0.38, sz * 0.56, sz * 0.38);
+			ctx.strokeStyle = "#92400e";
+			ctx.lineWidth = Math.max(1, sz * 0.03);
+			ctx.strokeRect(cx - sz * 0.28, cy - sz * 0.38, sz * 0.56, sz * 0.38);
+
+			// Parchment notice
+			ctx.fillStyle = "#fef3c7";
+			ctx.fillRect(cx - sz * 0.20, cy - sz * 0.32, sz * 0.40, sz * 0.24);
+
+			// Calligraphy lines
+			ctx.strokeStyle = "#78350f";
+			ctx.lineWidth = 1;
+			ctx.beginPath();
+			ctx.moveTo(cx - sz * 0.14, cy - sz * 0.24);
+			ctx.lineTo(cx + sz * 0.14, cy - sz * 0.24);
+			ctx.moveTo(cx - sz * 0.14, cy - sz * 0.16);
+			ctx.lineTo(cx + sz * 0.10, cy - sz * 0.16);
+			ctx.stroke();
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Renders procedural gates and architectural gateways in the pseudo-3D viewport.
+	 * @param {CanvasRenderingContext2D} ctx
+	 * @param {string} tile
+	 * @param {number} cx
+	 * @param {number} cy
+	 * @param {number} sz
+	 * @returns {boolean} True if tile was procedurally rendered.
+	 */
+	function _drawGatewayBillboard(ctx, tile, cx, cy, sz) {
+		if (tile === "S") {
+			// Catacombs Descent Gate
+			ctx.beginPath();
+			ctx.arc(cx, cy - sz * 0.05, sz * 0.30, Math.PI, Math.PI * 2);
+			ctx.lineTo(cx + sz * 0.30, cy + sz * 0.40);
+			ctx.lineTo(cx - sz * 0.30, cy + sz * 0.40);
+			ctx.closePath();
+			ctx.fillStyle = "rgba(15, 12, 24, 0.94)";
+			ctx.fill();
+			ctx.strokeStyle = "#8b5cf6";
+			ctx.lineWidth = Math.max(1.5, sz * 0.04);
+			ctx.stroke();
+
+			// Death Keystone
+			ctx.fillStyle = "#e0e7ff";
+			ctx.beginPath();
+			ctx.arc(cx, cy - sz * 0.08, sz * 0.10, 0, Math.PI * 2);
+			ctx.fill();
+			ctx.fillStyle = "#09090b";
+			ctx.fillRect(cx - sz * 0.05, cy - sz * 0.09, sz * 0.03, sz * 0.03);
+			ctx.fillRect(cx + sz * 0.02, cy - sz * 0.09, sz * 0.03, sz * 0.03);
+			return true;
+		}
+		if (tile === "D") {
+			// Settlement Gateway
+			ctx.beginPath();
+			ctx.arc(cx, cy - sz * 0.05, sz * 0.30, Math.PI, Math.PI * 2);
+			ctx.lineTo(cx + sz * 0.30, cy + sz * 0.40);
+			ctx.lineTo(cx - sz * 0.30, cy + sz * 0.40);
+			ctx.closePath();
+			ctx.fillStyle = "rgba(30, 41, 59, 0.90)";
+			ctx.fill();
+			ctx.strokeStyle = "#d97706";
+			ctx.lineWidth = Math.max(1.5, sz * 0.04);
+			ctx.stroke();
+
+			// Iron grill
+			ctx.strokeStyle = "rgba(148, 163, 184, 0.65)";
+			ctx.lineWidth = 1;
+			for (let gx = -0.18; gx <= 0.18; gx += 0.09) {
+				ctx.beginPath();
+				ctx.moveTo(cx + sz * gx, cy - sz * 0.18);
+				ctx.lineTo(cx + sz * gx, cy + sz * 0.38);
+				ctx.stroke();
+			}
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Dispatches procedural billboard rendering for tiles with custom artwork.
+	 * @param {CanvasRenderingContext2D} ctx
+	 * @param {string} tile
+	 * @param {number} cx
+	 * @param {number} cy
+	 * @param {number} sz
+	 * @returns {boolean} True if procedurally drawn.
+	 */
+	function drawProceduralBillboard(ctx, tile, cx, cy, sz) {
+		if (_drawNpcBillboard(ctx, tile, cx, cy, sz)) return true;
+		if (_drawObjectBillboard(ctx, tile, cx, cy, sz)) return true;
+		return _drawGatewayBillboard(ctx, tile, cx, cy, sz);
+	}
+
+	/**
+	 * Renders a single sprite billboard onto the canvas context.
+	 * @param {any} sp - Visible sprite descriptor.
+	 * @param {{ planeX: number, planeY: number, cosA: number, sinA: number }} plane - Projection plane vectors.
+	 * @param {number} torchFlicker - Torch flicker factor.
+	 * @param {any} state - Pipeline state container.
+	 * @param {any} math - RaycastMath operations container.
+	 */
+	/**
+	 * Renders water hazard ripple billboard onto the canvas context.
+	 * Pure render helper to maintain SonarLint S3776 thresholds.
+	 * @param {CanvasRenderingContext2D} ctx
+	 * @param {any} proj
+	 * @param {any} state
+	 * @param {number} fontSize
+	 */
+	function _drawWaterHazardBillboard(ctx, proj, state, fontSize) {
+		const rw = proj.spriteH * 0.95;
+		const rh = proj.spriteH * 0.32;
+		const cy = state.H / 2 + proj.spriteH * 0.35;
+		if (ctx.ellipse && ctx.fill) {
+			ctx.fillStyle = "rgba(14, 116, 144, 0.45)";
+			ctx.strokeStyle = "rgba(56, 189, 248, 0.85)";
+			ctx.lineWidth = Math.max(1, fontSize * 0.08);
+			ctx.beginPath();
+			ctx.ellipse(proj.spriteScreenX, cy, rw * 0.5, rh * 0.5, 0, 0, Math.PI * 2);
+			ctx.fill();
+			ctx.stroke();
+
+			// Concentric inner surge ring
+			ctx.beginPath();
+			ctx.ellipse(proj.spriteScreenX, cy, rw * 0.28, rh * 0.25, 0, 0, Math.PI * 2);
+			ctx.stroke();
+		}
+		if (ctx.fillText) {
+			ctx.font = `bold ${Math.round(fontSize * 0.5)}px sans-serif`;
+			ctx.fillStyle = "#e0f2fe";
+			ctx.fillText("≈", proj.spriteScreenX, cy);
 		}
 	}
 
@@ -254,31 +675,12 @@ const Pseudo3DPipeline = (() => {
 		ctx.shadowBlur = shadow.blur;
 
 		if (sp.tile === "~") {
-			// Precursor water hazard: render glowing subterranean stream ripple on ground
-			const rw = proj.spriteH * 0.95;
-			const rh = proj.spriteH * 0.32;
-			const cy = state.H / 2 + proj.spriteH * 0.35;
-			if (ctx.ellipse && ctx.fill) {
-				ctx.fillStyle = "rgba(14, 116, 144, 0.45)";
-				ctx.strokeStyle = "rgba(56, 189, 248, 0.85)";
-				ctx.lineWidth = Math.max(1, fontSize * 0.08);
-				ctx.beginPath();
-				ctx.ellipse(proj.spriteScreenX, cy, rw * 0.5, rh * 0.5, 0, 0, Math.PI * 2);
-				ctx.fill();
-				ctx.stroke();
-
-				// Concentric inner surge ring
-				ctx.beginPath();
-				ctx.ellipse(proj.spriteScreenX, cy, rw * 0.28, rh * 0.25, 0, 0, Math.PI * 2);
-				ctx.stroke();
+			_drawWaterHazardBillboard(ctx, proj, state, fontSize);
+		} else {
+			const cy = state.H / 2 + proj.spriteH * 0.08;
+			if (!drawProceduralBillboard(ctx, sp.tile, proj.spriteScreenX, cy, proj.spriteH) && ctx.fillText) {
+				ctx.fillText(glyph, proj.spriteScreenX, cy);
 			}
-			if (ctx.fillText) {
-				ctx.font = `bold ${Math.round(fontSize * 0.5)}px sans-serif`;
-				ctx.fillStyle = "#e0f2fe";
-				ctx.fillText("≈", proj.spriteScreenX, cy);
-			}
-		} else if (ctx.fillText) {
-			ctx.fillText(glyph, proj.spriteScreenX, state.H / 2 + proj.spriteH * 0.08);
 		}
 		ctx.restore();
 	}

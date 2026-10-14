@@ -61,9 +61,9 @@
   box-shadow: 0 0 35px rgba(0, 0, 0, 0.95);
 }
 
-.hidden,
-[hidden] {
-  display: none !important;
+body .hidden,
+body [hidden] {
+  display: none;
 }
 
 /* --- SDCP-001 CROSS-QUADRANT SYNERGY HIGHLIGHT --- */

@@ -1168,6 +1168,9 @@ function handleViewAction(sim, action, helpers) {
 				sim.pendingItem = null;
 				sim.phase =
 					actObj.tab === "ATTACK" ? "TARGETING_ENEMY" : "PLAYER_INPUT";
+				if (typeof helpers?.publish === "function") {
+					helpers.publish("combat:sfx", { sfx: "LEVER_PULL" });
+				}
 				helpers.renderPresentation();
 			}
 		},

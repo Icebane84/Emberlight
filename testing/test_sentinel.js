@@ -1381,6 +1381,25 @@ const mockCombatState = {
 };
 combatRendererMod.renderCombat(mockCombatState, () => { });
 
+const ribbonEl = context.document.getElementById('command-primary-ribbon');
+if (!ribbonEl?.innerHTML.includes('command-lever-detent') || !ribbonEl?.innerHTML.includes('lever-indicator-jewel')) {
+	throw new Error('Quadrant IV command ribbon missing heavy railway switch detents or indicator jewels');
+}
+const partyGridEl = context.document.getElementById('party-grid');
+if (!partyGridEl?.innerHTML.includes('graduated-cylinder vitality-mercury') || !partyGridEl?.innerHTML.includes('mercury-meniscus')) {
+	throw new Error('Quadrant IV monitoring bays missing calibrated glass vitality cylinders or mercury meniscus');
+}
+
+// Verify hydraulic bouncing & hammer on damage shock
+const mockCombatStateDamaged = {
+	...mockCombatState,
+	party: mockCombatState.party.map((h) => ({ ...h, hp: h.hp - 10 })),
+};
+combatRendererMod.renderCombat(mockCombatStateDamaged, () => { });
+if (!partyGridEl?.innerHTML.includes('hydraulic-bounce') || !partyGridEl?.innerHTML.includes('hydraulic-hammer')) {
+	throw new Error('Quadrant IV mercury tubes missing hydraulic bounce or Aldric hydraulic hammer on damage shock');
+}
+
 console.log('[PASS] Canon Parity §Quadrant IV: The Tethered Vanguard Command Deck (Config A: Alchemical Life-Vials & Weighted Levers) and Armillary Astrolabe (Config B: 5 Paths, Astrolabe/Codex toggles, Aetheric Purge Detent) verified.');
 
 // 7. Canon Parity §9: The Four Sovereign Vanguard Operatives & Galvanic Relays

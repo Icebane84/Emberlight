@@ -542,39 +542,59 @@
 .command-primary-ribbon {
 	display: grid;
 	grid-template-columns: repeat(4, 1fr);
-	gap: 6px;
+	gap: 8px;
+	padding: 6px 8px;
+	background: radial-gradient(ellipse at 50% 0%, #1c182a 0%, #0c0a14 100%);
+	border: 1px solid rgba(140, 105, 45, 0.5);
+	border-radius: 4px;
+	box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.8), 0 3px 6px rgba(0, 0, 0, 0.6);
+	position: relative;
 }
 
-.command-primary-ribbon .cmd-btn {
-	background: linear-gradient(180deg, #181524 0%, #0d0a15 100%);
-	border: 1px solid #785a28;
-	box-shadow: inset 0 1px 0 rgba(255, 215, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.6);
+.command-primary-ribbon .cmd-btn,
+.command-lever-detent {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: space-between;
+	min-height: 64px;
+	padding: 6px 4px 6px 4px;
+	background: linear-gradient(180deg, #231f30 0%, #141120 50%, #0d0a15 100%);
+	border: 1.5px solid #6b5025;
+	border-radius: 4px;
+	box-shadow: inset 0 1px 0 rgba(255, 215, 0, 0.18), inset 0 0 6px rgba(0, 0, 0, 0.8), 0 3px 6px rgba(0, 0, 0, 0.6);
 	font-family: var(--font-mono, monospace);
-	font-size: 9.5px;
+	font-size: 9px;
 	font-weight: 700;
 	letter-spacing: 0.5px;
-	padding: 7px 4px;
-	border-radius: 3px;
-	transition: all 0.15s ease;
 	color: #e2e8f0;
 	cursor: pointer;
+	user-select: none;
+	overflow: visible;
+	transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
 
-.command-primary-ribbon .cmd-btn:hover {
+.command-primary-ribbon .cmd-btn:hover,
+.command-lever-detent:hover {
 	border-color: #f59e0b;
-	background: linear-gradient(180deg, #2a203c 0%, #161222 100%);
+	background: linear-gradient(180deg, #2d2640 0%, #1a152a 50%, #120e1d 100%);
 	box-shadow: inset 0 1px 0 rgba(255, 215, 0, 0.35), 0 0 10px rgba(245, 158, 11, 0.3);
 }
 
 .command-primary-ribbon .cmd-btn:active,
-.command-primary-ribbon .cmd-btn.depressed {
+.command-primary-ribbon .cmd-btn.depressed,
+.command-lever-detent:active,
+.command-lever-detent.depressed {
 	transform: translateY(2px);
-	box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.9), 0 0 4px rgba(245, 158, 11, 0.4);
-	filter: brightness(0.9);
+	box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.9), 0 0 4px rgba(245, 158, 11, 0.4);
+	filter: brightness(0.92);
 }
 
 .command-primary-ribbon .cmd-btn:disabled,
-.command-primary-ribbon .cmd-btn.locked {
+.command-primary-ribbon .cmd-btn.locked,
+.command-lever-detent:disabled,
+.command-lever-detent.detent-locked {
 	pointer-events: none;
 	opacity: 0.45;
 	filter: grayscale(0.5);
@@ -598,11 +618,153 @@
 	border-left: 3px solid #fbbf24;
 }
 
+/* Mechanical Railway Switch Detents */
+.lever-pivot-housing {
+	position: absolute;
+	bottom: 18px;
+	left: 50%;
+	transform: translateX(-50%);
+	width: 14px;
+	height: 14px;
+	border-radius: 50%;
+	background: radial-gradient(circle at 35% 35%, #554433 0%, #201a15 70%, #0d0a08 100%);
+	border: 1px solid #785a28;
+	box-shadow: inset 0 1px 2px rgba(255, 215, 0, 0.2), 0 2px 4px rgba(0, 0, 0, 0.7);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 2;
+}
+
+.lever-pivot-screw {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: #8a6c32;
+	box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.8);
+	position: relative;
+}
+.lever-pivot-screw::after {
+	content: "";
+	position: absolute;
+	top: 50%;
+	left: 1px;
+	right: 1px;
+	height: 1px;
+	background: #110e08;
+	transform: translateY(-50%) rotate(45deg);
+}
+
+.lever-indicator-jewel {
+	width: 9px;
+	height: 9px;
+	border-radius: 50%;
+	border: 1px solid #4a3b1d;
+	background: radial-gradient(circle at 30% 30%, #302636 0%, #15101a 80%);
+	box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.9), 0 1px 2px rgba(0, 0, 0, 0.5);
+	margin-bottom: 2px;
+	transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+	z-index: 3;
+}
+
+/* Jewel color variants */
+.lever-attack .lever-indicator-jewel { background: radial-gradient(circle at 35% 35%, #451212 0%, #1f0707 90%); }
+.lever-skills .lever-indicator-jewel { background: radial-gradient(circle at 35% 35%, #0f243b 0%, #05101c 90%); }
+.lever-guard .lever-indicator-jewel { background: radial-gradient(circle at 35% 35%, #0d2e1c 0%, #04140b 90%); }
+.lever-pouch .lever-indicator-jewel { background: radial-gradient(circle at 35% 35%, #3d2c0b 0%, #1a1203 90%); }
+
+.lever-attack .lever-indicator-jewel.lit {
+	background: radial-gradient(circle at 35% 35%, #fecaca 0%, #ef4444 50%, #991b1b 100%);
+	box-shadow: 0 0 10px #ef4444, 0 0 18px rgba(239, 68, 68, 0.8), inset 0 1px 1px #fff;
+	border-color: #fca5a5;
+}
+.lever-skills .lever-indicator-jewel.lit {
+	background: radial-gradient(circle at 35% 35%, #bae6fd 0%, #38bdf8 50%, #1e40af 100%);
+	box-shadow: 0 0 10px #38bdf8, 0 0 18px rgba(56, 189, 248, 0.8), inset 0 1px 1px #fff;
+	border-color: #93c5fd;
+}
+.lever-guard .lever-indicator-jewel.lit {
+	background: radial-gradient(circle at 35% 35%, #bbf7d0 0%, #10b981 50%, #065f46 100%);
+	box-shadow: 0 0 10px #10b981, 0 0 18px rgba(16, 185, 129, 0.8), inset 0 1px 1px #fff;
+	border-color: #86efac;
+}
+.lever-pouch .lever-indicator-jewel.lit {
+	background: radial-gradient(circle at 35% 35%, #fef08a 0%, #f59e0b 50%, #92400e 100%);
+	box-shadow: 0 0 10px #f59e0b, 0 0 18px rgba(245, 158, 11, 0.8), inset 0 1px 1px #fff;
+	border-color: #fde047;
+}
+
+.lever-arm-shaft {
+	position: relative;
+	width: 5px;
+	height: 18px;
+	background: linear-gradient(90deg, #2a2536 0%, #564f69 45%, #242030 100%);
+	border-radius: 2px;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+	display: flex;
+	justify-content: center;
+	transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+	z-index: 2;
+}
+
+.lever-knurled-grip {
+	position: absolute;
+	top: -6px;
+	width: 14px;
+	height: 10px;
+	border-radius: 2px;
+	background: repeating-linear-gradient(45deg, #785a28 0, #785a28 2px, #3b2c12 2px, #3b2c12 4px);
+	border: 1px solid #a87e32;
+	box-shadow: inset 0 1px 1px rgba(255, 215, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.7);
+}
+
+.lever-detent-notch {
+	position: absolute;
+	bottom: 16px;
+	left: 15%;
+	right: 15%;
+	height: 3px;
+	background: #09070d;
+	border: 1px solid #362914;
+	border-radius: 1px;
+	box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.9);
+	z-index: 1;
+}
+
+.lever-label-text {
+	position: relative;
+	z-index: 4;
+	text-align: center;
+	line-height: 1.15;
+	margin-top: auto;
+}
+
+.command-lever-detent.engaged-detent,
 .command-primary-ribbon .cmd-btn.active-tab {
 	border-color: #fbbf24;
-	background: linear-gradient(180deg, #451a03 0%, #290e02 100%);
-	box-shadow: inset 0 0 8px rgba(251, 191, 36, 0.4), 0 0 12px rgba(251, 191, 36, 0.5);
+	background: linear-gradient(180deg, #3d2412 0%, #201208 50%, #150a04 100%);
+	box-shadow: inset 0 0 10px rgba(251, 191, 36, 0.35), 0 0 12px rgba(251, 191, 36, 0.45);
 	color: #fffbeb;
+	animation: leverSnapRecoil 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.command-lever-detent.engaged-detent .lever-arm-shaft {
+	transform: translateY(4px);
+}
+
+@keyframes leverSnapRecoil {
+	0% {
+		transform: translateY(0);
+	}
+	40% {
+		transform: translateY(4px);
+	}
+	70% {
+		transform: translateY(1px);
+	}
+	100% {
+		transform: translateY(2px);
+	}
 }
 
 .command-sub-deck {
@@ -843,7 +1005,7 @@
 	image-rendering: pixelated;
 	display: block;
 	margin: 0 auto 4px;
-	filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.85));
+	filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.85)) drop-shadow(0 0 6px rgba(34, 211, 238, 0.2));
 	transition:
 		transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
 		filter 0.25s ease;
@@ -856,6 +1018,7 @@
 img.battler-sprite.boss-battler {
 	width: 88px;
 	height: 88px;
+	filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.95)) drop-shadow(0 0 14px rgba(239, 68, 68, 0.45));
 }
 
 .enemy.boss-battler::before {
@@ -2388,52 +2551,249 @@ img.battler-sprite.boss-battler {
 	box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.8);
 }
 
-.graduated-cylinder.vitality-mercury .hud-bar-fill.hp {
-	background: linear-gradient(90deg, #dc2626 0%, #ef4444 50%, #f87171 100%);
-	box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
+/* Glass Vitality Cylinders & Quicksilver Mercury Tubes (CANON-MAGITEK-AETHERPUNK-001 §3, §7, §9) */
+.graduated-cylinder {
+	position: relative;
+	display: flex;
+	align-items: center;
+	height: 11px;
+	background: radial-gradient(ellipse at 50% 25%, rgba(32, 26, 44, 0.96) 0%, rgba(10, 8, 16, 0.98) 100%);
+	border: 1px solid rgba(180, 142, 60, 0.6);
+	border-radius: 4px;
+	box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.95), inset 0 -1px 2px rgba(255, 255, 255, 0.06), 0 1px 3px rgba(0, 0, 0, 0.75);
+	overflow: hidden;
+	box-sizing: border-box;
 }
 
+.graduated-cylinder .mercury-cylinder-cap {
+	width: 5px;
+	height: 100%;
+	background: linear-gradient(180deg, #d4af37 0%, #a87e22 40%, #5e460b 80%, #997316 100%);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 0 2px rgba(0, 0, 0, 0.8);
+	flex-shrink: 0;
+	z-index: 4;
+}
+
+.graduated-cylinder .mercury-cylinder-cap.cap-left {
+	border-radius: 3px 0 0 3px;
+	border-right: 1px solid #3d2c05;
+}
+
+.graduated-cylinder .mercury-cylinder-cap.cap-right {
+	border-radius: 0 3px 3px 0;
+	border-left: 1px solid #3d2c05;
+}
+
+.graduated-cylinder .mercury-tube-body {
+	position: relative;
+	flex: 1;
+	height: 100%;
+	overflow: hidden;
+	display: flex;
+	align-items: center;
+}
+
+.graduated-cylinder .cylinder-metric-ticks {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	z-index: 3;
+	background: repeating-linear-gradient(90deg, transparent 0, transparent calc(20% - 1px), rgba(212, 175, 55, 0.42) calc(20% - 1px), rgba(212, 175, 55, 0.42) 20%);
+	box-shadow: inset 0 0 2px rgba(0, 0, 0, 0.6);
+}
+
+.graduated-cylinder .glass-reflection-glint {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 45%;
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.38) 0%, rgba(255, 255, 255, 0.08) 60%, transparent 100%);
+	pointer-events: none;
+	z-index: 4;
+	border-radius: 2px 2px 0 0;
+}
+
+.graduated-cylinder .bar-track {
+	width: 100%;
+	height: 100%;
+	display: flex;
+	align-items: center;
+	position: relative;
+	background: transparent;
+}
+
+/* Fluid 1: Glowing Vitality Mercury */
+.graduated-cylinder.vitality-mercury .hud-bar-fill.hp {
+	height: 100%;
+	background: linear-gradient(180deg, #fca5a5 0%, #ef4444 30%, #b91c1c 70%, #7f1d1d 100%);
+	box-shadow: 0 0 8px rgba(239, 68, 68, 0.8), inset 0 1px 1px rgba(255, 255, 255, 0.5);
+	position: relative;
+	transition: width 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Fluid 2: Luminescent Lapis Aether */
 .graduated-cylinder.lapis-aether .hud-bar-fill.mp {
-	background: linear-gradient(90deg, #1d4ed8 0%, #3b82f6 50%, #60a5fa 100%);
-	box-shadow: 0 0 6px rgba(59, 130, 246, 0.6);
+	height: 100%;
+	background: linear-gradient(180deg, #bae6fd 0%, #38bdf8 30%, #1d4ed8 70%, #172554 100%);
+	box-shadow: 0 0 8px rgba(56, 189, 248, 0.8), inset 0 1px 1px rgba(255, 255, 255, 0.5);
+	position: relative;
+	transition: width 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Fluid Meniscus Curve */
+.graduated-cylinder .mercury-meniscus {
+	position: absolute;
+	right: 0;
+	top: 0;
+	bottom: 0;
+	width: 4px;
+	border-radius: 0 50% 50% 0;
+	background: radial-gradient(circle at 100% 50%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 200, 200, 0.35) 60%, transparent 100%);
+	box-shadow: 1px 0 3px rgba(255, 255, 255, 0.7);
+}
+
+.graduated-cylinder.lapis-aether .mercury-meniscus {
+	background: radial-gradient(circle at 100% 50%, rgba(255, 255, 255, 0.9) 0%, rgba(186, 230, 253, 0.4) 60%, transparent 100%);
+	box-shadow: 1px 0 4px rgba(186, 230, 253, 0.85);
+}
+
+/* Hydraulic Bouncing & Hammer Keyframes */
+.graduated-cylinder.hydraulic-bounce,
+.graduated-cylinder.hydraulic-bounce .hud-bar-fill {
+	animation: hydraulicFluidBounce 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes hydraulicFluidBounce {
+	0% {
+		transform: scaleY(1.3) translateY(-1px);
+		filter: brightness(1.4);
+	}
+	28% {
+		transform: scaleY(0.85) translateY(1px);
+		filter: brightness(0.9);
+	}
+	55% {
+		transform: scaleY(1.12) translateY(-0.5px);
+		filter: brightness(1.15);
+	}
+	78% {
+		transform: scaleY(0.96);
+		filter: brightness(1.0);
+	}
+	100% {
+		transform: scaleY(1.0);
+		filter: brightness(1.0);
+	}
+}
+
+/* Monolithic Mass Hydraulic Hammer (Aldric) */
+.graduated-cylinder.hydraulic-hammer,
+.graduated-cylinder.hydraulic-hammer .hud-bar-fill {
+	animation: hydraulicHammerOscillation 0.65s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+@keyframes hydraulicHammerOscillation {
+	0% {
+		transform: scale(1.04, 1.45);
+		box-shadow: 0 0 14px rgba(246, 224, 94, 0.95);
+		filter: brightness(1.6);
+	}
+	25% {
+		transform: scale(0.97, 0.78);
+		filter: brightness(0.85);
+	}
+	50% {
+		transform: scale(1.02, 1.2);
+		filter: brightness(1.2);
+	}
+	75% {
+		transform: scale(0.99, 0.94);
+	}
+	100% {
+		transform: scale(1.0, 1.0);
+		filter: brightness(1.0);
+	}
+}
+
+/* Hydraulic Surge (Healing / Reconstitution) */
+.graduated-cylinder.hydraulic-surge,
+.graduated-cylinder.hydraulic-surge .hud-bar-fill {
+	animation: hydraulicFluidSurge 0.5s ease-out forwards;
+}
+
+@keyframes hydraulicFluidSurge {
+	0% {
+		filter: brightness(1.6) drop-shadow(0 0 8px rgba(74, 222, 128, 0.8));
+		transform: scaleY(1.18);
+	}
+	50% {
+		transform: scaleY(0.92);
+	}
+	100% {
+		filter: brightness(1.0);
+		transform: scaleY(1.0);
+	}
 }
 
 /* Operative-Specific Life Vial Concordance (CANON-MAGITEK-AETHERPUNK-001 §9) */
 /* 1. Aldric: Monolithic mass, widest vital cylinder & hydraulic grounding lines */
-.alchemical-life-vial.vial-aldric .graduated-cylinder.vitality-mercury {
-	width: 96% !important;
-	border: 1px solid rgba(246, 224, 94, 0.6);
-	box-shadow: 0 0 8px rgba(246, 224, 94, 0.35);
+.alchemical-life-vial.vial-aldric .graduated-cylinder.vitality-mercury,
+.hero-pedestal-stage.vial-aldric .graduated-cylinder.vitality-mercury {
+	width: 98%;
+	height: 13px;
+	border: 1.5px solid rgba(246, 224, 94, 0.75);
+	box-shadow: 0 0 10px rgba(246, 224, 94, 0.4), inset 0 2px 4px rgba(0, 0, 0, 0.9);
 }
 
 /* 2. Brogan: Hearth berserker volatile amber thermal luminescence */
-.alchemical-life-vial.vial-brogan {
-	border-color: rgba(249, 115, 22, 0.45);
+.alchemical-life-vial.vial-brogan,
+.hero-pedestal-stage.vial-brogan {
+	border-color: rgba(249, 115, 22, 0.5);
 }
-.alchemical-life-vial.vial-brogan .graduated-cylinder.vitality-mercury {
+.alchemical-life-vial.vial-brogan .graduated-cylinder.vitality-mercury,
+.hero-pedestal-stage.vial-brogan .graduated-cylinder.vitality-mercury {
+	border-color: rgba(249, 115, 22, 0.7);
 	animation: amberThermalPulse 2.4s ease-in-out infinite alternate;
 }
-@keyframes amberThermalPulse {
-	0% {
-		box-shadow: 0 0 4px rgba(249, 115, 22, 0.3);
-		filter: brightness(0.95);
-	}
-	100% {
-		box-shadow: 0 0 10px rgba(249, 115, 22, 0.85);
-		filter: brightness(1.25);
-	}
+.alchemical-life-vial.vial-brogan .graduated-cylinder.vitality-mercury .hud-bar-fill.hp,
+.hero-pedestal-stage.vial-brogan .graduated-cylinder.vitality-mercury .hud-bar-fill.hp {
+	background: linear-gradient(180deg, #fdba74 0%, #ea580c 35%, #c2410c 70%, #7c2d12 100%);
+	box-shadow: 0 0 10px rgba(249, 115, 22, 0.85);
 }
 
 /* 3. Selene: Tide weaver high-capacity lapis cylinder & resonant flux */
-.alchemical-life-vial.vial-selene .graduated-cylinder.lapis-aether {
-	border: 1px solid rgba(56, 189, 248, 0.55);
-	box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+.alchemical-life-vial.vial-selene .graduated-cylinder.lapis-aether,
+.hero-pedestal-stage.vial-selene .graduated-cylinder.lapis-aether {
+	height: 12px;
+	border: 1.5px solid rgba(56, 189, 248, 0.7);
+	box-shadow: 0 0 12px rgba(56, 189, 248, 0.6), inset 0 2px 4px rgba(0, 0, 0, 0.9);
+}
+.alchemical-life-vial.vial-selene .graduated-cylinder.lapis-aether .hud-bar-fill.mp,
+.hero-pedestal-stage.vial-selene .graduated-cylinder.lapis-aether .hud-bar-fill.mp {
+	background: linear-gradient(180deg, #67e8f9 0%, #06b6d4 35%, #0e7490 70%, #164e63 100%);
+	box-shadow: 0 0 12px rgba(6, 182, 212, 0.85);
 }
 
 /* 4. Wren: Sun-spire cleric consecrated lumen sanctuary aura */
-.alchemical-life-vial.vial-wren {
-	border-color: rgba(254, 240, 138, 0.38);
+.alchemical-life-vial.vial-wren,
+.hero-pedestal-stage.vial-wren {
+	border-color: rgba(254, 240, 138, 0.45);
 }
-.alchemical-life-vial.vial-wren .alchemical-portrait-bezel {
-	box-shadow: 0 0 8px rgba(254, 240, 138, 0.25), inset 0 0 6px rgba(0, 0, 0, 0.8);
+.alchemical-life-vial.vial-wren .alchemical-portrait-bezel,
+.hero-pedestal-stage.vial-wren .hero-arched-vitals-container {
+	box-shadow: 0 0 10px rgba(254, 240, 138, 0.35), inset 0 0 6px rgba(0, 0, 0, 0.8);
+}
+.alchemical-life-vial.vial-wren .cylinder-metric-ticks,
+.hero-pedestal-stage.vial-wren .cylinder-metric-ticks {
+	background: repeating-linear-gradient(90deg, transparent 0, transparent calc(20% - 1px), rgba(254, 240, 138, 0.75) calc(20% - 1px), rgba(254, 240, 138, 0.75) 20%);
+}
+
+/* Hero Pedestal Tubes cluster in Q4 chassis */
+.hero-pedestal-tubes {
+	width: 100%;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	margin: 3px 0;
 }

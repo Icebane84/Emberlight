@@ -535,8 +535,12 @@ if (typeof globalThis !== "undefined") (/** @type {any} */ (globalThis))._MapInt
 					tileOpts,
 				);
 
-				if (!isVisible) {
-					renderCtx.fillStyle = "rgba(2, 2, 8, 0.82)";
+				if (isVisible) {
+					renderCtx.strokeStyle = "rgba(245, 200, 121, 0.07)";
+					renderCtx.lineWidth = 0.5;
+					renderCtx.strokeRect(screenX, screenY, tileSize, tileSize);
+				} else {
+					renderCtx.fillStyle = "rgba(2, 2, 8, 0.48)";
 					renderCtx.fillRect(screenX, screenY, tileSize, tileSize);
 				}
 			}
@@ -696,8 +700,8 @@ if (typeof globalThis !== "undefined") (/** @type {any} */ (globalThis))._MapInt
 			Math.max(w, h) * 0.75,
 		);
 		vignette.addColorStop(0, "rgba(4, 4, 12, 0)");
-		vignette.addColorStop(0.7, "rgba(4, 4, 12, 0.35)");
-		vignette.addColorStop(1, "rgba(2, 2, 8, 0.88)");
+		vignette.addColorStop(0.7, "rgba(4, 4, 12, 0.18)");
+		vignette.addColorStop(1, "rgba(2, 2, 8, 0.45)");
 		renderCtx.fillStyle = vignette;
 		renderCtx.fillRect(0, 0, w, h);
 	}

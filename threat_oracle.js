@@ -422,6 +422,69 @@ const EmberlightThreatOracle = (() => {
 	}
 
 	/**
+	 * Resolves active or projected CTB timeline based on combat state snapshot.
+	 * Pure calculation helper to preserve SonarLint S3776 complexity thresholds.
+	 * @param {CombatStateSnapshot} combatState
+	 * @returns {any[]}
+	 */
+	function _resolveActiveTimeline(combatState) {
+		const {
+			party = [],
+			enemies = [],
+			forecastQueue = null,
+			activeHeroId = null,
+			actionPreviewCost = 0,
+		} = combatState;
+
+		const isForecastMatching = Boolean(
+			forecastQueue && forecastQueue.length > 0 && (!activeHeroId || forecastQueue[0]?.id === activeHeroId),
+		);
+		if (isForecastMatching && Array.isArray(forecastQueue)) {
+			return forecastQueue;
+		}
+		if (activeHeroId) {
+			return forecastActionTimeline(party, enemies, activeHeroId, actionPreviewCost || 0, 12);
+		}
+		if (Array.isArray(forecastQueue)) {
+			return forecastQueue;
+		}
+		const calculated = calculateTimeline(party, enemies, 12);
+		return Array.isArray(calculated) ? calculated : [];
+	}
+
+	/**
+	 * Formats markup for a single CTB turn slot element.
+	 * Pure formatting helper to preserve SonarLint S3776 complexity thresholds.
+	 * @param {any} turn
+	 * @param {number} idx
+	 * @param {string|null} currentActiveId
+	 * @param {string|null} targetEnemyId
+	 * @returns {string}
+	 */
+	function _buildTurnSlotHtml(turn, idx, currentActiveId, targetEnemyId) {
+		const isHero = turn.type === 'HERO' || turn.type === 'party';
+		const isTurnNow = idx === 0;
+		const isCurrentHeroTurn = isHero && Boolean(currentActiveId && turn.id === currentActiveId);
+		const isTargetedEnemyTurn = !isHero && Boolean(targetEnemyId && turn.id === targetEnemyId);
+		const isProjected = Boolean(turn.isProjected);
+		const crest = resolveSlotCrest(turn, isHero);
+		const delayLabel = turn.delayCost ? ` (+${turn.delayCost} Delay)` : '';
+		const iconMarkup = resolveSlotIconMarkup(turn, isHero, crest);
+
+		return `
+        <div class="turn-slot ${isTurnNow ? 'active-slot' : ''} ${isCurrentHeroTurn ? 'active-hero-turn' : ''} ${isTargetedEnemyTurn ? 'targeted-enemy-turn' : ''} ${isProjected ? 'projected-slot ghost-turn-slot' : ''} ${isHero ? 'hero-slot' : 'enemy-slot'}"
+             data-entity-id="${turn.id}"
+             data-entity-type="${isHero ? 'HERO' : 'ENEMY'}"
+             data-entity-index="${turn.entityIndex !== undefined ? turn.entityIndex : idx}"
+             title="Turn ${turn.turnIndex || (idx + 1)}: ${turn.name}${delayLabel}">
+          <div class="slot-idx">${turn.turnIndex || (idx + 1)}</div>
+          ${iconMarkup}
+          <div class="slot-name">${turn.name.slice(0, 5)}</div>
+        </div>
+      `;
+	}
+
+	/**
 	 * Renders the Threat Oracle ribbon and telegraphs into the DOM container.
 	 * (State-mutating DOM presentation procedure)
 	 * @param {string|HTMLElement|null} [containerId=null] Target container element or ID string.
@@ -435,56 +498,17 @@ const EmberlightThreatOracle = (() => {
 		const targetContainer = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;
 
 		const {
-			party = [],
 			enemies = [],
 			bossIntent = null,
-			forecastQueue = null,
 			activeHeroId = null,
 			targetEnemyId = null,
-			actionPreviewCost = 0,
 		} = combatState;
 
-		const isForecastMatching = Boolean(
-			forecastQueue && forecastQueue.length > 0 && (!activeHeroId || forecastQueue[0]?.id === activeHeroId),
-		);
-		/** @type {any[]} */
-		let rawTimeline = [];
-		if (isForecastMatching && Array.isArray(forecastQueue)) {
-			rawTimeline = forecastQueue;
-		} else if (activeHeroId) {
-			rawTimeline = forecastActionTimeline(party, enemies, activeHeroId, actionPreviewCost || 0, 12);
-		} else if (Array.isArray(forecastQueue)) {
-			rawTimeline = forecastQueue;
-		} else {
-			rawTimeline = calculateTimeline(party, enemies, 12);
-		}
-		const timeline = Array.isArray(rawTimeline) ? rawTimeline : [];
-
+		const timeline = _resolveActiveTimeline(combatState);
 		const currentActiveId =
 			activeHeroId || (timeline[0]?.type === 'HERO' || timeline[0]?.type === 'party' ? timeline[0]?.id : null);
 
-		const ribbonHtml = timeline.map((turn, idx) => {
-			const isHero = turn.type === 'HERO' || turn.type === 'party';
-			const isTurnNow = idx === 0;
-			const isCurrentHeroTurn = isHero && Boolean(currentActiveId && turn.id === currentActiveId);
-			const isTargetedEnemyTurn = !isHero && Boolean(targetEnemyId && turn.id === targetEnemyId);
-			const isProjected = Boolean(turn.isProjected);
-			const crest = resolveSlotCrest(turn, isHero);
-			const delayLabel = turn.delayCost ? ` (+${turn.delayCost} Delay)` : '';
-			const iconMarkup = resolveSlotIconMarkup(turn, isHero, crest);
-
-			return `
-        <div class="turn-slot ${isTurnNow ? 'active-slot' : ''} ${isCurrentHeroTurn ? 'active-hero-turn' : ''} ${isTargetedEnemyTurn ? 'targeted-enemy-turn' : ''} ${isProjected ? 'projected-slot ghost-turn-slot' : ''} ${isHero ? 'hero-slot' : 'enemy-slot'}"
-             data-entity-id="${turn.id}"
-             data-entity-type="${isHero ? 'HERO' : 'ENEMY'}"
-             data-entity-index="${turn.entityIndex !== undefined ? turn.entityIndex : idx}"
-             title="Turn ${turn.turnIndex || (idx + 1)}: ${turn.name}${delayLabel}">
-          <div class="slot-idx">${turn.turnIndex || (idx + 1)}</div>
-          ${iconMarkup}
-          <div class="slot-name">${turn.name.slice(0, 5)}</div>
-        </div>
-      `;
-		}).join('');
+		const ribbonHtml = timeline.map((turn, idx) => _buildTurnSlotHtml(turn, idx, currentActiveId, targetEnemyId)).join('');
 
 		// If master ribbon bar exists in DOM, populate it directly
 		if (ribbonBar) {

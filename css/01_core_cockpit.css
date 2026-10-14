@@ -95,9 +95,9 @@
 	box-sizing: inherit;
 }
 
-.hidden,
-[hidden] {
-	display: none !important;
+body .hidden,
+body [hidden] {
+	display: none;
 }
 
 body {
@@ -161,6 +161,7 @@ body.crt-enabled::before {
 	flex-direction: column;
 	justify-content: space-between;
 	gap: 6px;
+	padding: 6px 12px 8px 12px;
 	overflow: hidden;
 	box-sizing: border-box;
 }
@@ -565,19 +566,19 @@ body.crt-enabled::before {
 
 /* Fullscreen Display Mode (ARCH-SPEC-SETTINGS-001) */
 body.fullscreen-mode {
-	width: 100vw !important;
-	height: 100vh !important;
-	max-width: 100vw !important;
-	max-height: 100vh !important;
-	margin: 0 !important;
-	padding: 0 !important;
+	width: 100vw;
+	height: 100vh;
+	max-width: 100vw;
+	max-height: 100vh;
+	margin: 0;
+	padding: 0;
 }
 
 body.fullscreen-mode #game-cockpit {
-	width: 100vw !important;
-	height: 100vh !important;
-	max-width: 100vw !important;
-	max-height: 100vh !important;
+	width: 100vw;
+	height: 100vh;
+	max-width: 100vw;
+	max-height: 100vh;
 }
 
 /* Explicit Quadrant Anchors */

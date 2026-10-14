@@ -26,9 +26,17 @@
     ".agent",
     "tools",
     "testing",
+    "testing/**",
     "data",
     "docs",
+    "scratch",
+    "scratch/**",
     "watch_engine.js",
-    "phoenix/test_*.js"
+    "phoenix/test_*.js",
+    "phoenix/templates",
+    "phoenix/templates/**",
+    "phoenix/docs",
+    "phoenix/docs/**",
+    "phoenix/runtime/phoenix_editor_cm6.js"
   ]
 }

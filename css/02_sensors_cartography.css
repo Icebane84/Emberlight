@@ -1204,21 +1204,21 @@
 
 /* --- SUBTERRANEAN CATACOMB ATMOSPHERE & SHADERS --- */
 #overworld-grid-wrapper.catacomb-mode {
-  background: #020206;
-  border-color: #2e1045;
-  box-shadow: inset 0 0 28px rgba(0, 0, 0, 0.95), 0 0 16px rgba(46, 16, 69, 0.35);
+  background: #04040a;
+  border-color: #3b1856;
+  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.65), 0 0 16px rgba(46, 16, 69, 0.35);
 }
 
 .catacomb-mode .tile.wall {
-  background: #0d0c15;
-  color: #958cb8;
-  border: 1px solid #1a1628;
-  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.9);
+  background: #141220;
+  color: #a49ac8;
+  border: 1px solid #28223c;
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.75);
 }
 
 .catacomb-mode .tile.path {
-  background: #05050b;
-  color: #8484b0;
+  background: #090914;
+  color: #9292be;
 }
 
 .catacomb-mode .tile.water {

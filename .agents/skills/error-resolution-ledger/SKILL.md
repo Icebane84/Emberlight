@@ -3,7 +3,7 @@ name: error-resolution-ledger
 description: Governs the Error Resolution Ledger (ERL-001) catalog of canonical diagnostic fingerprints, pre-commit lint filters, and verified deterministic self-repair patterns across Emberlight and Phoenix engines.
 globs: "**/*.js, **/*.html, **/*.ts, testing/**/*.js, phoenix/**/*.js"
 alwaysApply: false
-version: 2.4.0-PRO
+version: 2.6.0-PRO
 ---
 
 # AGENT OPERATIONAL SPECIFICATION: Error Resolution Ledger (ERL-001)
@@ -1416,6 +1416,209 @@ Before presenting or applying any code changes, all AI agents must enforce these
     eventBus = contextOrBus?.eventBus || contextOrBus || null;
     bindEvents(eventBus);
   }
+  ```
+
+### [ERL-55] `UI/Q4_MERCURY_HYDRAULIC_BOUNCE_STATE_INVARIANCE` — Tactile Glass Vitality Tubes with Hydraulic Hammer & Mechanical Railway Switch Detents
+
+- **Trigger:** Rendering physical glass fluid gauges and tactile railway detent switches where previous vitals states must be tracked without leaking memory or mutating frozen simulation DTOs during 60 FPS re-render cycles, while properly handling audio feedback (`LEVER_PULL`) and operative mass differences (e.g., Aldric's heavy monolithic inertia).
+- **Hazard:** Storing mutable delta state directly onto frozen combat snapshots causes `TypeError: Cannot add property on frozen object` or triggers GC thrashing. Omitting key/name isolation causes hero bays to cross-contaminate bounce animations during turn transitions. Missing acoustic triggers leaves physical levers feeling weightless.
+- **Rule:**
+  1. Maintain isolated internal `Map<string, { hp: number, mp: number }>` cleared upon `destroy()`.
+  2. Compute delta classes (`hydraulic-bounce`, `hydraulic-hammer`, `hydraulic-surge`) deterministically in a pure helper (`resolveHydraulicBounceState`) keeping function complexity $\le 15$.
+  3. Railway switch detents must combine structured DOM (pivot housing, pilot indicator jewel, knurled grip, detent notch) with spring recoil keyframes and dispatch acoustic feedback (`combat:sfx` `{ sfx: "LEVER_PULL" }`).
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION:
+  // Mutating frozen snapshot or leaking unbounded memory:
+  renderPartyCard(hero) {
+    if (hero.hp < hero.lastHp) hero.bouncing = true; // TypeError: Cannot add property on frozen object!
+  }
+
+  // ✅ CANONICAL REPAIR:
+  // Isolated Map cache + deterministic helper:
+  const previousHeroVitals = new Map();
+
+  function resolveHydraulicBounceState(heroKey, curHp, curMp, heroName = "") {
+    const prev = previousHeroVitals.get(heroKey);
+    const isHpDrop = prev !== undefined && curHp < prev.hp;
+    const isMpDrop = prev !== undefined && curMp < prev.mp;
+    const isHpRestore = prev !== undefined && curHp > prev.hp;
+    previousHeroVitals.set(heroKey, { hp: curHp, mp: curMp });
+
+    let hpBounceClass = "";
+    if (isHpDrop) {
+      hpBounceClass = "hydraulic-bounce";
+    } else if (isHpRestore) {
+      hpBounceClass = "hydraulic-surge";
+    }
+
+    return {
+      hpBounceClass,
+      mpBounceClass: isMpDrop ? "hydraulic-bounce" : "",
+      aldricHammerClass: heroName === "Aldric" && isHpDrop ? "hydraulic-hammer" : "",
+    };
+  }
+  ```
+
+---
+
+### [ERL-56] `RAYCASTER/PROCEDURAL_MASONRY_TEXTURE_DECORRELATION` — Linear Modulo Diagonal Hatching Elimination & Subterranean Torch Falloff
+
+- **Trigger:** Raycaster columns exhibiting prominent repeating diagonal hatching stripes from 2D modulo wave formulas (e.g., `(17x + 29y) % 23`), or catacomb walls rendering with surface ambient light rather than subterranean torch falloff and void darkening.
+- **Hazard:** Linear modulos create repeating angled bands at $\arctan(-A/B)$ that warp across column perspectives. Missing `isDungeon` propagation leaves walls washed out with surface fog while floors and ceilings plunge into darkness.
+- **Rule:**
+  1. Replace 2D modulo noise with isotropic 32-bit integer hashes (`decorrelatedHash(x, y, seed)`).
+  2. Synthesize authentic ashlar masonry (`bakeBrickTexture`) and interlocking flagstone pavers (`bakeFloorTexture`) decomposed into pure helper functions (`_shadeBrickPixel`, `_shadeFloorPixel`) keeping cognitive complexity $\le 15$.
+  3. Propagate `{ torchFlicker, isTown, isDungeon }` lighting context through `renderWalls` and `renderWallColumn` into `math.applyFog` with inverse-quadratic foreground illumination and catacomb horizon void attenuation.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION (Linear diagonal modulo bands + hardcoded surface fog):
+  const d = (x * 17 + y * 29) % 23;
+  const shaded = math.applyFog(color, dist, flicker, false, config);
+
+  // ✅ CANONICAL REPAIR (Isotropic integer hash + lighting context propagation):
+  function decorrelatedHash(x, y, seed = 0) {
+    let h = Math.imul(x ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(y ^ 0xc2b2ae35, 0x7feb352d) ^ seed;
+    h ^= h >>> 13;
+    h = Math.imul(h, 0x85ebca6b);
+    return (h ^ (h >>> 16)) >>> 0;
+  }
+
+---
+
+### [ERL-57] `CRT/BEZEL_BARREL_CURVATURE_INSET_CLIPPING` — Cockpit Quadrant Header Glass Edge Clipping
+
+- **Trigger:** WebGL/CSS CRT curvature or barrel distortion clipping the top edge or corners of quadrant title headers (e.g., "Q1: THE BRASS CARTOGRAPH" or "Q2: THE SCRYING OCULUS").
+- **Hazard:** When container `#game-cockpit` has zero padding, root panels sit directly against the display viewport boundaries where CRT barrel distortion shaders and border vignette aggressively compress and darken the physical glass edge.
+- **Rule:** Provide a mandatory safety inset on the master viewport container (`#game-cockpit { padding: 6px 12px 8px 12px; }`), ensuring all UI elements reside within the unwarped central focal zone.
+- **Remediation Pattern:**
+
+  ```css
+  /* ❌ VIOLATION (Zero margin/padding touches warped glass bezel): */
+  #game-cockpit {
+    flex: 1 1 100%;
+    width: 100%;
+    /* no padding */
+  }
+
+  /* ✅ CANONICAL REPAIR (Safety inset padding preserves header visibility): */
+  #game-cockpit {
+    flex: 1 1 100%;
+    width: 100%;
+    padding: 6px 12px 8px 12px;
+  }
+  ```
+
+---
+
+### [ERL-58] `OPTICS/CARTOGRAPH_ILLUMINANCE_AND_TIMBER_FRAMING` — Q1 Phosphor Grid Illumination & Venetian Blind Timber Texture Elimination
+
+- **Trigger:** Q1 Cartograph rendering near-black from underpowered lantern glow (alpha $\le 0.22$) and heavy vignette darkening ($\ge 0.88$), or Q2 town walls rendering thin horizontal window-blind lines from modulo striping (`y % 7 === 0`).
+- **Hazard:** Cartograph becomes completely illegible under exploration conditions; town walls look artificial and flicker through raycaster perspective columns.
+- **Rule:**
+  1. Enrich `renderDynamicLighting` with warm amber core (`rgba(251, 191, 36, 0.45)`) and 190px radial reach, while softening outer `renderVignetteOverlay` to $\le 0.45$ and overlaying subtle `rgba(245, 200, 121, 0.07)` brass tactical coordinate grid lines.
+  2. Replace linear horizontal modulo slats in `bakeTimberTexture` with structural vertical posts, horizontal mortise rails, forged iron studs (`_isTimberRivet`), and vertical heartwood oak planks (`_shadeTimberPixel`) keeping cognitive complexity $\le 15$.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION (Weak lantern + crushing vignette + venetian blind modulo):
+  lanternGlow.addColorStop(0, "rgba(245, 158, 11, 0.22)");
+  vignette.addColorStop(1, "rgba(2, 2, 8, 0.88)");
+  const isPlankGap = y % 7 === 0;
+
+  // ✅ CANONICAL REPAIR (Warm golden radiance + tactical grid + authentic half-timbering):
+  lanternGlow.addColorStop(0, "rgba(251, 191, 36, 0.45)");
+  vignette.addColorStop(1, "rgba(2, 2, 8, 0.45)");
+  tex[y * size + x] = _shadeTimberPixel(x, y, size);
+  ```
+
+---
+
+### [ERL-59] `STATIC/MAX_METHOD_PARAMETERS_AND_LOOP_AWAIT` — Parameter Arity Capping & Async Sequential Test Reduction
+
+- **Trigger:** SonarLint `javascript:S107` ("Method has too many parameters (8). Maximum allowed is 7"), `javascript:S2970` ("Unexpected `await` inside a loop"), or `javascript:S1848` ("Useless object instantiation of vm.Script").
+- **Hazard:** High-arity methods increase call-site error rates; `await` in loops blocks parallel execution or triggers linter warnings in sequential test loops; unused syntax-checking constructors trigger dead-code warnings.
+- **Rule:**
+  1. Consolidate trailing configuration parameters beyond position 6 into rest/options (`...opts`).
+  2. For independent async tasks, parallelize via `await Promise.all(items.map(...))`. For test runners requiring sequential execution to prevent global state pollution, chain via `await items.reduce(...)` and annotate necessary dynamic code execution with `// NOSONAR`.
+  3. Validate syntax using assigned instances (`const script = new vm.Script(code); assert.ok(script);`).
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION (8 parameters + await in loop):
+  solveWithPole(bx, by, tx, ty, poleX, poleY, iterations, tolerance) {}
+  for (const t of tests) { await t.fn(); }
+
+  // ✅ CANONICAL REPAIR (Rest parameter arity <= 7 + async reduce chaining):
+  solveWithPole(bx, by, tx, ty, poleX, poleY, ...opts) {}
+  await tests.reduce(async (chain, t) => { await chain; await t.fn(); }, Promise.resolve());
+  ```
+
+---
+
+### [ERL-60] `TS/DOM_TYPEDARRAY_ARRAYBUFFER_DISCREPANCY` — Float32Array ArrayBufferLike vs ArrayBuffer DOM Discrepancy
+
+- **Trigger:** TypeScript error `Type 'Float32Array<ArrayBufferLike>' is not assignable to type 'Float32Array<ArrayBuffer>'` when assigning an allocated `Float32Array` to DOM properties (such as `WaveShaperNode.curve`).
+- **Hazard:** In modern TypeScript/ES2024 `lib.dom.d.ts`, `Float32Array` defaults to `Float32Array<ArrayBufferLike>`. `ArrayBufferLike` includes `SharedArrayBuffer` whose prototype differs from standard `ArrayBuffer`, triggering strict type check rejections under `"checkJs": true`.
+- **Rule:** Type-cast the assigned buffer expression via `/** @type {any} */ (buffer)` to safely satisfy DOM interface contracts without runtime performance overhead.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION (Throws ArrayBufferLike is not assignable to ArrayBuffer):
+  tubePreampNode.curve = buildTubeSaturationCurve(256, 1.8);
+
+  // ✅ CANONICAL REPAIR:
+  tubePreampNode.curve = /** @type {any} */ (buildTubeSaturationCurve(256, 1.8));
+  ```
+
+---
+
+### [ERL-61] `CSS/SPECIFICITY_HIERARCHY_OVER_IMPORTANT` — Specificity Resolution Over !important Declaration Smells
+
+- **Trigger:** SonarLint rule `css:S4667` ("Remove this `!important` and resolve the specificity conflict instead").
+- **Hazard:** Relying on `!important` in CSS style sheets causes cascade wars, overrides intentional dynamic inline styles, prevents clean theming, and fails static CSS quality gates.
+- **Rule:** Never use `!important` to force layout or display states. Increase selector specificity by qualifying with parent element scopes (e.g. `body .hidden, body [hidden] { display: none; }` or `body.fullscreen-mode #game-cockpit`), allowing natural CSS cascade resolution.
+- **Remediation Pattern:**
+
+  ```css
+  /* ❌ VIOLATION: */
+  .hidden, [hidden] {
+      display: none !important;
+  }
+  body.fullscreen-mode {
+      width: 100vw !important;
+      margin: 0 !important;
+  }
+
+  /* ✅ CANONICAL REPAIR (Natural Specificity Hierarchy): */
+  body .hidden,
+  body [hidden] {
+      display: none;
+  }
+  body.fullscreen-mode {
+      width: 100vw;
+      margin: 0;
+  }
+  ```
+
+---
+
+### [ERL-62] `TS/DYNAMIC_COLLECTION_CALLBACK_IMPLICIT_ANY` — Callback Parameter Implicit Any on Dynamic Arrays
+
+- **Trigger:** TypeScript error `Parameter 'item' implicitly has an 'any' type` in `.map()`, `.forEach()`, or `.filter()` callbacks iterating collections produced by `Object.values(obj || {})` or untyped dynamic arrays under `"checkJs": true`.
+- **Hazard:** Blocks pre-commit verification gates, fails strict type checks, and strips intellisense from downstream expressions.
+- **Rule:** Explicitly annotate callback arguments inline `(/** @type {any} */ item, /** @type {number} */ idx) => { ... }` or cast the collection via `/** @type {any[]} */`.
+- **Remediation Pattern:**
+
+  ```javascript
+  // ❌ VIOLATION (Implicit any on callback parameters):
+  const stages = Object.values(q.stages || {});
+  stages.forEach((st, idx) => { ... });
+
+  // ✅ CANONICAL REPAIR:
+  stages.forEach((/** @type {any} */ st, /** @type {number} */ idx) => { ... });
   ```
 
 ---

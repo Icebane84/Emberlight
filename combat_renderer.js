@@ -204,6 +204,38 @@ const EmberlightCombatRenderer = (() => {
 	/** @type {any} */
 	let activeFlickDirection = null;
 
+	/** @type {Map<string, { hp: number, mp: number }>} */
+	const previousHeroVitals = new Map();
+
+	/**
+	 * Computes hydraulic bouncing and hammer classes based on vitals deltas.
+	 * @param {string} heroKey Unique key for operative.
+	 * @param {number} curHp Current HP.
+	 * @param {number} curMp Current MP.
+	 * @param {string} [heroName=""] Hero name for operative-specific overrides.
+	 * @returns {{ hpBounceClass: string, mpBounceClass: string, aldricHammerClass: string }}
+	 */
+	function resolveHydraulicBounceState(heroKey, curHp, curMp, heroName = "") {
+		const prev = previousHeroVitals.get(heroKey);
+		const isHpDrop = prev !== undefined && curHp < prev.hp;
+		const isMpDrop = prev !== undefined && curMp < prev.mp;
+		const isHpRestore = prev !== undefined && curHp > prev.hp;
+		previousHeroVitals.set(heroKey, { hp: curHp, mp: curMp });
+
+		let hpBounceClass = "";
+		if (isHpDrop) {
+			hpBounceClass = "hydraulic-bounce";
+		} else if (isHpRestore) {
+			hpBounceClass = "hydraulic-surge";
+		}
+
+		return {
+			hpBounceClass,
+			mpBounceClass: isMpDrop ? "hydraulic-bounce" : "",
+			aldricHammerClass: heroName === "Aldric" && isHpDrop ? "hydraulic-hammer" : "",
+		};
+	}
+
 	/**
 	 * Safely retrieves a DOM element by ID if available.
 	 * @param {string} id DOM element identifier.
@@ -1280,6 +1312,9 @@ const EmberlightCombatRenderer = (() => {
 
 		const mpLabel = ` • ${curMp}/${maxMp} ${lexTerm("stat.mp", "MP")}`;
 		const operativeClass = c.name ? `vial-${c.name.toLowerCase()}` : "";
+		const heroKey = c.id || c.name || `bay-${idx}`;
+		const { hpBounceClass, mpBounceClass, aldricHammerClass } =
+			resolveHydraulicBounceState(heroKey, curHp, curMp, c.name);
 
 		return `
       <div class="character formation-slot alchemical-life-vial ${operativeClass} ${rowClass} ${stanceClass} ${isTurn ? "active-turn" : ""} ${c.alive ? "" : "fainted"} ${ailmentClasses}" data-idx="${idx}" data-operative="${c.name || "Hero"}" data-vial-bay="${c.name || "Hero"}" data-ailments="${ailmentList}" tabindex="0" style="position:relative; width:100%;" title="Alchemical Life-Vial: ${c.name || 'Hero'} (Bay ${idx + 1}) — Vitality Mercury: ${curHp}/${maxHp} HP • Lapis Aether: ${curMp}/${maxMp} MP">
@@ -1289,11 +1324,23 @@ const EmberlightCombatRenderer = (() => {
         <div style="font-family:var(--font-mono, monospace); font-size:9.5px; font-weight:bold; letter-spacing:0.5px; margin-top:2px;">${c.name || "Hero"} <span class="char-class" style="color:var(--text-dim); font-size:9px;">Lv${c.level || 1}</span></div>
         ${rowTag}
         ${exhaustedBadge}
-        <div class="bar-row graduated-cylinder vitality-mercury" style="margin-top:2px; width:90%;" title="Graduated Cylinder: Glowing Vitality Mercury (${curHp}/${maxHp} HP)">
-          <span class="bar-track"><span class="hud-bar-fill hp" style="width:${hpPct}%"></span></span>
+        <div class="bar-row graduated-cylinder vitality-mercury ${hpBounceClass} ${aldricHammerClass}" style="margin-top:2px; width:92%;" title="Graduated Cylinder: Glowing Vitality Mercury (${curHp}/${maxHp} HP)">
+          <div class="mercury-cylinder-cap cap-left"></div>
+          <div class="mercury-tube-body">
+            <div class="cylinder-metric-ticks"></div>
+            <div class="glass-reflection-glint"></div>
+            <span class="bar-track"><span class="hud-bar-fill hp" style="width:${hpPct}%"><span class="mercury-meniscus"></span></span></span>
+          </div>
+          <div class="mercury-cylinder-cap cap-right"></div>
         </div>
-        <div class="bar-row graduated-cylinder lapis-aether" style="margin-top:1px; width:90%;" title="Graduated Cylinder: Luminescent Lapis Aether (${curMp}/${maxMp} MP)">
-          <span class="bar-track"><span class="hud-bar-fill mp" style="width:${mpPct}%"></span></span>
+        <div class="bar-row graduated-cylinder lapis-aether ${mpBounceClass}" style="margin-top:1px; width:92%;" title="Graduated Cylinder: Luminescent Lapis Aether (${curMp}/${maxMp} MP)">
+          <div class="mercury-cylinder-cap cap-left"></div>
+          <div class="mercury-tube-body">
+            <div class="cylinder-metric-ticks"></div>
+            <div class="glass-reflection-glint"></div>
+            <span class="bar-track"><span class="hud-bar-fill mp" style="width:${mpPct}%"><span class="mercury-meniscus"></span></span></span>
+          </div>
+          <div class="mercury-cylinder-cap cap-right"></div>
         </div>
         <div class="hp-label" style="font-family:var(--font-mono, monospace); font-size:9px; letter-spacing:0.5px; color:var(--text-dim); margin-top:1px;">${curHp}/${maxHp} HP${mpLabel} ${ailmentTags}</div>
       </div>
@@ -2163,11 +2210,22 @@ const EmberlightCombatRenderer = (() => {
 
 		ribbon.innerHTML = tabs
 			.map(
-				(tab) => `
-      <button type="button" class="cmd-btn ${tab.cls} ${selectedTab === tab.id ? "active-tab" : ""} ${isLocked ? "detent-locked" : ""}" ${isLocked ? "disabled" : ""} data-tab-id="${tab.id}" data-lever-action="${tab.id}" title="${tab.label}: ${tab.desc}">
-        ${tab.label}
+				(tab) => {
+					const isActive = selectedTab === tab.id;
+					return `
+      <button type="button" class="cmd-btn command-lever-detent ${tab.cls} ${isActive ? "active-tab engaged-detent" : ""} ${isLocked ? "detent-locked" : ""}" ${isLocked ? "disabled" : ""} data-tab-id="${tab.id}" data-lever-action="${tab.id}" title="${tab.label}: ${tab.desc}">
+        <div class="lever-pivot-housing">
+          <div class="lever-pivot-screw"></div>
+        </div>
+        <div class="lever-indicator-jewel ${isActive ? "lit" : ""}" data-jewel="${tab.id}"></div>
+        <div class="lever-arm-shaft">
+          <div class="lever-knurled-grip"></div>
+        </div>
+        <div class="lever-detent-notch"></div>
+        <span class="lever-label-text">${tab.label}</span>
       </button>
-    `,
+    `;
+				},
 			)
 			.join("");
 
@@ -2176,6 +2234,9 @@ const EmberlightCombatRenderer = (() => {
 			const htmlBtn = /** @type {HTMLElement} */ (btn);
 			const tabId = htmlBtn.dataset.tabId;
 			htmlBtn.addEventListener("click", () => {
+				if (hostContext?.eventBus?.publish) {
+					hostContext.eventBus.publish("combat:sfx", { sfx: "LEVER_PULL" });
+				}
 				emit({ type: "SELECT_TAB", tab: tabId });
 			});
 		});
@@ -2445,7 +2506,69 @@ const EmberlightCombatRenderer = (() => {
 	}
 
 	/**
-	 * Draws tactical hazard wall tiles on Q1 canvas with batched path geometry.
+	 * Draws single etched hazard ward tile with runic geometry and chevrons.
+	 * (State-mutating canvas drawing utility)
+	 * @param {CanvasRenderingContext2D} ctx
+	 * @param {number} hx
+	 * @param {number} hy
+	 * @param {number} cellW
+	 * @param {number} cellH
+	 * @param {number} pulse
+	 */
+	function drawSingleHazardWardTile(ctx, hx, hy, cellW, cellH, pulse) {
+		// 1. Dark Vulcanite/Iron Substrate Base
+		ctx.fillStyle = "rgba(22, 14, 20, 0.92)";
+		ctx.fillRect(hx + 1, hy + 1, cellW - 2, cellH - 2);
+
+		// 2. Beveled Runic Frame
+		ctx.strokeStyle = `rgba(239, 68, 68, ${0.75 + pulse * 0.2})`;
+		ctx.lineWidth = 1.6;
+		ctx.strokeRect(hx + 2, hy + 2, cellW - 4, cellH - 4);
+
+		// 3. Etched Runic Diamond Core
+		if (ctx.beginPath && ctx.stroke) {
+			const cx = hx + cellW / 2;
+			const cy = hy + cellH / 2;
+			const dx = cellW * 0.32;
+			const dy = cellH * 0.30;
+			ctx.save();
+			ctx.strokeStyle = `rgba(244, 63, 94, ${0.45 + pulse * 0.35})`;
+			ctx.lineWidth = 1.2;
+			ctx.beginPath();
+			ctx.moveTo(cx, cy - dy);
+			ctx.lineTo(cx + dx, cy);
+			ctx.lineTo(cx, cy + dy);
+			ctx.lineTo(cx - dx, cy);
+			ctx.closePath();
+			ctx.stroke();
+
+			// Inward Warning Chevrons
+			ctx.strokeStyle = "rgba(239, 68, 68, 0.35)";
+			ctx.lineWidth = 1;
+			ctx.beginPath();
+			ctx.moveTo(hx + 5, cy);
+			ctx.lineTo(hx + 10, cy - dy * 0.5);
+			ctx.moveTo(hx + 5, cy);
+			ctx.lineTo(hx + 10, cy + dy * 0.5);
+			ctx.moveTo(hx + cellW - 5, cy);
+			ctx.lineTo(hx + cellW - 10, cy - dy * 0.5);
+			ctx.moveTo(hx + cellW - 5, cy);
+			ctx.lineTo(hx + cellW - 10, cy + dy * 0.5);
+			ctx.stroke();
+			ctx.restore();
+		}
+
+		// 4. Brass Corner Rivet Studs
+		ctx.fillStyle = "#d4a359";
+		ctx.fillRect(hx + 3, hy + 3, 2, 2);
+		ctx.fillRect(hx + cellW - 5, hy + 3, 2, 2);
+		ctx.fillRect(hx + 3, hy + cellH - 5, 2, 2);
+		ctx.fillRect(hx + cellW - 5, hy + cellH - 5, 2, 2);
+	}
+
+	/**
+	 * Draws tactical hazard wall tiles on Q1 canvas with etched runic ward geometry.
+	 * (CANON-MAGITEK-AETHERPUNK-001 §3.1)
 	 * @param {CanvasRenderingContext2D} ctx 2D context.
 	 * @param {readonly HazardTile[] | Array<{x:number, y:number}>} hazardTiles Wall tile coordinates.
 	 * @param {number} cellW Cell width.
@@ -2453,54 +2576,167 @@ const EmberlightCombatRenderer = (() => {
 	 */
 	function drawQ1HazardWalls(ctx, hazardTiles, cellW, cellH) {
 		if (!hazardTiles || hazardTiles.length === 0) return;
-		if (ctx.fillRect && ctx.strokeRect) {
-			ctx.save();
-			// Pass 1: Batched backgrounds & borders
-			ctx.fillStyle = "rgba(239, 68, 68, 0.25)";
-			ctx.strokeStyle = "rgba(239, 68, 68, 0.7)";
-			ctx.lineWidth = 1.5;
-			hazardTiles.forEach((haz) => {
-				const hx = haz.x * cellW;
-				const hy = haz.y * cellH;
-				ctx.fillRect(hx, hy, cellW, cellH);
-				ctx.strokeRect(hx + 1, hy + 1, cellW - 2, cellH - 2);
-			});
+		if (!ctx.fillRect || !ctx.strokeRect) return;
 
-			// Pass 2: Batched cross hatches (single stroke)
-			if (ctx.beginPath && ctx.stroke) {
-				ctx.strokeStyle = "rgba(239, 68, 68, 0.4)";
-				ctx.lineWidth = 1;
-				ctx.beginPath();
-				hazardTiles.forEach((haz) => {
-					const hx = haz.x * cellW;
-					const hy = haz.y * cellH;
-					ctx.moveTo(hx, hy);
-					ctx.lineTo(hx + cellW, hy + cellH);
-					ctx.moveTo(hx + cellW, hy);
-					ctx.lineTo(hx, hy + cellH);
-				});
-				ctx.stroke();
-			}
-			ctx.restore();
-		}
+		const pulse = Math.sin(Date.now() * 0.005) * 0.5 + 0.5;
 
-		// Pass 3: Batched text labels
+		ctx.save();
+		hazardTiles.forEach((haz) => {
+			const hx = haz.x * cellW;
+			const hy = haz.y * cellH;
+			drawSingleHazardWardTile(ctx, hx, hy, cellW, cellH, pulse);
+		});
+
+		// Pass 2: Etched Sigil Label
 		if (ctx.fillText) {
-			ctx.save();
-			ctx.fillStyle = "#fca5a5";
-			ctx.font = "bold 9.5px monospace";
+			ctx.fillStyle = "#fecaca";
+			ctx.font = "bold 9px monospace";
+			if (ctx.textAlign) ctx.textAlign = "center";
 			hazardTiles.forEach((haz) => {
-				const hx = haz.x * cellW;
-				const hy = haz.y * cellH;
-				ctx.fillText("▲ BULWARK", hx + 3, hy + cellH / 2 + 3.5);
+				const cx = haz.x * cellW + cellW / 2;
+				const cy = haz.y * cellH + cellH / 2 + 3.5;
+				ctx.fillText("⟡ WARD ⟡", cx, cy);
 			});
-			ctx.restore();
 		}
+		ctx.restore();
 	}
 
 	/**
-	 * Draws glowing neon laser threat vectors linking enemies to party targets via style-group batching.
-	 * Polarized: Inbound crimson dashed hostile lines vs Outbound solid gold targeting beam.
+	 * Draws a mechanical pinned terminal rivet stud on the War Table slate.
+	 * (State-mutating canvas drawing utility)
+	 * @param {CanvasRenderingContext2D} ctx
+	 * @param {number} x
+	 * @param {number} y
+	 * @param {string} strokeColor
+	 * @param {string} glowColor
+	 */
+	function drawPinnedTerminalStud(ctx, x, y, strokeColor, glowColor) {
+		if (!ctx.beginPath || !ctx.arc) return;
+		ctx.save();
+		// Outer dark iron rivet flange
+		ctx.beginPath();
+		ctx.arc(x, y, 4.5, 0, Math.PI * 2);
+		ctx.fillStyle = "#0f172a";
+		ctx.fill();
+		ctx.strokeStyle = strokeColor;
+		ctx.lineWidth = 1.6;
+		ctx.stroke();
+
+		// Inner aetheric core
+		ctx.beginPath();
+		ctx.arc(x, y, 2.0, 0, Math.PI * 2);
+		ctx.fillStyle = glowColor;
+		ctx.fill();
+		ctx.restore();
+	}
+
+	/**
+	 * Draws a glowing braided vector thread between two points with twin counter-weaving sinusoidal strands.
+	 * (CANON-MAGITEK-AETHERPUNK-001 §3.1)
+	 * @param {CanvasRenderingContext2D} ctx
+	 * @param {number} x1 Start X
+	 * @param {number} y1 Start Y
+	 * @param {number} x2 End X
+	 * @param {number} y2 End Y
+	 * @param {Object} opts Thread options
+	 * @param {string} opts.coreStroke Core beam color
+	 * @param {string} opts.braidStroke Braided strand color
+	 * @param {number} opts.lineWidth Core line width
+	 * @param {string} opts.shadowColor Glow color
+	 * @param {number} opts.shadowBlur Glow radius
+	 * @param {number} [opts.amplitude=3.5] Braiding sinusoidal amplitude
+	 * @param {number} [opts.frequency=4.0] Braiding frequency along length
+	 */
+	function drawBraidedVectorThread(ctx, x1, y1, x2, y2, opts) {
+		const dx = x2 - x1;
+		const dy = y2 - y1;
+		const dist = Math.hypot(dx, dy);
+		if (dist < 4) return;
+
+		const nx = -dy / dist;
+		const ny = dx / dist;
+		const time = Date.now() * 0.005;
+		const steps = Math.max(12, Math.min(32, Math.floor(dist / 6)));
+		const amp = opts.amplitude || 3.5;
+		const freq = opts.frequency || 4.0;
+
+		ctx.save();
+		ctx.shadowColor = opts.shadowColor;
+		ctx.shadowBlur = opts.shadowBlur;
+
+		// 1. Central Taut Leyline Core Strand
+		ctx.strokeStyle = opts.coreStroke;
+		ctx.lineWidth = opts.lineWidth;
+		if (typeof ctx.setLineDash === "function") {
+			ctx.setLineDash([ 8, 4 ]);
+			ctx.lineDashOffset = -Date.now() * 0.015;
+		}
+		ctx.beginPath();
+		ctx.moveTo(x1, y1);
+		ctx.lineTo(x2, y2);
+		ctx.stroke();
+
+		// 2. Twin Intertwined Braided Strands (Strand A and Strand B)
+		if (typeof ctx.setLineDash === "function") {
+			ctx.setLineDash([]);
+		}
+		ctx.strokeStyle = opts.braidStroke;
+		ctx.lineWidth = Math.max(1.0, opts.lineWidth * 0.65);
+
+		// Strand A (Phase 0)
+		ctx.beginPath();
+		for (let i = 0; i <= steps; i++) {
+			const s = i / steps;
+			const px = x1 + dx * s;
+			const py = y1 + dy * s;
+			const offset = Math.sin(s * freq * Math.PI * 2 - time) * amp * (1 - Math.abs(s - 0.5) * 0.6);
+			const ox = px + nx * offset;
+			const oy = py + ny * offset;
+			if (i === 0) ctx.moveTo(ox, oy);
+			else ctx.lineTo(ox, oy);
+		}
+		ctx.stroke();
+
+		// Strand B (Counter-Braid, Phase PI)
+		ctx.beginPath();
+		for (let i = 0; i <= steps; i++) {
+			const s = i / steps;
+			const px = x1 + dx * s;
+			const py = y1 + dy * s;
+			const offset = Math.sin(s * freq * Math.PI * 2 - time + Math.PI) * amp * (1 - Math.abs(s - 0.5) * 0.6);
+			const ox = px + nx * offset;
+			const oy = py + ny * offset;
+			if (i === 0) ctx.moveTo(ox, oy);
+			else ctx.lineTo(ox, oy);
+		}
+		ctx.stroke();
+
+		// 3. Pinned Iron Terminal Studs on the Slate Table
+		drawPinnedTerminalStud(ctx, x1, y1, opts.braidStroke, opts.coreStroke);
+		drawPinnedTerminalStud(ctx, x2, y2, opts.braidStroke, opts.coreStroke);
+
+		// 4. Directional Aetheric Arrowhead at Target
+		const angle = Math.atan2(dy, dx);
+		const arrowLen = 9;
+		ctx.fillStyle = opts.coreStroke;
+		ctx.beginPath();
+		ctx.moveTo(
+			x2 - Math.cos(angle - 0.45) * arrowLen,
+			y2 - Math.sin(angle - 0.45) * arrowLen,
+		);
+		ctx.lineTo(x2, y2);
+		ctx.lineTo(
+			x2 - Math.cos(angle + 0.45) * arrowLen,
+			y2 - Math.sin(angle + 0.45) * arrowLen,
+		);
+		ctx.fill();
+
+		ctx.restore();
+	}
+
+	/**
+	 * Draws glowing braided vector threads linking enemies to party targets.
+	 * (CANON-MAGITEK-AETHERPUNK-001 §3.1)
 	 * @param {CanvasRenderingContext2D} ctx 2D context.
 	 * @param {readonly ThreatVector[] | Array<any>} threatVectors Intent vector items.
 	 * @param {readonly SpatialNode[] | Array<any>} allies Allies array.
@@ -2519,14 +2755,7 @@ const EmberlightCombatRenderer = (() => {
 		const targetEnemyIdx = resolveContextualEnemyIndex();
 		const targetEnemy = (enemies || [])[ targetEnemyIdx ];
 
-		// 1. Group inbound vectors by style tier for batched drawing
-		/** @type {Array<{ vec: any, fromCx: number, fromCy: number, toCx: number, toCy: number, angle: number }>} */
-		const hoveredGroup = [];
-		/** @type {Array<{ vec: any, fromCx: number, fromCy: number, toCx: number, toCy: number, angle: number }>} */
-		const targetedGroup = [];
-		/** @type {Array<{ vec: any, fromCx: number, fromCy: number, toCx: number, toCy: number, angle: number }>} */
-		const neutralGroup = [];
-
+		// 1. Group inbound vectors by style tier
 		(threatVectors || []).forEach((vec) => {
 			const enemyNode = (enemies || []).find((e) => e.id === vec.enemyId);
 			const heroNode =
@@ -2538,81 +2767,44 @@ const EmberlightCombatRenderer = (() => {
 			const fromCy = enemyNode.gridY * cellH + cellH / 2;
 			const toCx = heroNode.gridX * cellW + cellW / 2;
 			const toCy = heroNode.gridY * cellH + cellH / 2;
-			const angle = Math.atan2(toCy - fromCy, toCx - fromCx);
 
 			const isTargeted = Boolean(targetEnemy && targetEnemy.id === enemyNode.id);
 			const isHovered = Boolean(
 				ephemeralHover &&
-				(ephemeralHover.id === enemyNode.id ||
-					ephemeralHover.id === heroNode.id),
+				(ephemeralHover.id === enemyNode.id || ephemeralHover.id === heroNode.id),
 			);
 
-			const item = { vec, fromCx, fromCy, toCx, toCy, angle };
 			if (isHovered) {
-				hoveredGroup.push(item);
+				drawBraidedVectorThread(ctx, fromCx, fromCy, toCx, toCy, {
+					coreStroke: "#ffedd5",
+					braidStroke: "#f97316",
+					lineWidth: 2.8,
+					shadowColor: "rgba(249, 115, 22, 0.95)",
+					shadowBlur: 16,
+					amplitude: 3.8,
+				});
 			} else if (isTargeted) {
-				targetedGroup.push(item);
+				drawBraidedVectorThread(ctx, fromCx, fromCy, toCx, toCy, {
+					coreStroke: "#fca5a5",
+					braidStroke: "#ef4444",
+					lineWidth: 2.2,
+					shadowColor: "rgba(239, 68, 68, 0.9)",
+					shadowBlur: 14,
+					amplitude: 3.2,
+				});
 			} else {
-				neutralGroup.push(item);
+				drawBraidedVectorThread(ctx, fromCx, fromCy, toCx, toCy, {
+					coreStroke: "rgba(252, 165, 165, 0.6)",
+					braidStroke: "rgba(239, 68, 68, 0.5)",
+					lineWidth: 1.5,
+					shadowColor: "rgba(239, 68, 68, 0.5)",
+					shadowBlur: 6,
+					amplitude: 2.5,
+				});
 			}
 		});
 
-		const renderLaserGroup = (
-			/** @type {any[]} */ items,
-			/** @type {string | CanvasGradient | CanvasPattern} */ strokeStyle,
-			/** @type {number} */ lineWidth,
-			/** @type {string} */ shadowColor,
-			/** @type {number} */ shadowBlur,
-		) => {
-			if (items.length === 0) return;
-			ctx.save();
-			ctx.strokeStyle = strokeStyle;
-			ctx.lineWidth = lineWidth;
-			ctx.shadowColor = shadowColor;
-			ctx.shadowBlur = shadowBlur;
-			if (typeof ctx.setLineDash === "function") {
-				ctx.setLineDash([ 6, 4 ]);
-			}
-			if (typeof ctx.lineDashOffset === "number") {
-				ctx.lineDashOffset = -Date.now() * 0.015;
-			}
-
-			// Batch all dashed laser paths in this tier
-			ctx.beginPath();
-			items.forEach((item) => {
-				ctx.moveTo(item.fromCx, item.fromCy);
-				ctx.lineTo(item.toCx, item.toCy);
-			});
-			ctx.stroke();
-
-			// Batch all arrowheads in this tier
-			const arrowLen = 8;
-			if (typeof ctx.setLineDash === "function") {
-				ctx.setLineDash([]);
-			}
-			ctx.fillStyle = strokeStyle;
-			ctx.beginPath();
-			items.forEach((item) => {
-				ctx.moveTo(
-					item.toCx - Math.cos(item.angle - 0.45) * arrowLen,
-					item.toCy - Math.sin(item.angle - 0.45) * arrowLen,
-				);
-				ctx.lineTo(item.toCx, item.toCy);
-				ctx.lineTo(
-					item.toCx - Math.cos(item.angle + 0.45) * arrowLen,
-					item.toCy - Math.sin(item.angle + 0.45) * arrowLen,
-				);
-			});
-			ctx.fill();
-			ctx.restore();
-		};
-
-		// Render batched tiers
-		renderLaserGroup(neutralGroup, "rgba(239, 68, 68, 0.25)", 1.2, "rgba(239, 68, 68, 0.8)", 0);
-		renderLaserGroup(targetedGroup, "#f87171", 2.4, "rgba(239, 68, 68, 0.8)", 12);
-		renderLaserGroup(hoveredGroup, "#ff9d4d", 3.0, "rgba(255, 157, 77, 0.9)", 14);
-
-		// 2. Outbound Active Targeting Beam (Solid High-Voltage Gold)
+		// 2. Outbound Active Targeting Beam (High-Voltage Braided Gold Leyline)
 		const activeHero =
 			(allies || []).find((a) => a.isCurrentTurn && a.alive) ||
 			(allies || []).find((a) => a.alive);
@@ -2623,50 +2815,14 @@ const EmberlightCombatRenderer = (() => {
 			const toCx = targetEnemy.gridX * cellW + cellW / 2;
 			const toCy = targetEnemy.gridY * cellH + cellH / 2;
 
-			ctx.save();
-			ctx.strokeStyle = "#fbbf24";
-			ctx.lineWidth = 2.8 + Math.sin(Date.now() * 0.01) * 0.6;
-			ctx.shadowColor = "rgba(251, 191, 36, 0.95)";
-			ctx.shadowBlur = 16;
-			if (typeof ctx.setLineDash === "function") {
-				ctx.setLineDash([]);
-			}
-			ctx.beginPath();
-			ctx.moveTo(fromCx, fromCy);
-			ctx.lineTo(toCx, toCy);
-			ctx.stroke();
-
-			// Pinned Iron Ring Endpoints on War Table
-			ctx.beginPath();
-			ctx.arc(fromCx, fromCy, 4.5, 0, Math.PI * 2);
-			ctx.fillStyle = "#1e293b";
-			ctx.fill();
-			ctx.strokeStyle = "#fbbf24";
-			ctx.lineWidth = 1.8;
-			ctx.stroke();
-
-			ctx.beginPath();
-			ctx.arc(toCx, toCy, 4.5, 0, Math.PI * 2);
-			ctx.fillStyle = "#1e293b";
-			ctx.fill();
-			ctx.stroke();
-
-			// Gold Reticle / Arrowhead on Target Enemy
-			const angle = Math.atan2(toCy - fromCy, toCx - fromCx);
-			const arrowLen = 10;
-			ctx.beginPath();
-			ctx.moveTo(
-				toCx - Math.cos(angle - 0.5) * arrowLen,
-				toCy - Math.sin(angle - 0.5) * arrowLen,
-			);
-			ctx.lineTo(toCx, toCy);
-			ctx.lineTo(
-				toCx - Math.cos(angle + 0.5) * arrowLen,
-				toCy - Math.sin(angle + 0.5) * arrowLen,
-			);
-			ctx.fillStyle = "#fbbf24";
-			ctx.fill();
-			ctx.restore();
+			drawBraidedVectorThread(ctx, fromCx, fromCy, toCx, toCy, {
+				coreStroke: "#fef08a",
+				braidStroke: "#f59e0b",
+				lineWidth: 3.0,
+				shadowColor: "rgba(251, 191, 36, 0.95)",
+				shadowBlur: 18,
+				amplitude: 4.2,
+			});
 		}
 	}
 
@@ -3348,29 +3504,60 @@ const EmberlightCombatRenderer = (() => {
 	}
 
 	/**
-	 * Draws battler contact shadow on floor.
+	 * Draws grounded battler pedestal with concentric etched brass rings and contact shadow.
+	 * (CANON-MAGITEK-AETHERPUNK-001 §3.2)
 	 * @param {CanvasRenderingContext2D} ctx
 	 * @param {number} x
 	 * @param {number} y
 	 * @param {number} spriteSize
+	 * @param {boolean} [isBoss=false]
+	 * @param {boolean} [isHighlighted=false]
 	 */
-	function drawBattlerContactShadow(ctx, x, y, spriteSize) {
-		if (ctx.beginPath && ctx.ellipse && ctx.fill) {
-			ctx.save();
-			ctx.beginPath();
-			ctx.ellipse(
-				x,
-				y + spriteSize / 2 - 2,
-				spriteSize * 0.45,
-				spriteSize * 0.14,
-				0,
-				0,
-				Math.PI * 2,
-			);
-			ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-			ctx.fill();
-			ctx.restore();
+	function drawBattlerContactShadow(ctx, x, y, spriteSize, isBoss = false, isHighlighted = false) {
+		if (!ctx.beginPath || !ctx.ellipse) return;
+		ctx.save();
+		const footY = y + spriteSize / 2 - 2;
+		const rx = spriteSize * (isBoss ? 0.52 : 0.44);
+		const ry = spriteSize * (isBoss ? 0.16 : 0.13);
+
+		// 1. Deep Grounded Contact Shadow
+		ctx.beginPath();
+		ctx.ellipse(x, footY, rx * 1.1, ry * 1.1, 0, 0, Math.PI * 2);
+		ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
+		ctx.fill();
+
+		// 2. Concentric Etched Brass Pedestal Ring
+		ctx.beginPath();
+		ctx.ellipse(x, footY, rx, ry, 0, 0, Math.PI * 2);
+		let ringStrokeStyle = "rgba(212, 163, 89, 0.35)";
+		if (isBoss) {
+			ringStrokeStyle = "rgba(239, 68, 68, 0.45)";
+		} else if (isHighlighted) {
+			ringStrokeStyle = "rgba(251, 191, 36, 0.6)";
 		}
+		ctx.strokeStyle = ringStrokeStyle;
+		ctx.lineWidth = 1.2;
+		ctx.stroke();
+
+		// 3. Inner Aetheric Disc Glow
+		ctx.beginPath();
+		ctx.ellipse(x, footY, rx * 0.65, ry * 0.65, 0, 0, Math.PI * 2);
+		ctx.strokeStyle = isBoss
+			? "rgba(168, 85, 247, 0.35)"
+			: "rgba(34, 211, 238, 0.25)";
+		ctx.lineWidth = 1.0;
+		ctx.stroke();
+
+		// 4. Pedestal Detent Cardinal Ticks
+		for (let i = 0; i < 4; i++) {
+			const angle = (i * Math.PI) / 2;
+			ctx.beginPath();
+			ctx.moveTo(x + Math.cos(angle) * (rx * 0.85), footY + Math.sin(angle) * (ry * 0.85));
+			ctx.lineTo(x + Math.cos(angle) * (rx * 1.05), footY + Math.sin(angle) * (ry * 1.05));
+			ctx.strokeStyle = isHighlighted ? "#fbbf24" : "rgba(212, 163, 89, 0.5)";
+			ctx.stroke();
+		}
+		ctx.restore();
 	}
 
 	/**
@@ -3470,6 +3657,41 @@ const EmberlightCombatRenderer = (() => {
 	}
 
 	/**
+	 * Configures canvas shadow and filter effects for a battler sprite.
+	 * Pure visual style configuration helper.
+	 * @param {CanvasRenderingContext2D} ctx
+	 * @param {Battler} enemy
+	 * @param {boolean} isHighlighted
+	 * @param {boolean} isBoss
+	 * @param {boolean} isHitFlashing
+	 */
+	function applyBattlerSpriteVisualEffects(ctx, enemy, isHighlighted, isBoss, isHitFlashing) {
+		if (!enemy.alive) {
+			ctx.globalAlpha = 0.35;
+			if (ctx.filter) ctx.filter = "grayscale(100%)";
+			return;
+		}
+		if (isHitFlashing) {
+			if (ctx.filter) ctx.filter = "brightness(3.2) contrast(1.5)";
+			ctx.shadowColor = "#ef4444";
+			ctx.shadowBlur = 24;
+			return;
+		}
+		if (isHighlighted) {
+			ctx.shadowColor = "rgba(251, 191, 36, 0.95)";
+			ctx.shadowBlur = 18;
+			return;
+		}
+		if (isBoss) {
+			ctx.shadowColor = enemy.phaseTwoActive ? "rgba(239, 68, 68, 0.95)" : "rgba(168, 85, 247, 0.85)";
+			ctx.shadowBlur = enemy.phaseTwoActive ? 22 : 16;
+			return;
+		}
+		ctx.shadowColor = "rgba(0, 0, 0, 0.85)";
+		ctx.shadowBlur = 8;
+	}
+
+	/**
 	 * Draws battler sprite image or fallback icon with harmonic squash-and-stretch.
 	 * @param {CanvasRenderingContext2D} ctx
 	 * @param {Battler} enemy
@@ -3482,25 +3704,13 @@ const EmberlightCombatRenderer = (() => {
 		const img = url ? getCachedBattlerImage(url) : null;
 		const kinematics = computeHarmonicKinematics(enemy, isHighlighted, isBoss);
 
-		ctx.save();
-		if (!enemy.alive) {
-			ctx.globalAlpha = 0.35;
-			if (ctx.filter) ctx.filter = "grayscale(100%)";
-		} else if (isHighlighted) {
-			ctx.shadowColor = "rgba(239, 68, 68, 0.95)";
-			ctx.shadowBlur = 18;
-		}
-
 		const now = Date.now();
 		const hitFlashUntil = enemy._hitFlashUntil || 0;
 		const isHitFlashing = hitFlashUntil > now;
 		const flinchX = isHitFlashing ? Math.sin((now - hitFlashUntil) * 0.25) * 8 : 0;
 
-		if (isHitFlashing) {
-			if (ctx.filter) ctx.filter = "brightness(3.2) contrast(1.5)";
-			ctx.shadowColor = "#ef4444";
-			ctx.shadowBlur = 24;
-		}
+		ctx.save();
+		applyBattlerSpriteVisualEffects(ctx, enemy, isHighlighted, isBoss, isHitFlashing);
 
 		ctx.translate(x + flinchX, y + kinematics.yBob);
 		ctx.rotate(kinematics.tilt);
@@ -4022,6 +4232,78 @@ const EmberlightCombatRenderer = (() => {
 	}
 
 	/**
+	 * Renders low-lying moonlit arena particle fog drifting across the clash theater floor.
+	 * (CANON-MAGITEK-AETHERPUNK-001 §3.2)
+	 * @param {CanvasRenderingContext2D} ctx
+	 * @param {number} W Viewport width
+	 * @param {number} H Viewport height
+	 */
+	function drawMoonlitArenaParticleFog(ctx, W, H) {
+		if (!ctx.createLinearGradient) return;
+		const now = Date.now() * 0.0006;
+		ctx.save();
+
+		// 1. Layered Volumetric Ground Fog Banks
+		const fogTop = H * 0.48;
+		const fogHeight = H * 0.48;
+
+		// Gradient for lunar atmospheric mist
+		const mistGrad = ctx.createLinearGradient(0, fogTop, 0, fogTop + fogHeight);
+		mistGrad.addColorStop(0, "rgba(2, 6, 23, 0)");
+		mistGrad.addColorStop(0.35, "rgba(30, 41, 59, 0.16)");
+		mistGrad.addColorStop(0.70, "rgba(56, 189, 248, 0.10)");
+		mistGrad.addColorStop(1, "rgba(15, 23, 42, 0.25)");
+		ctx.fillStyle = mistGrad;
+		ctx.fillRect(0, fogTop, W, fogHeight);
+
+		// 2. Undulating Sinusoidal Fog Ribbons
+		if (ctx.beginPath && ctx.fill) {
+			const ribbons = [
+				{ yBase: H * 0.60, amp: 12, speed: 1.0, color: "rgba(148, 163, 184, 0.07)" },
+				{ yBase: H * 0.72, amp: 16, speed: 0.7, color: "rgba(56, 189, 248, 0.08)" },
+				{ yBase: H * 0.85, amp: 20, speed: 1.2, color: "rgba(168, 85, 247, 0.05)" },
+			];
+
+			ribbons.forEach((ribbon) => {
+				const wavePhase = now * ribbon.speed;
+				ctx.beginPath();
+				ctx.moveTo(0, ribbon.yBase);
+				for (let x = 0; x <= W; x += 60) {
+					const waveY = ribbon.yBase + Math.sin((x / W) * 6.28 + wavePhase) * ribbon.amp;
+					ctx.lineTo(x, waveY);
+				}
+				ctx.lineTo(W, H);
+				ctx.lineTo(0, H);
+				ctx.closePath();
+				ctx.fillStyle = ribbon.color;
+				ctx.fill();
+			});
+		}
+
+		// 3. Drifting Moonlit Aetheric Motes & Spores
+		if (ctx.arc && ctx.fill) {
+			const moteCount = 18;
+			for (let i = 0; i < moteCount; i++) {
+				const seed = i * 137.5;
+				const speed = 0.4 + (i % 5) * 0.15;
+				const mx = (Math.sin(now * speed + seed) * 0.5 + 0.5) * W;
+				const my = fogTop + ((seed * 11.3 + now * 15 * speed) % fogHeight);
+				const size = 1.2 + (i % 3) * 0.8;
+				const alpha = 0.15 + Math.sin(now * 2.0 + seed) * 0.12;
+
+				ctx.beginPath();
+				ctx.arc(mx, my, size, 0, Math.PI * 2);
+				ctx.fillStyle = (i % 2 === 0)
+					? `rgba(56, 189, 248, ${alpha})`
+					: `rgba(245, 158, 11, ${alpha * 0.8})`;
+				ctx.fill();
+			}
+		}
+
+		ctx.restore();
+	}
+
+	/**
 	 * Renders Quadrant 2: Clash Canvas with perspective backdrop and battler sprites.
 	 * @param {any} q2Clash - Q2 clash stage metadata.
 	 * @param {CombatState} state - Active combat state snapshot.
@@ -4111,7 +4393,7 @@ const EmberlightCombatRenderer = (() => {
 				});
 			}
 
-			drawBattlerContactShadow(ctx, x, drawY, spriteSize);
+			drawBattlerContactShadow(ctx, x, drawY, spriteSize, isBoss, isHighlighted);
 			if (isBoss && enemy.alive) {
 				drawBossAuraRing(ctx, x, drawY, spriteSize, enemy);
 			}
@@ -4138,6 +4420,7 @@ const EmberlightCombatRenderer = (() => {
 		};
 
 		drawMagitekArenaRunes(ctx, W, H);
+		drawMoonlitArenaParticleFog(ctx, W, H);
 
 		// Draw Back Row First (Depth Sort) - 1.6x Scale
 		backEnemies.forEach(({ e, idx }, slotIdx) => {
@@ -4499,7 +4782,7 @@ const EmberlightCombatRenderer = (() => {
 	 * @returns {string}
 	 */
 	function buildHeroPedestalTemplate(hero, stats, avatarUrl) {
-		const { curHp, maxHp, curMp, maxMp, isCritical, hpOffset, mpOffset } =
+		const { curHp, maxHp, curMp, maxMp, hpPct, mpPct, isCritical, hpOffset, mpOffset } =
 			stats;
 		let statusBadgeHtml = "";
 		if (!hero.alive) {
@@ -4510,6 +4793,9 @@ const EmberlightCombatRenderer = (() => {
 				statusBadgeHtml = `<div class="hero-stasis-badge critical">⚡ STASIS DETENT [${rLeft}R]</div>`;
 			}
 		}
+
+		const { hpBounceClass, mpBounceClass, aldricHammerClass } =
+			resolveHydraulicBounceState(hero.id || hero.name, curHp, curMp, hero.name);
 
 		return `
 			<div class="hero-arched-vitals-container">
@@ -4530,6 +4816,26 @@ const EmberlightCombatRenderer = (() => {
 					<span class="hero-pedestal-row-tag ${hero.row || "FRONT"}">${hero.row || "FRONT"}</span>
 				</div>
 				${statusBadgeHtml}
+				<div class="hero-pedestal-tubes graduated-cylinder-cluster">
+					<div class="graduated-cylinder vitality-mercury ${hpBounceClass} ${aldricHammerClass}" title="Vitality Mercury: ${curHp}/${maxHp} HP">
+						<div class="mercury-cylinder-cap cap-left"></div>
+						<div class="mercury-tube-body">
+							<div class="cylinder-metric-ticks"></div>
+							<div class="glass-reflection-glint"></div>
+							<span class="bar-track"><span class="hud-bar-fill hp" style="width:${hpPct}%"><span class="mercury-meniscus"></span></span></span>
+						</div>
+						<div class="mercury-cylinder-cap cap-right"></div>
+					</div>
+					<div class="graduated-cylinder lapis-aether ${mpBounceClass}" title="Lapis Aether: ${curMp}/${maxMp} MP">
+						<div class="mercury-cylinder-cap cap-left"></div>
+						<div class="mercury-tube-body">
+							<div class="cylinder-metric-ticks"></div>
+							<div class="glass-reflection-glint"></div>
+							<span class="bar-track"><span class="hud-bar-fill mp" style="width:${mpPct}%"><span class="mercury-meniscus"></span></span></span>
+						</div>
+						<div class="mercury-cylinder-cap cap-right"></div>
+					</div>
+				</div>
 				<div class="hero-pedestal-vals">
 					<span class="val-hp ${isCritical ? "low" : ""}">${lexTerm("stat.hp", "HP")} ${curHp}/${maxHp}</span>
 					<span class="val-mp">${lexTerm("stat.mp", "MP")} ${curMp}/${maxMp}</span>
@@ -4612,7 +4918,8 @@ const EmberlightCombatRenderer = (() => {
 		const stage = document.createElement("div");
 		const isHovered = ephemeralHover && ephemeralHover.id === hero.id;
 		const isFlareHero = isFlareActive && hero.isCurrentTurn;
-		stage.className = `hero-pedestal-stage ${hero.isCurrentTurn ? "active-turn" : ""} ${isHovered ? "hovered" : ""} ${isFlareHero ? "the-flare-active" : ""} ${!hero.alive ? "fainted" : ""}`;
+		const operativeClass = hero.name ? `vial-${hero.name.toLowerCase()}` : "";
+		stage.className = `hero-pedestal-stage ${operativeClass} ${hero.isCurrentTurn ? "active-turn" : ""} ${isHovered ? "hovered" : ""} ${isFlareHero ? "the-flare-active" : ""} ${!hero.alive ? "fainted" : ""}`;
 		stage.id = `hero-chassis-${hero.id || idx}`;
 
 		const stats = resolveHeroPedestalStats(hero);
@@ -4939,6 +5246,7 @@ const EmberlightCombatRenderer = (() => {
 			focusFireTargetId = null;
 			q1EventsBound = false;
 			q2EventsBound = false;
+			previousHeroVitals.clear();
 		},
 
 		computeHarmonicKinematics,

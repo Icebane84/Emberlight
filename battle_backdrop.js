@@ -385,6 +385,28 @@ const EmberlightCombatBackdrop = (() => {
 			atmosphericParticles,
 		};
 	}
+
+	/**
+	 * Converts a hex or rgb string into an rgba string with specified alpha.
+	 * Pure color formatting procedure.
+	 *
+	 * @param {string} color - Hex or rgb color string.
+	 * @param {number} alpha - Target opacity value [0, 1].
+	 * @returns {string} Formatted rgba string.
+	 */
+	function toRgbaString(color, alpha) {
+		if (typeof color === "string" && color.startsWith("#")) {
+			const hex = color.slice(1);
+			const r = Number.parseInt(hex.slice(0, 2), 16) || 0;
+			const g = Number.parseInt(hex.slice(2, 4), 16) || 0;
+			const b = Number.parseInt(hex.slice(4, 6), 16) || 0;
+			return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+		}
+		if (typeof color === "string" && color.startsWith("rgb")) {
+			return color.replace(")", `, ${alpha})`).replace("rgb", "rgba");
+		}
+		return `rgba(52, 211, 153, ${alpha})`;
+	}
 	//#endregion
 
 	//#region [SEC-03] Volumetric Illumination & Canvas Shader Passes
@@ -566,6 +588,7 @@ const EmberlightCombatBackdrop = (() => {
 			});
 		}
 
+
 		/**
 		 * Projects screen-blended volumetric god-rays and radial light sources.
 		 * State-mutating canvas render procedure.
@@ -595,11 +618,8 @@ const EmberlightCombatBackdrop = (() => {
 					light.y,
 					r,
 				);
-				grad.addColorStop(0, light.color);
-				grad.addColorStop(
-					0.5,
-					light.color.replace(")", ", 0.3)").replace("rgb", "rgba"),
-				);
+				grad.addColorStop(0, toRgbaString(light.color, 0.40));
+				grad.addColorStop(0.5, toRgbaString(light.color, 0.12));
 				grad.addColorStop(1, "rgba(0, 0, 0, 0)");
 				ctx.fillStyle = grad;
 				ctx.fillRect(light.x - r, light.y - r, r * 2, r * 2);

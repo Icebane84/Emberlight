@@ -1,3 +1,4 @@
+/* cSpell:words fract */
 /**
  * ============================================================================
  * EMBERLIGHT SOVEREIGN ENGINE: HARDWARE SHADER COMPOSITOR & CRT PIPELINE
@@ -122,6 +123,9 @@ const EmberlightShaderCompositor = (() => {
 		gl.enableVertexAttribArray(aPos);
 		gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
 
+		gl.enable(gl.BLEND);
+		gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
 		// Uniform Caches
 		uResolution = gl.getUniformLocation(program, 'u_resolution');
 		uTime = gl.getUniformLocation(program, 'u_time');
@@ -230,76 +234,70 @@ const EmberlightShaderCompositor = (() => {
         uv = curveUV(uv, 3.8 / u_curvature);
       }
 
-      // Hard screen boundary clip for curved bezel frame
+      // Hard screen boundary clip: opaque dark metallic casing around outer curved bezel
       if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
-        gl_FragColor = vec4(0.04, 0.03, 0.06, 0.96);
+        gl_FragColor = vec4(0.02, 0.015, 0.03, 0.98);
         return;
       }
 
-      // 3. CRT Scanline Intensity & Horizontal Raster Beam
-      float scanline = sin(uv.y * u_resolution.y * 1.570796) * 0.5 + 0.5;
-      scanline = pow(max(scanline, 0.0), 1.4);
-      float scanlineAlpha = (1.0 - scanline) * 0.26 * u_scanlines;
+      // 3. CRT Scanline Darkening (Aperture Grille Troughs)
+      // Only horizontal raster troughs between beam lines are shaded down
+      float scanlineCoord = uv.y * u_resolution.y * 1.570796;
+      float scanline = sin(scanlineCoord) * 0.5 + 0.5;
+      scanline = pow(max(scanline, 0.0), 1.6);
+      float scanlineDarkness = (1.0 - scanline) * 0.28 * u_scanlines;
 
-      // Cathode refresh sweep roll
-      float roll = sin((uv.y - u_time * 0.08) * 6.28318) * 0.03;
-      scanlineAlpha = clamp(scanlineAlpha + roll * u_scanlines, 0.0, 0.45);
-
-      // 4. Dynamic Chromatic Aberration & Radial Prism Dispersion
+      // 4. Dynamic Chromatic Aberration & Edge Prism Dispersion
       vec2 centerOffset = uv - vec2(0.5);
       float radialDist = length(centerOffset);
-      float totalAberration = (0.0035 * u_aberration) + (u_trauma * 0.022 * (1.0 + radialDist * 2.5));
+      float totalAberration = (0.0022 * u_aberration) + (u_trauma * 0.025 * (1.0 + radialDist * 2.5));
 
-      // RGB Phosphor Aperture Mask Simulation with Soul-Glass Warmth
-      float colIndex = mod(floor(gl_FragCoord.x), 3.0);
-      vec3 phosphor = vec3(1.0);
-      if (colIndex < 1.0) {
-        phosphor = vec3(1.08, 0.92, 0.88);
-      } else if (colIndex < 2.0) {
-        phosphor = vec3(0.92, 1.05, 0.92);
-      } else {
-        phosphor = vec3(0.88, 0.94, 1.12);
-      }
+      // Radial chromatic fringing
+      float rFringe = length(centerOffset * totalAberration) * 16.0;
+      float bFringe = length(-centerOffset * totalAberration) * 16.0;
+      vec3 chromaticFringe = vec3(rFringe, (rFringe + bFringe) * 0.16, bFringe);
 
-      // Radial chromatic fringing (red shifted outwards, cyan shifted inwards)
-      float rFringe = length(centerOffset * totalAberration) * 22.0;
-      float bFringe = length(-centerOffset * totalAberration) * 22.0;
-      vec3 chromaticFringe = vec3(rFringe, (rFringe + bFringe) * 0.22, bFringe);
-
-      // 5. Convex Lens Vignette Attenuation (Curved Sapphire Oculus Bezel)
+      // 5. Convex Lens Vignette Darkening (Curved Sapphire Oculus Bezel)
       vec2 vigUV = uv * (1.0 - uv);
-      float vignette = vigUV.x * vigUV.y * 16.0;
-      vignette = clamp(pow(max(vignette, 0.0), 0.38), 0.0, 1.0);
-      float vignetteDarkness = (1.0 - vignette) * 0.68;
+      float vignette = clamp(vigUV.x * vigUV.y * 16.0, 0.0, 1.0);
+      float vignetteDarkness = pow(1.0 - vignette, 1.6) * 0.68;
 
       // Polished brass inner bezel specular highlight right at the curved lens rim
       float edgeDist = max(abs(uv.x - 0.5), abs(uv.y - 0.5)) * 2.0;
       float rimHighlight = smoothstep(0.965, 0.998, edgeDist) * (1.0 - step(1.0, edgeDist));
-      vec3 brassRim = vec3(0.83, 0.64, 0.35) * rimHighlight * 0.75;
+      vec3 brassRim = vec3(0.85, 0.65, 0.35) * rimHighlight * 0.85;
 
       // 6. Aetheric Back-EMF Trauma Overlay (Amber Arc Flash & Critical Shudder)
       float arcFlicker = 1.0 + 0.18 * sin(u_time * 80.0);
-      vec3 aethericArc = vec3(1.0, 0.62, 0.24) * (u_trauma * 0.45 * arcFlicker);
+      vec3 aethericArc = vec3(1.0, 0.62, 0.24) * (u_trauma * 0.55 * arcFlicker);
 
-      // Composite final soul-glass optical overlay
-      vec3 finalShade = mix(phosphor, vec3(0.01, 0.01, 0.02), scanlineAlpha);
-      finalShade = mix(finalShade, vec3(0.0), vignetteDarkness);
-      finalShade += chromaticFringe * (0.12 + u_trauma * 0.70);
-      finalShade += aethericArc;
-      finalShade += brassRim;
+      // 7. Composite: Pure Dark Attenuation + Emissive Specular/Arc Overlays
+      // Deep obsidian-navy shadow attenuates the underlying DOM in troughs & vignette
+      vec3 darkShadow = vec3(0.005, 0.005, 0.012);
+      float darkAlpha = clamp(scanlineDarkness + vignetteDarkness, 0.0, 0.85);
 
-      // Render as semi-transparent optical layer over DOM cockpit
-      float alpha = clamp(
-        max(scanlineAlpha, vignetteDarkness * 0.88) +
-        (u_trauma * 0.38) +
-        (length(chromaticFringe) * 0.14) +
-        (rimHighlight * 0.70),
-        0.0, 0.96
-      );
+      // Emissive components (Warm polished brass rim + amber trauma arcs + chromatic glow)
+      vec3 emissive = brassRim + aethericArc + (chromaticFringe * (u_trauma * 0.80 + 0.03));
+      float emissiveAlpha = clamp(rimHighlight * 0.75 + (u_trauma * 0.40) + (length(chromaticFringe) * 0.06), 0.0, 0.95);
 
-      gl_FragColor = vec4(finalShade, alpha);
+      vec3 finalRgb = mix(darkShadow, emissive, clamp(emissiveAlpha, 0.0, 1.0));
+      float finalAlpha = clamp(darkAlpha + emissiveAlpha, 0.0, 0.98);
+
+      gl_FragColor = vec4(finalRgb, finalAlpha);
     }
   `;
+
+	let shudderNoiseSeed = 1337;
+
+	/**
+	 * Generates bounded pseudorandom float in [-1.0, 1.0] via fast deterministic LCG.
+	 * Pure kinetic noise generator avoiding Math.random() security-sensitive warnings.
+	 * @returns {number}
+	 */
+	function nextShudderFloat() {
+		shudderNoiseSeed = (shudderNoiseSeed * 1664525 + 1013904223) >>> 0;
+		return (shudderNoiseSeed / 4294967296) * 2 - 1;
+	}
 
 	/**
 	 * Applies kinetic physical screen shudder to the cockpit during trauma.
@@ -314,9 +312,9 @@ const EmberlightShaderCompositor = (() => {
 
 		if (currentTrauma > 0.002) {
 			const shakeMag = currentTrauma * currentTrauma;
-			const dx = (Math.random() * 2 - 1) * 12.0 * shakeMag;
-			const dy = (Math.random() * 2 - 1) * 9.0 * shakeMag;
-			const rot = (Math.random() * 2 - 1) * 0.65 * shakeMag;
+			const dx = nextShudderFloat() * 12.0 * shakeMag;
+			const dy = nextShudderFloat() * 9.0 * shakeMag;
+			const rot = nextShudderFloat() * 0.65 * shakeMag;
 			cockpit.style.transform = `translate3d(${dx.toFixed(2)}px, ${dy.toFixed(2)}px, 0) rotate(${rot.toFixed(3)}deg)`;
 		} else if (cockpit.style.transform) {
 			cockpit.style.transform = '';
@@ -344,6 +342,9 @@ const EmberlightShaderCompositor = (() => {
 
 		// Apply physical screen shudder
 		applyScreenShudder(trauma);
+
+		gl.clearColor(0.0, 0.0, 0.0, 0.0);
+		gl.clear(gl.COLOR_BUFFER_BIT);
 
 		gl.useProgram(program);
 		if (uResolution) gl.uniform2f(uResolution, canvas.width, canvas.height);

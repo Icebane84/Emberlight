@@ -211,10 +211,10 @@ if (typeof globalThis !== "undefined")
 			emitters.push({
 				x: params.pScreenX,
 				y: params.pScreenY,
-				radius: Math.max(45, 85 + params.flicker),
-				innerRadius: 16,
+				radius: Math.max(75, 145 + params.flicker),
+				innerRadius: 28,
 				color: "255, 160, 60",
-				intensity: 0.85,
+				intensity: 0.92,
 				isPlayer: true,
 			});
 		}

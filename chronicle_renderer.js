@@ -1,4 +1,4 @@
-/* cSpell:words VSRP unsubs targetable */
+/* cSpell:words VSRP unsubs targetable keycaps */
 /**
  * ============================================================================
  * EMBERLIGHT SOVEREIGN ENGINE: CHRONICLE DOM PRESENTATION RENDERER
@@ -268,10 +268,15 @@ const EmberlightChronicleRendererInstance = (() => {
 		);
 
 		let stagesHtml = '';
-		stages.forEach((st, idx) => {
+		stages.forEach((/** @type {any} */ st, /** @type {number} */ idx) => {
 			const isDone = isCompleted || activeState.stage > idx;
 			const isCurrent = !isCompleted && activeState.stage === idx;
-			const marker = isDone ? '☑' : (isCurrent ? '▶' : '☐');
+			let marker = '☐';
+			if (isDone) {
+				marker = '☑';
+			} else if (isCurrent) {
+				marker = '▶';
+			}
 			const stDesc = typeof st === 'string' ? st : st.desc;
 			stagesHtml += `
 				<div class="telegraph-stage-item${isCurrent ? ' current' : ''}${isDone ? ' done' : ''}">
@@ -348,7 +353,7 @@ const EmberlightChronicleRendererInstance = (() => {
 						<pre class="runic-rubbing-text">${dossier.runeRubbing || '[ PRECURSOR RUNES ]'}</pre>
 					</div>
 					<div class="telegraph-section-label" style="margin-top:10px;">DECODED ARCHAEOLOGICAL TRANSCRIPTION:</div>
-					<div class="telegraph-transcription">${dossier.transcription.replace(/\n/g, '<br>')}</div>
+					<div class="telegraph-transcription">${dossier.transcription.replaceAll('\n', '<br>')}</div>
 					<div class="dossier-field-notes">
 						<b>VANGUARD HAZARD ADVISORY:</b> ${dossier.fieldNotes || 'Maintain caution during traversal.'}
 					</div>

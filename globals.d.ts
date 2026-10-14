@@ -477,6 +477,34 @@ declare var EmberlightSkillIcons: {
 };
 declare var EmberlightIcons: Record<string, unknown>;
 declare var EmberlightSoundtrack: Record<string, unknown>;
+declare interface SoundtrackDiagnostics {
+  driverId: string;
+  subsystemId?: string;
+  subsystemName?: string;
+  playbackMode?: "TRACKER" | "BYTEBEAT";
+  activeMood: string;
+  activeMoodTitle?: string;
+  activeScale?: string;
+  currentBPM: number;
+  currentStep: number;
+  currentBar?: number;
+  isMuted: boolean;
+  delayFeedbackMs?: number;
+  vacuumTubePreampActive?: boolean;
+  contextState: string;
+  [key: string]: unknown;
+}
+declare interface MoodConfig {
+  title?: string;
+  bpm: number;
+  scale?: string;
+  rootFreq: number;
+  filterCutoff: number;
+  bassType: OscillatorType;
+  description?: string;
+  progression?: string;
+  [key: string]: unknown;
+}
 declare var EmberlightVoice: Record<string, unknown>;
 declare var EmberlightShaderCompositor: Record<string, unknown>;
 declare var EmberlightSpriteBaker: Record<string, unknown>;
